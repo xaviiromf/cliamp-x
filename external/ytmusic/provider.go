@@ -53,7 +53,10 @@ func (b *baseProvider) ensureDiskCache() *ytCache {
 	return b.disk
 }
 
-func (b *baseProvider) ensureSession() error {
+// initSession creates a session if one doesn't exist yet. If interactive is
+// false, only stored credentials are tried (returning ErrNeedsAuth on failure).
+// If interactive is true, a browser-based OAuth flow is started.
+func (b *baseProvider) initSession(interactive bool) error {
 	b.mu.Lock()
 	if b.session != nil {
 		b.mu.Unlock()
@@ -66,35 +69,21 @@ func (b *baseProvider) ensureSession() error {
 	if clientID == "" {
 		return fmt.Errorf("ytmusic: no client ID available")
 	}
-	sess, err := NewSessionSilent(context.Background(), clientID, clientSecret)
-	if err != nil {
-		return playlist.ErrNeedsAuth
-	}
-	b.mu.Lock()
-	if b.session == nil {
-		b.session = sess
-	}
-	b.mu.Unlock()
-	return nil
-}
 
-func (b *baseProvider) authenticate() error {
-	b.mu.Lock()
-	if b.session != nil {
-		b.mu.Unlock()
-		return nil
+	var sess *Session
+	var err error
+	if interactive {
+		sess, err = NewSession(context.Background(), clientID, clientSecret)
+	} else {
+		sess, err = NewSessionSilent(context.Background(), clientID, clientSecret)
 	}
-	clientID := b.clientID
-	clientSecret := b.clientSecret
-	b.mu.Unlock()
-
-	if clientID == "" {
-		return fmt.Errorf("ytmusic: no client ID available")
-	}
-	sess, err := NewSession(context.Background(), clientID, clientSecret)
 	if err != nil {
+		if !interactive {
+			return playlist.ErrNeedsAuth
+		}
 		return err
 	}
+
 	b.mu.Lock()
 	if b.session == nil {
 		b.session = sess
@@ -102,6 +91,9 @@ func (b *baseProvider) authenticate() error {
 	b.mu.Unlock()
 	return nil
 }
+
+func (b *baseProvider) ensureSession() error  { return b.initSession(false) }
+func (b *baseProvider) authenticate() error   { return b.initSession(true) }
 
 func (b *baseProvider) close() {
 	b.mu.Lock()
@@ -202,15 +194,21 @@ func (b *baseProvider) fetchAndClassify() error {
 	classified := classifyWithTimeout(svc, all, 60*time.Second, nil)
 
 	b.mu.Lock()
+	if b.allPlaylists != nil {
+		// Another goroutine completed fetchAndClassify while we were fetching.
+		b.mu.Unlock()
+		return nil
+	}
 	b.allPlaylists = all
 	b.classified = classified
 	// Persist playlists to disk cache.
 	dc = b.ensureDiskCache()
 	dc.setPlaylists(all)
+	snap := dc.snapshot()
 	b.mu.Unlock()
 
 	// Save outside the lock — disk I/O shouldn't block other goroutines.
-	dc.save()
+	saveSnapshot(snap)
 
 	return nil
 }
@@ -331,10 +329,11 @@ func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
 	b.trackCache[playlistID] = tracks
 	dc = b.ensureDiskCache()
 	dc.setTracks(playlistID, tracks)
+	snap := dc.snapshot()
 	b.mu.Unlock()
 
 	// Save outside the lock — disk I/O shouldn't block other goroutines.
-	dc.save()
+	saveSnapshot(snap)
 
 	return tracks, nil
 }

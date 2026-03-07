@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"cliamp/internal/appdir"
+
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -21,8 +23,11 @@ type classificationCache struct {
 
 // classificationCachePath returns the path to the classification cache file.
 func classificationCachePath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cliamp", "ytmusic_classification.json")
+	dir, err := appdir.Dir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "ytmusic_classification.json")
 }
 
 // loadClassification loads cached playlist classifications from disk.

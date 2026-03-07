@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -342,9 +343,14 @@ func CleanupYTDL() {
 func resolveYouTube(pageURL string) ([]playlist.Track, error) {
 	client := youtube.Client{}
 
-	// Try as a playlist first.
-	pl, err := client.GetPlaylist(pageURL)
-	if err == nil && len(pl.Videos) > 0 {
+	// Only attempt playlist resolution if the URL contains a "list=" parameter,
+	// avoiding a wasted API call for single-video URLs (the common case).
+	u, _ := url.Parse(pageURL)
+	isList := u != nil && u.Query().Get("list") != ""
+
+	if isList {
+		pl, err := client.GetPlaylist(pageURL)
+		if err == nil && len(pl.Videos) > 0 {
 		tracks := make([]playlist.Track, 0, len(pl.Videos))
 		for _, entry := range pl.Videos {
 			tracks = append(tracks, playlist.Track{
@@ -356,9 +362,10 @@ func resolveYouTube(pageURL string) ([]playlist.Track, error) {
 			})
 		}
 		return tracks, nil
+		}
 	}
 
-	// Fall back to single video.
+	// Single video.
 	video, err := client.GetVideo(pageURL)
 	if err != nil {
 		return nil, fmt.Errorf("youtube resolve: %w", err)

@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"sync"
 
+	"cliamp/internal/appdir"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -204,11 +206,7 @@ func (s *Session) Service() *youtube.Service {
 func (s *Session) Close() {}
 
 func configDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".config", "cliamp"), nil
+	return appdir.Dir()
 }
 
 func credsPath() (string, error) {

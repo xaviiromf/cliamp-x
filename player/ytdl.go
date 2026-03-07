@@ -180,8 +180,9 @@ func (y *ytdlPipeStreamer) Close() error {
 }
 
 // decodeYTDLPipe starts a yt-dlp | ffmpeg pipe chain for the given page URL
-// and returns a streaming PCM decoder.
-func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth int) (*ytdlPipeStreamer, beep.Format, error) {
+// and returns a streaming PCM decoder. If startSec > 0, ffmpeg -ss is used
+// to skip to the desired position in the input stream.
+func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp is required — install: %s", YtdlpInstallHint())
 	}
@@ -210,7 +211,6 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth int) (*ytdlPipe
 	ytdlArgs = append(ytdlArgs, pageURL)
 	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
 	ytdlCmd.Stdout = pw
-	// Capture stderr for error messages.
 	var ytdlStderr bytes.Buffer
 	ytdlCmd.Stderr = &ytdlStderr
 	if err := ytdlCmd.Start(); err != nil {
@@ -220,8 +220,13 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth int) (*ytdlPipe
 	}
 
 	// Start ffmpeg: read from pipe, output PCM to stdout.
+	// If startSec > 0, use -ss to seek into the input stream.
 	pcmFmt, codec, precision := ffmpegPCMArgs(bitDepth)
-	ffmpegCmd := exec.Command("ffmpeg",
+	var ffmpegArgs []string
+	if startSec > 0 {
+		ffmpegArgs = append(ffmpegArgs, "-ss", strconv.Itoa(startSec))
+	}
+	ffmpegArgs = append(ffmpegArgs,
 		"-i", "pipe:0",
 		"-f", pcmFmt,
 		"-acodec", codec,
@@ -230,6 +235,7 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth int) (*ytdlPipe
 		"-loglevel", "error",
 		"pipe:1",
 	)
+	ffmpegCmd := exec.Command("ffmpeg", ffmpegArgs...)
 	ffmpegCmd.Stdin = pr
 	var ffmpegStderr bytes.Buffer
 	ffmpegCmd.Stderr = &ffmpegStderr
@@ -287,120 +293,12 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth int) (*ytdlPipe
 	}, format, nil
 }
 
-// decodeYTDLPipeAt starts a yt-dlp | ffmpeg pipe chain seeking to a given offset.
-// Uses --download-sections to skip to the desired position.
-func decodeYTDLPipeAt(pageURL string, startSec int, sr beep.SampleRate, bitDepth int) (*ytdlPipeStreamer, beep.Format, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
-		return nil, beep.Format{}, fmt.Errorf("yt-dlp is required — install: %s", YtdlpInstallHint())
-	}
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return nil, beep.Format{}, fmt.Errorf("ffmpeg is required — install: %s", ffmpegInstallHint())
-	}
-
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
-	}
-
-	// Use regular yt-dlp (no --download-sections, which re-muxes and breaks piping).
-	// Instead, seek via ffmpeg -ss on the decode side.
-	ytdlArgs := []string{
-		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio",
-		"--no-playlist",
-		"--no-warnings",
-		"-o", "-",
-	}
-	if ytdlCookiesFrom != "" {
-		ytdlArgs = append(ytdlArgs, "--cookies-from-browser", ytdlCookiesFrom)
-	}
-	ytdlArgs = append(ytdlArgs, pageURL)
-	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
-	ytdlCmd.Stdout = pw
-	var ytdlStderr bytes.Buffer
-	ytdlCmd.Stderr = &ytdlStderr
-	if err := ytdlCmd.Start(); err != nil {
-		pr.Close()
-		pw.Close()
-		return nil, beep.Format{}, fmt.Errorf("yt-dlp start: %w", err)
-	}
-
-	// Use ffmpeg -ss for seeking: skip to startSec in the input stream.
-	pcmFmt, codec, precision := ffmpegPCMArgs(bitDepth)
-	ffmpegArgs := []string{}
-	if startSec > 0 {
-		ffmpegArgs = append(ffmpegArgs, "-ss", strconv.Itoa(startSec))
-	}
-	ffmpegArgs = append(ffmpegArgs,
-		"-i", "pipe:0",
-		"-f", pcmFmt,
-		"-acodec", codec,
-		"-ar", strconv.Itoa(int(sr)),
-		"-ac", "2",
-		"-loglevel", "error",
-		"pipe:1",
-	)
-	ffmpegCmd := exec.Command("ffmpeg", ffmpegArgs...)
-	ffmpegCmd.Stdin = pr
-	var ffmpegStderr bytes.Buffer
-	ffmpegCmd.Stderr = &ffmpegStderr
-
-	ffmpegPipe, err := ffmpegCmd.StdoutPipe()
-	if err != nil {
-		ytdlCmd.Process.Kill()
-		pr.Close()
-		pw.Close()
-		return nil, beep.Format{}, fmt.Errorf("ffmpeg pipe: %w", err)
-	}
-	if err := ffmpegCmd.Start(); err != nil {
-		ytdlCmd.Process.Kill()
-		pr.Close()
-		pw.Close()
-		return nil, beep.Format{}, fmt.Errorf("ffmpeg start: %w", err)
-	}
-
-	// Close parent's copies of pipe ends. yt-dlp owns pw (write end) and
-	// ffmpeg owns pr (read end). If the parent keeps these open, EOF won't
-	// propagate when the owning process exits.
-	pw.Close()
-	pr.Close()
-
-	format := beep.Format{
-		SampleRate:  sr,
-		NumChannels: 2,
-		Precision:   precision,
-	}
-
-	ytdlErrCh := make(chan error, 1)
-	go func() {
-		err := ytdlCmd.Wait()
-		if err != nil {
-			stderr := bytes.TrimSpace(ytdlStderr.Bytes())
-			if len(stderr) > 0 {
-				ytdlErrCh <- fmt.Errorf("yt-dlp: %s", stderr)
-			} else {
-				ytdlErrCh <- fmt.Errorf("yt-dlp: %w", err)
-			}
-		} else {
-			ytdlErrCh <- nil
-		}
-	}()
-
-	return &ytdlPipeStreamer{
-		ytdlCmd:   ytdlCmd,
-		ffmpegCmd: ffmpegCmd,
-		pipe:      ffmpegPipe,
-		reader:    bufio.NewReaderSize(ffmpegPipe, 64*1024),
-		ytdlErr:   ytdlErrCh,
-		f32:       bitDepth == 32,
-	}, format, nil
-}
-
 // buildYTDLPipeline creates a trackPipeline for a yt-dlp URL.
 // Seeking is supported by restarting yt-dlp with --download-sections.
 func (p *Player) buildYTDLPipeline(pageURL string) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
-	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth)
+	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +326,7 @@ func (p *Player) buildYTDLPipeline(pageURL string) (*trackPipeline, error) {
 func (p *Player) buildYTDLPipelineAt(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
-	decoder, format, err := decodeYTDLPipeAt(pageURL, startSec, p.sr, p.bitDepth)
+	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, startSec)
 	if err != nil {
 		return nil, err
 	}

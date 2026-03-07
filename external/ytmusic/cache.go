@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"cliamp/internal/appdir"
 	"cliamp/playlist"
 )
 
@@ -27,8 +28,11 @@ type cachedTrackList struct {
 }
 
 func ytCachePath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cliamp", "ytmusic_cache.json")
+	dir, err := appdir.Dir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "ytmusic_cache.json")
 }
 
 func newYTCache() *ytCache {
@@ -50,12 +54,25 @@ func loadYTCache() *ytCache {
 	return &c
 }
 
-func (c *ytCache) save() {
+// snapshot returns a JSON-encoded copy of the cache. Call under the mutex
+// so json.Marshal doesn't race with concurrent setPlaylists/setTracks calls.
+func (c *ytCache) snapshot() []byte {
 	data, err := json.Marshal(c)
 	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// save writes previously-snapshotted data to disk. Safe to call without a lock.
+func saveSnapshot(data []byte) {
+	if data == nil {
 		return
 	}
 	path := ytCachePath()
+	if path == "" {
+		return
+	}
 	os.MkdirAll(filepath.Dir(path), 0o700)
 	os.WriteFile(path, data, 0o600)
 }
