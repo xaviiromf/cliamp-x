@@ -27,6 +27,8 @@ const (
 	VisFlame                  // braille rising flame tendrils
 	VisRetro                  // 80s synthwave perspective grid with wave
 	VisPulse                  // braille pulsating circle
+	VisMatrix                 // falling matrix rain characters
+	VisBinary                 // streaming binary 0s and 1s
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -90,58 +92,49 @@ func (v *Visualizer) CycleMode() {
 	v.Mode = (v.Mode + 1) % visCount
 }
 
+// visEntry pairs a display name with a render function for a visualizer mode.
+type visEntry struct {
+	name   string
+	render func(*Visualizer, [numBands]float64) string
+}
+
+// visModes is the single source of truth for all visualizer modes.
+// To add a new mode: add a const, add one line here, create a vis_*.go file.
+var visModes = [visCount]visEntry{
+	VisBars:    {"Bars", (*Visualizer).renderBars},
+	VisBricks:  {"Bricks", (*Visualizer).renderBricks},
+	VisColumns: {"Columns", (*Visualizer).renderColumns},
+	VisWave:    {"Wave", func(v *Visualizer, _ [numBands]float64) string { return v.renderWave() }},
+	VisScatter: {"Scatter", (*Visualizer).renderScatter},
+	VisFlame:   {"Flame", (*Visualizer).renderFlame},
+	VisRetro:   {"Retro", (*Visualizer).renderRetro},
+	VisPulse:   {"Pulse", (*Visualizer).renderPulse},
+	VisMatrix:  {"Matrix", (*Visualizer).renderMatrix},
+	VisBinary:  {"Binary", (*Visualizer).renderBinary},
+	VisNone:    {"None", nil},
+}
+
+var visNameMap map[string]VisMode
+
+func init() {
+	visNameMap = make(map[string]VisMode, visCount)
+	for i := range visCount {
+		visNameMap[strings.ToLower(visModes[i].name)] = VisMode(i)
+	}
+}
+
 // ModeName returns the display name of the current mode.
 func (v *Visualizer) ModeName() string {
-	switch v.Mode {
-	case VisBricks:
-		return "Bricks"
-	case VisColumns:
-		return "Columns"
-	case VisWave:
-		return "Wave"
-	case VisScatter:
-		return "Scatter"
-	case VisFlame:
-		return "Flame"
-	case VisRetro:
-		return "Retro"
-	case VisPulse:
-		return "Pulse"
-	case VisNone:
-		return "None"
-	default:
-		return "Bars"
-	}
+	return visModes[v.Mode].name
 }
 
 // StringToVisMode converts a visualizer mode name (case-insensitive) to VisMode.
 // Returns VisBars (default) if the name is not recognized or empty.
 func StringToVisMode(name string) VisMode {
-	if name == "" {
-		return VisBars
+	if mode, ok := visNameMap[strings.ToLower(name)]; ok {
+		return mode
 	}
-	switch strings.ToLower(name) {
-	case "bars":
-		return VisBars
-	case "bricks":
-		return VisBricks
-	case "columns":
-		return VisColumns
-	case "wave":
-		return VisWave
-	case "scatter":
-		return VisScatter
-	case "flame":
-		return VisFlame
-	case "retro":
-		return VisRetro
-	case "pulse":
-		return VisPulse
-	case "none":
-		return VisNone
-	default:
-		return VisBars
-	}
+	return VisBars
 }
 
 // Analyze runs FFT on raw audio samples and returns 10 normalized band levels (0-1).
@@ -227,26 +220,10 @@ func (v *Visualizer) Analyze(samples []float64) [numBands]float64 {
 
 // Render dispatches to the active visualizer mode.
 func (v *Visualizer) Render(bands [numBands]float64) string {
-	switch v.Mode {
-	case VisBricks:
-		return v.renderBricks(bands)
-	case VisColumns:
-		return v.renderColumns(bands)
-	case VisWave:
-		return v.renderWave()
-	case VisScatter:
-		return v.renderScatter(bands)
-	case VisFlame:
-		return v.renderFlame(bands)
-	case VisRetro:
-		return v.renderRetro(bands)
-	case VisPulse:
-		return v.renderPulse(bands)
-	case VisNone:
-		return ""
-	default:
-		return v.renderBars(bands)
+	if render := visModes[v.Mode].render; render != nil {
+		return render(v, bands)
 	}
+	return ""
 }
 
 // specStyle returns the spectrum color style for a given row height (0-1).

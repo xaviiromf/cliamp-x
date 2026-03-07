@@ -191,7 +191,7 @@ Provider:
 
 Appearance:
   --theme <name>          UI theme name
-  --visualizer <mode>     Visualizer mode (Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, None)
+  --visualizer <mode>     Visualizer mode (Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, None)
   --eq-preset <name>      EQ preset name (e.g. "Bass Boost")
 
 General:
