@@ -116,12 +116,14 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyMsg) tea.Cmd {
 		if len(m.fbSelected) > 0 {
 			return m.fbConfirm(false)
 		}
-		// No selections — descend into directory.
 		if m.fbCursor < len(m.fbEntries) {
 			e := m.fbEntries[m.fbCursor]
 			if e.isDir {
 				m.fbDir = e.path
 				m.loadFBDir()
+			} else if e.isAudio {
+				m.fbSelected[e.path] = true
+				return m.fbConfirm(false)
 			}
 		}
 
