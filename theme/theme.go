@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"cliamp/internal/appdir"
 )
 
 //go:embed themes/*.toml
@@ -86,10 +88,9 @@ func LoadAll() []Theme {
 	loadBuiltin(themes)
 
 	// Load user custom themes (override built-in if same name).
-	home, err := os.UserHomeDir()
+	dir, err := appdir.Dir()
 	if err == nil {
-		userDir := filepath.Join(home, ".config", "cliamp", "themes")
-		loadUserDir(userDir, themes)
+		loadUserDir(filepath.Join(dir, "themes"), themes)
 	}
 
 	// Sort by name.

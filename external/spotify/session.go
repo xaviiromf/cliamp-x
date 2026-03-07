@@ -16,6 +16,8 @@ import (
 	"runtime"
 	"sync"
 
+	"cliamp/internal/appdir"
+
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
 	"github.com/devgianlu/go-librespot/session"
@@ -447,11 +449,7 @@ func deleteCreds() error {
 }
 
 func configDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".config", "cliamp"), nil
+	return appdir.Dir()
 }
 
 func credsPath() (string, error) {

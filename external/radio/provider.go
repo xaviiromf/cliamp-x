@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cliamp/internal/appdir"
 	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
 )
@@ -35,12 +36,11 @@ func New() *Provider {
 		stations: []station{{name: builtinName, url: builtinURL}},
 	}
 
-	home, err := os.UserHomeDir()
+	dir, err := appdir.Dir()
 	if err != nil {
 		return p
 	}
-	path := filepath.Join(home, ".config", "cliamp", "radios.toml")
-	if extra, err := loadStations(path); err == nil {
+	if extra, err := loadStations(filepath.Join(dir, "radios.toml")); err == nil {
 		p.stations = append(p.stations, extra...)
 	}
 	return p

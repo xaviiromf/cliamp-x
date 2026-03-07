@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cliamp/internal/appdir"
 	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
 )
@@ -24,11 +25,11 @@ type Provider struct {
 
 // New creates a Provider using ~/.config/cliamp/playlists/ as the base directory.
 func New() *Provider {
-	home, err := os.UserHomeDir()
+	dir, err := appdir.Dir()
 	if err != nil {
 		return nil
 	}
-	return &Provider{dir: filepath.Join(home, ".config", "cliamp", "playlists")}
+	return &Provider{dir: filepath.Join(dir, "playlists")}
 }
 
 func (p *Provider) Name() string { return "Local Playlists" }

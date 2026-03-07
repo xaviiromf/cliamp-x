@@ -11,15 +11,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"cliamp/internal/appdir"
 )
 
 // configPath returns the path to the config file.
 func configPath() (string, error) {
-	home, err := os.UserHomeDir()
+	dir, err := appdir.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "cliamp", "config.toml"), nil
+	return filepath.Join(dir, "config.toml"), nil
 }
 
 // NavidromeConfig holds credentials for a Navidrome/Subsonic server.
