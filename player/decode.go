@@ -63,17 +63,8 @@ type sourceResult struct {
 	contentLength int64  // -1 if unknown; from Content-Length header for HTTP
 }
 
-// openSource returns a ReadCloser for the given path, handling both
+// openSourceAt opens a ReadCloser for the given path, handling both
 // local files and HTTP URLs.
-//
-// For HTTP URLs, it sends the Icy-MetaData:1 header to request ICY metadata.
-// If the server responds with icy-metaint, the body is wrapped in an icyReader
-// that strips metadata and fires onMeta with each StreamTitle update.
-func openSource(path string, onMeta func(string)) (sourceResult, error) {
-	return openSourceAt(path, 0, onMeta)
-}
-
-// openSourceAt is like openSource but starts the HTTP stream at the given byte
 // offset using an HTTP Range request (Range: bytes=offset-). For local files
 // the offset is ignored (use decoder.Seek for local files).
 func openSourceAt(path string, byteOffset int64, onMeta func(string)) (sourceResult, error) {
@@ -173,11 +164,6 @@ func needsFFmpeg(ext string) bool {
 		return true
 	}
 	return false
-}
-
-// decode selects the appropriate decoder based on the file extension.
-func decode(rc io.ReadCloser, path string, sr beep.SampleRate, bitDepth int) (beep.StreamSeekCloser, beep.Format, error) {
-	return decodeWithExt(rc, formatExt(path), path, sr, bitDepth)
 }
 
 // isNavidromeURL reports whether path is a Subsonic stream or download endpoint.

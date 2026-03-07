@@ -336,42 +336,6 @@ func (s *localFFmpegStreamer) Close() error {
 	return nil
 }
 
-// decodeFFmpegReader decodes audio from an io.Reader by piping it to ffmpeg
-// stdin. Blocks until the reader reaches EOF (i.e. until the full navBuffer
-// has been downloaded). Returns a fully seekable pcmStreamer.
-//
-// Used for Navidrome tracks in formats that require FFmpeg (opus, aac, etc.)
-// where the audio data is already being downloaded into a navBuffer.
-func decodeFFmpegReader(r io.Reader, sr beep.SampleRate, bitDepth int) (beep.StreamSeekCloser, beep.Format, error) {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return nil, beep.Format{}, fmt.Errorf("ffmpeg is required to decode this format — install it with your package manager")
-	}
-
-	pcmFmt, codec, precision := ffmpegPCMArgs(bitDepth)
-	cmd := exec.Command("ffmpeg",
-		"-i", "pipe:0",
-		"-f", pcmFmt,
-		"-acodec", codec,
-		"-ar", strconv.Itoa(int(sr)),
-		"-ac", "2",
-		"-loglevel", "error",
-		"pipe:1",
-	)
-	cmd.Stdin = r
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, beep.Format{}, fmt.Errorf("ffmpeg decode from reader: %w", err)
-	}
-
-	format := beep.Format{
-		SampleRate:  sr,
-		NumChannels: 2,
-		Precision:   precision,
-	}
-	return &pcmStreamer{data: out, f32: bitDepth == 32}, format, nil
-}
-
 // decodeNavFFmpeg starts ffmpeg with the navBuffer as stdin, returning a
 // navFFmpegStreamer that begins producing PCM immediately as bytes arrive.
 // Seeking kills ffmpeg, repositions the navBuffer, and restarts ffmpeg from

@@ -294,11 +294,11 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 }
 
 // buildYTDLPipeline creates a trackPipeline for a yt-dlp URL.
-// Seeking is supported by restarting yt-dlp with --download-sections.
-func (p *Player) buildYTDLPipeline(pageURL string) (*trackPipeline, error) {
+// If startSec > 0, playback begins at that offset (seek-by-restart).
+func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
-	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, 0)
+	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, startSec)
 	if err != nil {
 		return nil, err
 	}
@@ -307,31 +307,6 @@ func (p *Player) buildYTDLPipeline(pageURL string) (*trackPipeline, error) {
 	// This runs in a tea.Cmd goroutine (not the UI thread), ensuring the
 	// speaker goroutine won't block on an empty pipe and hold its lock
 	// (which would freeze the UI).
-	if _, err := decoder.reader.Peek(1); err != nil {
-		decoder.Close()
-		return nil, fmt.Errorf("waiting for audio data: %w", err)
-	}
-
-	return &trackPipeline{
-		decoder:  decoder,
-		stream:   decoder,
-		format:   format,
-		seekable: false,
-		path:     pageURL,
-		ytdlSeek: true, // marks this pipeline as seekable via yt-dlp restart
-	}, nil
-}
-
-// buildYTDLPipelineAt creates a yt-dlp pipeline starting at a specific time offset.
-func (p *Player) buildYTDLPipelineAt(pageURL string, startSec int) (*trackPipeline, error) {
-	p.streamTitle.Store("")
-
-	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, startSec)
-	if err != nil {
-		return nil, err
-	}
-
-	// Pre-fill: block until audio data arrives (see buildYTDLPipeline).
 	if _, err := decoder.reader.Peek(1); err != nil {
 		decoder.Close()
 		return nil, fmt.Errorf("waiting for audio data: %w", err)

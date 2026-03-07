@@ -9,10 +9,12 @@ import (
 
 // volumeStreamer applies dB gain and optional mono downmix to an audio stream.
 type volumeStreamer struct {
-	s    beep.Streamer
-	vol  *float64
-	mono *bool
-	mu   *sync.Mutex
+	s          beep.Streamer
+	vol        *float64
+	mono       *bool
+	mu         *sync.Mutex
+	cachedDB   float64 // last dB value used to compute cachedGain; starts NaN to force first compute
+	cachedGain float64 // precomputed linear gain = 10^(dB/20)
 }
 
 func (v *volumeStreamer) Stream(samples [][2]float64) (int, bool) {
@@ -21,9 +23,15 @@ func (v *volumeStreamer) Stream(samples [][2]float64) (int, bool) {
 		return 0, ok
 	}
 	v.mu.Lock()
-	gain := math.Pow(10, *v.vol/20)
+	db := *v.vol
 	mono := *v.mono
 	v.mu.Unlock()
+	// Recompute gain only when volume changes (rare) instead of every Stream() call.
+	if db != v.cachedDB {
+		v.cachedGain = math.Pow(10, db/20)
+		v.cachedDB = db
+	}
+	gain := v.cachedGain
 	for i := range n {
 		samples[i][0] *= gain
 		samples[i][1] *= gain

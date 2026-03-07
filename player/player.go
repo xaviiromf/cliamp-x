@@ -103,7 +103,7 @@ func (p *Player) Play(path string, knownDuration time.Duration) error {
 // PlayYTDL starts playing a yt-dlp page URL via a piped yt-dlp | ffmpeg chain.
 // Playback starts as soon as the first PCM samples arrive (~1-3s). Not seekable.
 func (p *Player) PlayYTDL(pageURL string, knownDuration time.Duration) error {
-	tp, err := p.buildYTDLPipeline(pageURL)
+	tp, err := p.buildYTDLPipeline(pageURL, 0)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 			s = newBiquad(s, EQFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
 		}
 
-		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, mu: &p.mu}
+		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, mu: &p.mu, cachedDB: math.NaN()}
 		p.tap = NewTap(s, 4096)
 		p.ctrl = &beep.Ctrl{Streamer: p.tap}
 		p.started = true
@@ -181,7 +181,7 @@ func (p *Player) Preload(path string, knownDuration time.Duration) error {
 
 // PreloadYTDL builds a yt-dlp pipe pipeline and queues it for gapless transition.
 func (p *Player) PreloadYTDL(pageURL string, knownDuration time.Duration) error {
-	tp, err := p.buildYTDLPipeline(pageURL)
+	tp, err := p.buildYTDLPipeline(pageURL, 0)
 	if err != nil {
 		return err
 	}
@@ -375,10 +375,6 @@ func (p *Player) Seek(d time.Duration) error {
 	return nil
 }
 
-// Position returns the current playback position.
-// For ranged HTTP streams (seek-by-reconnect), streamOffset is added to the
-// decoder's sample-based position so the reported time is absolute within
-// the track, not relative to the reconnect point.
 // CancelSeekYTDL increments the seek generation, causing any in-flight
 // SeekYTDL to discard its result instead of swapping streams.
 func (p *Player) CancelSeekYTDL() {
@@ -419,7 +415,7 @@ func (p *Player) SeekYTDL(d time.Duration) error {
 	startSec := int(newPos.Seconds())
 
 	// Build pipeline WITHOUT speaker lock (this is the slow part — spawns yt-dlp).
-	tp, err := p.buildYTDLPipelineAt(cur.path, startSec)
+	tp, err := p.buildYTDLPipeline(cur.path, startSec)
 	if err != nil {
 		return fmt.Errorf("yt-dlp seek: %w", err)
 	}
@@ -458,6 +454,10 @@ func (p *Player) IsYTDLSeek() bool {
 	return cur != nil && cur.ytdlSeek
 }
 
+// Position returns the current playback position.
+// For ranged HTTP streams (seek-by-reconnect), streamOffset is added to the
+// decoder's sample-based position so the reported time is absolute within
+// the track, not relative to the reconnect point.
 func (p *Player) Position() time.Duration {
 	speaker.Lock()
 	defer speaker.Unlock()

@@ -3,20 +3,19 @@ package spotify
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"cliamp/internal/appdir"
+	"cliamp/internal/browser"
 
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
@@ -225,7 +224,7 @@ func performOAuth2PKCE(clientID string) (*oauth2.Token, error) {
 		}
 	}()
 
-	_ = openBrowser(authURL)
+	_ = browser.Open(authURL)
 
 	code := <-codeCh
 	_ = lis.Close()
@@ -448,12 +447,8 @@ func deleteCreds() error {
 	return nil
 }
 
-func configDir() (string, error) {
-	return appdir.Dir()
-}
-
 func credsPath() (string, error) {
-	dir, err := configDir()
+	dir, err := appdir.Dir()
 	if err != nil {
 		return "", err
 	}
@@ -497,16 +492,3 @@ func saveCreds(creds *storedCreds) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// openBrowser tries to open a URL in the user's default browser.
-func openBrowser(u string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		return exec.Command("open", u).Start()
-	case "linux":
-		return exec.Command("xdg-open", u).Start()
-	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-}

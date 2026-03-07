@@ -227,7 +227,7 @@ func (p *Player) buildPipelineAt(path string, byteOffset int64, timeOffset time.
 	decoder, format, err := decodeWithExt(rc, ext, path, p.sr, p.bitDepth)
 	if err != nil {
 		rc.Close()
-		// If the format already required ffmpeg (e.g., .m4a), decode() already
+		// If the format already required ffmpeg (e.g., .m4a), decodeWithExt already
 		// tried it — don't invoke ffmpeg a second time.
 		if needsFFmpeg(ext) {
 			return nil, fmt.Errorf("decode: %w", err)

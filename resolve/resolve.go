@@ -351,17 +351,17 @@ func resolveYouTube(pageURL string) ([]playlist.Track, error) {
 	if isList {
 		pl, err := client.GetPlaylist(pageURL)
 		if err == nil && len(pl.Videos) > 0 {
-		tracks := make([]playlist.Track, 0, len(pl.Videos))
-		for _, entry := range pl.Videos {
-			tracks = append(tracks, playlist.Track{
-				Path:         "https://www.youtube.com/watch?v=" + entry.ID,
-				Title:        entry.Title,
-				Artist:       entry.Author,
-				Stream:       true,
-				DurationSecs: int(entry.Duration.Seconds()),
-			})
-		}
-		return tracks, nil
+			tracks := make([]playlist.Track, 0, len(pl.Videos))
+			for _, entry := range pl.Videos {
+				tracks = append(tracks, playlist.Track{
+					Path:         "https://www.youtube.com/watch?v=" + entry.ID,
+					Title:        entry.Title,
+					Artist:       entry.Author,
+					Stream:       true,
+					DurationSecs: int(entry.Duration.Seconds()),
+				})
+			}
+			return tracks, nil
 		}
 	}
 

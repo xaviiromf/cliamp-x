@@ -311,7 +311,7 @@ func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
 		pageToken = resp.NextPageToken
 	}
 
-	durations := b.fetchDurations(svc, items, ctx)
+	durations := b.fetchDurations(ctx, svc, items)
 
 	var tracks []playlist.Track
 	for _, it := range items {
@@ -338,7 +338,7 @@ func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
 	return tracks, nil
 }
 
-func (b *baseProvider) fetchDurations(svc *youtube.Service, items []itemInfo, ctx context.Context) map[string]int {
+func (b *baseProvider) fetchDurations(ctx context.Context, svc *youtube.Service, items []itemInfo) map[string]int {
 	var mu sync.Mutex
 	durations := make(map[string]int)
 	var wg sync.WaitGroup

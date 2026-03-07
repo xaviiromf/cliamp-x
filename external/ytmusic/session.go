@@ -8,12 +8,11 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"cliamp/internal/appdir"
+	"cliamp/internal/browser"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -181,7 +180,7 @@ func doOAuth(clientID, clientSecret string) (*oauth2.Token, error) {
 		}
 	}()
 
-	_ = openBrowser(authURL)
+	_ = browser.Open(authURL)
 
 	code := <-codeCh
 	_ = lis.Close()
@@ -205,12 +204,8 @@ func (s *Session) Service() *youtube.Service {
 // Close is a no-op for YouTube Music sessions (no persistent connections).
 func (s *Session) Close() {}
 
-func configDir() (string, error) {
-	return appdir.Dir()
-}
-
 func credsPath() (string, error) {
-	dir, err := configDir()
+	dir, err := appdir.Dir()
 	if err != nil {
 		return "", err
 	}
@@ -248,27 +243,3 @@ func saveCreds(creds *storedCreds) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-func deleteCreds() error {
-	path, err := credsPath()
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
-
-// openBrowser tries to open a URL in the user's default browser.
-func openBrowser(u string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		return exec.Command("open", u).Start()
-	case "linux":
-		return exec.Command("xdg-open", u).Start()
-	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-}
