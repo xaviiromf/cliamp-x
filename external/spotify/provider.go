@@ -127,7 +127,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 			"offset": {fmt.Sprintf("%d", offset)},
 			// Request only the fields we need to reduce payload size and API cost.
 			// Include snapshot_id for cache invalidation.
-			"fields": {"items(id,name,snapshot_id,items.total,tracks.total),total"},
+			"fields": {"items(id,name,snapshot_id,items.total),total"},
 		}
 
 		resp, err := p.webAPI(ctx, "GET", "/v1/me/playlists", query)
