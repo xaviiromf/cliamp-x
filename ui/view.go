@@ -27,6 +27,10 @@ func (m Model) View() string {
 		return m.renderKeymapOverlay()
 	}
 
+	if m.showProvPicker {
+		return m.renderProvPicker()
+	}
+
 	if m.showThemes {
 		return m.renderThemePicker()
 	}

@@ -41,6 +41,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleNavBrowserKey(msg)
 	}
 
+	// Provider picker overlay
+	if m.showProvPicker {
+		return m.handleProvPickerKey(msg)
+	}
+
 	// Theme picker overlay — interactive navigation
 	if m.showThemes {
 		return m.handleThemeKey(msg)
@@ -162,7 +167,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			}
 		case "P":
 			if len(m.providers) > 1 {
-				return m.switchProvider((m.provPillIdx + 1) % len(m.providers))
+				m.showProvPicker = true
+				m.provPickCursor = m.provPillIdx
 			}
 		case "J":
 			m.openJumpMode()
@@ -393,7 +399,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	case "P":
 		if len(m.providers) > 1 {
-			return m.switchProvider((m.provPillIdx + 1) % len(m.providers))
+			m.showProvPicker = true
+			m.provPickCursor = m.provPillIdx
 		}
 
 	case "N":
@@ -996,6 +1003,29 @@ func (m *Model) handleThemeKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+// handleProvPickerKey processes key presses while the provider picker is open.
+func (m *Model) handleProvPickerKey(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		m.showProvPicker = false
+		return m.quit()
+	case "up", "k":
+		if m.provPickCursor > 0 {
+			m.provPickCursor--
+		}
+	case "down", "j":
+		if m.provPickCursor < len(m.providers)-1 {
+			m.provPickCursor++
+		}
+	case "enter":
+		m.showProvPicker = false
+		return m.switchProvider(m.provPickCursor)
+	case "esc", "q", "P":
+		m.showProvPicker = false
+	}
+	return nil
+}
+
 // handleQueueKey processes key presses while the queue manager overlay is open.
 func (m *Model) handleQueueKey(msg tea.KeyMsg) tea.Cmd {
 	qLen := m.playlist.QueueLen()
@@ -1056,7 +1086,7 @@ var keymapEntries = []keymapEntry{
 	{"A", "Queue manager"},
 	{"o", "Open file browser"},
 	{"N", "Navidrome browser"},
-	{"P", "Cycle provider"},
+	{"P", "Provider picker"},
 	{"J", "Jump to time"},
 	{"p", "Playlist manager"},
 	{"i", "Track info / metadata"},
