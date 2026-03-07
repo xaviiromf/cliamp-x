@@ -16,8 +16,10 @@ import (
 	"cliamp/playlist"
 )
 
-const builtinName = "cliamp radio"
-const builtinURL = "https://radio.cliamp.stream/lofi/stream.pls"
+const builtinLofiName = "cliamp radio"
+const builtinLofiURL = "https://radio.cliamp.stream/lofi/stream.pls"
+const builtinSynthwaveName = "cliamp synthwave"
+const builtinSynthwaveURL = "https://radio.cliamp.stream/synthwave/stream.pls"
 
 // Provider serves radio stations as single-track playlists.
 type Provider struct {
@@ -33,7 +35,10 @@ type station struct {
 // stations from ~/.config/cliamp/radios.toml.
 func New() *Provider {
 	p := &Provider{
-		stations: []station{{name: builtinName, url: builtinURL}},
+		stations: []station{
+			{name: builtinLofiName, url: builtinLofiURL},
+			{name: builtinSynthwaveName, url: builtinSynthwaveURL},
+		},
 	}
 
 	dir, err := appdir.Dir()
