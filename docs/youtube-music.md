@@ -76,11 +76,10 @@ After loading a playlist you return to the standard playlist view with all the u
 Playlists are automatically split between the two providers:
 
 **YouTube Music** shows:
-- **Liked Music** — your liked music (YouTube's special `LL` playlist)
 - Playlists containing music content (auto-classified by video category)
 
 **YouTube** shows:
-- **Liked Videos** — your liked videos
+- **Liked Videos** — your liked videos (YouTube's special `LL` playlist)
 - Playlists containing non-music content
 
 Classification is determined by sampling a video from each playlist and checking its YouTube category. Results are cached at `~/.config/cliamp/ytmusic_classification.json`. Delete this file to reclassify.

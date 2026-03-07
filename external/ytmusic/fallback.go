@@ -16,12 +16,7 @@ type oauthCreds struct {
 	ClientSecret string
 }
 
-var fallbackCredentials = []oauthCreds{
-	{
-		// ClientID:     "REMOVED_CLIENT_ID",
-		// ClientSecret: "REMOVED_CLIENT_SECRET",
-	},
-}
+var fallbackCredentials []oauthCreds
 
 // FallbackCredentials returns a random credential pair from the built-in pool,
 // or empty strings if the pool is empty.

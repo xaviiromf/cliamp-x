@@ -71,7 +71,9 @@ func (b *baseProvider) ensureSession() error {
 		return playlist.ErrNeedsAuth
 	}
 	b.mu.Lock()
-	b.session = sess
+	if b.session == nil {
+		b.session = sess
+	}
 	b.mu.Unlock()
 	return nil
 }
@@ -94,7 +96,9 @@ func (b *baseProvider) authenticate() error {
 		return err
 	}
 	b.mu.Lock()
-	b.session = sess
+	if b.session == nil {
+		b.session = sess
+	}
 	b.mu.Unlock()
 	return nil
 }
@@ -145,7 +149,13 @@ func (b *baseProvider) fetchAndClassify() error {
 		return err
 	}
 
-	svc := b.session.Service()
+	b.mu.Lock()
+	sess := b.session
+	b.mu.Unlock()
+	if sess == nil {
+		return fmt.Errorf("ytmusic: session unavailable")
+	}
+	svc := sess.Service()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -187,7 +197,9 @@ func (b *baseProvider) fetchAndClassify() error {
 	}
 
 	// Classify playlists (parallel, with disk cache).
-	classified := classifyWithTimeout(svc, all, 60*time.Second)
+	// Pass nil to let classifyPlaylists load from disk itself —
+	// the earlier loadClassification() was skipped because cache was stale.
+	classified := classifyWithTimeout(svc, all, 60*time.Second, nil)
 
 	b.mu.Lock()
 	b.allPlaylists = all
@@ -248,7 +260,13 @@ func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
 		return nil, err
 	}
 
-	svc := b.session.Service()
+	b.mu.Lock()
+	sess := b.session
+	b.mu.Unlock()
+	if sess == nil {
+		return nil, fmt.Errorf("ytmusic: session unavailable")
+	}
+	svc := sess.Service()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 

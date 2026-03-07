@@ -41,9 +41,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleNavBrowserKey(msg)
 	}
 
-	// Provider picker overlay
-
-
 	// Theme picker overlay — interactive navigation
 	if m.showThemes {
 		return m.handleThemeKey(msg)

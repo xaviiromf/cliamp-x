@@ -10,6 +10,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/jfreymuth/oggvorbis v1.0.5
+	github.com/kkdai/youtube/v2 v2.10.5
 	github.com/madelynnblue/go-dsp v1.0.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/text v0.34.0
@@ -49,7 +50,6 @@ require (
 	github.com/icza/bitio v1.1.0 // indirect
 	github.com/jfreymuth/pulse v0.1.2-0.20241102120944-4ffb35054b53 // indirect
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
-	github.com/kkdai/youtube/v2 v2.10.5 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect

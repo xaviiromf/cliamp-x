@@ -386,7 +386,6 @@ func (m Model) renderPlaylistHeader() string {
 	return dimStyle.Render("── Playlist ── ") + shuffle + queueStr + themeStr + " " + dimStyle.Render("──")
 }
 
-
 func (m Model) renderProviderList() string {
 	if m.provSignIn {
 		return dimStyle.Render(fmt.Sprintf("  Sign in to %s. Press Enter to continue.", m.provider.Name()))

@@ -51,8 +51,11 @@ func saveClassification(music map[string]bool) {
 // sampling one video from each and checking its category.
 // Returns a map of playlist ID → true (music) / false (not music).
 // Results are cached to disk to avoid repeated API calls.
-func classifyPlaylists(svc *youtube.Service, playlists []playlistEntry, ctx context.Context) map[string]bool {
-	cached := loadClassification()
+func classifyPlaylists(svc *youtube.Service, playlists []playlistEntry, ctx context.Context, existing map[string]bool) map[string]bool {
+	cached := existing
+	if cached == nil {
+		cached = loadClassification()
+	}
 	if cached == nil {
 		cached = make(map[string]bool)
 	}
@@ -68,7 +71,6 @@ func classifyPlaylists(svc *youtube.Service, playlists []playlistEntry, ctx cont
 	if len(toClassify) == 0 {
 		return cached
 	}
-
 
 	// Sample one video ID from each playlist (parallel, max 10 concurrent).
 	type sampleResult struct {
@@ -165,8 +167,8 @@ type playlistEntry struct {
 }
 
 // classifyWithTimeout runs classification with a timeout.
-func classifyWithTimeout(svc *youtube.Service, playlists []playlistEntry, timeout time.Duration) map[string]bool {
+func classifyWithTimeout(svc *youtube.Service, playlists []playlistEntry, timeout time.Duration, existing map[string]bool) map[string]bool {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return classifyPlaylists(svc, playlists, ctx)
+	return classifyPlaylists(svc, playlists, ctx, existing)
 }

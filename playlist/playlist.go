@@ -87,7 +87,6 @@ func IsLocalPLS(path string) bool {
 }
 
 // IsYouTubeURL reports whether the URL points to YouTube or YouTube Music.
-// These URLs are handled natively via the kkdai/youtube library, not yt-dlp.
 func IsYouTubeURL(path string) bool {
 	if !IsURL(path) {
 		return false

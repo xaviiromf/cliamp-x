@@ -183,7 +183,6 @@ type Model struct {
 	themeCursor   int  // cursor in theme picker (0 = Default, 1+ = themes[i-1])
 	themeSavedIdx int  // themeIdx before opening picker, for cancel/restore
 
-
 	// Track info overlay (metadata details)
 	showInfo bool
 
@@ -1146,6 +1145,8 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	m.lyricsErr = nil
 	m.lyricsQuery = ""
 	m.lyricsScroll = 0
+	m.seekActive = false
+	m.seekTimer = 0
 	var fetchCmd tea.Cmd
 	if m.showLyrics && track.Artist != "" && track.Title != "" {
 		m.lyricsLoading = true

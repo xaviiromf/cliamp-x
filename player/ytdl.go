@@ -358,6 +358,12 @@ func decodeYTDLPipeAt(pageURL string, startSec int, sr beep.SampleRate, bitDepth
 		return nil, beep.Format{}, fmt.Errorf("ffmpeg start: %w", err)
 	}
 
+	// Close parent's copies of pipe ends. yt-dlp owns pw (write end) and
+	// ffmpeg owns pr (read end). If the parent keeps these open, EOF won't
+	// propagate when the owning process exits.
+	pw.Close()
+	pr.Close()
+
 	format := beep.Format{
 		SampleRate:  sr,
 		NumChannels: 2,
@@ -367,7 +373,6 @@ func decodeYTDLPipeAt(pageURL string, startSec int, sr beep.SampleRate, bitDepth
 	ytdlErrCh := make(chan error, 1)
 	go func() {
 		err := ytdlCmd.Wait()
-		pw.Close() // signal EOF to ffmpeg
 		if err != nil {
 			stderr := bytes.TrimSpace(ytdlStderr.Bytes())
 			if len(stderr) > 0 {

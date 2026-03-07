@@ -193,37 +193,6 @@ func doOAuth(clientID, clientSecret string) (*oauth2.Token, error) {
 	return token, nil
 }
 
-// Reconnect tears down the current session, clears stored credentials, and
-// re-authenticates interactively.
-func (s *Session) Reconnect(ctx context.Context) error {
-	s.mu.Lock()
-	clientID := s.clientID
-	clientSecret := s.clientSecret
-	s.mu.Unlock()
-
-	if err := deleteCreds(); err != nil {
-		fmt.Fprintf(os.Stderr, "ytmusic: failed to clear stored credentials: %v\n", err)
-	}
-
-	newSess, err := NewSession(ctx, clientID, clientSecret)
-	if err != nil {
-		return fmt.Errorf("ytmusic: reconnect: %w", err)
-	}
-
-	s.mu.Lock()
-	s.service = newSess.service
-	s.tokenSource = newSess.tokenSource
-	s.mu.Unlock()
-
-	// Prevent newSess from being used separately.
-	newSess.mu.Lock()
-	newSess.service = nil
-	newSess.mu.Unlock()
-
-	fmt.Fprintf(os.Stderr, "ytmusic: re-authenticated successfully\n")
-	return nil
-}
-
 // Service returns the YouTube API service, holding the lock briefly.
 func (s *Session) Service() *youtube.Service {
 	s.mu.Lock()
