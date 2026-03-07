@@ -40,18 +40,7 @@ func (v *Visualizer) renderColumns(bands [numBands]float64) string {
 		for b := range numBands {
 			for c := range bandCols[b] {
 				level := cols[offsets[b]+c]
-				var block string
-				if level >= rowTop {
-					block = "█"
-				} else if level > rowBottom {
-					frac := (level - rowBottom) / (rowTop - rowBottom)
-					idx := int(frac * float64(len(barBlocks)-1))
-					idx = max(0, min(idx, len(barBlocks)-1))
-					block = barBlocks[idx]
-				} else {
-					block = " "
-				}
-				sb.WriteString(specStyle(rowBottom).Render(block))
+				sb.WriteString(specStyle(rowBottom).Render(fracBlock(level, rowBottom, rowTop)))
 			}
 			if b < numBands-1 {
 				sb.WriteString(" ")

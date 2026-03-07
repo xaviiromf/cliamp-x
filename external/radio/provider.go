@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
 )
 
@@ -107,7 +108,7 @@ func loadStations(path string) ([]station, error) {
 		}
 		key = strings.TrimSpace(key)
 		val = strings.TrimSpace(val)
-		val = unquote(val)
+		val = tomlutil.Unquote(val)
 
 		switch key {
 		case "name":
@@ -122,12 +123,3 @@ func loadStations(path string) ([]station, error) {
 	return stations, nil
 }
 
-func unquote(s string) string {
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		if u, err := strconv.Unquote(s); err == nil {
-			return u
-		}
-		return s[1 : len(s)-1]
-	}
-	return s
-}

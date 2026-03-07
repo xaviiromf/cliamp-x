@@ -15,18 +15,7 @@ func (v *Visualizer) renderBars(bands [numBands]float64) string {
 
 		for i, level := range bands {
 			bw := visBandWidth(i)
-			var block string
-			if level >= rowTop {
-				block = "█"
-			} else if level > rowBottom {
-				frac := (level - rowBottom) / (rowTop - rowBottom)
-				idx := int(frac * float64(len(barBlocks)-1))
-				idx = max(0, min(idx, len(barBlocks)-1))
-				block = barBlocks[idx]
-			} else {
-				block = " "
-			}
-
+			block := fracBlock(level, rowBottom, rowTop)
 			style := specStyle(rowBottom)
 			sb.WriteString(style.Render(strings.Repeat(block, bw)))
 			if i < numBands-1 {

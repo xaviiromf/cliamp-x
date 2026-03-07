@@ -186,9 +186,19 @@ func silentTokenRefresh(clientID, refreshToken string) (*oauth2.Token, error) {
 	return src.Token()
 }
 
-// doWebAPIAuth performs an OAuth2 PKCE flow to get a fresh Web API access token.
-// Opens a browser for user consent, returns the full token (including refresh token).
-func doWebAPIAuth(clientID string) (*oauth2.Token, error) {
+// oauthCallbackHTML is the response sent to the browser after a successful OAuth2 callback.
+const oauthCallbackHTML = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>cliamp</title></head>
+<body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0">
+<div style="text-align:center">
+<h2>✅ Authenticated!</h2>
+<p>You can close this tab now.</p>
+<script>setTimeout(function(){window.close()},1500)</script>
+</div></body></html>`
+
+// performOAuth2PKCE runs an OAuth2 PKCE flow: opens a browser for user consent,
+// waits for the callback, and exchanges the code for a token.
+func performOAuth2PKCE(clientID string) (*oauth2.Token, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", CallbackPort))
 	if err != nil {
 		return nil, fmt.Errorf("listen on port %d: %w", CallbackPort, err)
@@ -207,14 +217,7 @@ func doWebAPIAuth(clientID string) (*oauth2.Token, error) {
 				codeCh <- code
 			}
 			w.Header().Set("Content-Type", "text/html")
-			_, _ = w.Write([]byte(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>cliamp</title></head>
-<body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0">
-<div style="text-align:center">
-<h2>✅ Authenticated!</h2>
-<p>You can close this tab now.</p>
-<script>setTimeout(function(){window.close()},1500)</script>
-</div></body></html>`))
+			_, _ = w.Write([]byte(oauthCallbackHTML))
 		})); err != nil && !errors.Is(err, net.ErrClosed) {
 			fmt.Fprintf(os.Stderr, "spotify: auth callback server error: %v\n", err)
 		}
@@ -230,6 +233,16 @@ func doWebAPIAuth(clientID string) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("token exchange: %w", err)
 	}
 
+	return token, nil
+}
+
+// doWebAPIAuth performs an OAuth2 PKCE flow to get a fresh Web API access token.
+// Opens a browser for user consent, returns the full token (including refresh token).
+func doWebAPIAuth(clientID string) (*oauth2.Token, error) {
+	token, err := performOAuth2PKCE(clientID)
+	if err != nil {
+		return nil, err
+	}
 	fmt.Println("Spotify: Web API token refreshed.")
 	return token, nil
 }
@@ -237,59 +250,9 @@ func doWebAPIAuth(clientID string) (*oauth2.Token, error) {
 func newInteractiveSession(ctx context.Context, clientID string) (*Session, error) {
 	devID := generateDeviceID()
 
-	// We do our own OAuth2 flow so we can:
-	// 1. Capture the access token for Web API calls
-	// 2. Serve auto-close HTML in the callback
-	// 3. Pass the token to go-librespot via SpotifyTokenCredentials
-
-	// Start our callback server on a fixed port (must match Spotify Developer app redirect URI).
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", CallbackPort))
+	token, err := performOAuth2PKCE(clientID)
 	if err != nil {
-		return nil, fmt.Errorf("spotify: listen on port %d (is another instance running?): %w", CallbackPort, err)
-	}
-
-	oauthConf := &oauth2.Config{
-		ClientID:    clientID,
-		RedirectURL: fmt.Sprintf("http://127.0.0.1:%d/login", CallbackPort),
-		Scopes:      oauthScopes,
-		Endpoint:    spotifyoauth2.Endpoint,
-	}
-
-	verifier := oauth2.GenerateVerifier()
-	authURL := oauthConf.AuthCodeURL("", oauth2.S256ChallengeOption(verifier))
-
-	// Serve the callback — return HTML that auto-closes the tab.
-	codeCh := make(chan string, 1)
-	go func() {
-		if err := http.Serve(lis, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			code := r.URL.Query().Get("code")
-			if code != "" {
-				codeCh <- code
-			}
-			w.Header().Set("Content-Type", "text/html")
-			_, _ = w.Write([]byte(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>cliamp</title></head>
-<body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0">
-<div style="text-align:center">
-<h2>✅ Authenticated!</h2>
-<p>You can close this tab now.</p>
-<script>setTimeout(function(){window.close()},1500)</script>
-</div></body></html>`))
-		})); err != nil && !errors.Is(err, net.ErrClosed) {
-			fmt.Fprintf(os.Stderr, "spotify: auth callback server error: %v\n", err)
-		}
-	}()
-
-	_ = openBrowser(authURL)
-
-	// Wait for the auth code.
-	code := <-codeCh
-	_ = lis.Close()
-
-	// Exchange code for token.
-	token, err := oauthConf.Exchange(context.Background(), code, oauth2.VerifierOption(verifier))
-	if err != nil {
-		return nil, fmt.Errorf("spotify: token exchange: %w", err)
+		return nil, fmt.Errorf("spotify: %w", err)
 	}
 
 	username, _ := token.Extra("username").(string)

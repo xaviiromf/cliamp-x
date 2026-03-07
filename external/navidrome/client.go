@@ -231,16 +231,7 @@ func (c *NavidromeClient) Tracks(id string) ([]playlist.Track, error) {
 	var result struct {
 		SubsonicResponse struct {
 			Playlist struct {
-				Entry []struct {
-					ID          string `json:"id"`
-					Title       string `json:"title"`
-					Artist      string `json:"artist"`
-					Album       string `json:"album"`
-					Year        int    `json:"year"`
-					TrackNumber int    `json:"track"`
-					Genre       string `json:"genre"`
-					Duration    int    `json:"duration"`
-				} `json:"entry"`
+				Entry []subsonicSong `json:"entry"`
 			} `json:"playlist"`
 		} `json:"subsonic-response"`
 	}
@@ -250,18 +241,7 @@ func (c *NavidromeClient) Tracks(id string) ([]playlist.Track, error) {
 
 	var tracks []playlist.Track
 	for _, t := range result.SubsonicResponse.Playlist.Entry {
-		tracks = append(tracks, playlist.Track{
-			Path:         c.streamURL(t.ID),
-			NavidromeID:  t.ID,
-			Title:        t.Title,
-			Artist:       t.Artist,
-			Album:        t.Album,
-			Year:         t.Year,
-			TrackNumber:  t.TrackNumber,
-			Genre:        t.Genre,
-			Stream:       true,
-			DurationSecs: t.Duration,
-		})
+		tracks = append(tracks, c.songToTrack(t))
 	}
 	return tracks, nil
 }
@@ -303,15 +283,7 @@ func (c *NavidromeClient) ArtistAlbums(artistID string) ([]Album, error) {
 	var result struct {
 		SubsonicResponse struct {
 			Artist struct {
-				Album []struct {
-					ID        string `json:"id"`
-					Name      string `json:"name"`
-					Artist    string `json:"artist"`
-					ArtistID  string `json:"artistId"`
-					Year      int    `json:"year"`
-					SongCount int    `json:"songCount"`
-					Genre     string `json:"genre"`
-				} `json:"album"`
+				Album []subsonicAlbum `json:"album"`
 			} `json:"artist"`
 		} `json:"subsonic-response"`
 	}
@@ -321,15 +293,7 @@ func (c *NavidromeClient) ArtistAlbums(artistID string) ([]Album, error) {
 
 	var albums []Album
 	for _, a := range result.SubsonicResponse.Artist.Album {
-		albums = append(albums, Album{
-			ID:        a.ID,
-			Name:      a.Name,
-			Artist:    a.Artist,
-			ArtistID:  a.ArtistID,
-			Year:      a.Year,
-			SongCount: a.SongCount,
-			Genre:     a.Genre,
-		})
+		albums = append(albums, albumFromSubsonic(a))
 	}
 	return albums, nil
 }
@@ -348,15 +312,7 @@ func (c *NavidromeClient) AlbumList(sortType string, offset, size int) ([]Album,
 	var result struct {
 		SubsonicResponse struct {
 			AlbumList2 struct {
-				Album []struct {
-					ID        string `json:"id"`
-					Name      string `json:"name"`
-					Artist    string `json:"artist"`
-					ArtistID  string `json:"artistId"`
-					Year      int    `json:"year"`
-					SongCount int    `json:"songCount"`
-					Genre     string `json:"genre"`
-				} `json:"album"`
+				Album []subsonicAlbum `json:"album"`
 			} `json:"albumList2"`
 		} `json:"subsonic-response"`
 	}
@@ -366,15 +322,7 @@ func (c *NavidromeClient) AlbumList(sortType string, offset, size int) ([]Album,
 
 	var albums []Album
 	for _, a := range result.SubsonicResponse.AlbumList2.Album {
-		albums = append(albums, Album{
-			ID:        a.ID,
-			Name:      a.Name,
-			Artist:    a.Artist,
-			ArtistID:  a.ArtistID,
-			Year:      a.Year,
-			SongCount: a.SongCount,
-			Genre:     a.Genre,
-		})
+		albums = append(albums, albumFromSubsonic(a))
 	}
 	return albums, nil
 }
@@ -384,16 +332,7 @@ func (c *NavidromeClient) AlbumTracks(albumID string) ([]playlist.Track, error) 
 	var result struct {
 		SubsonicResponse struct {
 			Album struct {
-				Song []struct {
-					ID          string `json:"id"`
-					Title       string `json:"title"`
-					Artist      string `json:"artist"`
-					Album       string `json:"album"`
-					Year        int    `json:"year"`
-					TrackNumber int    `json:"track"`
-					Genre       string `json:"genre"`
-					Duration    int    `json:"duration"`
-				} `json:"song"`
+				Song []subsonicSong `json:"song"`
 			} `json:"album"`
 		} `json:"subsonic-response"`
 	}
@@ -403,20 +342,61 @@ func (c *NavidromeClient) AlbumTracks(albumID string) ([]playlist.Track, error) 
 
 	var tracks []playlist.Track
 	for _, s := range result.SubsonicResponse.Album.Song {
-		tracks = append(tracks, playlist.Track{
-			Path:         c.streamURL(s.ID),
-			NavidromeID:  s.ID,
-			Title:        s.Title,
-			Artist:       s.Artist,
-			Album:        s.Album,
-			Year:         s.Year,
-			TrackNumber:  s.TrackNumber,
-			Genre:        s.Genre,
-			Stream:       true,
-			DurationSecs: s.Duration,
-		})
+		tracks = append(tracks, c.songToTrack(s))
 	}
 	return tracks, nil
+}
+
+// subsonicSong holds the common JSON fields returned by the Subsonic API
+// for tracks in both getPlaylist and getAlbum responses.
+type subsonicSong struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Artist      string `json:"artist"`
+	Album       string `json:"album"`
+	Year        int    `json:"year"`
+	TrackNumber int    `json:"track"`
+	Genre       string `json:"genre"`
+	Duration    int    `json:"duration"`
+}
+
+func (c *NavidromeClient) songToTrack(s subsonicSong) playlist.Track {
+	return playlist.Track{
+		Path:         c.streamURL(s.ID),
+		NavidromeID:  s.ID,
+		Title:        s.Title,
+		Artist:       s.Artist,
+		Album:        s.Album,
+		Year:         s.Year,
+		TrackNumber:  s.TrackNumber,
+		Genre:        s.Genre,
+		Stream:       true,
+		DurationSecs: s.Duration,
+	}
+}
+
+// subsonicAlbum holds the common JSON fields returned by the Subsonic API
+// for albums in both getArtist and getAlbumList2 responses.
+type subsonicAlbum struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Artist    string `json:"artist"`
+	ArtistID  string `json:"artistId"`
+	Year      int    `json:"year"`
+	SongCount int    `json:"songCount"`
+	Genre     string `json:"genre"`
+}
+
+func albumFromSubsonic(a subsonicAlbum) Album {
+	return Album{
+		ID:        a.ID,
+		Name:      a.Name,
+		Artist:    a.Artist,
+		ArtistID:  a.ArtistID,
+		Year:      a.Year,
+		SongCount: a.SongCount,
+		Genre:     a.Genre,
+	}
 }
 
 // streamURL generates the authenticated streaming URL for a track ID.

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -421,9 +420,8 @@ func (m *Model) handleNavSearchKey(msg tea.KeyMsg) tea.Cmd {
 		m.navSearching = false
 		return nil
 	case tea.KeyBackspace, tea.KeyDelete:
-		if len(m.navSearch) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.navSearch)
-			m.navSearch = m.navSearch[:len(m.navSearch)-size]
+		if m.navSearch != "" {
+			m.navSearch = removeLastRune(m.navSearch)
 			m.navCursor = 0
 			m.navScroll = 0
 			m.navUpdateSearch()

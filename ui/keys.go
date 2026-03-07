@@ -534,6 +534,15 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
+// removeLastRune trims the final UTF-8 rune from s, used by all text input handlers.
+func removeLastRune(s string) string {
+	if len(s) > 0 {
+		_, size := utf8.DecodeLastRuneInString(s)
+		return s[:len(s)-size]
+	}
+	return s
+}
+
 func (m *Model) resetJumpInput() {
 	m.jumpInput = ""
 }
@@ -578,10 +587,7 @@ func (m *Model) handleJumpKey(msg tea.KeyMsg) tea.Cmd {
 		m.closeJumpMode()
 		return nil
 	case tea.KeyBackspace:
-		if len(m.jumpInput) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.jumpInput)
-			m.jumpInput = m.jumpInput[:len(m.jumpInput)-size]
-		}
+		m.jumpInput = removeLastRune(m.jumpInput)
 		return nil
 	}
 
@@ -614,9 +620,8 @@ func (m *Model) handleProvSearchKey(msg tea.KeyMsg) tea.Cmd {
 			m.provSearchCursor++
 		}
 	case tea.KeyBackspace:
-		if len(m.provSearchQuery) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.provSearchQuery)
-			m.provSearchQuery = m.provSearchQuery[:len(m.provSearchQuery)-size]
+		if m.provSearchQuery != "" {
+			m.provSearchQuery = removeLastRune(m.provSearchQuery)
 			m.updateProvSearch()
 		}
 	case tea.KeySpace:
@@ -692,9 +697,8 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case tea.KeyBackspace:
-		if len(m.searchQuery) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.searchQuery)
-			m.searchQuery = m.searchQuery[:len(m.searchQuery)-size]
+		if m.searchQuery != "" {
+			m.searchQuery = removeLastRune(m.searchQuery)
 			m.updateSearch()
 		}
 
@@ -741,10 +745,7 @@ func (m *Model) handleNetSearchKey(msg tea.KeyMsg) tea.Cmd {
 		return cmd
 
 	case tea.KeyBackspace:
-		if len(m.netSearchQuery) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.netSearchQuery)
-			m.netSearchQuery = m.netSearchQuery[:len(m.netSearchQuery)-size]
-		}
+		m.netSearchQuery = removeLastRune(m.netSearchQuery)
 
 	case tea.KeySpace:
 		m.netSearchQuery += " "
@@ -773,10 +774,7 @@ func (m *Model) handleURLInputKey(msg tea.KeyMsg) tea.Cmd {
 			return resolveRemoteCmd([]string{input})
 		}
 	case tea.KeyBackspace:
-		if len(m.urlInput) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.urlInput)
-			m.urlInput = m.urlInput[:len(m.urlInput)-size]
-		}
+		m.urlInput = removeLastRune(m.urlInput)
 	default:
 		if msg.Type == tea.KeyRunes {
 			m.urlInput += string(msg.Runes)
@@ -947,10 +945,7 @@ func (m *Model) handlePlMgrNewNameKey(msg tea.KeyMsg) tea.Cmd {
 			m.plMgrScreen = plMgrScreenList
 		}
 	case tea.KeyBackspace:
-		if len(m.plMgrNewName) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.plMgrNewName)
-			m.plMgrNewName = m.plMgrNewName[:len(m.plMgrNewName)-size]
-		}
+		m.plMgrNewName = removeLastRune(m.plMgrNewName)
 	case tea.KeySpace:
 		m.plMgrNewName += " "
 	default:
@@ -1124,9 +1119,8 @@ func (m *Model) handleKeymapKey(msg tea.KeyMsg) tea.Cmd {
 			m.keymapCursor++
 		}
 	case tea.KeyBackspace:
-		if len(m.keymapSearch) > 0 {
-			_, size := utf8.DecodeLastRuneInString(m.keymapSearch)
-			m.keymapSearch = m.keymapSearch[:len(m.keymapSearch)-size]
+		if m.keymapSearch != "" {
+			m.keymapSearch = removeLastRune(m.keymapSearch)
 			m.updateKeymapFilter()
 		}
 	case tea.KeySpace:

@@ -226,6 +226,21 @@ func (v *Visualizer) Render(bands [numBands]float64) string {
 	return ""
 }
 
+// fracBlock returns the fractional Unicode block character for a band level
+// within the row span [rowBottom, rowTop]. Used by bars and columns visualizers.
+func fracBlock(level, rowBottom, rowTop float64) string {
+	if level >= rowTop {
+		return "█"
+	}
+	if level > rowBottom {
+		frac := (level - rowBottom) / (rowTop - rowBottom)
+		idx := int(frac * float64(len(barBlocks)-1))
+		idx = max(0, min(idx, len(barBlocks)-1))
+		return barBlocks[idx]
+	}
+	return " "
+}
+
 // specStyle returns the spectrum color style for a given row height (0-1).
 func specStyle(rowBottom float64) lipgloss.Style {
 	switch {

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
 )
 
@@ -223,7 +224,7 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 		}
 		key = strings.TrimSpace(key)
 		val = strings.TrimSpace(val)
-		val = unquote(val)
+		val = tomlutil.Unquote(val)
 
 		switch key {
 		case "path":
@@ -253,15 +254,3 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 	return tracks, nil
 }
 
-// unquote strips surrounding double quotes from a TOML string value,
-// handling escape sequences (written by Go's %q format verb).
-func unquote(s string) string {
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		if u, err := strconv.Unquote(s); err == nil {
-			return u
-		}
-		// Fall back to naive strip if Unquote fails.
-		return s[1 : len(s)-1]
-	}
-	return s
-}
