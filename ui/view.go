@@ -273,46 +273,14 @@ func (m Model) renderSeekBar() string {
 }
 
 func (m Model) renderControls() string {
-	// ── Line 1: VOL bar + dB [Mono]  ·····  OUT 48kHz · Resample 3/4 ──
-
-	vol := m.player.Volume()
-	frac := max(0, min(1, (vol+30)/36))
-
-	barW := 20
-	filled := int(frac * float64(barW))
-
-	bar := volBarStyle.Render(strings.Repeat("█", filled)) +
-		dimStyle.Render(strings.Repeat("░", barW-filled))
-
-	left := labelStyle.Render("VOL ") + bar + dimStyle.Render(fmt.Sprintf(" %+.1fdB", vol))
-	if m.player.Mono() {
-		left += " " + activeToggle.Render("[Mono]")
-	}
-
-	sr := m.player.SampleRate()
-	rq := m.player.ResampleQuality()
-	var srStr string
-	if sr >= 1000 {
-		srStr = fmt.Sprintf("%gkHz", float64(sr)/1000)
-	} else {
-		srStr = fmt.Sprintf("%dHz", sr)
-	}
-	right := labelStyle.Render("OUT ") +
-		activeToggle.Render(srStr) + dimStyle.Render(" · ") +
-		dimStyle.Render("Resample ") + activeToggle.Render(fmt.Sprintf("%d/4", rq))
-
-	leftW := lipgloss.Width(left)
-	rightW := lipgloss.Width(right)
-	gap := max(2, panelWidth-leftW-rightW)
-	line1 := left + strings.Repeat(" ", gap) + right
-
-	// ── Line 2: EQ bands  ·····  [Preset] ──
+	// ── EQ [Preset] (left)  ·····  VOL bar dB [Mono] (right) ──
 
 	bands := m.player.EQBands()
-	labels := [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k"}
+	presetName := m.EQPresetName()
 
-	parts := make([]string, len(labels))
-	for i, label := range labels {
+	eqParts := make([]string, 10)
+	eqLabels := [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k"}
+	for i, label := range eqLabels {
 		style := eqInactiveStyle
 		if bands[i] != 0 {
 			label = fmt.Sprintf("%+.0f", bands[i])
@@ -320,19 +288,35 @@ func (m Model) renderControls() string {
 		if m.focus == focusEQ && i == m.eqCursor {
 			style = eqActiveStyle
 		}
-		parts[i] = style.Render(label)
+		eqParts[i] = style.Render(label)
 	}
 
-	presetName := m.EQPresetName()
-	eqLeft := labelStyle.Render("EQ  ") + strings.Join(parts, " ")
-	eqRight := dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("]")
+	left := labelStyle.Render("EQ ") + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
 
-	eqLeftW := lipgloss.Width(eqLeft)
-	eqRightW := lipgloss.Width(eqRight)
-	eqGap := max(2, panelWidth-eqLeftW-eqRightW)
-	line2 := eqLeft + strings.Repeat(" ", eqGap) + eqRight
+	vol := m.player.Volume()
+	frac := max(0, min(1, (vol+30)/36))
+	dbStr := fmt.Sprintf(" %+.0fdB", vol)
+	monoStr := ""
+	if m.player.Mono() {
+		monoStr = " " + activeToggle.Render("[M]")
+	}
 
-	return line1 + "\n" + line2
+	leftW := lipgloss.Width(left)
+	volLabel := labelStyle.Render("VOL ")
+	volSuffix := dimStyle.Render(dbStr) + monoStr
+	volLabelW := lipgloss.Width(volLabel)
+	volSuffixW := lipgloss.Width(volSuffix)
+	barW := max(6, (panelWidth-leftW-2-volLabelW-volSuffixW)*3/4)
+	filled := int(frac * float64(barW))
+
+	bar := volBarStyle.Render(strings.Repeat("█", filled)) +
+		dimStyle.Render(strings.Repeat("░", barW-filled))
+
+	right := volLabel + bar + volSuffix
+	rightW := lipgloss.Width(right)
+	gap := max(1, panelWidth-leftW-rightW)
+
+	return left + strings.Repeat(" ", gap) + right
 }
 
 func (m Model) renderPlaylistHeader() string {

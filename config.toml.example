@@ -16,23 +16,11 @@ mono = false
 # Shift+Left/Right seek jump in seconds (6-600)
 seek_large_step_sec = 30
 
-# Output sample rate in Hz (0=auto, 22050, 44100, 48000, 96000, 192000)
-# 0 = auto-detect from system default output device (recommended for USB audio)
-# Higher values preserve more detail from hi-res files but use more CPU
-# sample_rate = 0
-
-# Speaker buffer size in milliseconds (50-500)
-# Lower = less latency, higher = more stable
-buffer_ms = 100
-
-# Resample quality (1-4, where 4 is best)
-# Only matters when a file's native rate differs from sample_rate
-resample_quality = 4
-
-# PCM bit depth for FFmpeg-decoded formats (m4a, aac, alac, opus, wma, webm)
-# 16 = standard (default), 32 = lossless (preserves up to 24-bit audio)
-# Native formats (mp3, flac, wav, ogg) are always decoded at full precision
-bit_depth = 16
+# Advanced audio settings (most users don't need to change these)
+# sample_rate = 0          # 0=auto-detect, or 22050/44100/48000/96000/192000
+# buffer_ms = 100          # speaker buffer in ms (50-500)
+# resample_quality = 4     # 1-4, where 4 is best
+# bit_depth = 16           # 16 or 32 (for FFmpeg-decoded formats)
 
 # EQ preset: "Flat", "Rock", "Pop", "Jazz", "Classical",
 #             "Bass Boost", "Treble Boost", "Vocal", "Electronic", "Acoustic"
@@ -50,7 +38,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # UI theme name (check ~/.config/cliamp/themes/ for available themes)
 # theme = "Tokyo Night"
 
-# Visualizer mode: Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, or None
+# Visualizer mode: Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, or None
 # visualizer = "Bars"
 
 # ---
