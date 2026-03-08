@@ -1,4 +1,10 @@
-# CLIAMP
+```
+ ██████ ██      ██  █████  ███    ███ ██████
+██      ██      ██ ██   ██ ████  ████ ██   ██
+██      ██      ██ ███████ ██ ████ ██ ██████
+██      ██      ██ ██   ██ ██  ██  ██ ██
+ ██████ ███████ ██ ██   ██ ██      ██ ██
+```
 
 A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, SoundCloud, Spotify, and Navidrome with a spectrum visualizer, parametric EQ, and playlist management.
 
