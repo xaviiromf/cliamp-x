@@ -205,15 +205,25 @@ jobs:
             artifacts/cliamp-*
             artifacts/checksums.txt
 
+      - name: Upload checksums artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: artifacts/checksums.txt
+
   update-homebrew:
     needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Download checksums
+        uses: actions/download-artifact@v4
+        with:
+          name: checksums
+
+      - name: Set env vars
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
-          curl -sL "https://github.com/bjarneo/cliamp/releases/download/${TAG}/checksums.txt" -o checksums.txt
           cat checksums.txt
 
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
