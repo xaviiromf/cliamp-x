@@ -24,6 +24,8 @@ cliamp https://radio.cliamp.stream/lofi/stream.pls
 
 Add your own stations to `~/.config/cliamp/radios.toml`. See [docs/configuration.md](docs/configuration.md#custom-radio-stations).
 
+Want to host your own radio? Check out [cliamp-server](https://github.com/bjarneo/cliamp-server).
+
 ## Install
 
 ```sh
