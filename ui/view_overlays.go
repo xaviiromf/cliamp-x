@@ -15,16 +15,16 @@ func (m Model) renderKeymapOverlay() string {
 		"",
 	}
 
-	if m.keymapSearch != "" {
-		lines = append(lines, playlistSelectedStyle.Render("  / "+m.keymapSearch+"_"), "")
+	if m.keymap.search != "" {
+		lines = append(lines, playlistSelectedStyle.Render("  / "+m.keymap.search+"_"), "")
 	} else {
 		lines = append(lines, dimStyle.Render("  Type to filter…"), "")
 	}
 
 	entries := keymapEntries
 	var visible []keymapEntry
-	if m.keymapSearch != "" {
-		for _, i := range m.keymapFiltered {
+	if m.keymap.search != "" {
+		for _, i := range m.keymap.filtered {
 			visible = append(visible, entries[i])
 		}
 	} else {
@@ -38,10 +38,10 @@ func (m Model) renderKeymapOverlay() string {
 		lines = append(lines, dimStyle.Render("  No matches"))
 		rendered = 1
 	} else {
-		scroll := scrollStart(m.keymapCursor, maxVisible)
+		scroll := scrollStart(m.keymap.cursor, maxVisible)
 		for i := scroll; i < len(visible) && i < scroll+maxVisible; i++ {
 			line := fmt.Sprintf("%-10s %s", visible[i].key, visible[i].action)
-			lines = append(lines, cursorLine(line, i == m.keymapCursor))
+			lines = append(lines, cursorLine(line, i == m.keymap.cursor))
 			rendered++
 		}
 	}
@@ -62,7 +62,7 @@ func (m Model) renderThemePicker() string {
 
 	count := len(m.themes) + 1
 	maxVisible := 15
-	scroll := scrollStart(m.themeCursor, maxVisible)
+	scroll := scrollStart(m.themePicker.cursor, maxVisible)
 
 	for i := scroll; i < count && i < scroll+maxVisible; i++ {
 		var name string
@@ -71,11 +71,11 @@ func (m Model) renderThemePicker() string {
 		} else {
 			name = m.themes[i-1].Name
 		}
-		lines = append(lines, cursorLine(name, i == m.themeCursor))
+		lines = append(lines, cursorLine(name, i == m.themePicker.cursor))
 	}
 
 	if count > maxVisible {
-		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d themes", m.themeCursor+1, count)))
+		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d themes", m.themePicker.cursor+1, count)))
 	}
 
 	lines = append(lines, "", helpKey("↑↓", "Navigate ")+helpKey("Enter", "Select ")+helpKey("Esc", "Cancel"))
@@ -85,7 +85,7 @@ func (m Model) renderThemePicker() string {
 
 func (m Model) renderPlaylistManager() string {
 	var lines []string
-	switch m.plMgrScreen {
+	switch m.plManager.screen {
 	case plMgrScreenList:
 		lines = m.renderPlMgrList()
 	case plMgrScreenTracks:
@@ -94,8 +94,8 @@ func (m Model) renderPlaylistManager() string {
 		lines = m.renderPlMgrNewName()
 	}
 
-	if m.saveMsg != "" {
-		lines = append(lines, "", statusStyle.Render(m.saveMsg))
+	if m.status.text != "" {
+		lines = append(lines, "", statusStyle.Render(m.status.text))
 	}
 
 	return m.centerOverlay(strings.Join(lines, "\n"))
@@ -107,22 +107,22 @@ func (m Model) renderPlMgrList() []string {
 		"",
 	}
 
-	count := len(m.plMgrPlaylists) + 1 // +1 for "+ New Playlist..."
+	count := len(m.plManager.playlists) + 1 // +1 for "+ New Playlist..."
 	maxVisible := 12
-	scroll := scrollStart(m.plMgrCursor, maxVisible)
+	scroll := scrollStart(m.plManager.cursor, maxVisible)
 
 	for i := scroll; i < count && i < scroll+maxVisible; i++ {
 		var label string
-		if i < len(m.plMgrPlaylists) {
-			pl := m.plMgrPlaylists[i]
+		if i < len(m.plManager.playlists) {
+			pl := m.plManager.playlists[i]
 			label = fmt.Sprintf("%s (%d tracks)", pl.Name, pl.TrackCount)
 		} else {
 			label = "+ New Playlist..."
 		}
 
-		if i == m.plMgrCursor {
-			if m.plMgrConfirmDel && i < len(m.plMgrPlaylists) {
-				lines = append(lines, playlistSelectedStyle.Render("> Delete \""+m.plMgrPlaylists[i].Name+"\"? [y/n]"))
+		if i == m.plManager.cursor {
+			if m.plManager.confirmDel && i < len(m.plManager.playlists) {
+				lines = append(lines, playlistSelectedStyle.Render("> Delete \""+m.plManager.playlists[i].Name+"\"? [y/n]"))
 			} else {
 				lines = append(lines, playlistSelectedStyle.Render("> "+label))
 			}
@@ -132,7 +132,7 @@ func (m Model) renderPlMgrList() []string {
 	}
 
 	if count > maxVisible {
-		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d playlists", m.plMgrCursor+1, count)))
+		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d playlists", m.plManager.cursor+1, count)))
 	}
 
 	lines = append(lines, "", helpKey("↑↓", "Navigate ")+helpKey("Enter/→", "Open ")+helpKey("a", "Add track ")+helpKey("d", "Delete ")+helpKey("Esc", "Close"))
@@ -141,29 +141,29 @@ func (m Model) renderPlMgrList() []string {
 }
 
 func (m Model) renderPlMgrTracks() []string {
-	title := fmt.Sprintf("P L A Y L I S T : %s", m.plMgrSelPlaylist)
+	title := fmt.Sprintf("P L A Y L I S T : %s", m.plManager.selPlaylist)
 	lines := []string{
 		titleStyle.Render(title),
 		"",
 	}
 
-	if len(m.plMgrTracks) == 0 {
+	if len(m.plManager.tracks) == 0 {
 		lines = append(lines, dimStyle.Render("  (empty)"))
 		lines = append(lines, "", helpKey("a", "Add track ")+helpKey("Esc", "Back"))
 		return lines
 	}
 
 	maxVisible := 12
-	scroll := scrollStart(m.plMgrCursor, maxVisible)
+	scroll := scrollStart(m.plManager.cursor, maxVisible)
 
-	for i := scroll; i < len(m.plMgrTracks) && i < scroll+maxVisible; i++ {
-		name := truncate(m.plMgrTracks[i].DisplayName(), panelWidth-8)
+	for i := scroll; i < len(m.plManager.tracks) && i < scroll+maxVisible; i++ {
+		name := truncate(m.plManager.tracks[i].DisplayName(), panelWidth-8)
 		label := fmt.Sprintf("%d. %s", i+1, name)
-		lines = append(lines, cursorLine(label, i == m.plMgrCursor))
+		lines = append(lines, cursorLine(label, i == m.plManager.cursor))
 	}
 
-	if len(m.plMgrTracks) > maxVisible {
-		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d tracks", m.plMgrCursor+1, len(m.plMgrTracks))))
+	if len(m.plManager.tracks) > maxVisible {
+		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d tracks", m.plManager.cursor+1, len(m.plManager.tracks))))
 	}
 
 	lines = append(lines, "", helpKey("↑↓", "Navigate ")+helpKey("Enter", "Play all ")+helpKey("a", "Add track ")+helpKey("d", "Remove ")+helpKey("Esc", "Back"))
@@ -176,7 +176,7 @@ func (m Model) renderPlMgrNewName() []string {
 		titleStyle.Render("N E W  P L A Y L I S T"),
 		"",
 		dimStyle.Render("  Playlist name:"),
-		playlistSelectedStyle.Render("  " + m.plMgrNewName + "_"),
+		playlistSelectedStyle.Render("  " + m.plManager.newName + "_"),
 		"",
 		helpKey("Enter", "Create & add track ") + helpKey("Esc", "Cancel"),
 	}
@@ -197,11 +197,11 @@ func (m Model) renderQueueOverlay() string {
 		lines = append(lines, dimStyle.Render("  (empty)"))
 		rendered = 1
 	} else {
-		scroll := scrollStart(m.queueCursor, maxVisible)
+		scroll := scrollStart(m.queue.cursor, maxVisible)
 		for i := scroll; i < len(tracks) && i < scroll+maxVisible; i++ {
 			name := truncate(tracks[i].DisplayName(), panelWidth-8)
 			label := fmt.Sprintf("%d. %s", i+1, name)
-			lines = append(lines, cursorLine(label, i == m.queueCursor))
+			lines = append(lines, cursorLine(label, i == m.queue.cursor))
 			rendered++
 		}
 	}
@@ -248,7 +248,7 @@ func (m Model) renderSearchOverlay() string {
 	lines := []string{
 		titleStyle.Render("S E A R C H"),
 		"",
-		playlistSelectedStyle.Render("  / " + m.searchQuery + "_"),
+		playlistSelectedStyle.Render("  / " + m.search.query + "_"),
 		"",
 	}
 
@@ -256,8 +256,8 @@ func (m Model) renderSearchOverlay() string {
 	maxVisible := 12
 	rendered := 0
 
-	if len(m.searchResults) == 0 {
-		if m.searchQuery != "" {
+	if len(m.search.results) == 0 {
+		if m.search.query != "" {
 			lines = append(lines, dimStyle.Render("  No matches"))
 		} else {
 			lines = append(lines, dimStyle.Render("  Type to search…"))
@@ -265,10 +265,10 @@ func (m Model) renderSearchOverlay() string {
 		rendered = 1
 	} else {
 		currentIdx := m.playlist.Index()
-		scroll := scrollStart(m.searchCursor, maxVisible)
+		scroll := scrollStart(m.search.cursor, maxVisible)
 
-		for j := scroll; j < scroll+maxVisible && j < len(m.searchResults); j++ {
-			i := m.searchResults[j]
+		for j := scroll; j < scroll+maxVisible && j < len(m.search.results); j++ {
+			i := m.search.results[j]
 			prefix := "  "
 			style := dimStyle
 
@@ -277,7 +277,7 @@ func (m Model) renderSearchOverlay() string {
 				style = playlistActiveStyle
 			}
 
-			if j == m.searchCursor {
+			if j == m.search.cursor {
 				style = playlistSelectedStyle
 			}
 
@@ -299,7 +299,7 @@ func (m Model) renderSearchOverlay() string {
 	}
 
 	lines = padLines(lines, maxVisible, rendered)
-	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d found", len(m.searchResults))))
+	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d found", len(m.search.results))))
 	lines = append(lines, "", helpKey("↑↓", "Navigate ")+helpKey("Enter", "Play ")+helpKey("Tab", "Queue ")+helpKey("Ctrl+K", "Keymap ")+helpKey("Esc", "Close"))
 
 	return m.centerOverlay(strings.Join(lines, "\n"))
@@ -309,7 +309,7 @@ func (m Model) renderNetSearchOverlay() string {
 	lines := []string{
 		titleStyle.Render("F I N D   O N L I N E"),
 		"",
-		playlistSelectedStyle.Render("  Search: " + m.netSearchQuery + "_"),
+		playlistSelectedStyle.Render("  Search: " + m.netSearch.query + "_"),
 		"",
 		helpKey("Enter", "Search & Queue ") + helpKey("Esc", "Cancel"),
 	}
@@ -333,15 +333,15 @@ func (m Model) renderLyricsOverlay() string {
 		"",
 	}
 
-	if m.lyricsLoading {
+	if m.lyrics.loading {
 		lines = append(lines, dimStyle.Render("  Searching for lyrics..."))
-	} else if m.lyricsErr != nil {
-		if errors.Is(m.lyricsErr, lyrics.ErrNotFound) {
+	} else if m.lyrics.err != nil {
+		if errors.Is(m.lyrics.err, lyrics.ErrNotFound) {
 			lines = append(lines, dimStyle.Render("  No lyrics found for this track."))
 		} else {
-			lines = append(lines, helpStyle.Render("  Lyrics fetch failed: "+m.lyricsErr.Error()))
+			lines = append(lines, helpStyle.Render("  Lyrics fetch failed: "+m.lyrics.err.Error()))
 		}
-	} else if len(m.lyricsLines) == 0 {
+	} else if len(m.lyrics.lines) == 0 {
 		artist, title := m.lyricsArtistTitle()
 		if artist == "" && title == "" {
 			lines = append(lines, dimStyle.Render("  No artist/title metadata available."))
@@ -356,7 +356,7 @@ func (m Model) renderLyricsOverlay() string {
 		// Synced mode: auto-scroll to follow playback position.
 		pos := m.player.Position()
 		activeIdx := -1
-		for i, line := range m.lyricsLines {
+		for i, line := range m.lyrics.lines {
 			if line.Start <= pos {
 				activeIdx = i
 			} else {
@@ -374,8 +374,8 @@ func (m Model) renderLyricsOverlay() string {
 			startIdx = 0
 		}
 		endIdx := startIdx + visible
-		if endIdx > len(m.lyricsLines) {
-			endIdx = len(m.lyricsLines)
+		if endIdx > len(m.lyrics.lines) {
+			endIdx = len(m.lyrics.lines)
 			startIdx = endIdx - visible
 			if startIdx < 0 {
 				startIdx = 0
@@ -383,7 +383,7 @@ func (m Model) renderLyricsOverlay() string {
 		}
 
 		for i := startIdx; i < endIdx; i++ {
-			text := m.lyricsLines[i].Text
+			text := m.lyrics.lines[i].Text
 			if text == "" {
 				text = "♪"
 			}
@@ -399,13 +399,13 @@ func (m Model) renderLyricsOverlay() string {
 		if visible < 5 {
 			visible = 5
 		}
-		endIdx := m.lyricsScroll + visible
-		if endIdx > len(m.lyricsLines) {
-			endIdx = len(m.lyricsLines)
+		endIdx := m.lyrics.scroll + visible
+		if endIdx > len(m.lyrics.lines) {
+			endIdx = len(m.lyrics.lines)
 		}
 
-		for i := m.lyricsScroll; i < endIdx; i++ {
-			text := m.lyricsLines[i].Text
+		for i := m.lyrics.scroll; i < endIdx; i++ {
+			text := m.lyrics.lines[i].Text
 			if text == "" {
 				text = "♪"
 			}

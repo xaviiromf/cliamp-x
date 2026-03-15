@@ -13,7 +13,6 @@ import (
 	"cliamp/config"
 	"cliamp/external/local"
 	"cliamp/external/navidrome"
-	"cliamp/lyrics"
 	"cliamp/mpris"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -90,57 +89,54 @@ const ytdlPreloadLeadTime = 15 * time.Second
 
 // Model is the Bubbletea model for the CLIAMP TUI.
 type Model struct {
+	// Core playback
 	player        *player.Player
 	playlist      *playlist.Playlist
 	vis           *Visualizer
 	seekStepLarge time.Duration
-	focus         focusArea
-	eqCursor      int // selected EQ band (0-9)
-	plCursor      int // selected playlist item
-	plScroll      int // scroll offset for playlist view
-	plVisible     int // max visible playlist items
-	titleOff      int // scroll offset for long track titles
-	err           error
-	quitting      bool
-	width         int
-	height        int
 
+	// UI navigation
+	focus     focusArea
+	prevFocus focusArea // focus to restore on cancel (search, net search)
+	eqCursor  int       // selected EQ band (0-9)
+	plCursor  int       // selected playlist item
+	plScroll  int       // scroll offset for playlist view
+	plVisible int       // max visible playlist items
+	titleOff  int       // scroll offset for long track titles
+	err       error
+	quitting  bool
+	width     int
+	height    int
+
+	// Provider state
 	provider      playlist.Provider
-	localProvider *local.Provider // direct ref for write operations (add-to-playlist)
-	providerLists     []playlist.PlaylistInfo
-	provCursor        int
-	provLoading       bool
-	provSignIn        bool // true when provider needs interactive sign-in
-	provSearching     bool
-	provSearchQuery   string
-	provSearchResults []int // indices into providerLists
-	provSearchCursor  int
+	localProvider *local.Provider         // direct ref for write operations (add-to-playlist)
+	providerLists []playlist.PlaylistInfo
+	provCursor    int
+	provLoading   bool
+	provSignIn    bool            // true when provider needs interactive sign-in
+	providers     []ProviderEntry // all available providers
+	provPillIdx   int             // selected pill index
+	eqPresetIdx   int             // -1 = custom, 0+ = index into eqPresets
 
-	// Provider picker (pill tabs)
-	providers    []ProviderEntry // all available providers
-	provPillIdx  int             // selected pill index
-	// EQ preset state (-1 = custom, 0+ = index into eqPresets)
-	eqPresetIdx int
+	// Overlay / feature state (see state.go for struct definitions)
+	search      searchState
+	netSearch   netSearchState
+	provSearch  provSearchState
+	seek        seekState
+	themePicker themePickerState
+	lyrics      lyricsState
+	keymap      keymapOverlay
+	queue       queueOverlay
+	plManager   plManagerState
+	fileBrowser fileBrowserState
+	navBrowser  navBrowserState
+	ytdlBatch   ytdlBatchState
+	reconnect   reconnectState
+	status      statusMsg
+	network     networkStats
 
-	// Keymap overlay
-	showKeymap     bool
-	keymapCursor   int
-	keymapSearch   string
-	keymapFiltered []int // indices into keymapEntries
-
-	// Search mode state
-	searching     bool
-	searchQuery   string
-	searchResults []int // indices into playlist tracks
-	searchCursor  int
-	prevFocus     focusArea // focus to restore on cancel
-
-	// Dynamic internet search
-	netSearching   bool
-	netSearchQuery string
-	netSearchSC    bool // true = SoundCloud (scsearch), false = YouTube (ytsearch)
-
-	// Jump to time mode state
+	// Jump to time mode
 	jumping   bool
 	jumpInput string
 
@@ -156,108 +152,29 @@ type Model struct {
 	buffering bool
 
 	// preloading is true while a preloadStreamCmd goroutine is in-flight.
-	// It prevents the tick-loop from dispatching a second concurrent preload
-	// for the same next track before the first HTTP connection is armed in
-	// the gapless streamer.
 	preloading bool
 
 	// Live stream title from ICY metadata (e.g., "Artist - Song")
 	streamTitle string
 
-	// Temporary status message (e.g., "Saved to ...")
-	saveMsg    string
-	saveMsgTTL int // ticks remaining before clearing
-
-	// Network throughput tracking for stream status bar.
-	networkSpeed   float64 // bytes per second (smoothed)
-	lastSpeedBytes int64
-	lastSpeedTick  int // tick counter for sampling interval
-
 	// MPRIS D-Bus service (nil on non-Linux or if D-Bus unavailable)
 	mpris *mpris.Service
 
 	// Theme state: -1 = Default (ANSI), 0+ = index into themes
-	themes        []theme.Theme
-	themeIdx      int
-	showThemes    bool // theme picker overlay visible
-	themeCursor   int  // cursor in theme picker (0 = Default, 1+ = themes[i-1])
-	themeSavedIdx int  // themeIdx before opening picker, for cancel/restore
+	themes   []theme.Theme
+	themeIdx int
 
 	// Track info overlay (metadata details)
 	showInfo bool
 
-	// Incremental yt-dlp playlist loading (e.g. YouTube Radio).
-	ytdlBatchURL     string // source URL for incremental loading
-	ytdlBatchGen     uint64 // session generation; incremented on each init/reset
-	ytdlBatchOffset  int    // tracks already loaded
-	ytdlBatchDone    bool   // true when all tracks have been loaded
-	ytdlBatchLoading bool   // true while a batch fetch is in-flight
-
-	// yt-dlp seek debounce: accumulate into a target position and fire once.
-	seekActive    bool          // true from first keypress until seek completes
-	seekTargetPos time.Duration // absolute target position
-	seekTimer     int           // tick countdown for debounce (0 = idle)
-	seekGrace     int           // ticks to suppress reconnect after seek completes
-
 	// Full-screen visualizer mode (Shift+V)
 	fullVis bool
 
-	// Lyrics overlay
-	showLyrics       bool
-	lyricsLines      []lyrics.Line
-	lyricsLoading    bool
-	lyricsErr        error
-	lyricsQuery      string        // "artist\ntitle" of the last fetch, prevents redundant requests
-	lyricsScroll     int           // scroll offset for lyrics view
-
-	// Queue manager overlay
-	showQueue   bool
-	queueCursor int
-
-	// Playlist manager overlay (browse, add, remove, delete playlists)
-	showPlManager    bool // overlay visible
-	plMgrScreen      plMgrScreenType
-	plMgrCursor      int
-	plMgrPlaylists   []playlist.PlaylistInfo
-	plMgrSelPlaylist string           // playlist name open in screen 1
-	plMgrTracks      []playlist.Track // tracks in the selected playlist
-	plMgrNewName     string
-	plMgrConfirmDel  bool
-
 	autoPlay bool // start playing immediately on launch
 
-	// Stream auto-reconnect state
-	reconnectAttempts int       // current retry count (0 = no retries yet)
-	reconnectAt       time.Time // when to attempt next reconnect (zero = not scheduled)
-
-	// File browser overlay
-	showFileBrowser bool
-	fbDir           string
-	fbEntries       []fbEntry
-	fbCursor        int
-	fbSelected      map[string]bool
-	fbErr           string
-
-	// Navidrome explore browser overlay
-	showNavBrowser     bool
-	navClient          *navidrome.NavidromeClient // nil when Navidrome is not configured
-	navScrobbleEnabled bool                       // mirrors NavidromeConfig.ScrobbleEnabled(); set at init
-	navMode            navBrowseModeType
-	navScreen          navBrowseScreenType
-	navCursor          int
-	navScroll          int
-	navArtists         []navidrome.Artist
-	navAlbums          []navidrome.Album
-	navTracks          []playlist.Track
-	navSelArtist       navidrome.Artist
-	navSelAlbum        navidrome.Album
-	navSortType        string // current album sort type, persisted to config
-	navAlbumLoading    bool   // true while an album page fetch is in progress
-	navAlbumDone       bool   // true once the server signals no more pages (isLast)
-	navLoading         bool   // general loading flag for artists/tracks
-	navSearching       bool   // true while the nav search bar is open
-	navSearch          string // current nav search query
-	navSearchIdx       []int  // filtered indices into the active list (nil = no filter)
+	// Navidrome client (kept separate from navBrowser for non-browser operations)
+	navClient          *navidrome.NavidromeClient
+	navScrobbleEnabled bool
 }
 
 // NewModel creates a Model wired to the given player and playlist.
@@ -283,7 +200,7 @@ func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry
 		themeIdx:           -1, // Default (ANSI)
 		localProvider:      localProv,
 		providers:          providers,
-		navSortType:        sortType,
+		navBrowser:         navBrowserState{sortType: sortType},
 		navClient:          nav,
 		navScrobbleEnabled: navCfg.ScrobbleEnabled(),
 	}
@@ -360,9 +277,9 @@ func (m Model) ThemeName() string {
 // the main player view. When true, the visualizer is not visible and we can
 // use the slower tick rate.
 func (m *Model) isOverlayActive() bool {
-	return m.showKeymap || m.showThemes ||
-		m.showFileBrowser || m.showNavBrowser || m.showPlManager ||
-		m.showQueue || m.showInfo || m.searching || m.netSearching ||
+	return m.keymap.visible || m.themePicker.visible ||
+		m.fileBrowser.visible || m.navBrowser.visible || m.plManager.visible ||
+		m.queue.visible || m.showInfo || m.search.active || m.netSearch.active ||
 		m.jumping || m.urlInputting
 }
 
@@ -370,20 +287,20 @@ func (m *Model) isOverlayActive() bool {
 // and opens the theme selector overlay.
 func (m *Model) openThemePicker() {
 	m.themes = theme.LoadAll()
-	m.showThemes = true
-	m.themeSavedIdx = m.themeIdx
+	m.themePicker.visible = true
+	m.themePicker.savedIdx = m.themeIdx
 	// Position cursor on the currently active theme.
 	// Picker list: 0 = Default, 1..N = themes[0..N-1]
-	m.themeCursor = m.themeIdx + 1
+	m.themePicker.cursor = m.themeIdx + 1
 }
 
 // themePickerApply applies the theme under the cursor for live preview.
 func (m *Model) themePickerApply() {
-	if m.themeCursor == 0 {
+	if m.themePicker.cursor == 0 {
 		m.themeIdx = -1
 		applyTheme(theme.Default())
 	} else {
-		m.themeIdx = m.themeCursor - 1
+		m.themeIdx = m.themePicker.cursor - 1
 		applyTheme(m.themes[m.themeIdx])
 	}
 }
@@ -391,41 +308,41 @@ func (m *Model) themePickerApply() {
 // themePickerSelect confirms the current selection and closes the picker.
 func (m *Model) themePickerSelect() {
 	m.themePickerApply()
-	m.showThemes = false
+	m.themePicker.visible = false
 }
 
 // themePickerCancel restores the theme from before the picker was opened.
 func (m *Model) themePickerCancel() {
-	m.themeIdx = m.themeSavedIdx
+	m.themeIdx = m.themePicker.savedIdx
 	if m.themeIdx < 0 {
 		applyTheme(theme.Default())
 	} else {
 		applyTheme(m.themes[m.themeIdx])
 	}
-	m.showThemes = false
+	m.themePicker.visible = false
 }
 
 // openPlaylistManager loads playlist metadata and opens the manager overlay.
 func (m *Model) openPlaylistManager() {
 	m.plMgrRefreshList()
-	m.plMgrScreen = plMgrScreenList
-	m.plMgrConfirmDel = false
-	m.showPlManager = true
+	m.plManager.screen = plMgrScreenList
+	m.plManager.confirmDel = false
+	m.plManager.visible = true
 }
 
 // plMgrEnterTrackList loads the tracks for a playlist and switches to screen 1.
 func (m *Model) plMgrEnterTrackList(name string) {
 	tracks, err := m.localProvider.Tracks(name)
 	if err != nil {
-		m.saveMsg = fmt.Sprintf("Load failed: %s", err)
-		m.saveMsgTTL = 60
+		m.status.text = fmt.Sprintf("Load failed: %s", err)
+		m.status.ttl = 60
 		return
 	}
-	m.plMgrSelPlaylist = name
-	m.plMgrTracks = tracks
-	m.plMgrScreen = plMgrScreenTracks
-	m.plMgrCursor = 0
-	m.plMgrConfirmDel = false
+	m.plManager.selPlaylist = name
+	m.plManager.tracks = tracks
+	m.plManager.screen = plMgrScreenTracks
+	m.plManager.cursor = 0
+	m.plManager.confirmDel = false
 }
 
 // plMgrRefreshList reloads playlist names and counts from disk and clamps the cursor.
@@ -435,17 +352,17 @@ func (m *Model) plMgrRefreshList() {
 	}
 	playlists, err := m.localProvider.Playlists()
 	if err != nil {
-		m.saveMsg = fmt.Sprintf("Load failed: %s", err)
-		m.saveMsgTTL = 60
+		m.status.text = fmt.Sprintf("Load failed: %s", err)
+		m.status.ttl = 60
 	}
-	m.plMgrPlaylists = playlists
+	m.plManager.playlists = playlists
 	// +1 for the "+ New Playlist..." entry
-	total := len(m.plMgrPlaylists) + 1
-	if m.plMgrCursor >= total {
-		m.plMgrCursor = total - 1
+	total := len(m.plManager.playlists) + 1
+	if m.plManager.cursor >= total {
+		m.plManager.cursor = total - 1
 	}
-	if m.plMgrCursor < 0 {
-		m.plMgrCursor = 0
+	if m.plManager.cursor < 0 {
+		m.plManager.cursor = 0
 	}
 }
 
@@ -469,7 +386,7 @@ func (m *Model) switchProvider(idx int) tea.Cmd {
 	m.provCursor = 0
 	m.provLoading = true
 	m.provSignIn = false
-	m.provSearching = false
+	m.provSearch.active = false
 	m.focus = focusProvider
 	return fetchPlaylistsCmd(m.provider)
 }
@@ -534,34 +451,34 @@ func (m *Model) fetchNavArtistAllTracksCmd(navClient *navidrome.NavidromeClient,
 // navUpdateSearch rebuilds navSearchIdx from the current navSearch query
 // against whichever list is active on the current nav screen.
 func (m *Model) navUpdateSearch() {
-	q := strings.ToLower(m.navSearch)
+	q := strings.ToLower(m.navBrowser.search)
 	if q == "" {
-		m.navSearchIdx = nil
+		m.navBrowser.searchIdx = nil
 		return
 	}
-	m.navSearchIdx = nil
+	m.navBrowser.searchIdx = nil
 	switch {
-	case m.navMode == navBrowseModeByArtist && m.navScreen == navBrowseScreenList,
-		m.navMode == navBrowseModeByArtistAlbum && m.navScreen == navBrowseScreenList:
-		for i, a := range m.navArtists {
+	case m.navBrowser.mode == navBrowseModeByArtist && m.navBrowser.screen == navBrowseScreenList,
+		m.navBrowser.mode == navBrowseModeByArtistAlbum && m.navBrowser.screen == navBrowseScreenList:
+		for i, a := range m.navBrowser.artists {
 			if strings.Contains(strings.ToLower(a.Name), q) {
-				m.navSearchIdx = append(m.navSearchIdx, i)
+				m.navBrowser.searchIdx = append(m.navBrowser.searchIdx, i)
 			}
 		}
-	case m.navMode == navBrowseModeByAlbum && m.navScreen == navBrowseScreenList,
-		m.navMode == navBrowseModeByArtistAlbum && m.navScreen == navBrowseScreenAlbums:
-		for i, a := range m.navAlbums {
+	case m.navBrowser.mode == navBrowseModeByAlbum && m.navBrowser.screen == navBrowseScreenList,
+		m.navBrowser.mode == navBrowseModeByArtistAlbum && m.navBrowser.screen == navBrowseScreenAlbums:
+		for i, a := range m.navBrowser.albums {
 			if strings.Contains(strings.ToLower(a.Name), q) ||
 				strings.Contains(strings.ToLower(a.Artist), q) {
-				m.navSearchIdx = append(m.navSearchIdx, i)
+				m.navBrowser.searchIdx = append(m.navBrowser.searchIdx, i)
 			}
 		}
-	case m.navScreen == navBrowseScreenTracks:
-		for i, t := range m.navTracks {
+	case m.navBrowser.screen == navBrowseScreenTracks:
+		for i, t := range m.navBrowser.tracks {
 			if strings.Contains(strings.ToLower(t.Title), q) ||
 				strings.Contains(strings.ToLower(t.Artist), q) ||
 				strings.Contains(strings.ToLower(t.Album), q) {
-				m.navSearchIdx = append(m.navSearchIdx, i)
+				m.navBrowser.searchIdx = append(m.navBrowser.searchIdx, i)
 			}
 		}
 	}
@@ -569,28 +486,28 @@ func (m *Model) navUpdateSearch() {
 
 // navClearSearch resets the nav search state.
 func (m *Model) navClearSearch() {
-	m.navSearching = false
-	m.navSearch = ""
-	m.navSearchIdx = nil
-	m.navCursor = 0
-	m.navScroll = 0
+	m.navBrowser.searching = false
+	m.navBrowser.search = ""
+	m.navBrowser.searchIdx = nil
+	m.navBrowser.cursor = 0
+	m.navBrowser.scroll = 0
 }
 
 func (m *Model) openNavBrowser() {
-	m.showNavBrowser = true
-	m.navMode = navBrowseModeMenu
-	m.navScreen = navBrowseScreenList
-	m.navCursor = 0
-	m.navScroll = 0
-	m.navArtists = nil
-	m.navAlbums = nil
-	m.navTracks = nil
-	m.navLoading = false
-	m.navAlbumLoading = false
-	m.navAlbumDone = false
-	m.navSearching = false
-	m.navSearch = ""
-	m.navSearchIdx = nil
+	m.navBrowser.visible = true
+	m.navBrowser.mode = navBrowseModeMenu
+	m.navBrowser.screen = navBrowseScreenList
+	m.navBrowser.cursor = 0
+	m.navBrowser.scroll = 0
+	m.navBrowser.artists = nil
+	m.navBrowser.albums = nil
+	m.navBrowser.tracks = nil
+	m.navBrowser.loading = false
+	m.navBrowser.albumLoading = false
+	m.navBrowser.albumDone = false
+	m.navBrowser.searching = false
+	m.navBrowser.search = ""
+	m.navBrowser.searchIdx = nil
 }
 
 // Init starts the tick timer and requests the terminal size.
@@ -673,11 +590,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case seekTickMsg:
 		// Async yt-dlp seek completed.
 		// Only clear seekActive if no new seek keypresses arrived during loading.
-		if m.seekTimer <= 0 {
-			m.seekActive = false
+		if m.seek.timer <= 0 {
+			m.seek.active = false
 		}
 		// Grace period: suppress reconnect for a few ticks after seek completes.
-		m.seekGrace = 10
+		m.seek.grace = 10
 		if m.mpris != nil {
 			m.mpris.EmitSeeked(m.player.Position().Microseconds())
 		}
@@ -690,33 +607,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			seekCmd = cmd
 		}
 		// Expire temporary status messages.
-		if m.saveMsgTTL > 0 {
-			m.saveMsgTTL--
-			if m.saveMsgTTL == 0 {
-				m.saveMsg = ""
+		if m.status.ttl > 0 {
+			m.status.ttl--
+			if m.status.ttl == 0 {
+				m.status.text = ""
 			}
 		}
 		// Decrement seek grace period.
-		if m.seekGrace > 0 {
-			m.seekGrace--
+		if m.seek.grace > 0 {
+			m.seek.grace--
 		}
 		// Surface stream errors (e.g., connection drops) and auto-reconnect streams.
 		// Suppress during yt-dlp seek and grace period — killing the old pipeline
 		// triggers a transient error that can persist for a few ticks.
-		if err := m.player.StreamErr(); err != nil && !m.seekActive && m.seekGrace == 0 {
+		if err := m.player.StreamErr(); err != nil && !m.seek.active && m.seek.grace == 0 {
 			track, idx := m.playlist.Current()
 			isStream := idx >= 0 && (track.Stream || playlist.IsYouTubeURL(track.Path) || playlist.IsYTDL(track.Path))
-			if isStream && m.reconnectAttempts < 5 {
+			if isStream && m.reconnect.attempts < 5 {
 				// Schedule reconnect with exponential backoff: 1s, 2s, 4s, 8s, 16s
-				if m.reconnectAt.IsZero() {
-					delay := time.Second << m.reconnectAttempts
-					m.reconnectAt = time.Now().Add(delay)
-					m.reconnectAttempts++
+				if m.reconnect.at.IsZero() {
+					delay := time.Second << m.reconnect.attempts
+					m.reconnect.at = time.Now().Add(delay)
+					m.reconnect.attempts++
 					m.err = fmt.Errorf("Reconnecting in %s...", delay)
 				}
 			} else {
 				m.err = err
-				m.reconnectAt = time.Time{}
+				m.reconnect.at = time.Time{}
 			}
 		}
 		var lyricCmd tea.Cmd
@@ -724,42 +641,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if title := m.player.StreamTitle(); title != "" && title != m.streamTitle {
 			m.streamTitle = title
 			// Auto-fetch lyrics when the stream song changes and lyrics overlay is open.
-			if m.showLyrics && !m.lyricsLoading {
+			if m.lyrics.visible && !m.lyrics.loading {
 				if artist, song, ok := strings.Cut(title, " - "); ok {
 					q := artist + "\n" + song
-					if q != m.lyricsQuery {
-						m.lyricsQuery = q
-						m.lyricsLoading = true
-						m.lyricsLines = nil
-						m.lyricsErr = nil
-						m.lyricsScroll = 0
+					if q != m.lyrics.query {
+						m.lyrics.query = q
+						m.lyrics.loading = true
+						m.lyrics.lines = nil
+						m.lyrics.err = nil
+						m.lyrics.scroll = 0
 						lyricCmd = fetchLyricsCmd(artist, song)
 					}
 				}
 			}
 		}
 		// Update network throughput every ~1 second (20 ticks at 50ms).
-		m.lastSpeedTick++
-		if m.lastSpeedTick >= 20 {
+		m.network.lastTick++
+		if m.network.lastTick >= 20 {
 			downloaded, _ := m.player.StreamBytes()
-			delta := downloaded - m.lastSpeedBytes
+			delta := downloaded - m.network.lastBytes
 			if delta > 0 {
 				// Exponential moving average for smooth display.
-				instant := float64(delta) / (float64(m.lastSpeedTick) * 0.05) // bytes/sec
-				if m.networkSpeed == 0 {
-					m.networkSpeed = instant
+				instant := float64(delta) / (float64(m.network.lastTick) * 0.05) // bytes/sec
+				if m.network.speed == 0 {
+					m.network.speed = instant
 				} else {
-					m.networkSpeed = m.networkSpeed*0.6 + instant*0.4
+					m.network.speed = m.network.speed*0.6 + instant*0.4
 				}
 			} else if downloaded == 0 {
-				m.networkSpeed = 0
+				m.network.speed = 0
 			}
-			m.lastSpeedBytes = downloaded
-			m.lastSpeedTick = 0
+			m.network.lastBytes = downloaded
+			m.network.lastTick = 0
 		}
 		// Fire scheduled reconnect when the timer expires.
-		if !m.reconnectAt.IsZero() && time.Now().After(m.reconnectAt) {
-			m.reconnectAt = time.Time{}
+		if !m.reconnect.at.IsZero() && time.Now().After(m.reconnect.at) {
+			m.reconnect.at = time.Time{}
 			m.player.Stop()
 			if track, idx := m.playlist.Current(); idx >= 0 {
 				return m, tea.Batch(m.playTrack(track), tickCmd())
@@ -804,7 +721,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Check if gapless drained (end of playlist, no preloaded next).
 		// Skip if already buffering a yt-dlp download to avoid advancing
 		// the playlist on every tick while waiting for the resolve.
-		if m.player.IsPlaying() && !m.player.IsPaused() && m.player.Drained() && !m.buffering && m.reconnectAt.IsZero() {
+		if m.player.IsPlaying() && !m.player.IsPaused() && m.player.Drained() && !m.buffering && m.reconnect.at.IsZero() {
 			// Track drained to end — always ≥ 50%.
 			finishedTrack, _ := m.playlist.Current()
 			drainDur := time.Duration(finishedTrack.DurationSecs) * time.Second
@@ -865,74 +782,74 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case navArtistsLoadedMsg:
-		m.navArtists = []navidrome.Artist(msg)
-		m.navLoading = false
-		m.navCursor = 0
-		m.navScroll = 0
+		m.navBrowser.artists = []navidrome.Artist(msg)
+		m.navBrowser.loading = false
+		m.navBrowser.cursor = 0
+		m.navBrowser.scroll = 0
 		return m, nil
 
 	case navAlbumsLoadedMsg:
 		if msg.offset == 0 {
 			// Fresh load (new sort or drill-in): replace the list.
-			m.navAlbums = msg.albums
-			m.navAlbumDone = false
+			m.navBrowser.albums = msg.albums
+			m.navBrowser.albumDone = false
 		} else {
 			// Lazy-load page: append.
-			m.navAlbums = append(m.navAlbums, msg.albums...)
+			m.navBrowser.albums = append(m.navBrowser.albums, msg.albums...)
 		}
 		if msg.isLast {
-			m.navAlbumDone = true
+			m.navBrowser.albumDone = true
 		}
-		m.navAlbumLoading = false
+		m.navBrowser.albumLoading = false
 		if msg.offset == 0 {
-			m.navCursor = 0
-			m.navScroll = 0
+			m.navBrowser.cursor = 0
+			m.navBrowser.scroll = 0
 		}
 		// If we just loaded the first page and it was a full menu → list transition,
 		// also clear the general loading flag.
-		m.navLoading = false
+		m.navBrowser.loading = false
 		return m, nil
 
 	case navTracksLoadedMsg:
-		m.navTracks = []playlist.Track(msg)
-		m.navLoading = false
-		m.navCursor = 0
-		m.navScroll = 0
-		m.navScreen = navBrowseScreenTracks
+		m.navBrowser.tracks = []playlist.Track(msg)
+		m.navBrowser.loading = false
+		m.navBrowser.cursor = 0
+		m.navBrowser.scroll = 0
+		m.navBrowser.screen = navBrowseScreenTracks
 		return m, nil
 
 	case ytdlBatchMsg:
 		// Discard stale responses from a previous batch session.
-		if msg.gen != m.ytdlBatchGen {
+		if msg.gen != m.ytdlBatch.gen {
 			return m, nil
 		}
-		m.ytdlBatchLoading = false
+		m.ytdlBatch.loading = false
 		if msg.err != nil {
-			m.ytdlBatchDone = true
-			m.saveMsg = fmt.Sprintf("Radio batch load failed: %v", msg.err)
-			m.saveMsgTTL = 90
+			m.ytdlBatch.done = true
+			m.status.text = fmt.Sprintf("Radio batch load failed: %v", msg.err)
+			m.status.ttl = 90
 			return m, nil
 		}
 		if len(msg.tracks) == 0 {
-			m.ytdlBatchDone = true
+			m.ytdlBatch.done = true
 			return m, nil
 		}
 		m.playlist.Add(msg.tracks...)
-		m.ytdlBatchOffset += len(msg.tracks)
+		m.ytdlBatch.offset += len(msg.tracks)
 		if len(msg.tracks) < ytdlBatchSize {
-			m.ytdlBatchDone = true
+			m.ytdlBatch.done = true
 			return m, nil
 		}
 		// Immediately fetch the next batch.
-		m.ytdlBatchLoading = true
-		return m, fetchYTDLBatchCmd(m.ytdlBatchGen, m.ytdlBatchURL, m.ytdlBatchOffset, ytdlBatchSize)
+		m.ytdlBatch.loading = true
+		return m, fetchYTDLBatchCmd(m.ytdlBatch.gen, m.ytdlBatch.url, m.ytdlBatch.offset, ytdlBatchSize)
 
 	case feedsLoadedMsg:
 		m.feedLoading = false
 		if len(msg.tracks) > 0 {
 			m.playlist.Add(msg.tracks...)
-			m.saveMsg = fmt.Sprintf("Loaded %d track(s)", len(msg.tracks))
-			m.saveMsgTTL = 60
+			m.status.text = fmt.Sprintf("Loaded %d track(s)", len(msg.tracks))
+			m.status.ttl = 60
 			// Set up incremental loading for YouTube Radio playlists.
 			// The source URLs are carried in the message so we don't
 			// need to re-scan pendingURLs (which misses interactive loads).
@@ -949,8 +866,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, batchCmd
 			}
 		} else {
-			m.saveMsg = "No tracks found at URL."
-			m.saveMsgTTL = 60
+			m.status.text = "No tracks found at URL."
+			m.status.ttl = 60
 		}
 		return m, nil
 
@@ -961,8 +878,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for i := startIdx; i < m.playlist.Len(); i++ {
 				m.playlist.Queue(i)
 			}
-			m.saveMsg = fmt.Sprintf("Added to Queue: %s", msg[0].DisplayName())
-			m.saveMsgTTL = 60
+			m.status.text = fmt.Sprintf("Added to Queue: %s", msg[0].DisplayName())
+			m.status.ttl = 60
 			if !m.player.IsPlaying() {
 
 				cmd := m.playCurrentTrack()
@@ -970,24 +887,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		} else {
-			m.saveMsg = "No tracks found online."
-			m.saveMsgTTL = 60
+			m.status.text = "No tracks found online."
+			m.status.ttl = 60
 		}
 		return m, nil
 
 	case lyricsLoadedMsg:
-		m.lyricsLoading = false
-		m.lyricsErr = msg.err
-		m.lyricsScroll = 0
+		m.lyrics.loading = false
+		m.lyrics.err = msg.err
+		m.lyrics.scroll = 0
 		if msg.err == nil {
-			m.lyricsLines = msg.lines
+			m.lyrics.lines = msg.lines
 		}
 		return m, nil
 
 	case fbTracksResolvedMsg:
 		if len(msg.tracks) == 0 {
-			m.saveMsg = "No audio files found"
-			m.saveMsgTTL = 60
+			m.status.text = "No audio files found"
+			m.status.ttl = 60
 			return m, nil
 		}
 		if msg.replace {
@@ -1001,8 +918,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.playlist.Add(msg.tracks...)
 		}
 		m.focus = focusPlaylist
-		m.saveMsg = fmt.Sprintf("Added %d track(s)", len(msg.tracks))
-		m.saveMsgTTL = 60
+		m.status.text = fmt.Sprintf("Added %d track(s)", len(msg.tracks))
+		m.status.ttl = 60
 		if !m.player.IsPlaying() && m.playlist.Len() > 0 {
 			if msg.replace {
 				m.playlist.SetIndex(0)
@@ -1019,8 +936,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 		} else {
 			m.err = nil
-			m.reconnectAttempts = 0
-			m.reconnectAt = time.Time{}
+			m.reconnect.attempts = 0
+			m.reconnect.at = time.Time{}
 		}
 		m.notifyMPRIS()
 		return m, m.preloadNext()
@@ -1031,11 +948,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ytdlSavedMsg:
 		if msg.err != nil {
-			m.saveMsg = fmt.Sprintf("Download failed: %s", msg.err)
+			m.status.text = fmt.Sprintf("Download failed: %s", msg.err)
 		} else {
-			m.saveMsg = fmt.Sprintf("Saved to %s", msg.path)
+			m.status.text = fmt.Sprintf("Saved to %s", msg.path)
 		}
-		m.saveMsgTTL = 80
+		m.status.ttl = 80
 		return m, nil
 
 	case ytdlResolvedMsg:
@@ -1183,19 +1100,19 @@ func (m *Model) playCurrentTrack() tea.Cmd {
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.
 // yt-dlp URLs are streamed via a piped yt-dlp | ffmpeg chain for instant playback.
 func (m *Model) playTrack(track playlist.Track) tea.Cmd {
-	m.reconnectAttempts = 0
-	m.reconnectAt = time.Time{}
+	m.reconnect.attempts = 0
+	m.reconnect.at = time.Time{}
 	m.streamTitle = ""
-	m.lyricsLines = nil
-	m.lyricsErr = nil
-	m.lyricsQuery = ""
-	m.lyricsScroll = 0
-	m.seekActive = false
-	m.seekTimer = 0
+	m.lyrics.lines = nil
+	m.lyrics.err = nil
+	m.lyrics.query = ""
+	m.lyrics.scroll = 0
+	m.seek.active = false
+	m.seek.timer = 0
 	var fetchCmd tea.Cmd
-	if m.showLyrics && track.Artist != "" && track.Title != "" {
-		m.lyricsLoading = true
-		m.lyricsQuery = track.Artist + "\n" + track.Title
+	if m.lyrics.visible && track.Artist != "" && track.Title != "" {
+		m.lyrics.loading = true
+		m.lyrics.query = track.Artist + "\n" + track.Title
 		fetchCmd = fetchLyricsCmd(track.Artist, track.Title)
 	}
 
@@ -1442,7 +1359,7 @@ func (m *Model) lyricsSyncable() bool {
 // lyricsHaveTimestamps reports whether the loaded lyrics have meaningful
 // timestamps (i.e., not all lines at 0).
 func (m *Model) lyricsHaveTimestamps() bool {
-	for _, l := range m.lyricsLines {
+	for _, l := range m.lyrics.lines {
 		if l.Start > 0 {
 			return true
 		}
@@ -1452,15 +1369,15 @@ func (m *Model) lyricsHaveTimestamps() bool {
 
 // updateSearch filters the playlist by the current search query.
 func (m *Model) updateSearch() {
-	m.searchResults = nil
-	m.searchCursor = 0
-	if m.searchQuery == "" {
+	m.search.results = nil
+	m.search.cursor = 0
+	if m.search.query == "" {
 		return
 	}
-	query := strings.ToLower(m.searchQuery)
+	query := strings.ToLower(m.search.query)
 	for i, t := range m.playlist.Tracks() {
 		if strings.Contains(strings.ToLower(t.DisplayName()), query) {
-			m.searchResults = append(m.searchResults, i)
+			m.search.results = append(m.search.results, i)
 		}
 	}
 }

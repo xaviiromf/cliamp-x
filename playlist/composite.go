@@ -28,6 +28,7 @@ func NewComposite(providers ...Provider) *CompositeProvider {
 	return &CompositeProvider{providers: valid}
 }
 
+// Name returns the composite display name, or the single provider's name.
 func (c *CompositeProvider) Name() string {
 	if len(c.providers) == 1 {
 		return c.providers[0].Name()

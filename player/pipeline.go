@@ -159,7 +159,7 @@ func (p *Player) buildPipelineAt(path string, byteOffset int64, timeOffset time.
 
 	src, err := openSourceAt(path, byteOffset, onMeta)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open source: %w", err)
 	}
 	rc := src.body
 

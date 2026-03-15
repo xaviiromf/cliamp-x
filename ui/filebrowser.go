@@ -34,31 +34,31 @@ func (m *Model) openFileBrowser() {
 	if err != nil {
 		home = "/"
 	}
-	m.fbDir = home
-	m.fbCursor = 0
-	m.fbSelected = make(map[string]bool)
-	m.fbErr = ""
+	m.fileBrowser.dir = home
+	m.fileBrowser.cursor = 0
+	m.fileBrowser.selected = make(map[string]bool)
+	m.fileBrowser.err = ""
 	m.loadFBDir()
-	m.showFileBrowser = true
+	m.fileBrowser.visible = true
 }
 
 // loadFBDir reads the current directory and populates fbEntries.
 func (m *Model) loadFBDir() {
-	m.fbErr = ""
-	m.fbEntries = nil
+	m.fileBrowser.err = ""
+	m.fileBrowser.entries = nil
 
 	// Always provide a parent entry for navigating up.
-	m.fbEntries = append(m.fbEntries, fbEntry{
+	m.fileBrowser.entries = append(m.fileBrowser.entries, fbEntry{
 		name:     "..",
-		path:     filepath.Dir(m.fbDir),
+		path:     filepath.Dir(m.fileBrowser.dir),
 		isDir:    true,
 		isParent: true,
 	})
 
-	entries, err := os.ReadDir(m.fbDir)
+	entries, err := os.ReadDir(m.fileBrowser.dir)
 	if err != nil {
-		m.fbErr = err.Error()
-		m.fbCursor = 0
+		m.fileBrowser.err = err.Error()
+		m.fileBrowser.cursor = 0
 		return
 	}
 
@@ -69,7 +69,7 @@ func (m *Model) loadFBDir() {
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
-		full := filepath.Join(m.fbDir, name)
+		full := filepath.Join(m.fileBrowser.dir, name)
 		if e.IsDir() {
 			dirs = append(dirs, fbEntry{
 				name:  name + "/",
@@ -86,59 +86,59 @@ func (m *Model) loadFBDir() {
 		}
 	}
 
-	m.fbEntries = append(m.fbEntries, dirs...)
-	m.fbEntries = append(m.fbEntries, files...)
-	m.fbCursor = 0
+	m.fileBrowser.entries = append(m.fileBrowser.entries, dirs...)
+	m.fileBrowser.entries = append(m.fileBrowser.entries, files...)
+	m.fileBrowser.cursor = 0
 }
 
 // handleFileBrowserKey processes key presses while the file browser is open.
 func (m *Model) handleFileBrowserKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
-		m.showFileBrowser = false
+		m.fileBrowser.visible = false
 		return m.quit()
 
 	case "esc", "o":
-		m.showFileBrowser = false
+		m.fileBrowser.visible = false
 		return nil
 
 	case "up", "k":
-		if m.fbCursor > 0 {
-			m.fbCursor--
+		if m.fileBrowser.cursor > 0 {
+			m.fileBrowser.cursor--
 		}
 
 	case "down", "j":
-		if m.fbCursor < len(m.fbEntries)-1 {
-			m.fbCursor++
+		if m.fileBrowser.cursor < len(m.fileBrowser.entries)-1 {
+			m.fileBrowser.cursor++
 		}
 
 	case "enter", "l", "right":
-		if len(m.fbSelected) > 0 {
+		if len(m.fileBrowser.selected) > 0 {
 			return m.fbConfirm(false)
 		}
-		if m.fbCursor < len(m.fbEntries) {
-			e := m.fbEntries[m.fbCursor]
+		if m.fileBrowser.cursor < len(m.fileBrowser.entries) {
+			e := m.fileBrowser.entries[m.fileBrowser.cursor]
 			if e.isDir {
-				m.fbDir = e.path
+				m.fileBrowser.dir = e.path
 				m.loadFBDir()
 			} else if e.isAudio {
-				m.fbSelected[e.path] = true
+				m.fileBrowser.selected[e.path] = true
 				return m.fbConfirm(false)
 			}
 		}
 
 	case "backspace", "h", "left":
-		m.fbDir = filepath.Dir(m.fbDir)
+		m.fileBrowser.dir = filepath.Dir(m.fileBrowser.dir)
 		m.loadFBDir()
 
 	case " ":
-		if m.fbCursor < len(m.fbEntries) {
-			e := m.fbEntries[m.fbCursor]
+		if m.fileBrowser.cursor < len(m.fileBrowser.entries) {
+			e := m.fileBrowser.entries[m.fileBrowser.cursor]
 			if !e.isParent && (e.isAudio || e.isDir) {
-				if m.fbSelected[e.path] {
-					delete(m.fbSelected, e.path)
+				if m.fileBrowser.selected[e.path] {
+					delete(m.fileBrowser.selected, e.path)
 				} else {
-					m.fbSelected[e.path] = true
+					m.fileBrowser.selected[e.path] = true
 				}
 			}
 		}
@@ -146,32 +146,32 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyMsg) tea.Cmd {
 	case "a":
 		// Toggle select all audio files in current view.
 		allSelected := true
-		for _, e := range m.fbEntries {
-			if e.isAudio && !m.fbSelected[e.path] {
+		for _, e := range m.fileBrowser.entries {
+			if e.isAudio && !m.fileBrowser.selected[e.path] {
 				allSelected = false
 				break
 			}
 		}
-		for _, e := range m.fbEntries {
+		for _, e := range m.fileBrowser.entries {
 			if e.isAudio {
 				if allSelected {
-					delete(m.fbSelected, e.path)
+					delete(m.fileBrowser.selected, e.path)
 				} else {
-					m.fbSelected[e.path] = true
+					m.fileBrowser.selected[e.path] = true
 				}
 			}
 		}
 
 	case "g":
-		m.fbCursor = 0
+		m.fileBrowser.cursor = 0
 
 	case "G":
-		if len(m.fbEntries) > 0 {
-			m.fbCursor = len(m.fbEntries) - 1
+		if len(m.fileBrowser.entries) > 0 {
+			m.fileBrowser.cursor = len(m.fileBrowser.entries) - 1
 		}
 
 	case "R":
-		if len(m.fbSelected) > 0 {
+		if len(m.fileBrowser.selected) > 0 {
 			return m.fbConfirm(true)
 		}
 	}
@@ -183,10 +183,10 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyMsg) tea.Cmd {
 // command that resolves the paths into tracks.
 func (m *Model) fbConfirm(replace bool) tea.Cmd {
 	var paths []string
-	for p := range m.fbSelected {
+	for p := range m.fileBrowser.selected {
 		paths = append(paths, p)
 	}
-	m.showFileBrowser = false
+	m.fileBrowser.visible = false
 
 	return func() tea.Msg {
 		r, err := resolve.Args(paths)
@@ -201,32 +201,32 @@ func (m *Model) fbConfirm(replace bool) tea.Cmd {
 func (m Model) renderFileBrowser() string {
 	lines := []string{
 		titleStyle.Render("O P E N  F I L E S"),
-		dimStyle.Render("  " + m.fbDir),
+		dimStyle.Render("  " + m.fileBrowser.dir),
 		"",
 	}
 
-	if m.fbErr != "" {
-		lines = append(lines, errorStyle.Render("  "+m.fbErr))
+	if m.fileBrowser.err != "" {
+		lines = append(lines, errorStyle.Render("  "+m.fileBrowser.err))
 	}
 
 	maxVisible := 12
 	rendered := 0
 
-	if len(m.fbEntries) == 0 {
+	if len(m.fileBrowser.entries) == 0 {
 		lines = append(lines, dimStyle.Render("  (empty)"))
 		rendered = 1
 	} else {
 		scroll := 0
-		if m.fbCursor >= maxVisible {
-			scroll = m.fbCursor - maxVisible + 1
+		if m.fileBrowser.cursor >= maxVisible {
+			scroll = m.fileBrowser.cursor - maxVisible + 1
 		}
 
-		for i := scroll; i < len(m.fbEntries) && i < scroll+maxVisible; i++ {
-			e := m.fbEntries[i]
+		for i := scroll; i < len(m.fileBrowser.entries) && i < scroll+maxVisible; i++ {
+			e := m.fileBrowser.entries[i]
 
 			// Selection check mark.
 			check := "  "
-			if m.fbSelected[e.path] {
+			if m.fileBrowser.selected[e.path] {
 				check = "✓ "
 			}
 
@@ -245,7 +245,7 @@ func (m Model) renderFileBrowser() string {
 				label = string(labelRunes[:maxW-1]) + "…"
 			}
 
-			if i == m.fbCursor {
+			if i == m.fileBrowser.cursor {
 				lines = append(lines, playlistSelectedStyle.Render("> "+label))
 			} else if e.isDir {
 				lines = append(lines, trackStyle.Render("  "+label))
@@ -264,8 +264,8 @@ func (m Model) renderFileBrowser() string {
 	}
 
 	// Selection count.
-	if len(m.fbSelected) > 0 {
-		lines = append(lines, "", statusStyle.Render(fmt.Sprintf("  %d selected", len(m.fbSelected))))
+	if len(m.fileBrowser.selected) > 0 {
+		lines = append(lines, "", statusStyle.Render(fmt.Sprintf("  %d selected", len(m.fileBrowser.selected))))
 	} else {
 		lines = append(lines, "")
 	}

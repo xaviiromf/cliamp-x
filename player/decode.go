@@ -1,7 +1,6 @@
 package player
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,13 +9,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/flac"
 	"github.com/gopxl/beep/v2/mp3"
 	"github.com/gopxl/beep/v2/vorbis"
 	"github.com/gopxl/beep/v2/wav"
+
+	"cliamp/internal/httpclient"
 )
 
 // SupportedExts is the set of file extensions the player can decode.
@@ -34,16 +34,9 @@ var SupportedExts = map[string]bool{
 	".webm": true,
 }
 
-// httpClient is used for all HTTP streaming. It sets a generous header
-// timeout but no overall timeout, so infinite live streams aren't killed.
-// HTTP/2 is explicitly disabled via TLSNextProto because Icecast/SHOUTcast
-// servers don't support it — Go's default ALPN negotiation causes EOF.
-var httpClient = &http.Client{
-	Transport: &http.Transport{
-		ResponseHeaderTimeout: 30 * time.Second,
-		TLSNextProto:          make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-	},
-}
+// httpClient is the shared streaming HTTP client. See internal/httpclient
+// for configuration rationale (no overall timeout, HTTP/2 disabled for Icecast).
+var httpClient = httpclient.Streaming
 
 // isURL reports whether path is an HTTP or HTTPS URL.
 func isURL(path string) bool {

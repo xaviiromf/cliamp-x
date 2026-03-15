@@ -15,11 +15,11 @@ const ytdlBatchSize = 100 // items per background batch
 // Incrementing the generation ensures that stale in-flight responses
 // are discarded by the handler, even if the same URL is reloaded.
 func (m *Model) resetYTDLBatch() {
-	m.ytdlBatchGen++
-	m.ytdlBatchURL = ""
-	m.ytdlBatchOffset = 0
-	m.ytdlBatchDone = false
-	m.ytdlBatchLoading = false
+	m.ytdlBatch.gen++
+	m.ytdlBatch.url = ""
+	m.ytdlBatch.offset = 0
+	m.ytdlBatch.done = false
+	m.ytdlBatch.loading = false
 }
 
 // initYTDLBatch detects a YouTube Radio URL among the given source URLs and
@@ -33,12 +33,12 @@ func (m *Model) initYTDLBatch(urls []string) tea.Cmd {
 			continue
 		}
 		if strings.HasPrefix(parsed.Query().Get("list"), "RD") {
-			m.ytdlBatchGen++
-			m.ytdlBatchURL = u
-			m.ytdlBatchOffset = resolve.YTDLRadioInitialItems
-			m.ytdlBatchDone = false
-			m.ytdlBatchLoading = true
-			return fetchYTDLBatchCmd(m.ytdlBatchGen, u, resolve.YTDLRadioInitialItems, ytdlBatchSize)
+			m.ytdlBatch.gen++
+			m.ytdlBatch.url = u
+			m.ytdlBatch.offset = resolve.YTDLRadioInitialItems
+			m.ytdlBatch.done = false
+			m.ytdlBatch.loading = true
+			return fetchYTDLBatchCmd(m.ytdlBatch.gen, u, resolve.YTDLRadioInitialItems, ytdlBatchSize)
 		}
 	}
 	return nil

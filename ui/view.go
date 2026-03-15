@@ -24,27 +24,27 @@ func (m Model) View() string {
 		return ""
 	}
 
-	if m.showKeymap {
+	if m.keymap.visible {
 		return m.renderKeymapOverlay()
 	}
 
-	if m.showThemes {
+	if m.themePicker.visible {
 		return m.renderThemePicker()
 	}
 
-	if m.showFileBrowser {
+	if m.fileBrowser.visible {
 		return m.renderFileBrowser()
 	}
 
-	if m.showNavBrowser {
+	if m.navBrowser.visible {
 		return m.renderNavBrowser()
 	}
 
-	if m.showPlManager {
+	if m.plManager.visible {
 		return m.renderPlaylistManager()
 	}
 
-	if m.showQueue {
+	if m.queue.visible {
 		return m.renderQueueOverlay()
 	}
 
@@ -52,11 +52,11 @@ func (m Model) View() string {
 		return m.renderInfoOverlay()
 	}
 
-	if m.searching {
+	if m.search.active {
 		return m.renderSearchOverlay()
 	}
 
-	if m.netSearching {
+	if m.netSearch.active {
 		return m.renderNetSearchOverlay()
 	}
 
@@ -64,7 +64,7 @@ func (m Model) View() string {
 		return m.renderURLInputOverlay()
 	}
 
-	if m.showLyrics {
+	if m.lyrics.visible {
 		return m.renderLyricsOverlay()
 	}
 
@@ -102,8 +102,8 @@ func (m Model) View() string {
 	if m.err != nil {
 		sections = append(sections, errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)))
 	}
-	if m.saveMsg != "" {
-		sections = append(sections, statusStyle.Render(m.saveMsg))
+	if m.status.text != "" {
+		sections = append(sections, statusStyle.Render(m.status.text))
 	}
 
 	content := strings.Join(sections, "\n")
@@ -207,7 +207,7 @@ func (m Model) renderTimeStatus() string {
 
 	var status string
 	switch {
-	case m.seekActive:
+	case m.seek.active:
 		status = statusStyle.Render("⟳ Seeking...")
 	case m.buffering:
 		status = statusStyle.Render("◌ Buffering...")
@@ -400,27 +400,27 @@ func (m Model) renderProviderList() string {
 
 	var lines []string
 
-	if m.provSearching {
-		lines = append(lines, playlistSelectedStyle.Render("  / "+m.provSearchQuery+"_"))
+	if m.provSearch.active {
+		lines = append(lines, playlistSelectedStyle.Render("  / "+m.provSearch.query+"_"))
 
-		if m.provSearchQuery == "" {
+		if m.provSearch.query == "" {
 			lines = append(lines, dimStyle.Render("  Type to filter…"))
-		} else if len(m.provSearchResults) == 0 {
+		} else if len(m.provSearch.results) == 0 {
 			lines = append(lines, dimStyle.Render("  No matches"))
 		} else {
-			visible := min(m.plVisible-1, len(m.provSearchResults))
-			scroll := max(0, m.provSearchCursor-visible+1)
-			for j := scroll; j < scroll+visible && j < len(m.provSearchResults); j++ {
-				idx := m.provSearchResults[j]
+			visible := min(m.plVisible-1, len(m.provSearch.results))
+			scroll := max(0, m.provSearch.cursor-visible+1)
+			for j := scroll; j < scroll+visible && j < len(m.provSearch.results); j++ {
+				idx := m.provSearch.results[j]
 				p := m.providerLists[idx]
 				prefix, style := "  ", playlistItemStyle
-				if j == m.provSearchCursor {
+				if j == m.provSearch.cursor {
 					style = playlistSelectedStyle
 					prefix = "> "
 				}
 				lines = append(lines, style.Render(fmt.Sprintf("%s%s (%d tracks)", prefix, p.Name, p.TrackCount)))
 			}
-			lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d/%d playlists", len(m.provSearchResults), len(m.providerLists))))
+			lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d/%d playlists", len(m.provSearch.results), len(m.providerLists))))
 		}
 		return strings.Join(lines, "\n")
 	}
@@ -636,8 +636,8 @@ func (m Model) renderStreamStatus() string {
 		status = fmt.Sprintf("↓ %.1f MB", mb)
 	}
 
-	if m.networkSpeed > 0 {
-		kbs := m.networkSpeed / 1024
+	if m.network.speed > 0 {
+		kbs := m.network.speed / 1024
 		if kbs >= 1024 {
 			status += fmt.Sprintf("  %.1f MB/s", kbs/1024)
 		} else {

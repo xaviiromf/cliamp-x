@@ -10,25 +10,25 @@ import (
 // — Navidrome browser renderers —
 
 func (m Model) renderNavBrowser() string {
-	switch m.navMode {
+	switch m.navBrowser.mode {
 	case navBrowseModeMenu:
 		return m.renderNavMenu()
 	case navBrowseModeByAlbum:
-		switch m.navScreen {
+		switch m.navBrowser.screen {
 		case navBrowseScreenTracks:
 			return m.renderNavTrackList()
 		default:
 			return m.renderNavAlbumList(false)
 		}
 	case navBrowseModeByArtist:
-		switch m.navScreen {
+		switch m.navBrowser.screen {
 		case navBrowseScreenTracks:
 			return m.renderNavTrackList()
 		default:
 			return m.renderNavArtistList()
 		}
 	case navBrowseModeByArtistAlbum:
-		switch m.navScreen {
+		switch m.navBrowser.screen {
 		case navBrowseScreenAlbums:
 			return m.renderNavAlbumList(true)
 		case navBrowseScreenTracks:
@@ -48,7 +48,7 @@ func (m Model) renderNavMenu() string {
 
 	items := []string{"By Album", "By Artist", "By Artist / Album"}
 	for i, item := range items {
-		lines = append(lines, cursorLine(item, i == m.navCursor))
+		lines = append(lines, cursorLine(item, i == m.navBrowser.cursor))
 	}
 
 	lines = append(lines, "",
@@ -60,23 +60,23 @@ func (m Model) renderNavMenu() string {
 func (m Model) renderNavArtistList() string {
 	lines := []string{titleStyle.Render("A R T I S T S"), ""}
 
-	if m.navLoading && len(m.navArtists) == 0 {
+	if m.navBrowser.loading && len(m.navBrowser.artists) == 0 {
 		lines = append(lines, dimStyle.Render("  Loading artists..."), "", helpKey("Esc", "Back"))
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
 
-	if len(m.navArtists) == 0 {
+	if len(m.navBrowser.artists) == 0 {
 		lines = append(lines, dimStyle.Render("  No artists found."), "", helpKey("Esc", "Back"))
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
 
-	items := m.navScrollItems(len(m.navArtists), func(i int) string {
-		a := m.navArtists[i]
+	items := m.navScrollItems(len(m.navBrowser.artists), func(i int) string {
+		a := m.navBrowser.artists[i]
 		return truncate(fmt.Sprintf("%s (%d albums)", a.Name, a.AlbumCount), panelWidth-6)
 	})
 	lines = append(lines, items...)
 
-	lines = append(lines, "", m.navCountLine("artists", len(m.navArtists)))
+	lines = append(lines, "", m.navCountLine("artists", len(m.navBrowser.artists)))
 	lines = append(lines, m.navSearchBar(
 		helpKey("←↑↓→", "Navigate ")+helpKey("Enter", "Open ")+helpKey("/", "Search"))...)
 
@@ -86,7 +86,7 @@ func (m Model) renderNavArtistList() string {
 func (m Model) renderNavAlbumList(artistAlbums bool) string {
 	var titleStr string
 	if artistAlbums {
-		titleStr = titleStyle.Render("A L B U M S : " + m.navSelArtist.Name)
+		titleStr = titleStyle.Render("A L B U M S : " + m.navBrowser.selArtist.Name)
 	} else {
 		titleStr = titleStyle.Render("A L B U M S")
 	}
@@ -94,11 +94,11 @@ func (m Model) renderNavAlbumList(artistAlbums bool) string {
 	lines := []string{titleStr, ""}
 
 	if !artistAlbums {
-		sortLabel := navidrome.SortTypeLabel(m.navSortType)
+		sortLabel := navidrome.SortTypeLabel(m.navBrowser.sortType)
 		lines = append(lines, dimStyle.Render("  Sort: ")+activeToggle.Render(sortLabel), "")
 	}
 
-	if m.navLoading && len(m.navAlbums) == 0 {
+	if m.navBrowser.loading && len(m.navBrowser.albums) == 0 {
 		lines = append(lines, dimStyle.Render("  Loading albums..."))
 		help := helpKey("Esc", "Back")
 		if !artistAlbums {
@@ -108,7 +108,7 @@ func (m Model) renderNavAlbumList(artistAlbums bool) string {
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
 
-	if len(m.navAlbums) == 0 {
+	if len(m.navBrowser.albums) == 0 {
 		lines = append(lines, dimStyle.Render("  No albums found."))
 		help := helpKey("Esc", "Back")
 		if !artistAlbums {
@@ -118,8 +118,8 @@ func (m Model) renderNavAlbumList(artistAlbums bool) string {
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
 
-	items := m.navScrollItems(len(m.navAlbums), func(i int) string {
-		a := m.navAlbums[i]
+	items := m.navScrollItems(len(m.navBrowser.albums), func(i int) string {
+		a := m.navBrowser.albums[i]
 		var label string
 		if a.Year > 0 {
 			label = fmt.Sprintf("%s — %s (%d)", a.Name, a.Artist, a.Year)
@@ -130,10 +130,10 @@ func (m Model) renderNavAlbumList(artistAlbums bool) string {
 	})
 	lines = append(lines, items...)
 
-	if m.navAlbumLoading {
+	if m.navBrowser.albumLoading {
 		lines = append(lines, dimStyle.Render("  Loading more..."))
 	} else {
-		lines = append(lines, m.navCountLine("albums", len(m.navAlbums)))
+		lines = append(lines, m.navCountLine("albums", len(m.navBrowser.albums)))
 	}
 
 	defaultHelp := helpKey("←↑↓→", "Navigate ") + helpKey("Enter", "Open ")
@@ -148,23 +148,23 @@ func (m Model) renderNavAlbumList(artistAlbums bool) string {
 
 func (m Model) renderNavTrackList() string {
 	var breadcrumb string
-	switch m.navMode {
+	switch m.navBrowser.mode {
 	case navBrowseModeByArtist:
-		breadcrumb = "A R T I S T : " + m.navSelArtist.Name
+		breadcrumb = "A R T I S T : " + m.navBrowser.selArtist.Name
 	case navBrowseModeByAlbum:
-		breadcrumb = "A L B U M : " + m.navSelAlbum.Name
+		breadcrumb = "A L B U M : " + m.navBrowser.selAlbum.Name
 	case navBrowseModeByArtistAlbum:
-		breadcrumb = m.navSelArtist.Name + " / " + m.navSelAlbum.Name
+		breadcrumb = m.navBrowser.selArtist.Name + " / " + m.navBrowser.selAlbum.Name
 	}
 
 	lines := []string{titleStyle.Render(breadcrumb), ""}
 
-	if m.navLoading && len(m.navTracks) == 0 {
+	if m.navBrowser.loading && len(m.navBrowser.tracks) == 0 {
 		lines = append(lines, dimStyle.Render("  Loading tracks..."), "", helpKey("Esc", "Back"))
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
 
-	if len(m.navTracks) == 0 {
+	if len(m.navBrowser.tracks) == 0 {
 		lines = append(lines, dimStyle.Render("  No tracks found."), "", helpKey("Esc", "Back"))
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
@@ -174,23 +174,23 @@ func (m Model) renderNavTrackList() string {
 		maxVisible = 5
 	}
 
-	useFilter := len(m.navSearchIdx) > 0 || m.navSearch != ""
+	useFilter := len(m.navBrowser.searchIdx) > 0 || m.navBrowser.search != ""
 
 	if useFilter {
-		items := m.navScrollItems(len(m.navTracks), func(i int) string {
-			return fmt.Sprintf("%d. %s", i+1, truncate(m.navTracks[i].DisplayName(), panelWidth-8))
+		items := m.navScrollItems(len(m.navBrowser.tracks), func(i int) string {
+			return fmt.Sprintf("%d. %s", i+1, truncate(m.navBrowser.tracks[i].DisplayName(), panelWidth-8))
 		})
 		lines = append(lines, items...)
 	} else {
-		scroll := m.navScroll
+		scroll := m.navBrowser.scroll
 		rendered := 0
 		prevAlbum := ""
 		if scroll > 0 {
-			prevAlbum = m.navTracks[scroll-1].Album
+			prevAlbum = m.navBrowser.tracks[scroll-1].Album
 		}
 
-		for i := scroll; i < len(m.navTracks) && rendered < maxVisible; i++ {
-			t := m.navTracks[i]
+		for i := scroll; i < len(m.navBrowser.tracks) && rendered < maxVisible; i++ {
+			t := m.navBrowser.tracks[i]
 
 			if album := t.Album; album != "" && album != prevAlbum {
 				lines = append(lines, albumSeparator(album, t.Year))
@@ -201,14 +201,14 @@ func (m Model) renderNavTrackList() string {
 			prevAlbum = t.Album
 
 			label := fmt.Sprintf("%d. %s", i+1, truncate(t.DisplayName(), panelWidth-8))
-			lines = append(lines, cursorLine(label, i == m.navCursor))
+			lines = append(lines, cursorLine(label, i == m.navBrowser.cursor))
 			rendered++
 		}
 
 		lines = padLines(lines, maxVisible, rendered)
 	}
 
-	lines = append(lines, "", m.navCountLine("tracks", len(m.navTracks)))
+	lines = append(lines, "", m.navCountLine("tracks", len(m.navBrowser.tracks)))
 	lines = append(lines, m.navSearchBar(
 		helpKey("←↑↓→", "Navigate ")+
 			helpKey("Enter", "Play ")+
@@ -217,8 +217,8 @@ func (m Model) renderNavTrackList() string {
 			helpKey("a", "Append ")+
 			helpKey("/", "Search"))...)
 
-	if m.saveMsg != "" {
-		lines = append(lines, "", statusStyle.Render(m.saveMsg))
+	if m.status.text != "" {
+		lines = append(lines, "", statusStyle.Render(m.status.text))
 	}
 
 	return m.centerOverlay(strings.Join(lines, "\n"))

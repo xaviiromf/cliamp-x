@@ -26,17 +26,17 @@ func (m *Model) doSeek(d time.Duration) tea.Cmd {
 	}
 
 	// First press in a new seek sequence: snapshot the starting position.
-	if !m.seekActive {
-		m.seekActive = true
-		m.seekTargetPos = m.player.Position()
+	if !m.seek.active {
+		m.seek.active = true
+		m.seek.targetPos = m.player.Position()
 	}
 
 	// Accumulate into absolute target position.
-	m.seekTargetPos += d
-	m.seekTargetPos = m.clampPosition(m.seekTargetPos)
+	m.seek.targetPos += d
+	m.seek.targetPos = m.clampPosition(m.seek.targetPos)
 
 	// Reset debounce timer.
-	m.seekTimer = seekDebounceTicks
+	m.seek.timer = seekDebounceTicks
 
 	// Cancel any in-flight seek so it won't swap stale audio.
 	m.player.CancelSeekYTDL()
@@ -46,8 +46,8 @@ func (m *Model) doSeek(d time.Duration) tea.Cmd {
 
 // displayPosition returns the position to show in the UI.
 func (m *Model) displayPosition() time.Duration {
-	if m.seekActive {
-		return m.seekTargetPos
+	if m.seek.active {
+		return m.seek.targetPos
 	}
 	return m.player.Position()
 }
@@ -66,17 +66,17 @@ func (m *Model) clampPosition(pos time.Duration) time.Duration {
 // tickSeek is called from the main tick loop. Decrements the debounce timer
 // and fires the seek when it reaches zero.
 func (m *Model) tickSeek() tea.Cmd {
-	if !m.seekActive || m.seekTimer <= 0 {
+	if !m.seek.active || m.seek.timer <= 0 {
 		return nil
 	}
-	m.seekTimer--
-	if m.seekTimer > 0 {
+	m.seek.timer--
+	if m.seek.timer > 0 {
 		return nil
 	}
 
 	// Timer expired — fire the seek to the target position.
 	// Compute delta from current actual position.
-	target := m.seekTargetPos
+	target := m.seek.targetPos
 	curPos := m.player.Position()
 	d := target - curPos
 
