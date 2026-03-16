@@ -26,6 +26,31 @@ import (
 // maxResponseBody limits JSON API responses to 10 MB.
 const maxResponseBody = 10 << 20
 
+// spotifyPlaylistItem is the raw playlist object returned by /v1/me/playlists.
+type spotifyPlaylistItem struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	SnapshotID    string `json:"snapshot_id"`
+	Collaborative bool   `json:"collaborative"`
+	Owner         struct {
+		ID string `json:"id"`
+	} `json:"owner"`
+	Items *struct {
+		Total int `json:"total"`
+	} `json:"items"`
+}
+
+// playlistAccessible reports whether the playlist should be shown to the user.
+// Playlists saved from other users (not owned, not collaborative) are excluded
+// because the Spotify API returns 403 when listing their tracks.
+// When userID is empty (fetch failed), all playlists are included as a fallback.
+func playlistAccessible(item spotifyPlaylistItem, userID string) bool {
+	if userID == "" {
+		return true
+	}
+	return item.Owner.ID == userID || item.Collaborative
+}
+
 // SpotifyProvider implements playlist.Provider using the Spotify Web API
 // for playlist/track metadata and go-librespot for audio streaming.
 // playlistCache holds a snapshot_id and the fetched tracks for a playlist,
@@ -38,6 +63,7 @@ type playlistCache struct {
 type SpotifyProvider struct {
 	session    *Session
 	clientID   string
+	userID     string // Spotify user ID, fetched lazily on first Playlists() call
 	mu         sync.Mutex
 	trackCache map[string]*playlistCache // playlist ID → cache entry
 }
@@ -72,6 +98,7 @@ func (p *SpotifyProvider) ensureSession() error {
 	}
 	p.mu.Lock()
 	p.session = sess
+	p.userID = ""
 	p.mu.Unlock()
 	return nil
 }
@@ -95,6 +122,7 @@ func (p *SpotifyProvider) Authenticate() error {
 	}
 	p.mu.Lock()
 	p.session = sess
+	p.userID = ""
 	p.mu.Unlock()
 	return nil
 }
@@ -106,18 +134,48 @@ func (p *SpotifyProvider) Close() {
 	if p.session != nil {
 		p.session.Close()
 		p.session = nil
+		p.userID = ""
 	}
 }
 
 func (p *SpotifyProvider) Name() string { return "Spotify" }
 
+// currentUserID fetches and caches the authenticated user's Spotify ID.
+func (p *SpotifyProvider) currentUserID(ctx context.Context) string {
+	p.mu.Lock()
+	id := p.userID
+	p.mu.Unlock()
+	if id != "" {
+		return id
+	}
+	resp, err := p.webAPI(ctx, "GET", "/v1/me", nil)
+	if err != nil {
+		return ""
+	}
+	var me struct {
+		ID string `json:"id"`
+	}
+	if err := decodeBody(resp, &me); err != nil || me.ID == "" {
+		return ""
+	}
+	p.mu.Lock()
+	p.userID = me.ID
+	p.mu.Unlock()
+	return me.ID
+}
+
 // Playlists returns the authenticated user's Spotify playlists.
+// Only playlists owned by the user or marked as collaborative are returned;
+// playlists saved from other users are excluded because the Spotify API
+// returns 403 when trying to list their tracks.
 func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	if err := p.ensureSession(); err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	userID := p.currentUserID(ctx) // empty string if fetch fails → no filtering
 
 	var all []playlist.PlaylistInfo
 	offset := 0
@@ -127,9 +185,8 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		query := url.Values{
 			"limit":  {fmt.Sprintf("%d", limit)},
 			"offset": {fmt.Sprintf("%d", offset)},
-			// Request only the fields we need to reduce payload size and API cost.
-			// Include snapshot_id for cache invalidation.
-			"fields": {"items(id,name,snapshot_id,items.total),total"},
+			// Include owner.id and collaborative to filter inaccessible playlists.
+			"fields": {"items(id,name,snapshot_id,collaborative,owner(id),items.total),total"},
 		}
 
 		resp, err := p.webAPI(ctx, "GET", "/v1/me/playlists", query)
@@ -138,15 +195,8 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		}
 
 		var result struct {
-			Items []struct {
-				ID         string `json:"id"`
-				Name       string `json:"name"`
-				SnapshotID string `json:"snapshot_id"`
-				Items      *struct {
-					Total int `json:"total"`
-				} `json:"items"`
-			} `json:"items"`
-			Total int `json:"total"`
+			Items []spotifyPlaylistItem `json:"items"`
+			Total int                  `json:"total"`
 		}
 		if err := decodeBody(resp, &result); err != nil {
 			return nil, fmt.Errorf("spotify: parse playlists: %w", err)
@@ -154,6 +204,9 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 
 		p.mu.Lock()
 		for _, item := range result.Items {
+			if !playlistAccessible(item, userID) {
+				continue
+			}
 			count := 0
 			if item.Items != nil {
 				count = item.Items.Total
@@ -218,6 +271,9 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 		path := fmt.Sprintf("/v1/playlists/%s/items", playlistID)
 		resp, err := p.webAPI(ctx, "GET", path, query)
 		if err != nil {
+			if strings.Contains(err.Error(), "403") {
+				return nil, fmt.Errorf("spotify: playlist not accessible: only playlists you own or collaborate on can be loaded")
+			}
 			return nil, fmt.Errorf("spotify: list tracks: %w", err)
 		}
 
