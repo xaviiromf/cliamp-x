@@ -254,6 +254,7 @@ func resolveFeed(feedURL string) ([]playlist.Track, error) {
 			Title string `xml:"title"`
 			Items []struct {
 				Title     string `xml:"title"`
+				Duration  string `xml:"http://www.itunes.com/dtds/podcast-1.0.dtd duration"`
 				Enclosure struct {
 					URL  string `xml:"url,attr"`
 					Type string `xml:"type,attr"`
@@ -271,10 +272,11 @@ func resolveFeed(feedURL string) ([]playlist.Track, error) {
 			continue
 		}
 		tracks = append(tracks, playlist.Track{
-			Path:   item.Enclosure.URL,
-			Title:  item.Title,
-			Artist: rss.Channel.Title,
-			Stream: true,
+			Path:         item.Enclosure.URL,
+			Title:        item.Title,
+			Artist:       rss.Channel.Title,
+			Stream:       true,
+			DurationSecs: parseItunesDuration(item.Duration),
 		})
 	}
 	return tracks, nil
@@ -611,6 +613,53 @@ func findFirstFile(dir string) string {
 		}
 	}
 	return ""
+}
+
+// parseItunesDuration parses an <itunes:duration> value into seconds.
+// Accepts "HH:MM:SS", "MM:SS", or a plain seconds string (integer or float).
+// Returns 0 for any invalid or negative input.
+func parseItunesDuration(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	// parseSec handles fractional seconds (e.g. "61.5" → 61).
+	parseSec := func(s string) (int, error) {
+		f, err := strconv.ParseFloat(s, 64)
+		return int(f), err
+	}
+
+	parts := strings.Split(s, ":")
+	var result int
+	switch len(parts) {
+	case 1:
+		n, err := parseSec(parts[0])
+		if err != nil {
+			return 0
+		}
+		result = n
+	case 2:
+		m, err1 := strconv.Atoi(parts[0])
+		sec, err2 := parseSec(parts[1])
+		if err1 != nil || err2 != nil {
+			return 0
+		}
+		result = m*60 + sec
+	case 3:
+		h, err1 := strconv.Atoi(parts[0])
+		m, err2 := strconv.Atoi(parts[1])
+		sec, err3 := parseSec(parts[2])
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0
+		}
+		result = h*3600 + m*60 + sec
+	default:
+		return 0
+	}
+	if result < 0 {
+		return 0
+	}
+	return result
 }
 
 // humanizeBasename converts a URL basename like "clr-podcast-467" into "clr podcast 467".
