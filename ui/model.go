@@ -30,6 +30,9 @@ const (
 	focusNetSearch
 )
 
+// maxPlVisible caps the playlist at a readable height even on tall terminals.
+const maxPlVisible = 12
+
 type plMgrScreenType int
 
 const (
@@ -623,7 +626,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}, "\n")
 		probeFrame := frameStyle.Render(probe)
 		fixedLines := lipgloss.Height(probeFrame) - 1 // subtract the 1-line placeholder
-		m.plVisible = max(3, m.height-fixedLines)
+		m.plVisible = max(3, min(maxPlVisible, m.height-fixedLines))
 
 	case seekTickMsg:
 		// Async yt-dlp seek completed.
