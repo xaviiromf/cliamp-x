@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
@@ -206,7 +207,12 @@ func (m Model) renderTimeStatus() string {
 	case m.seek.active:
 		status = statusStyle.Render("⟳ Seeking...")
 	case m.buffering:
-		status = statusStyle.Render("◌ Buffering...")
+		elapsed := int(time.Since(m.bufferingAt).Seconds())
+		if elapsed > 0 {
+			status = statusStyle.Render(fmt.Sprintf("◌ Buffering... (%ds)", elapsed))
+		} else {
+			status = statusStyle.Render("◌ Buffering...")
+		}
 	case m.player.IsPlaying() && m.player.IsPaused():
 		status = statusStyle.Render("⏸ Paused")
 	case m.player.IsPlaying() && track.Stream:

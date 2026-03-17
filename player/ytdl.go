@@ -44,6 +44,12 @@ func probeYTDLDuration(pageURL string) time.Duration {
 	}
 	args = append(args, pageURL)
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	// WaitDelay ensures cmd.Output() doesn't hang indefinitely if the
+	// process is killed but I/O pipe goroutines haven't drained. Without
+	// this, a zombie yt-dlp child keeping stdout open can block Output()
+	// forever, which in turn blocks PlayYTDL and leaves the UI stuck at
+	// "Buffering...".
+	cmd.WaitDelay = 3 * time.Second
 	out, err := cmd.Output()
 	if err != nil {
 		return 0

@@ -149,7 +149,8 @@ type Model struct {
 	feedLoading bool
 
 	// Async stream buffering (true while HTTP connect is in progress)
-	buffering bool
+	buffering    bool
+	bufferingAt  time.Time // when buffering started, for elapsed display
 
 	// resume holds the path and position to seek to when the matching track
 	// starts playing. Cleared after the seek is performed.
@@ -1168,6 +1169,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	// Stream yt-dlp URLs (YouTube, SoundCloud, Bandcamp, etc.) via pipe chain.
 	if playlist.IsYTDL(track.Path) {
 		m.buffering = true
+		m.bufferingAt = time.Now()
 		m.err = nil
 		dur := time.Duration(track.DurationSecs) * time.Second
 		if fetchCmd != nil {
@@ -1180,6 +1182,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	dur := time.Duration(track.DurationSecs) * time.Second
 	if track.Stream {
 		m.buffering = true
+		m.bufferingAt = time.Now()
 		m.err = nil
 		return tea.Batch(playStreamCmd(m.player, track.Path, dur), fetchCmd)
 	}

@@ -113,8 +113,19 @@ func (p *Player) PlayYTDL(pageURL string, knownDuration time.Duration) error {
 		return err
 	}
 	if knownDuration == 0 {
-		if d := <-probeCh; d > 0 {
-			knownDuration = d
+		// The probe ran concurrently with buildYTDLPipeline. Try to
+		// collect the result, but don't block playback for more than 2s.
+		// A hung probeYTDLDuration (e.g. yt-dlp zombie keeping pipes
+		// open) previously blocked here forever, leaving the UI stuck
+		// at "Buffering...".
+		select {
+		case d := <-probeCh:
+			if d > 0 {
+				knownDuration = d
+			}
+		case <-time.After(2 * time.Second):
+			// Probe still running — start playback without duration.
+			// The seek bar won't show progress but audio plays immediately.
 		}
 	}
 	tp.knownDuration = knownDuration
