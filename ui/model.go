@@ -185,6 +185,7 @@ type Model struct {
 	fullVis bool
 
 	autoPlay bool // start playing immediately on launch
+	compact  bool // compact mode: cap frame width at 80 columns
 
 	// Navidrome client (kept separate from navBrowser for non-browser operations)
 	navClient          *navidrome.NavidromeClient
@@ -236,6 +237,9 @@ func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry
 
 // SetAutoPlay makes the player start playback immediately on Init.
 func (m *Model) SetAutoPlay(v bool) { m.autoPlay = v }
+
+// SetCompact enables compact mode which caps the frame width at 80 columns.
+func (m *Model) SetCompact(v bool) { m.compact = v }
 
 // SetSeekStepLarge configures the Shift+Left/Right seek jump amount.
 func (m *Model) SetSeekStepLarge(d time.Duration) {
@@ -582,8 +586,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Dynamic frame width: use full terminal width.
+		// Dynamic frame width: use full terminal width, or cap at 80 in compact mode.
 		frameW := msg.Width
+		if m.compact {
+			frameW = min(frameW, 80)
+		}
 		frameStyle = frameStyle.Width(frameW)
 		panelWidth = frameW - 6 // subtract horizontal padding (3 left + 3 right)
 		if m.fullVis {

@@ -25,6 +25,7 @@ cliamp --bit-depth 32 track.m4a           # PCM bit depth: 16 (default) or 32 (l
 ## Appearance
 
 ```sh
+cliamp --compact ~/Music                     # cap width at 80 columns
 cliamp --eq-preset "Bass Boost" ~/Music
 ```
 
@@ -65,6 +66,7 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--repeat` | string | off | off, all, one |
 | `--mono` / `--no-mono` | bool | false | |
 | `--auto-play` | bool | false | |
+| `--compact` | bool | false | |
 | `--theme` | string | | theme name |
 | `--eq-preset` | string | | preset name |
 | `--sample-rate` | int | 44100 | 22050, 44100, 48000, 96000, 192000 |

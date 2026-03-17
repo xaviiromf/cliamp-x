@@ -21,6 +21,7 @@ type Overrides struct {
 	ResampleQuality *int
 	BitDepth        *int
 	Play            *bool
+	Compact         *bool
 }
 
 // Apply merges non-nil overrides into cfg and clamps the result.
@@ -61,6 +62,9 @@ func (o Overrides) Apply(cfg *Config) {
 	if o.BitDepth != nil {
 		cfg.BitDepth = *o.BitDepth
 	}
+	if o.Compact != nil {
+		cfg.Compact = *o.Compact
+	}
 	cfg.clamp()
 }
 
@@ -99,6 +103,8 @@ func ParseFlags(args []string) (action string, ov Overrides, positional []string
 			ov.Mono = ptrBool(false)
 		case "--auto-play":
 			ov.Play = ptrBool(true)
+		case "--compact":
+			ov.Compact = ptrBool(true)
 
 		// Key-value flags.
 		case "--provider":

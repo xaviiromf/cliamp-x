@@ -39,6 +39,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Options: Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, None
 visualizer = "Bars"
 
+# Compact mode: cap UI width at 80 columns (default: fluid/full-width)
+compact = false
+
 # UI theme name (see available themes in ~/.config/cliamp/themes/)
 theme = "Tokyo Night"
 ```

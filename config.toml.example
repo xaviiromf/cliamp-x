@@ -35,6 +35,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Default provider on startup: "radio", "navidrome", or "spotify"
 # provider = "radio"
 
+# Compact mode: cap UI width at 80 columns (default: fluid/full-width)
+# compact = true
+
 # UI theme name (check ~/.config/cliamp/themes/ for available themes)
 # theme = "Tokyo Night"
 

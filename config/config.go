@@ -122,6 +122,7 @@ type Config struct {
 	BufferMs        int                // speaker buffer in milliseconds (50–500)
 	ResampleQuality int                // beep resample quality factor (1–4)
 	BitDepth        int                // PCM bit depth for FFmpeg output: 16 or 32
+	Compact         bool               // compact mode: cap frame width at 80 columns
 	Navidrome       NavidromeConfig    // optional Navidrome/Subsonic server credentials
 	Spotify         SpotifyConfig      // optional Spotify provider (requires Premium)
 	YouTubeMusic    YouTubeMusicConfig // optional YouTube Music provider
@@ -268,6 +269,8 @@ func Load() (Config, error) {
 				if v, err := strconv.Atoi(val); err == nil {
 					cfg.BitDepth = v
 				}
+			case "compact":
+				cfg.Compact = val == "true"
 			}
 		}
 	}

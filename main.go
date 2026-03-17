@@ -195,6 +195,9 @@ func run(overrides config.Overrides, positional []string) error {
 	if overrides.Play != nil && *overrides.Play {
 		m.SetAutoPlay(true)
 	}
+	if cfg.Compact {
+		m.SetCompact(true)
+	}
 
 	// PositionSec == 0 is indistinguishable from "never played"; skip resume.
 	if rs := resume.Load(); rs.Path != "" && rs.PositionSec > 0 {
@@ -250,6 +253,7 @@ Provider:
   --provider <name>       Default provider: radio, navidrome, spotify, yt, youtube, ytmusic (default: radio)
 
 Appearance:
+  --compact               Compact mode (cap width at 80 columns)
   --theme <name>          UI theme name
   --visualizer <mode>     Visualizer mode (Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, None)
   --eq-preset <name>      EQ preset name (e.g. "Bass Boost")
