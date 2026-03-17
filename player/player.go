@@ -38,12 +38,12 @@ type Player struct {
 	nextPipeline    *trackPipeline // preloaded track's resources
 	started         bool           // true after first speaker.Play()
 	ctrl            *beep.Ctrl
-	volume          float64           // dB, range [-30, +6]
+	volume          atomic.Uint64     // dB stored as Float64bits, range [-30, +6]
 	eqBands         [10]atomic.Uint64 // dB stored as math.Float64bits
 	tap             *Tap
-	playing         bool
-	paused          bool
-	mono            bool
+	playing         atomic.Bool
+	paused          atomic.Bool
+	mono            atomic.Bool
 	resampleQuality int
 	bitDepth        int // 16 or 32
 
@@ -156,12 +156,12 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 			s = newBiquad(s, EQFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
 		}
 
-		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, mu: &p.mu, cachedDB: math.NaN()}
+		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, cachedDB: math.NaN()}
 		p.tap = NewTap(s, 4096)
 		p.ctrl = &beep.Ctrl{Streamer: p.tap}
 		p.started = true
-		p.playing = true
-		p.paused = false
+		p.playing.Store(true)
+		p.paused.Store(false)
 		p.mu.Unlock()
 
 		speaker.Play(p.ctrl)
@@ -169,8 +169,8 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 		return nil
 	}
 
-	p.playing = true
-	p.paused = false
+	p.playing.Store(true)
+	p.paused.Store(false)
 	p.mu.Unlock()
 
 	// Close old resources after all locks are released
@@ -248,9 +248,7 @@ func (p *Player) TogglePause() {
 		p.ctrl.Paused = !p.ctrl.Paused
 		paused := p.ctrl.Paused
 		speaker.Unlock()
-		p.mu.Lock()
-		p.paused = paused
-		p.mu.Unlock()
+		p.paused.Store(paused)
 	} else {
 		speaker.Unlock()
 	}
@@ -276,8 +274,8 @@ func (p *Player) Stop() {
 	oldNext := p.nextPipeline
 	p.current = nil
 	p.nextPipeline = nil
-	p.playing = false
-	p.paused = false
+	p.playing.Store(false)
+	p.paused.Store(false)
 	p.mu.Unlock()
 
 	closePipelines(oldCurrent, oldNext)
@@ -501,30 +499,22 @@ func (p *Player) Duration() time.Duration {
 
 // SetVolume sets the volume in dB, clamped to [-30, +6].
 func (p *Player) SetVolume(db float64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.volume = max(min(db, 6), -30)
+	p.volume.Store(math.Float64bits(max(min(db, 6), -30)))
 }
 
 // Volume returns the current volume in dB.
 func (p *Player) Volume() float64 {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.volume
+	return math.Float64frombits(p.volume.Load())
 }
 
 // ToggleMono switches between stereo and mono (L+R downmix) output.
 func (p *Player) ToggleMono() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.mono = !p.mono
+	p.mono.Store(!p.mono.Load())
 }
 
 // Mono returns true if mono output is enabled.
 func (p *Player) Mono() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.mono
+	return p.mono.Load()
 }
 
 // SetEQBand sets a single EQ band's gain in dB, clamped to [-12, +12].
@@ -546,16 +536,12 @@ func (p *Player) EQBands() [10]float64 {
 
 // IsPlaying returns true if a track is loaded and playing (possibly paused).
 func (p *Player) IsPlaying() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.playing
+	return p.playing.Load()
 }
 
 // IsPaused returns true if playback is paused.
 func (p *Player) IsPaused() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.paused
+	return p.paused.Load()
 }
 
 // Drained returns true if the current track ended with no preloaded next track.

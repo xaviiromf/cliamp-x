@@ -2,17 +2,18 @@ package player
 
 import (
 	"math"
-	"sync"
+	"sync/atomic"
 
 	"github.com/gopxl/beep/v2"
 )
 
 // volumeStreamer applies dB gain and optional mono downmix to an audio stream.
+// Volume and mono are read via atomic operations, eliminating mutex contention
+// with the UI thread on the audio hot path.
 type volumeStreamer struct {
 	s          beep.Streamer
-	vol        *float64
-	mono       *bool
-	mu         *sync.Mutex
+	vol        *atomic.Uint64 // dB stored as Float64bits
+	mono       *atomic.Bool
 	cachedDB   float64 // last dB value used to compute cachedGain; starts NaN to force first compute
 	cachedGain float64 // precomputed linear gain = 10^(dB/20)
 }
@@ -22,10 +23,8 @@ func (v *volumeStreamer) Stream(samples [][2]float64) (int, bool) {
 	if n == 0 {
 		return 0, ok
 	}
-	v.mu.Lock()
-	db := *v.vol
-	mono := *v.mono
-	v.mu.Unlock()
+	db := math.Float64frombits(v.vol.Load())
+	mono := v.mono.Load()
 	// Recompute gain only when volume changes (rare) instead of every Stream() call.
 	if db != v.cachedDB {
 		v.cachedGain = math.Pow(10, db/20)

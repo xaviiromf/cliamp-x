@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 
 	"cliamp/theme"
 )
+
+// titleScrollSep is the separator runes for cyclic title scrolling,
+// pre-allocated to avoid per-frame conversion.
+var titleScrollSep = []rune("   ♫   ")
 
 // Pre-built styles for elements created per-render to avoid repeated allocation.
 var (
@@ -160,8 +165,7 @@ func (m Model) renderTrackInfo() string {
 		titleLine = trackStyle.Render("♫ " + name)
 	} else {
 		// Cyclic scrolling for long titles
-		sep := []rune("   ♫   ")
-		padded := append(runes, sep...)
+		padded := append(runes, titleScrollSep...)
 		total := len(padded)
 		off := m.titleOff % total
 
@@ -498,7 +502,7 @@ func (m Model) renderPlaylist() string {
 		if qp := m.playlist.QueuePosition(i); qp > 0 {
 			queueSuffix = fmt.Sprintf(" [Q%d]", qp)
 		}
-		name = truncate(name, panelWidth-6-len([]rune(queueSuffix)))
+		name = truncate(name, panelWidth-6-utf8.RuneCountInString(queueSuffix))
 
 		line := fmt.Sprintf("%s%d. %s", prefix, i+1, name)
 		if queueSuffix != "" {
@@ -608,13 +612,13 @@ func fitHints(hints []helpHint, maxWidth int) string {
 		active[minIdx] = false
 	}
 
-	var result string
+	var sb strings.Builder
 	for i, h := range hints {
 		if active[i] {
-			result += h.text
+			sb.WriteString(h.text)
 		}
 	}
-	return result
+	return sb.String()
 }
 
 // renderStreamStatus shows a network stats line for HTTP streams:

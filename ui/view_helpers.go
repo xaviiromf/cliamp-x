@@ -3,15 +3,18 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // truncate shortens s to maxW runes, appending "…" if truncated.
+// Uses RuneCountInString first to avoid rune slice allocation in the common
+// case where the string is already short enough.
 func truncate(s string, maxW int) string {
-	r := []rune(s)
-	if len(r) > maxW {
-		return string(r[:maxW-1]) + "…"
+	if utf8.RuneCountInString(s) <= maxW {
+		return s
 	}
-	return s
+	r := []rune(s)
+	return string(r[:maxW-1]) + "…"
 }
 
 // cursorLine renders a list item with "> " prefix when active, "  " otherwise.
@@ -51,7 +54,7 @@ func albumSeparator(album string, year int) string {
 		label += fmt.Sprintf(" (%d)", year)
 	}
 	label += " "
-	if labelLen := len([]rune(label)); labelLen < panelWidth {
+	if labelLen := utf8.RuneCountInString(label); labelLen < panelWidth {
 		label += strings.Repeat("─", panelWidth-labelLen)
 	}
 	return dimStyle.Render(label)
