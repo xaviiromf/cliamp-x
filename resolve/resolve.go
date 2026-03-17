@@ -4,6 +4,7 @@ package resolve
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -447,7 +448,10 @@ func resolveYTDLRange(pageURL string, start, end int) ([]playlist.Track, error) 
 		return nil, fmt.Errorf("yt-dlp not found in PATH — see https://github.com/yt-dlp/yt-dlp#installation")
 	}
 
-	args := []string{"--flat-playlist", "-j"}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	args := []string{"--flat-playlist", "-j", "--socket-timeout", "15"}
 	if start > 0 {
 		args = append(args, "--playlist-start", strconv.Itoa(start+1)) // yt-dlp is 1-based
 	}
@@ -455,11 +459,14 @@ func resolveYTDLRange(pageURL string, start, end int) ([]playlist.Track, error) 
 		args = append(args, "--playlist-end", strconv.Itoa(end))
 	}
 	args = append(args, pageURL)
-	cmd := exec.Command("yt-dlp", args...)
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	stdout, err := cmd.Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("yt-dlp: timed out resolving %s (30s)", pageURL)
+		}
 		msg := strings.TrimSpace(stderr.String())
 		if msg != "" {
 			return nil, fmt.Errorf("yt-dlp: %s", msg)

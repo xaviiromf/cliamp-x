@@ -38,7 +38,7 @@ func YTDLPAvailable() bool {
 func probeYTDLDuration(pageURL string) time.Duration {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	args := []string{"--skip-download", "--no-playlist", "--print", "duration"}
+	args := []string{"--skip-download", "--no-playlist", "--socket-timeout", "10", "--print", "duration"}
 	if ytdlCookiesFrom != "" {
 		args = append(args, "--cookies-from-browser", ytdlCookiesFrom)
 	}
@@ -227,6 +227,7 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio",
 		"--no-playlist",
 		"--no-warnings",
+		"--socket-timeout", "15",
 		"-o", "-",
 	}
 	if ytdlCookiesFrom != "" {
@@ -330,10 +331,23 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 	// Pre-fill: block until yt-dlp + ffmpeg produce initial audio data.
 	// This runs in a tea.Cmd goroutine (not the UI thread), ensuring the
 	// speaker goroutine won't block on an empty pipe and hold its lock
-	// (which would freeze the UI).
-	if _, err := decoder.reader.Peek(1); err != nil {
+	// (which would freeze the UI). A 30s timeout prevents hanging when
+	// yt-dlp is slow to produce output.
+	peekErr := make(chan error, 1)
+	go func() {
+		_, err := decoder.reader.Peek(1)
+		peekErr <- err
+	}()
+	select {
+	case err := <-peekErr:
+		if err != nil {
+			decoder.Close()
+			return nil, fmt.Errorf("waiting for audio data: %w", err)
+		}
+	case <-time.After(30 * time.Second):
 		decoder.Close()
-		return nil, fmt.Errorf("waiting for audio data: %w", err)
+		<-peekErr // drain goroutine after Close() unblocks the pipe
+		return nil, fmt.Errorf("timed out waiting for audio data (30s)")
 	}
 
 	return &trackPipeline{
