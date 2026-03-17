@@ -3,7 +3,7 @@
 package player
 
 import (
-	"sync"
+	"sync/atomic"
 
 	"github.com/gopxl/beep/v2"
 )
@@ -11,11 +11,15 @@ import (
 // Tap is a streamer wrapper that copies samples into a ring buffer
 // for real-time FFT visualization. It sits in the audio pipeline
 // between the volume control and the speaker controller.
+//
+// The write position is updated atomically, allowing the audio thread
+// (sole writer) and the UI thread (infrequent reader at 50ms intervals)
+// to operate without mutex contention. Minor sample tearing at the
+// read boundary is invisible in FFT-based spectrum visualization.
 type Tap struct {
 	s    beep.Streamer
-	mu   sync.Mutex
 	buf  []float64
-	pos  int
+	pos  atomic.Int64
 	size int
 }
 
@@ -31,12 +35,12 @@ func NewTap(s beep.Streamer, bufSize int) *Tap {
 // Stream passes audio through while capturing a mono mix into the ring buffer.
 func (t *Tap) Stream(samples [][2]float64) (int, bool) {
 	n, ok := t.s.Stream(samples)
-	t.mu.Lock()
+	p := int(t.pos.Load())
 	for i := range n {
-		t.buf[t.pos] = (samples[i][0] + samples[i][1]) / 2
-		t.pos = (t.pos + 1) % t.size
+		t.buf[p] = (samples[i][0] + samples[i][1]) / 2
+		p = (p + 1) % t.size
 	}
-	t.mu.Unlock()
+	t.pos.Store(int64(p))
 	return n, ok
 }
 
@@ -51,12 +55,11 @@ func (t *Tap) Samples(n int) []float64 {
 		n = t.size
 	}
 	out := make([]float64, n)
-	t.mu.Lock()
-	start := (t.pos - n + t.size) % t.size
+	p := int(t.pos.Load())
+	start := (p - n + t.size) % t.size
 	for i := range n {
 		out[i] = t.buf[(start+i)%t.size]
 	}
-	t.mu.Unlock()
 	return out
 }
 
@@ -67,11 +70,10 @@ func (t *Tap) SamplesInto(dst []float64) int {
 	if n > t.size {
 		n = t.size
 	}
-	t.mu.Lock()
-	start := (t.pos - n + t.size) % t.size
+	p := int(t.pos.Load())
+	start := (p - n + t.size) % t.size
 	for i := range n {
 		dst[i] = t.buf[(start+i)%t.size]
 	}
-	t.mu.Unlock()
 	return n
 }

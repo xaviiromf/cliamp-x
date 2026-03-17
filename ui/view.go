@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
@@ -189,16 +188,9 @@ func (m Model) renderTrackInfo() string {
 }
 
 func (m Model) renderTimeStatus() string {
-	var pos, dur time.Duration
-	if m.buffering {
-		// Avoid speaker.Lock() during buffering — the speaker goroutine may
-		// be blocked waiting for yt-dlp pipe data, holding its lock.
-		track, _ := m.playlist.Current()
-		dur = time.Duration(track.DurationSecs) * time.Second
-	} else {
-		pos = m.displayPosition()
-		dur = m.player.Duration()
-	}
+	// Use per-tick cached values to avoid repeated speaker.Lock() calls.
+	pos := m.cachedPos
+	dur := m.cachedDur
 
 	posMin := int(pos.Minutes())
 	posSec := int(pos.Seconds()) % 60
@@ -265,7 +257,7 @@ func (m Model) renderSeekBar() string {
 		return seekDimStyle.Render(strings.Repeat("━", panelWidth))
 	}
 	// Show a static streaming bar for non-seekable streams with no known duration.
-	if !m.player.Seekable() && m.player.IsPlaying() && m.player.Duration() == 0 {
+	if !m.player.Seekable() && m.player.IsPlaying() && m.cachedDur == 0 {
 		label := " STREAMING "
 		pad := panelWidth - lipgloss.Width(label)
 		left := pad / 2
@@ -273,8 +265,8 @@ func (m Model) renderSeekBar() string {
 		return seekFillStyle.Render(strings.Repeat("━", left) + label + strings.Repeat("━", right))
 	}
 
-	pos := m.displayPosition()
-	dur := m.player.Duration()
+	pos := m.cachedPos
+	dur := m.cachedDur
 
 	var progress float64
 	if dur > 0 {
@@ -579,24 +571,18 @@ type helpHint struct {
 }
 
 // fitHints drops lowest-priority hints until they fit within maxWidth.
+// Widths are pre-computed once to avoid repeated lipgloss.Width calls.
 func fitHints(hints []helpHint, maxWidth int) string {
-	// Start with all hints; drop lowest priority until it fits.
 	active := make([]bool, len(hints))
-	for i := range active {
+	widths := make([]int, len(hints))
+	var total int
+	for i, h := range hints {
 		active[i] = true
+		widths[i] = lipgloss.Width(h.text)
+		total += widths[i]
 	}
 
-	for {
-		var total int
-		for i, h := range hints {
-			if active[i] {
-				total += lipgloss.Width(h.text)
-			}
-		}
-		if total <= maxWidth {
-			break
-		}
-
+	for total > maxWidth {
 		// Find lowest-priority active hint and drop it.
 		minPri := 1<<31 - 1
 		minIdx := -1
@@ -607,9 +593,10 @@ func fitHints(hints []helpHint, maxWidth int) string {
 			}
 		}
 		if minIdx < 0 {
-			break // nothing left to drop
+			break
 		}
 		active[minIdx] = false
+		total -= widths[minIdx]
 	}
 
 	var sb strings.Builder

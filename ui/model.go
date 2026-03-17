@@ -187,6 +187,10 @@ type Model struct {
 	autoPlay bool // start playing immediately on launch
 	compact  bool // compact mode: cap frame width at 80 columns
 
+	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
+	cachedPos time.Duration
+	cachedDur time.Duration
+
 	// Navidrome client (kept separate from navBrowser for non-browser operations)
 	navClient          *navidrome.NavidromeClient
 	navScrobbleEnabled bool
@@ -634,6 +638,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
+		// Cache expensive player state once per tick so View() render
+		// functions don't re-acquire speaker.Lock() multiple times.
+		if !m.buffering {
+			m.cachedPos = m.displayPosition()
+			m.cachedDur = m.player.Duration()
+		} else {
+			track, _ := m.playlist.Current()
+			m.cachedDur = time.Duration(track.DurationSecs) * time.Second
+			m.cachedPos = 0
+		}
 		// Process debounced yt-dlp seek.
 		var seekCmd tea.Cmd
 		if cmd := m.tickSeek(); cmd != nil {
