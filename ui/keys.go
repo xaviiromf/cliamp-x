@@ -263,6 +263,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			bands := m.player.EQBands()
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]+1)
 			m.eqPresetIdx = -1 // manual tweak → custom
+			m.saveEQ()
 		} else {
 			if m.plCursor > 0 {
 				m.plCursor--
@@ -275,6 +276,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			bands := m.player.EQBands()
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]-1)
 			m.eqPresetIdx = -1 // manual tweak → custom
+			m.saveEQ()
 		} else {
 			if m.plCursor < m.playlist.Len()-1 {
 				m.plCursor++
@@ -351,6 +353,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			m.eqPresetIdx = 0
 		}
 		m.applyEQPreset()
+		m.saveEQ()
 
 	case "a":
 		if m.focus == focusPlaylist {

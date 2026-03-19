@@ -4,6 +4,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -467,6 +468,25 @@ func (m *Model) applyEQPreset() {
 	bands := eqPresets[m.eqPresetIdx].Bands
 	for i, gain := range bands {
 		m.player.SetEQBand(i, gain)
+	}
+}
+
+// saveEQ persists the current EQ state (preset name and band values) to config.
+func (m *Model) saveEQ() {
+	name := m.EQPresetName()
+	if err := config.Save("eq_preset", fmt.Sprintf("%q", name)); err != nil {
+		m.status.text = fmt.Sprintf("Config save failed: %s", err)
+		m.status.ttl = 60
+	}
+	bands := m.player.EQBands()
+	parts := make([]string, len(bands))
+	for i, g := range bands {
+		parts[i] = strconv.FormatFloat(g, 'f', -1, 64)
+	}
+	eqVal := "[" + strings.Join(parts, ", ") + "]"
+	if err := config.Save("eq", eqVal); err != nil {
+		m.status.text = fmt.Sprintf("Config save failed: %s", err)
+		m.status.ttl = 60
 	}
 }
 
