@@ -429,6 +429,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	case "v":
 		m.vis.CycleMode()
+		if err := config.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
+			m.status.text = fmt.Sprintf("Config save failed: %s", err)
+			m.status.ttl = 60
+		}
 
 	case "V":
 		m.fullVis = !m.fullVis
