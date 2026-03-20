@@ -317,7 +317,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.playlist.CycleRepeat()
 		if err := config.Save("repeat", fmt.Sprintf("%q", m.playlist.Repeat().String())); err != nil {
 			m.status.text = fmt.Sprintf("Config save failed: %s", err)
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 		m.player.ClearPreload()
 		return m.preloadNext()
@@ -326,7 +326,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.playlist.ToggleShuffle()
 		if err := config.Save("shuffle", fmt.Sprintf("%v", m.playlist.Shuffled())); err != nil {
 			m.status.text = fmt.Sprintf("Config save failed: %s", err)
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 		m.player.ClearPreload()
 		return m.preloadNext()
@@ -450,7 +450,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.vis.CycleMode()
 		if err := config.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
 			m.status.text = fmt.Sprintf("Config save failed: %s", err)
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 
 	case "V":
@@ -463,7 +463,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	case "x":
 		if m.focus == focusPlaylist {
-			if m.plVisible <= 5 {
+			if m.plVisible <= minPlVisible {
 				// Expand: recalculate dynamic max from terminal height.
 				probe := strings.Join([]string{
 					m.renderTitle(), m.renderTrackInfo(), m.renderTimeStatus(), "",
@@ -472,9 +472,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 					"x", "", m.renderHelp(), m.renderStreamStatus(),
 				}, "\n")
 				fixedLines := lipgloss.Height(frameStyle.Render(probe)) - 1
-				m.plVisible = max(5, min(maxPlExpandVisible, m.height-fixedLines))
+				m.plVisible = max(minPlVisible, min(maxPlExpandVisible, m.height-fixedLines))
 			} else {
-				m.plVisible = 5
+				m.plVisible = minPlVisible
 			}
 			m.adjustScroll()
 		}
@@ -493,35 +493,35 @@ func (m *Model) saveTrack() tea.Cmd {
 	track, idx := m.playlist.Current()
 	if idx < 0 {
 		m.status.text = "Nothing to save"
-		m.status.ttl = 40 // ~2s at 50ms ticks
+		m.status.ttl = statusTTLShort
 		return nil
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		m.status.text = fmt.Sprintf("Save failed: %s", err)
-		m.status.ttl = 40
+		m.status.ttl = statusTTLShort
 		return nil
 	}
 
 	saveDir := filepath.Join(home, "Music", "cliamp")
 	if err := os.MkdirAll(saveDir, 0o755); err != nil {
 		m.status.text = fmt.Sprintf("Save failed: %s", err)
-		m.status.ttl = 40
+		m.status.ttl = statusTTLShort
 		return nil
 	}
 
 	// YouTube/yt-dlp tracks: async download directly to ~/Music/cliamp/.
 	if playlist.IsYouTubeURL(track.Path) || playlist.IsYTDL(track.Path) {
 		m.status.text = "Downloading..."
-		m.status.ttl = 600 // cleared by ytdlSavedMsg
+		m.status.ttl = statusTTLDownload // cleared by ytdlSavedMsg
 		return saveYTDLCmd(track.Path, saveDir)
 	}
 
 	// Only save local temp files (yt-dlp downloads), not streams or user's own files.
 	if track.Stream || !strings.HasPrefix(track.Path, os.TempDir()) {
 		m.status.text = "Only downloaded tracks can be saved"
-		m.status.ttl = 40
+		m.status.ttl = statusTTLShort
 		return nil
 	}
 
@@ -542,12 +542,12 @@ func (m *Model) saveTrack() tea.Cmd {
 
 	if err := fileutil.CopyFile(track.Path, dest); err != nil {
 		m.status.text = fmt.Sprintf("Save failed: %s", err)
-		m.status.ttl = 40
+		m.status.ttl = statusTTLShort
 		return nil
 	}
 
 	m.status.text = fmt.Sprintf("Saved to ~/Music/cliamp/%s", name+ext)
-	m.status.ttl = 60 // ~3s
+	m.status.ttl = statusTTLDefault
 	return nil
 }
 
@@ -746,7 +746,7 @@ func (m *Model) handleNetSearchKey(msg tea.KeyMsg) tea.Cmd {
 				prefix = "scsearch1:"
 			}
 			m.status.text = "Queuing search..."
-			m.status.ttl = 40
+			m.status.ttl = statusTTLShort
 			cmd = fetchNetSearchCmd(prefix + strings.TrimSpace(m.netSearch.query))
 		}
 		return cmd
@@ -777,7 +777,7 @@ func (m *Model) handleURLInputKey(msg tea.KeyMsg) tea.Cmd {
 		if input != "" {
 			m.feedLoading = true
 			m.status.text = "Loading URL..."
-			m.status.ttl = 120
+			m.status.ttl = statusTTLLong
 			return resolveRemoteCmd([]string{input})
 		}
 	case tea.KeyBackspace:
@@ -813,10 +813,10 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyMsg) tea.Cmd {
 				name := m.plManager.playlists[m.plManager.cursor].Name
 				if err := m.localProvider.DeletePlaylist(name); err != nil {
 					m.status.text = fmt.Sprintf("Delete failed: %s", err)
-					m.status.ttl = 60
+					m.status.ttl = statusTTLDefault
 				} else {
 					m.status.text = fmt.Sprintf("Deleted \"%s\"", name)
-					m.status.ttl = 60
+					m.status.ttl = statusTTLDefault
 				}
 				m.plMgrRefreshList()
 			}
@@ -905,10 +905,10 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyMsg) tea.Cmd {
 			err := m.localProvider.RemoveTrack(m.plManager.selPlaylist, m.plManager.cursor)
 			if err != nil {
 				m.status.text = fmt.Sprintf("Remove failed: %s", err)
-				m.status.ttl = 60
+				m.status.ttl = statusTTLDefault
 			} else {
 				m.status.text = "Track removed"
-				m.status.ttl = 60
+				m.status.ttl = statusTTLDefault
 			}
 			// Reload tracks (or go back if playlist was deleted).
 			tracks, err := m.localProvider.Tracks(m.plManager.selPlaylist)
@@ -969,16 +969,16 @@ func (m *Model) addToPlaylist(name string) {
 	track, idx := m.playlist.Current()
 	if idx < 0 {
 		m.status.text = "No track to add"
-		m.status.ttl = 40
+		m.status.ttl = statusTTLShort
 		return
 	}
 	if err := m.localProvider.AddTrack(name, track); err != nil {
 		m.status.text = fmt.Sprintf("Failed: %s", err)
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 		return
 	}
 	m.status.text = fmt.Sprintf("Added to \"%s\"", name)
-	m.status.ttl = 60 // ~3s
+	m.status.ttl = statusTTLDefault
 }
 
 // handleThemeKey processes key presses while the theme picker is open.

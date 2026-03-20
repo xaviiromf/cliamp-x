@@ -26,6 +26,16 @@ import (
 // maxResponseBody limits JSON API responses to 10 MB.
 const maxResponseBody = 10 << 20
 
+// Pagination limits for the Spotify Web API.
+const (
+	spotifyPlaylistPageSize = 50
+	spotifyTrackPageSize    = 100
+)
+
+// spotifyBitrate is the audio quality for Spotify streams (kbps).
+// TODO: make bitrate configurable via config.toml
+const spotifyBitrate = 320
+
 // spotifyPlaylistItem is the raw playlist object returned by /v1/me/playlists.
 type spotifyPlaylistItem struct {
 	ID            string `json:"id"`
@@ -179,7 +189,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 
 	var all []playlist.PlaylistInfo
 	offset := 0
-	limit := 50
+	limit := spotifyPlaylistPageSize
 
 	for {
 		query := url.Values{
@@ -259,7 +269,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 
 	var all []playlist.Track
 	offset := 0
-	limit := 100
+	limit := spotifyTrackPageSize
 
 	for {
 		query := url.Values{
@@ -381,7 +391,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	stream, err := p.session.NewStream(ctx, *spotID, 320) // TODO: make bitrate configurable via config.toml
+	stream, err := p.session.NewStream(ctx, *spotID, spotifyBitrate)
 	if err != nil {
 		if !isAuthError(err) {
 			return nil, beep.Format{}, 0, fmt.Errorf("spotify: new stream: %w", err)
@@ -401,7 +411,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 		retryCtx, retryCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer retryCancel()
 
-		stream, err = p.session.NewStream(retryCtx, *spotID, 320)
+		stream, err = p.session.NewStream(retryCtx, *spotID, spotifyBitrate)
 		if err != nil {
 			return nil, beep.Format{}, 0, fmt.Errorf("spotify: new stream after re-auth: %w", err)
 		}

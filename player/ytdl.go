@@ -17,6 +17,12 @@ import (
 	"github.com/gopxl/beep/v2"
 )
 
+// pipeBufSize is the buffer size for audio pipe readers (yt-dlp, ffmpeg).
+const pipeBufSize = 64 * 1024
+
+// ytdlPipeTimeout limits how long we wait for yt-dlp to produce initial audio.
+const ytdlPipeTimeout = 30 * time.Second
+
 // ytdlCookiesFrom is the browser name for --cookies-from-browser (e.g. "chrome").
 // Set via SetYTDLCookiesFrom at startup.
 var ytdlCookiesFrom string
@@ -318,7 +324,7 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 		ytdlCmd:   ytdlCmd,
 		ffmpegCmd: ffmpegCmd,
 		pipe:      ffmpegPipe,
-		reader:    bufio.NewReaderSize(ffmpegPipe, 64*1024),
+		reader:    bufio.NewReaderSize(ffmpegPipe, pipeBufSize),
 		ytdlErr:   ytdlErrCh,
 		f32:       bitDepth == 32,
 	}, format, nil
@@ -350,10 +356,10 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			decoder.Close()
 			return nil, fmt.Errorf("waiting for audio data: %w", err)
 		}
-	case <-time.After(30 * time.Second):
+	case <-time.After(ytdlPipeTimeout):
 		decoder.Close()
 		<-peekErr // drain goroutine after Close() unblocks the pipe
-		return nil, fmt.Errorf("timed out waiting for audio data (30s)")
+		return nil, fmt.Errorf("timed out waiting for audio data (%v)", ytdlPipeTimeout)
 	}
 
 	return &trackPipeline{

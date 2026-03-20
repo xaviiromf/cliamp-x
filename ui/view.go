@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -590,7 +591,7 @@ func fitHints(hints []helpHint, maxWidth int) string {
 
 	for total > maxWidth {
 		// Find lowest-priority active hint and drop it.
-		minPri := 1<<31 - 1
+		minPri := math.MaxInt
 		minIdx := -1
 		for i, h := range hints {
 			if active[i] && h.priority < minPri {

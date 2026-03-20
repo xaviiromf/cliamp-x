@@ -226,10 +226,10 @@ func performOAuth2PKCE(clientID string) (*oauth2.Token, error) {
 		}
 	}()
 
-	_ = browser.Open(authURL)
+	_ = browser.Open(authURL) // best-effort — user can open the URL manually if this fails
 
 	code := <-codeCh
-	_ = lis.Close()
+	_ = lis.Close() // server is done; ignore close error
 
 	token, err := oauthConf.Exchange(context.Background(), code, oauth2.VerifierOption(verifier))
 	if err != nil {

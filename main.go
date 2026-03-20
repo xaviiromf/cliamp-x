@@ -222,7 +222,7 @@ func run(overrides config.Overrides, positional []string) error {
 		if themeName == theme.DefaultName {
 			themeName = ""
 		}
-		_ = config.Save("theme", fmt.Sprintf("%q", themeName))
+		_ = config.Save("theme", fmt.Sprintf("%q", themeName)) // best-effort — non-critical persistence
 
 		if path, secs := fm.ResumeState(); path != "" && secs > 0 {
 			resume.Save(path, secs)

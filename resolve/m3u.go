@@ -22,9 +22,16 @@ type m3uEntry struct {
 // Relative paths are resolved against baseDir (empty for remote M3U).
 // Handles UTF-8 BOM, \r\n line endings, missing #EXTM3U header, and bare
 // entries without EXTINF lines.
+// scannerInitBufSize and scannerMaxLineSize configure bufio.Scanners
+// for parsing M3U playlists and yt-dlp JSON output.
+const (
+	scannerInitBufSize = 64 * 1024   // initial scanner buffer
+	scannerMaxLineSize = 1024 * 1024 // max line length — handles large EXTINF/JSON metadata
+)
+
 func parseM3U(r io.Reader, baseDir string) ([]m3uEntry, error) {
 	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // 1 MB max line — handles large EXTINF metadata
+	scanner.Buffer(make([]byte, 0, scannerInitBufSize), scannerMaxLineSize)
 	var entries []m3uEntry
 	var pending *m3uEntry // EXTINF parsed, waiting for path line
 

@@ -21,6 +21,9 @@ type itemInfo struct {
 	channel string
 }
 
+// youtubeAPIBatchSize is the maximum number of items per YouTube Data API request.
+const youtubeAPIBatchSize = 50
+
 // baseProvider holds shared state for YouTube and YouTube Music providers.
 // Both providers share the same OAuth session and track cache.
 type baseProvider struct {
@@ -344,8 +347,8 @@ func (b *baseProvider) fetchDurations(ctx context.Context, svc *youtube.Service,
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 5) // limit concurrent API calls
 
-	for i := 0; i < len(items); i += 50 {
-		end := i + 50
+	for i := 0; i < len(items); i += youtubeAPIBatchSize {
+		end := i + youtubeAPIBatchSize
 		if end > len(items) {
 			end = len(items)
 		}

@@ -244,7 +244,7 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyMsg, navClient *navidrome.Navid
 		// Persist the new sort preference.
 		if err := config.SaveNavidromeSort(m.navBrowser.sortType); err != nil {
 			m.status.text = fmt.Sprintf("Sort save failed: %s", err)
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 		return fetchNavAlbumListCmd(navClient, m.navBrowser.sortType, 0)
 	case "esc", "h", "left", "backspace":
@@ -321,7 +321,7 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyMsg) tea.Cmd {
 			} else {
 				m.status.text = fmt.Sprintf("Playing: %s", toAdd[0].DisplayName())
 			}
-			m.status.ttl = 80
+			m.status.ttl = statusTTLMedium
 			cmd := m.playCurrentTrack()
 			m.notifyMPRIS()
 			return cmd
@@ -365,7 +365,7 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyMsg) tea.Cmd {
 			wasEmpty := m.playlist.Len() == 0
 			m.playlist.Add(tracks...)
 			m.status.text = fmt.Sprintf("Added %d tracks", len(tracks))
-			m.status.ttl = 80
+			m.status.ttl = statusTTLMedium
 			if wasEmpty || !m.player.IsPlaying() {
 				m.playlist.SetIndex(0)
 				cmd := m.playCurrentTrack()
@@ -388,7 +388,7 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyMsg) tea.Cmd {
 			newIdx := m.playlist.Len() - 1
 			m.playlist.Queue(newIdx)
 			m.status.text = fmt.Sprintf("Queued: %s", t.DisplayName())
-			m.status.ttl = 80
+			m.status.ttl = statusTTLMedium
 			if !m.player.IsPlaying() {
 				m.playlist.Next()
 				cmd := m.playCurrentTrack()

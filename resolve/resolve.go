@@ -478,7 +478,7 @@ func resolveYTDLRange(pageURL string, start, end int) ([]playlist.Track, error) 
 	scanner := bufio.NewScanner(strings.NewReader(string(stdout)))
 	// yt-dlp JSON can exceed bufio.Scanner's default 64KB token limit
 	// (e.g. videos with very long descriptions).
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, scannerInitBufSize), scannerMaxLineSize)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {

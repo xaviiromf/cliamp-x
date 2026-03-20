@@ -81,6 +81,20 @@ const (
 	tickSlow = 200 * time.Millisecond // 5 FPS — visualizer off or overlay
 )
 
+// statusTTL* constants define how many ticks a status message persists.
+// At tickFast (50ms), 20 ticks ≈ 1 second.
+const (
+	statusTTLShort    = 40  // ~2s — brief confirmations
+	statusTTLDefault  = 60  // ~3s — standard status messages
+	statusTTLMedium   = 80  // ~4s — messages needing extra visibility
+	statusTTLBatch    = 90  // ~4.5s — batch operation feedback
+	statusTTLLong     = 120 // ~6s — loading indicators
+	statusTTLDownload = 600 // ~30s — cleared manually by completion message
+)
+
+// minPlVisible is the minimum playlist height when collapsed.
+const minPlVisible = 5
+
 // streamPreloadLeadTime is how far before the end of a stream we arm the
 // gapless next pipeline. Opening the preload HTTP connection too early can
 // cause the server to close the current stream (e.g., per-user concurrent
@@ -378,7 +392,7 @@ func (m *Model) plMgrEnterTrackList(name string) {
 	tracks, err := m.localProvider.Tracks(name)
 	if err != nil {
 		m.status.text = fmt.Sprintf("Load failed: %s", err)
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 		return
 	}
 	m.plManager.selPlaylist = name
@@ -396,7 +410,7 @@ func (m *Model) plMgrRefreshList() {
 	playlists, err := m.localProvider.Playlists()
 	if err != nil {
 		m.status.text = fmt.Sprintf("Load failed: %s", err)
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 	}
 	m.plManager.playlists = playlists
 	// +1 for the "+ New Playlist..." entry
@@ -476,7 +490,7 @@ func (m *Model) saveEQ() {
 	name := m.EQPresetName()
 	if err := config.Save("eq_preset", fmt.Sprintf("%q", name)); err != nil {
 		m.status.text = fmt.Sprintf("Config save failed: %s", err)
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 	}
 	bands := m.player.EQBands()
 	parts := make([]string, len(bands))
@@ -486,7 +500,7 @@ func (m *Model) saveEQ() {
 	eqVal := "[" + strings.Join(parts, ", ") + "]"
 	if err := config.Save("eq", eqVal); err != nil {
 		m.status.text = fmt.Sprintf("Config save failed: %s", err)
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 	}
 }
 
@@ -903,7 +917,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.ytdlBatch.done = true
 			m.status.text = fmt.Sprintf("Radio batch load failed: %v", msg.err)
-			m.status.ttl = 90
+			m.status.ttl = statusTTLBatch
 			return m, nil
 		}
 		if len(msg.tracks) == 0 {
@@ -925,7 +939,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.tracks) > 0 {
 			m.playlist.Add(msg.tracks...)
 			m.status.text = fmt.Sprintf("Loaded %d track(s)", len(msg.tracks))
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 			// Set up incremental loading for YouTube Radio playlists.
 			// The source URLs are carried in the message so we don't
 			// need to re-scan pendingURLs (which misses interactive loads).
@@ -943,7 +957,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.status.text = "No tracks found at URL."
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 		return m, nil
 
@@ -955,7 +969,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.playlist.Queue(i)
 			}
 			m.status.text = fmt.Sprintf("Added to Queue: %s", msg[0].DisplayName())
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 			if !m.player.IsPlaying() {
 
 				cmd := m.playCurrentTrack()
@@ -964,7 +978,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			m.status.text = "No tracks found online."
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 		}
 		return m, nil
 
@@ -980,7 +994,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fbTracksResolvedMsg:
 		if len(msg.tracks) == 0 {
 			m.status.text = "No audio files found"
-			m.status.ttl = 60
+			m.status.ttl = statusTTLDefault
 			return m, nil
 		}
 		if msg.replace {
@@ -995,7 +1009,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.focus = focusPlaylist
 		m.status.text = fmt.Sprintf("Added %d track(s)", len(msg.tracks))
-		m.status.ttl = 60
+		m.status.ttl = statusTTLDefault
 		if !m.player.IsPlaying() && m.playlist.Len() > 0 {
 			if msg.replace {
 				m.playlist.SetIndex(0)
@@ -1029,7 +1043,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.status.text = fmt.Sprintf("Saved to %s", msg.path)
 		}
-		m.status.ttl = 80
+		m.status.ttl = statusTTLMedium
 		return m, nil
 
 	case ytdlResolvedMsg:

@@ -180,7 +180,7 @@ func decodeFFmpegStream(path string, sr beep.SampleRate, bitDepth int) (*ffmpegP
 		Precision:   precision,
 	}
 
-	return &ffmpegPipeStreamer{cmd: cmd, reader: bufio.NewReaderSize(pipe, 64*1024), pipe: pipe, f32: bitDepth == 32}, format, nil
+	return &ffmpegPipeStreamer{cmd: cmd, reader: bufio.NewReaderSize(pipe, pipeBufSize), pipe: pipe, f32: bitDepth == 32}, format, nil
 }
 
 // ffmpegPipeStreamer reads PCM data incrementally from a running ffmpeg process.
@@ -289,7 +289,7 @@ func (s *localFFmpegStreamer) start(seekPos int) error {
 
 	s.cmd = cmd
 	s.pipe = pipe
-	s.reader = bufio.NewReaderSize(pipe, 64*1024)
+	s.reader = bufio.NewReaderSize(pipe, pipeBufSize)
 	s.pos = seekPos
 	s.err = nil
 	return nil
@@ -402,7 +402,7 @@ func (s *navFFmpegStreamer) start(seekPos int) error {
 
 	s.cmd = cmd
 	s.pipe = pipe
-	s.reader = bufio.NewReaderSize(pipe, 64*1024)
+	s.reader = bufio.NewReaderSize(pipe, pipeBufSize)
 	s.pos = seekPos
 	s.err = nil
 	return nil
