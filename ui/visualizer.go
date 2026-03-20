@@ -34,6 +34,7 @@ const (
 	VisMatrix                 // falling matrix rain characters
 	VisBinary                 // streaming binary 0s and 1s
 	VisSakura                 // falling cherry blossom petals
+	VisFirework               // exploding firework bursts
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -118,8 +119,9 @@ var visModes = [visCount]visEntry{
 	VisPulse:   {"Pulse", (*Visualizer).renderPulse},
 	VisMatrix:  {"Matrix", (*Visualizer).renderMatrix},
 	VisBinary:  {"Binary", (*Visualizer).renderBinary},
-	VisSakura:  {"Sakura", (*Visualizer).renderSakura},
-	VisNone:    {"None", nil},
+	VisSakura:   {"Sakura", (*Visualizer).renderSakura},
+	VisFirework: {"Firework", (*Visualizer).renderFirework},
+	VisNone:     {"None", nil},
 }
 
 var visNameMap map[string]VisMode
