@@ -35,6 +35,7 @@ const (
 	VisBinary                 // streaming binary 0s and 1s
 	VisSakura                 // falling cherry blossom petals
 	VisFirework               // exploding firework bursts
+	VisLogo                   // CLIAMP pixel text
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -121,6 +122,7 @@ var visModes = [visCount]visEntry{
 	VisBinary:  {"Binary", (*Visualizer).renderBinary},
 	VisSakura:   {"Sakura", (*Visualizer).renderSakura},
 	VisFirework: {"Firework", (*Visualizer).renderFirework},
+	VisLogo:     {"Logo", (*Visualizer).renderLogo},
 	VisNone:     {"None", nil},
 }
 
