@@ -101,24 +101,25 @@ func (y YouTubeMusicConfig) ResolveCredentials(fallbackFn func() (string, string
 
 // Config holds user preferences loaded from the config file.
 type Config struct {
-	Volume          float64            // dB, range [-30, +6]
-	EQ              [10]float64        // per-band gain in dB, range [-12, +12]
-	EQPreset        string             // preset name, or "" for custom
-	Repeat          string             // "off", "all", or "one"
-	Shuffle         bool
-	Mono            bool
-	SeekStepLarge   int                // seconds for Shift+Left/Right seek jumps
-	Provider        string             // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
-	Theme           string             // theme name, or "" for ANSI default
-	Visualizer      string             // visualizer mode name, or "" for default (Bars)
-	SampleRate      int                // output sample rate: 22050, 44100, 48000, 96000, 192000
-	BufferMs        int                // speaker buffer in milliseconds (50–500)
-	ResampleQuality int                // beep resample quality factor (1–4)
-	BitDepth        int                // PCM bit depth for FFmpeg output: 16 or 32
-	Compact         bool               // compact mode: cap frame width at 80 columns
-	Navidrome       NavidromeConfig    // optional Navidrome/Subsonic server credentials
-	Spotify         SpotifyConfig      // optional Spotify provider (requires Premium)
-	YouTubeMusic    YouTubeMusicConfig // optional YouTube Music provider
+	Volume            float64            // dB, range [-30, +6]
+	EQ                [10]float64        // per-band gain in dB, range [-12, +12]
+	EQPreset          string             // preset name, or "" for custom
+	Repeat            string             // "off", "all", or "one"
+	Shuffle           bool
+	Mono              bool
+	SeekStepLarge     int                // seconds for Shift+Left/Right seek jumps
+	Provider          string             // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
+	Theme             string             // theme name, or "" for ANSI default
+	Visualizer        string             // visualizer mode name, or "" for default (Bars)
+	SampleRate        int                // output sample rate: 22050, 44100, 48000, 96000, 192000
+	BufferMs          int                // speaker buffer in milliseconds (50–500)
+	ResampleQuality   int                // beep resample quality factor (1–4)
+	BitDepth          int                // PCM bit depth for FFmpeg output: 16 or 32
+	Compact           bool               // compact mode: cap frame width at 80 columns
+	TelemetryDisabled bool               // true only when "telemetry = false" is explicitly set
+	Navidrome         NavidromeConfig    // optional Navidrome/Subsonic server credentials
+	Spotify           SpotifyConfig      // optional Spotify provider (requires Premium)
+	YouTubeMusic      YouTubeMusicConfig // optional YouTube Music provider
 }
 
 // Default returns a Config with sensible defaults.
@@ -264,6 +265,8 @@ func Load() (Config, error) {
 				}
 			case "compact":
 				cfg.Compact = val == "true"
+			case "telemetry":
+				cfg.TelemetryDisabled = strings.ToLower(val) == "false"
 			}
 		}
 	}

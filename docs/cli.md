@@ -47,6 +47,7 @@ Press `f` in the player to search YouTube interactively, or `F` (Shift+F) to sea
 | `--help` | `-h` | Show help and exit |
 | `--version` | `-v` | Print version and exit |
 | `--upgrade` | | Update to the latest release |
+| `--no-telemetry` | | Disable anonymous telemetry for this session |
 
 ## Mixing flags and files
 
@@ -73,5 +74,6 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--buffer-ms` | int | 100 | 50–500 |
 | `--resample-quality` | int | 4 | 1–4 |
 | `--bit-depth` | int | 16 | 16, 32 |
+| `--no-telemetry` | bool | false | |
 
 CLI flags override config file values for the current session only. They are not persisted.

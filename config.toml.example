@@ -44,6 +44,10 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Visualizer mode: Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, or None
 # visualizer = "Bars"
 
+# Disable anonymous telemetry (monthly active user ping)
+# See docs/telemetry.md for details on what is collected
+# telemetry = false
+
 # ---
 # Spotify (optional)
 # A Spotify Premium account and a registered app at
