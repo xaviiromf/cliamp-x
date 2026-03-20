@@ -36,6 +36,10 @@ const (
 	VisSakura                 // falling cherry blossom petals
 	VisFirework               // exploding firework bursts
 	VisLogo                   // CLIAMP pixel text
+	VisTerrain                // scrolling side-view mountain range
+	VisGlitch                 // random block corruption driven by energy
+	VisScope                  // Lissajous XY oscilloscope
+	VisRain                   // falling rain droplets with splash
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -82,8 +86,9 @@ type Visualizer struct {
 	Mode      VisMode
 	Rows      int       // display height in terminal rows (default 5)
 	waveBuf   []float64 // raw samples for wave mode
-	frame     uint64    // frame counter for scatter animation
-	sampleBuf []float64 // reusable buffer for reading audio tap samples
+	frame      uint64    // frame counter for scatter animation
+	sampleBuf  []float64 // reusable buffer for reading audio tap samples
+	terrainBuf []float64 // height history for terrain scrolling mode
 }
 
 // NewVisualizer creates a Visualizer for the given sample rate.
@@ -123,6 +128,10 @@ var visModes = [visCount]visEntry{
 	VisSakura:   {"Sakura", (*Visualizer).renderSakura},
 	VisFirework: {"Firework", (*Visualizer).renderFirework},
 	VisLogo:     {"Logo", (*Visualizer).renderLogo},
+	VisTerrain:  {"Terrain", (*Visualizer).renderTerrain},
+	VisGlitch:   {"Glitch", (*Visualizer).renderGlitch},
+	VisScope:    {"Scope", func(v *Visualizer, _ [numBands]float64) string { return v.renderScope() }},
+	VisRain:     {"Rain", (*Visualizer).renderRain},
 	VisNone:     {"None", nil},
 }
 
