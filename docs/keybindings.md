@@ -22,6 +22,7 @@ Press `Ctrl+K` in the player to see all keybindings.
 |---|---|
 | `Tab` | Toggle focus (Playlist / EQ) |
 | `j` `k` / `Up` `Down` | Playlist scroll / EQ band adjust |
+| `Shift+Up` `Shift+Down` | Move track up/down in playlist/queue |
 | `h` `l` | EQ cursor left/right |
 | `Enter` | Play selected track |
 | `/` | Search playlist |

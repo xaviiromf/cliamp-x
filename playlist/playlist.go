@@ -452,6 +452,62 @@ func (p *Playlist) RemoveQueueAt(pos int) {
 	}
 }
 
+// MoveQueue swaps two adjacent entries in the play-next queue by position.
+func (p *Playlist) MoveQueue(from, to int) bool {
+	if from < 0 || from >= len(p.queue) || to < 0 || to >= len(p.queue) || from == to {
+		return false
+	}
+	p.queue[from], p.queue[to] = p.queue[to], p.queue[from]
+	return true
+}
+
+// Move swaps the track at position from with the track at position to,
+// updating order, queue, and position references so playback is unaffected.
+// When shuffle is off, the visual order becomes the new playback order.
+func (p *Playlist) Move(from, to int) bool {
+	if from < 0 || from >= len(p.tracks) || to < 0 || to >= len(p.tracks) || from == to {
+		return false
+	}
+
+	// Swap in the tracks array (visual order).
+	p.tracks[from], p.tracks[to] = p.tracks[to], p.tracks[from]
+
+	// Update order: swap all references so they point at the moved tracks.
+	for i, idx := range p.order {
+		if idx == from {
+			p.order[i] = to
+		} else if idx == to {
+			p.order[i] = from
+		}
+	}
+
+	// Queue also references track indices.
+	for i, idx := range p.queue {
+		if idx == from {
+			p.queue[i] = to
+		} else if idx == to {
+			p.queue[i] = from
+		}
+	}
+	if p.queuedIdx == from {
+		p.queuedIdx = to
+	} else if p.queuedIdx == to {
+		p.queuedIdx = from
+	}
+
+	// When shuffle is off, reset order to [0,1,...,n] so playback follows
+	// the new visual order rather than preserving the old sequence.
+	if !p.shuffle {
+		cur := p.order[p.pos]
+		for i := range p.order {
+			p.order[i] = i
+		}
+		p.pos = cur
+	}
+
+	return true
+}
+
 // SetTrack replaces the track at index i.
 func (p *Playlist) SetTrack(i int, t Track) {
 	if i >= 0 && i < len(p.tracks) {

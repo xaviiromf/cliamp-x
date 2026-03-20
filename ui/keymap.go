@@ -26,6 +26,7 @@ var keymapEntries = []keymapEntry{
 	{"v", "Cycle visualizer"},
 	{"V", "Full-screen visualizer"},
 	{"↑ ↓", "Playlist scroll / EQ adjust"},
+	{"Shift+↑ ↓", "Move track up/down"},
 	{"h l", "EQ cursor left/right"},
 	{"Enter", "Play selected track"},
 	{"a", "Toggle queue (play next)"},

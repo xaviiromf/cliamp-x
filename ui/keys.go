@@ -258,6 +258,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "shift+right":
 		m.doSeek(m.seekStepLarge)
 
+	case "shift+up":
+		if m.focus == focusPlaylist && m.plCursor > 0 {
+			if m.playlist.Move(m.plCursor, m.plCursor-1) {
+				m.plCursor--
+				m.adjustScroll()
+			}
+		}
+
 	case "up", "k":
 		if m.focus == focusEQ {
 			bands := m.player.EQBands()
@@ -388,6 +396,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.netSearch.soundcloud = msg.String() == "F"
 		m.prevFocus = m.focus
 		m.focus = focusNetSearch
+
+	case "shift+down":
+		if m.focus == focusPlaylist && m.plCursor < m.playlist.Len()-1 {
+			if m.playlist.Move(m.plCursor, m.plCursor+1) {
+				m.plCursor++
+				m.adjustScroll()
+			}
+		}
 
 	case "J":
 		m.openJumpMode()
@@ -1007,6 +1023,18 @@ func (m *Model) handleQueueKey(msg tea.KeyMsg) tea.Cmd {
 	case "down", "j":
 		if m.queue.cursor < qLen-1 {
 			m.queue.cursor++
+		}
+	case "shift+up":
+		if m.queue.cursor > 0 {
+			if m.playlist.MoveQueue(m.queue.cursor, m.queue.cursor-1) {
+				m.queue.cursor--
+			}
+		}
+	case "shift+down":
+		if m.queue.cursor < qLen-1 {
+			if m.playlist.MoveQueue(m.queue.cursor, m.queue.cursor+1) {
+				m.queue.cursor++
+			}
 		}
 	case "d":
 		if qLen > 0 {
