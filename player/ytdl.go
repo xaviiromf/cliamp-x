@@ -67,12 +67,6 @@ func probeYTDLDuration(pageURL string) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-// FFmpegAvailable reports whether ffmpeg is installed and on PATH.
-func FFmpegAvailable() bool {
-	_, err := exec.LookPath("ffmpeg")
-	return err == nil
-}
-
 // InstallYTDLP attempts to install yt-dlp using the system package manager.
 // Returns nil on success. The caller should re-check YTDLPAvailable() after.
 func InstallYTDLP() error {

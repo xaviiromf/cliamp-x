@@ -70,13 +70,6 @@ type YouTubeMusicConfig struct {
 	CookiesFrom  string // browser name for yt-dlp --cookies-from-browser (e.g. "chrome", "firefox")
 }
 
-// IsSet reports whether the YouTube providers should be shown.
-// Returns true when any of [yt], [youtube], or [ytmusic] config sections exist,
-// or when the --provider flag selects a YouTube provider (even without config).
-func (y YouTubeMusicConfig) IsSet() bool {
-	return !y.Disabled && y.Enabled
-}
-
 // IsSetOrFallback returns true when YouTube providers should be enabled,
 // either via config or because fallback credentials are available.
 func (y YouTubeMusicConfig) IsSetOrFallback(fallbackFn func() (string, string)) bool {

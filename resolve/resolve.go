@@ -339,22 +339,6 @@ type ytdlFullEntry struct {
 	Filename string `json:"_filename"`
 }
 
-// ytdlTempDirs tracks temp directories created by ResolveYTDLTrack for cleanup.
-var (
-	ytdlTempDirs []string
-	ytdlMu       sync.Mutex
-)
-
-// CleanupYTDL removes all temp files created by yt-dlp downloads.
-func CleanupYTDL() {
-	ytdlMu.Lock()
-	defer ytdlMu.Unlock()
-	for _, d := range ytdlTempDirs {
-		os.RemoveAll(d)
-	}
-	ytdlTempDirs = nil
-}
-
 // YTDLRadioInitialItems is the number of tracks fetched in the first pass
 // for YouTube Radio/Mix playlists. The UI uses this as the batch offset
 // when starting incremental loading.
@@ -517,62 +501,6 @@ func resolveYTDLRange(pageURL string, start, end int) ([]playlist.Track, error) 
 	return tracks, scanner.Err()
 }
 
-// ResolveYTDLTrack downloads a single track via yt-dlp to a temp file and
-// returns a Track pointing to the local file. Local files are seekable,
-// unlike HTTP streams.
-func ResolveYTDLTrack(pageURL string) (playlist.Track, error) {
-	tmpDir, err := os.MkdirTemp("", "cliamp-ytdl-")
-	if err != nil {
-		return playlist.Track{}, fmt.Errorf("creating temp dir: %w", err)
-	}
-	ytdlMu.Lock()
-	ytdlTempDirs = append(ytdlTempDirs, tmpDir)
-	ytdlMu.Unlock()
-
-	outTemplate := filepath.Join(tmpDir, "%(id)s.%(ext)s")
-	cmd := exec.Command("yt-dlp",
-		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio",
-		"--no-playlist",
-		"--print-json",
-		"-o", outTemplate,
-		pageURL)
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	stdout, err := cmd.Output()
-	if err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg != "" {
-			return playlist.Track{}, fmt.Errorf("yt-dlp: %s", msg)
-		}
-		return playlist.Track{}, fmt.Errorf("yt-dlp: %w", err)
-	}
-
-	var e ytdlFullEntry
-	if err := json.Unmarshal(stdout, &e); err != nil {
-		// Best-effort: find the file in tmpDir even if JSON parsing fails.
-		e.Filename = findFirstFile(tmpDir)
-	}
-
-	filePath := e.Filename
-	if filePath == "" {
-		filePath = findFirstFile(tmpDir)
-	}
-	if filePath == "" {
-		return playlist.Track{}, fmt.Errorf("yt-dlp: no file downloaded for %s", pageURL)
-	}
-
-	title := e.Title
-	if title == "" {
-		title = pageURL
-	}
-	return playlist.Track{
-		Path:   filePath,
-		Title:  title,
-		Artist: e.Uploader,
-		Stream: false,
-	}, nil
-}
-
 // DownloadYTDL downloads a single track via yt-dlp to the given directory
 // and returns the output file path. Uses yt-dlp's default naming template.
 func DownloadYTDL(pageURL, saveDir string) (string, error) {
@@ -606,20 +534,6 @@ func DownloadYTDL(pageURL, saveDir string) (string, error) {
 		return "", fmt.Errorf("yt-dlp: no file downloaded for %s", pageURL)
 	}
 	return e.Filename, nil
-}
-
-// findFirstFile returns the path of the first file in a directory, or "".
-func findFirstFile(dir string) string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return ""
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			return filepath.Join(dir, e.Name())
-		}
-	}
-	return ""
 }
 
 // parseItunesDuration parses an <itunes:duration> value into seconds.

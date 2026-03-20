@@ -132,13 +132,6 @@ func fetchNetSearchCmd(query string) tea.Cmd {
 	}
 }
 
-func resolveYTDLCmd(index int, pageURL string) tea.Cmd {
-	return func() tea.Msg {
-		track, err := resolve.ResolveYTDLTrack(pageURL)
-		return ytdlResolvedMsg{index: index, track: track, err: err}
-	}
-}
-
 func playStreamCmd(p *player.Player, path string, knownDuration time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		return streamPlayedMsg{err: p.Play(path, knownDuration)}
@@ -261,16 +254,3 @@ func fetchNavAlbumTracksCmd(c *navidrome.NavidromeClient, albumID string) tea.Cm
 	}
 }
 
-func fetchNavArtistTracksCmd(c *navidrome.NavidromeClient, albums []navidrome.Album) tea.Cmd {
-	return func() tea.Msg {
-		var all []playlist.Track
-		for _, album := range albums {
-			tracks, err := c.AlbumTracks(album.ID)
-			if err != nil {
-				return err
-			}
-			all = append(all, tracks...)
-		}
-		return navTracksLoadedMsg(all)
-	}
-}

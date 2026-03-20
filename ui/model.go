@@ -225,7 +225,7 @@ type Model struct {
 // localProv is an optional direct reference to the local provider for write ops.
 // navCfg is the Navidrome config used to seed the initial browse sort preference.
 // nav is the raw NavidromeClient (may be nil); stored directly so the browser
-// key handler doesn't have to unwrap a CompositeProvider.
+// key handler doesn't have to unwrap a provider.
 func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry, defaultProvider string, localProv *local.Provider, themes []theme.Theme, navCfg config.NavidromeConfig, nav *navidrome.NavidromeClient) Model {
 	sortType := navCfg.BrowseSort
 	if sortType == "" {

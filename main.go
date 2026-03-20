@@ -104,7 +104,6 @@ func run(overrides config.Overrides, positional []string) error {
 
 	localProv := local.New()
 
-	defer resolve.CleanupYTDL()
 	if spotifyProv != nil {
 		defer spotifyProv.Close()
 	}
