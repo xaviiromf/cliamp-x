@@ -23,8 +23,11 @@ var hannWindow [fftSize]float64
 type VisMode int
 
 const (
-	VisBars    VisMode = iota // smooth fractional blocks
-	VisBricks                 // solid bricks with gaps
+	VisBars        VisMode = iota // smooth fractional blocks
+	VisBarsDot                    // bars with braille dot stipple
+	VisRain                       // falling rain droplets within bar shapes
+	VisBarsOutline                // top-edge outline of bars
+	VisBricks                     // solid bricks with gaps
 	VisColumns                // many thin columns
 	VisWave                   // braille waveform oscilloscope
 	VisScatter                // braille particle sparkle
@@ -39,7 +42,6 @@ const (
 	VisTerrain                // scrolling side-view mountain range
 	VisGlitch                 // random block corruption driven by energy
 	VisScope                  // Lissajous XY oscilloscope
-	VisRain                   // falling rain droplets with splash
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -115,8 +117,11 @@ type visEntry struct {
 // visModes is the single source of truth for all visualizer modes.
 // To add a new mode: add a const, add one line here, create a vis_*.go file.
 var visModes = [visCount]visEntry{
-	VisBars:    {"Bars", (*Visualizer).renderBars},
-	VisBricks:  {"Bricks", (*Visualizer).renderBricks},
+	VisBars:        {"Bars", (*Visualizer).renderBars},
+	VisBarsDot:     {"BarsDot", (*Visualizer).renderBarsDot},
+	VisRain:        {"Rain", (*Visualizer).renderRain},
+	VisBarsOutline: {"BarsOutline", (*Visualizer).renderBarsOutline},
+	VisBricks:      {"Bricks", (*Visualizer).renderBricks},
 	VisColumns: {"Columns", (*Visualizer).renderColumns},
 	VisWave:    {"Wave", func(v *Visualizer, _ [numBands]float64) string { return v.renderWave() }},
 	VisScatter: {"Scatter", (*Visualizer).renderScatter},
@@ -131,7 +136,6 @@ var visModes = [visCount]visEntry{
 	VisTerrain:  {"Terrain", (*Visualizer).renderTerrain},
 	VisGlitch:   {"Glitch", (*Visualizer).renderGlitch},
 	VisScope:    {"Scope", func(v *Visualizer, _ [numBands]float64) string { return v.renderScope() }},
-	VisRain:     {"Rain", (*Visualizer).renderRain},
 	VisNone:     {"None", nil},
 }
 
