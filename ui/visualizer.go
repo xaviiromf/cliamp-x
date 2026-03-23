@@ -42,6 +42,9 @@ const (
 	VisTerrain                // scrolling side-view mountain range
 	VisGlitch                 // random block corruption driven by energy
 	VisScope                  // Lissajous XY oscilloscope
+	VisHeartbeat              // ECG pulse monitor trace
+	VisButterfly              // mirrored Rorschach spectrum
+	VisLightning              // electric bolts from treble energy
 	VisNone                   // hidden — no visualizer
 	visCount                  // sentinel for cycling
 )
@@ -135,8 +138,11 @@ var visModes = [visCount]visEntry{
 	VisLogo:     {"Logo", (*Visualizer).renderLogo},
 	VisTerrain:  {"Terrain", (*Visualizer).renderTerrain},
 	VisGlitch:   {"Glitch", (*Visualizer).renderGlitch},
-	VisScope:    {"Scope", func(v *Visualizer, _ [numBands]float64) string { return v.renderScope() }},
-	VisNone:     {"None", nil},
+	VisScope:           {"Scope", func(v *Visualizer, _ [numBands]float64) string { return v.renderScope() }},
+	VisHeartbeat:       {"Heartbeat", func(v *Visualizer, _ [numBands]float64) string { return v.renderHeartbeat() }},
+	VisButterfly:       {"Butterfly", (*Visualizer).renderButterfly},
+	VisLightning:       {"Lightning", (*Visualizer).renderLightning},
+	VisNone:            {"None", nil},
 }
 
 var visNameMap map[string]VisMode
