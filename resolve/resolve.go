@@ -71,7 +71,7 @@ func Args(args []string) (Result, error) {
 		}
 		for _, path := range matches {
 			if playlist.IsLocalM3U(path) {
-				tracks, err := ResolveLocalM3U(path)
+				tracks, err := resolveLocalM3U(path)
 				if err != nil {
 					return r, fmt.Errorf("loading m3u %s: %w", path, err)
 				}
@@ -79,7 +79,7 @@ func Args(args []string) (Result, error) {
 				continue
 			}
 			if playlist.IsLocalPLS(path) {
-				tracks, err := ResolveLocalPLS(path)
+				tracks, err := resolveLocalPLS(path)
 				if err != nil {
 					return r, fmt.Errorf("loading pls %s: %w", path, err)
 				}

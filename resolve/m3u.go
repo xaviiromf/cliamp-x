@@ -121,10 +121,10 @@ func entriesToTracks(entries []m3uEntry) []playlist.Track {
 	return tracks
 }
 
-// ResolveLocalM3U opens a local .m3u/.m3u8 file, parses it with EXTINF
+// resolveLocalM3U opens a local .m3u/.m3u8 file, parses it with EXTINF
 // metadata, and returns the resulting tracks. Relative paths in the M3U
 // are resolved against the directory containing the M3U file.
-func ResolveLocalM3U(path string) ([]playlist.Track, error) {
+func resolveLocalM3U(path string) ([]playlist.Track, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err

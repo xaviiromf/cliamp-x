@@ -333,10 +333,10 @@ func (s *Session) NewStream(ctx context.Context, spotID librespot.SpotifyId, bit
 	return s.player.NewStream(ctx, http.DefaultClient, spotID, bitrate, 0)
 }
 
-// WebApi calls the Spotify Web API using the OAuth2 access token.
+// webApi calls the Spotify Web API using the OAuth2 access token.
 // This is the standard Web API token (not go-librespot's internal spclient token),
 // which has proper rate limits for api.spotify.com endpoints.
-func (s *Session) WebApi(ctx context.Context, method, path string, query url.Values) (*http.Response, error) {
+func (s *Session) webApi(ctx context.Context, method, path string, query url.Values) (*http.Response, error) {
 	s.mu.Lock()
 	ts := s.tokenSource
 	s.mu.Unlock()
@@ -394,7 +394,7 @@ func (s *Session) Close() {
 //
 // The new session is established before tearing down the old one to avoid a
 // window where s.sess/s.player are nil (which would crash concurrent callers
-// like NewStream or WebApi).
+// like NewStream or webApi).
 func (s *Session) Reconnect(ctx context.Context) error {
 	// Capture clientID without holding the lock during the (potentially long)
 	// interactive OAuth2 flow.

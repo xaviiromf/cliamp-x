@@ -205,7 +205,7 @@ func TrackFromPath(path string) Track {
 	if IsURL(path) {
 		return trackFromURL(path)
 	}
-	return ReadTags(path)
+	return readTags(path)
 }
 
 // trackFromURL creates a Track from an HTTP/HTTPS URL, extracting a clean

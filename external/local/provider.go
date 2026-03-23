@@ -113,8 +113,8 @@ func (p *Provider) AddTrack(playlistName string, track playlist.Track) error {
 	return nil
 }
 
-// SavePlaylist overwrites the named playlist with the given tracks.
-func (p *Provider) SavePlaylist(name string, tracks []playlist.Track) error {
+// savePlaylist overwrites the named playlist with the given tracks.
+func (p *Provider) savePlaylist(name string, tracks []playlist.Track) error {
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (p *Provider) RemoveTrack(name string, index int) error {
 	if len(tracks) == 0 {
 		return p.DeletePlaylist(name)
 	}
-	return p.SavePlaylist(name, tracks)
+	return p.savePlaylist(name, tracks)
 }
 
 // writeTrack writes a single [[track]] TOML section to w.

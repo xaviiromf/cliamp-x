@@ -439,7 +439,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 		}
 	}
 
-	streamer := NewSpotifyStreamer(stream)
+	streamer := newSpotifyStreamer(stream)
 	return streamer, streamer.Format(), streamer.Duration(), nil
 }
 
@@ -447,7 +447,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 func (p *SpotifyProvider) webAPI(ctx context.Context, method, path string, query url.Values) (*http.Response, error) {
 	const maxRetries = 8
 	for attempt := range maxRetries {
-		resp, err := p.session.WebApi(ctx, method, path, query)
+		resp, err := p.session.webApi(ctx, method, path, query)
 		if err != nil {
 			return nil, err
 		}

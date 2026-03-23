@@ -40,7 +40,7 @@ type Player struct {
 	ctrl            *beep.Ctrl
 	volume          atomic.Uint64     // dB stored as Float64bits, range [-30, +6]
 	eqBands         [10]atomic.Uint64 // dB stored as math.Float64bits
-	tap             *Tap
+	tap             *tap
 	playing         atomic.Bool
 	paused          atomic.Bool
 	mono            atomic.Bool
@@ -164,11 +164,11 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 		var s beep.Streamer = p.gapless
 
 		for i := range 10 {
-			s = newBiquad(s, EQFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
+			s = newBiquad(s, eqFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
 		}
 
 		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, cachedDB: math.NaN()}
-		p.tap = NewTap(s, 4096)
+		p.tap = newTap(s, 4096)
 		p.ctrl = &beep.Ctrl{Streamer: p.tap}
 		p.started = true
 		p.playing.Store(true)
