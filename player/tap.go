@@ -49,20 +49,6 @@ func (t *tap) Err() error {
 	return t.s.Err()
 }
 
-// Samples returns the last n samples from the ring buffer in chronological order.
-func (t *tap) Samples(n int) []float64 {
-	if n > t.size {
-		n = t.size
-	}
-	out := make([]float64, n)
-	p := int(t.pos.Load())
-	start := (p - n + t.size) % t.size
-	for i := range n {
-		out[i] = t.buf[(start+i)%t.size]
-	}
-	return out
-}
-
 // SamplesInto copies the last len(dst) samples into dst, avoiding allocation.
 // Returns the number of samples written.
 func (t *tap) SamplesInto(dst []float64) int {

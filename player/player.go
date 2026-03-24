@@ -603,17 +603,6 @@ func (p *Player) StreamErr() error {
 	return cur.decoder.Err()
 }
 
-// Samples returns the latest audio samples from the tap for FFT analysis.
-func (p *Player) Samples() []float64 {
-	p.mu.Lock()
-	tap := p.tap
-	p.mu.Unlock()
-	if tap == nil {
-		return nil
-	}
-	return tap.Samples(2048)
-}
-
 // SamplesInto copies the latest audio samples into dst, avoiding allocation.
 // Returns the number of samples written.
 func (p *Player) SamplesInto(dst []float64) int {
@@ -629,11 +618,6 @@ func (p *Player) SamplesInto(dst []float64) int {
 // SampleRate returns the output sample rate in Hz.
 func (p *Player) SampleRate() int {
 	return int(p.sr)
-}
-
-// ResampleQuality returns the configured resample quality factor.
-func (p *Player) ResampleQuality() int {
-	return p.resampleQuality
 }
 
 // StreamBytes returns the bytes downloaded and total content length for the
