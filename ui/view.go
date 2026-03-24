@@ -324,7 +324,11 @@ func (m Model) renderControls() string {
 		eqParts[i] = style.Render(label)
 	}
 
-	left := labelStyle.Render("EQ ") + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
+	eqLabel := labelStyle.Render("EQ ")
+	if m.focus == focusEQ {
+		eqLabel = activeToggle.Render("EQ ▸ ")
+	}
+	left := eqLabel + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
 
 	vol := m.player.Volume()
 	frac := max(0, min(1, (vol+30)/36))
@@ -369,7 +373,11 @@ func (m Model) renderProviderPill() string {
 		}
 	}
 
-	return labelStyle.Render("SRC ") + strings.Join(pills, " ")
+	srcLabel := labelStyle.Render("SRC ")
+	if m.focus == focusProvPill {
+		srcLabel = activeToggle.Render("SRC ▸ ")
+	}
+	return srcLabel + strings.Join(pills, " ")
 }
 
 func (m Model) renderPlaylistHeader() string {
@@ -404,7 +412,13 @@ func (m Model) renderPlaylistHeader() string {
 		themeStr = " " + activeToggle.Render("[Theme: "+name+"]")
 	}
 
-	return dimStyle.Render("── Playlist ── ") + shuffle + queueStr + themeStr + " " + dimStyle.Render("──")
+	headerStyle := dimStyle
+	headerLabel := "── Playlist ── "
+	if m.focus == focusPlaylist {
+		headerStyle = activeToggle
+		headerLabel = "▸─ Playlist ── "
+	}
+	return headerStyle.Render(headerLabel) + shuffle + queueStr + themeStr + " " + dimStyle.Render("──")
 }
 
 func (m Model) renderProviderList() string {
