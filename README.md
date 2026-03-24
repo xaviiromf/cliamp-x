@@ -64,6 +64,46 @@ cliamp https://example.com/stream  # play a URL
 
 Press `Ctrl+K` to see all keybindings.
 
+## Building from source
+
+**Prerequisites:**
+
+- [Go](https://go.dev/dl/) 1.25.5 or later
+- ALSA development headers (Linux only — required by the audio backend)
+
+**Linux (Debian/Ubuntu):**
+
+```sh
+sudo apt install libasound2-dev
+```
+
+**Linux (Fedora):**
+
+```sh
+sudo dnf install alsa-lib-devel
+```
+
+**Linux (Arch):**
+
+```sh
+sudo pacman -S alsa-lib
+```
+
+**macOS:** No extra dependencies — CoreAudio is used.
+
+**Clone and build:**
+
+```sh
+git clone https://github.com/bjarneo/cliamp.git
+cd cliamp
+go build -o cliamp .
+```
+
+**Optional runtime dependencies:**
+
+- [ffmpeg](https://ffmpeg.org/) — for AAC, ALAC, Opus, and WMA playback
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — for YouTube, SoundCloud, Bandcamp, and Bilibili
+
 ## Docs
 
 - [Configuration](docs/configuration.md)
