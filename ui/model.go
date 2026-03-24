@@ -858,17 +858,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tracksLoadedMsg:
-		if !m.player.IsPlaying() {
+		wasPlaying := m.player.IsPlaying()
+		if !wasPlaying {
 			m.player.Stop()
 			m.player.ClearPreload()
 		}
 		m.resetYTDLBatch()
-		m.playlist.Replace(msg)
+		if wasPlaying {
+			// Keep the currently playing track at index 0 so the
+			// display stays in sync with actual playback.
+			current, _ := m.playlist.Current()
+			m.playlist.Replace(append([]playlist.Track{current}, msg...))
+		} else {
+			m.playlist.Replace(msg)
+		}
 		m.plCursor = 0
 		m.plScroll = 0
 		m.focus = focusPlaylist
 		m.provLoading = false
-		if m.playlist.Len() > 0 && !m.player.IsPlaying() {
+		if m.playlist.Len() > 0 && !wasPlaying {
 			cmd := m.playCurrentTrack()
 			m.notifyMPRIS()
 			return m, cmd
