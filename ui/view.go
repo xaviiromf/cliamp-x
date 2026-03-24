@@ -562,47 +562,38 @@ func (m Model) renderJumpOverlay() string {
 
 func (m Model) renderHelp() string {
 	if m.focus == focusProvider {
-		return helpKey("↑↓", "Navigate ") + helpKey("Enter", "Load ") + helpKey("Tab", "Focus ") + helpKey("Q", "Quit")
+		return helpKey("↑↓", "Navigate ") + helpKey("Enter", "Load ") + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
 	}
 	if m.focus == focusProvPill {
-		return helpKey("←→", "Select ") + helpKey("Enter", "Open ") + helpKey("Tab", "Focus ") + helpKey("Esc", "Back ") + helpKey("Q", "Quit")
+		return helpKey("←→", "Select ") + helpKey("Enter", "Open ") + helpKey("Esc", "Back ") + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
 	}
 
-	// Build focus-specific help hints (lower priority = dropped first when too wide).
+	// Show only the 4-5 most relevant keys per mode; Ctrl+K always anchored for full list.
 	var hints []helpHint
-
-	hints = append(hints, helpHint{helpKey("Spc", "⏯ "), 100})
-	hints = append(hints, helpHint{helpKey("<>", "Trk "), 90})
 
 	if m.focus == focusEQ {
 		hints = append(hints,
-			helpHint{helpKey("←→", "Band "), 95},
-			helpHint{helpKey("↑↓", "Gain "), 95},
-			helpHint{helpKey("+-", "Vol "), 80},
-			helpHint{helpKey("e", "Preset "), 70},
-			helpHint{helpKey("Tab", "Focus "), 50},
-			helpHint{helpKey("Ctrl+K", "Keys "), 60},
-			helpHint{helpKey("Q", "Quit"), 85},
+			helpHint{helpKey("←→", "Band "), 100},
+			helpHint{helpKey("↑↓", "Gain "), 100},
+			helpHint{helpKey("e", "Preset "), 90},
+			helpHint{helpKey("Spc", "⏯ "), 80},
+			helpHint{helpKey("Tab", "Focus "), 70},
+			helpHint{helpKey("Ctrl+K", "Keys"), 100},
 		)
 	} else {
 		// focusPlaylist (default)
+		hints = append(hints,
+			helpHint{helpKey("↑↓", "Scroll "), 100},
+			helpHint{helpKey("Enter", "Play "), 100},
+			helpHint{helpKey("Spc", "⏯ "), 90},
+		)
 		track, _ := m.playlist.Current()
 		if !track.Stream || m.player.Seekable() {
-			hints = append(hints, helpHint{helpKey("←→", "Seek "), 70})
+			hints = append(hints, helpHint{helpKey("←→", "Seek "), 80})
 		}
 		hints = append(hints,
-			helpHint{helpKey("↑↓", "Scroll "), 85},
-			helpHint{helpKey("+-", "Vol "), 80},
-			helpHint{helpKey("Enter", "Play "), 75},
-			helpHint{helpKey("/", "Search "), 40},
-			helpHint{helpKey("f", "Find "), 35},
-			helpHint{helpKey("z", "Shfl "), 20},
-			helpHint{helpKey("r", "Rpt "), 20},
-			helpHint{helpKey("y", "Lyrics "), 25},
-			helpHint{helpKey("a", "Queue "), 30},
-			helpHint{helpKey("Tab", "Focus "), 50},
-			helpHint{helpKey("Ctrl+K", "Keys "), 60},
-			helpHint{helpKey("Q", "Quit"), 85},
+			helpHint{helpKey("Tab", "Focus "), 70},
+			helpHint{helpKey("Ctrl+K", "Keys"), 100},
 		)
 	}
 
