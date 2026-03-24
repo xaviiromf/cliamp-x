@@ -116,7 +116,6 @@ type Config struct {
 	ResampleQuality   int                // beep resample quality factor (1–4)
 	BitDepth          int                // PCM bit depth for FFmpeg output: 16 or 32
 	Compact           bool               // compact mode: cap frame width at 80 columns
-	TelemetryDisabled bool               // true only when "telemetry = false" is explicitly set
 	Navidrome         NavidromeConfig    // optional Navidrome/Subsonic server credentials
 	Spotify           SpotifyConfig      // optional Spotify provider (requires Premium)
 	YouTubeMusic      YouTubeMusicConfig // optional YouTube Music provider
@@ -265,8 +264,6 @@ func Load() (Config, error) {
 				}
 			case "compact":
 				cfg.Compact = val == "true"
-			case "telemetry":
-				cfg.TelemetryDisabled = strings.ToLower(val) == "false"
 			}
 		}
 	}

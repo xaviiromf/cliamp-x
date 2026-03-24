@@ -22,7 +22,6 @@ type Overrides struct {
 	BitDepth        *int
 	Play            *bool
 	Compact         *bool
-	NoTelemetry     *bool
 }
 
 // Apply merges non-nil overrides into cfg and clamps the result.
@@ -106,9 +105,6 @@ func ParseFlags(args []string) (action string, ov Overrides, positional []string
 			ov.Play = ptrBool(true)
 		case "--compact":
 			ov.Compact = ptrBool(true)
-		case "--no-telemetry":
-			ov.NoTelemetry = ptrBool(true)
-
 		// Key-value flags.
 		case "--provider":
 			v, e := requireNextString(args, &i, arg)

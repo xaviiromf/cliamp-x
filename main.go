@@ -19,7 +19,6 @@ import (
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/resolve"
-	"cliamp/telemetry"
 	"cliamp/theme"
 	"cliamp/ui"
 	"cliamp/upgrade"
@@ -261,7 +260,6 @@ General:
   -h, --help              Show this help message
   -v, --version           Show the current version
   --upgrade               Upgrade cliamp to the latest release
-  --no-telemetry          Disable anonymous telemetry for this session
 
 Examples:
   cliamp track.mp3 song.flac ~/Music
@@ -309,14 +307,6 @@ func main() {
 			os.Exit(1)
 		}
 		return
-	}
-
-	// Telemetry is opt-out: disabled via --no-telemetry flag or telemetry = false in config.
-	if overrides.NoTelemetry == nil || !*overrides.NoTelemetry {
-		cfg, _ := config.Load()
-		if !cfg.TelemetryDisabled {
-			telemetry.Ping(version)
-		}
 	}
 
 	if err := run(overrides, positional); err != nil {

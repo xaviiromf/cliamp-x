@@ -78,7 +78,6 @@ Press `Ctrl+K` to see all keybindings.
 - [Themes](docs/themes.md)
 - [Audio Quality](docs/audio-quality.md)
 - [MPRIS](docs/mpris.md)
-- [Telemetry](docs/telemetry.md)
 
 ## Omarchy
 

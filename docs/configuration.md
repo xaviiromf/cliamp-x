@@ -45,8 +45,6 @@ compact = false
 # UI theme name (see available themes in ~/.config/cliamp/themes/)
 theme = "Tokyo Night"
 
-# Disable anonymous telemetry (monthly active user ping)
-# telemetry = false
 ```
 
 ## Default Provider
