@@ -119,14 +119,16 @@ type navBrowserState struct {
 
 // radioCatalogState holds state for the radio catalog browser overlay.
 type radioCatalogState struct {
-	visible   bool
-	query     string
-	searching bool // true while the search input is focused
-	stations  []radio.CatalogStation
-	cursor    int
-	scroll    int
-	loading   bool
-	err       string
+	visible       bool
+	query         string
+	searching     bool // true while the search input is focused
+	stations      []radio.CatalogStation
+	cursor        int
+	scroll        int
+	loading       bool
+	err           string
+	favorites     *radio.Favorites
+	showFavorites bool // true = showing favorites list instead of search results
 }
 
 // ytdlBatchState holds state for incremental yt-dlp playlist loading.

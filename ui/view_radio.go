@@ -7,10 +7,17 @@ import (
 
 // renderRadioCatalog renders the radio catalog browser overlay.
 func (m Model) renderRadioCatalog() string {
-	lines := []string{titleStyle.Render("R A D I O   C A T A L O G"), ""}
+	title := "R A D I O   C A T A L O G"
+	if m.radioCatalog.showFavorites {
+		title = "R A D I O   F A V O R I T E S"
+	}
+	lines := []string{titleStyle.Render(title), ""}
 
-	// Search bar
-	if m.radioCatalog.searching {
+	// Search bar (hidden in favorites view)
+	if m.radioCatalog.showFavorites {
+		count := len(m.radioCatalog.stations)
+		lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d favorite stations", count)), "")
+	} else if m.radioCatalog.searching {
 		prompt := "  Search: " + m.radioCatalog.query + "_"
 		lines = append(lines, playlistSelectedStyle.Render(prompt), "")
 	} else if m.radioCatalog.query != "" {
@@ -50,7 +57,11 @@ func (m Model) renderRadioCatalog() string {
 	rendered := 0
 	for i := scroll; i < len(m.radioCatalog.stations) && rendered < maxVisible; i++ {
 		s := m.radioCatalog.stations[i]
-		label := s.Name
+		star := ""
+		if m.radioCatalog.favorites != nil && m.radioCatalog.favorites.Contains(s.URL) {
+			star = "* "
+		}
+		label := star + s.Name
 		if s.Bitrate > 0 {
 			label += fmt.Sprintf(" [%dk]", s.Bitrate)
 		}
@@ -77,9 +88,19 @@ func (m Model) radioCatalogHelp() string {
 	if m.radioCatalog.searching {
 		return helpKey("Enter", "Search ") + helpKey("Esc", "Cancel")
 	}
+	if m.radioCatalog.showFavorites {
+		return helpKey("↑↓", "Navigate ") +
+			helpKey("Enter", "Play ") +
+			helpKey("f", "Unfav ") +
+			helpKey("a", "Append ") +
+			helpKey("F", "Catalog ") +
+			helpKey("Esc", "Close")
+	}
 	return helpKey("↑↓", "Navigate ") +
 		helpKey("Enter", "Play ") +
+		helpKey("f", "Fav ") +
 		helpKey("/", "Search ") +
 		helpKey("a", "Append ") +
+		helpKey("F", "Favs ") +
 		helpKey("Esc", "Close")
 }

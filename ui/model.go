@@ -14,6 +14,7 @@ import (
 	"cliamp/config"
 	"cliamp/external/local"
 	"cliamp/external/navidrome"
+	"cliamp/external/radio"
 	"cliamp/mpris"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -593,8 +594,8 @@ func (m *Model) openNavBrowser() {
 func (m *Model) openRadioCatalog() tea.Cmd {
 	m.radioCatalog = radioCatalogState{
 		visible:   true,
-		searching: true,
 		loading:   true,
+		favorites: radio.LoadFavorites(),
 	}
 	return fetchRadioTopCmd()
 }
