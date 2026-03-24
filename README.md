@@ -119,6 +119,28 @@ go build -o cliamp .
 - [Audio Quality](docs/audio-quality.md)
 - [MPRIS](docs/mpris.md)
 
+## Troubleshooting
+
+**No audio output (silence with no errors)**
+
+On Linux systems using PipeWire or PulseAudio, cliamp's ALSA backend needs a bridge package to route audio through your sound server:
+
+- **PipeWire:** `pipewire-alsa`
+- **PulseAudio:** `pulseaudio-alsa`
+
+Install the appropriate package for your system:
+
+```sh
+# PipeWire (Arch)
+sudo pacman -S pipewire-alsa
+
+# PulseAudio (Arch)
+sudo pacman -S pulseaudio-alsa
+
+# Debian/Ubuntu (PipeWire)
+sudo apt install pipewire-alsa
+```
+
 ## Omarchy
 
 Add this keybind to launch cliamp with `Super+Shift+M`:
