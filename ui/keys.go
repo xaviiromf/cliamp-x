@@ -788,7 +788,7 @@ func (m *Model) handleURLInputKey(msg tea.KeyMsg) tea.Cmd {
 			m.feedLoading = true
 			m.status.text = "Loading URL..."
 			m.status.ttl = statusTTLLong
-			return resolveRemoteCmd([]string{input})
+			return resolveRemoteCmd([]string{input}, true)
 		}
 	case tea.KeyBackspace:
 		m.urlInput = removeLastRune(m.urlInput)

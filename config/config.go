@@ -119,6 +119,7 @@ type Config struct {
 	Repeat            string             // "off", "all", or "one"
 	Shuffle           bool
 	Mono              bool
+	AutoPlay          bool               // start playback automatically on launch (radio streams, CLI tracks)
 	SeekStepLarge     int                // seconds for Shift+Left/Right seek jumps
 	Provider          string             // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
 	Theme             string             // theme name, or "" for ANSI default
@@ -141,6 +142,7 @@ type Config struct {
 func defaultConfig() Config {
 	return Config{
 		Repeat:          "off",
+		AutoPlay:        false,
 		SeekStepLarge:   30,
 		SampleRate:      0,
 		BufferMs:        100,
@@ -252,6 +254,8 @@ func Load() (Config, error) {
 				cfg.Shuffle = val == "true"
 			case "mono":
 				cfg.Mono = val == "true"
+			case "auto_play":
+				cfg.AutoPlay = val == "true"
 			case "seek_large_step_sec":
 				if v, err := strconv.Atoi(val); err == nil {
 					cfg.SeekStepLarge = v

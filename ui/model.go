@@ -607,7 +607,7 @@ func (m Model) Init() tea.Cmd {
 		cmds = append(cmds, fetchPlaylistsCmd(m.provider))
 	}
 	if len(m.pendingURLs) > 0 {
-		cmds = append(cmds, resolveRemoteCmd(m.pendingURLs))
+		cmds = append(cmds, resolveRemoteCmd(m.pendingURLs, m.autoPlay))
 	}
 	if m.autoPlay && m.playlist.Len() > 0 {
 		cmds = append(cmds, func() tea.Msg { return autoPlayMsg{} })
@@ -881,7 +881,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Keep the currently playing track at index 0 so the
 			// display stays in sync with actual playback.
 			current, _ := m.playlist.Current()
-			m.playlist.Replace(append([]playlist.Track{current}, msg...))
+			// Filter out the current track from new tracks to avoid duplicates.
+			filtered := make([]playlist.Track, 0, len(msg))
+			for _, t := range msg {
+				if t.Path != current.Path {
+					filtered = append(filtered, t)
+				}
+			}
+			m.playlist.Replace(append([]playlist.Track{current}, filtered...))
 		} else {
 			m.playlist.Replace(msg)
 		}
@@ -981,7 +988,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// The source URLs are carried in the message so we don't
 			// need to re-scan pendingURLs (which misses interactive loads).
 			batchCmd := m.initYTDLBatch(msg.urls)
-			if m.playlist.Len() > 0 && !m.player.IsPlaying() {
+			if msg.autoPlay && m.playlist.Len() > 0 && !m.player.IsPlaying() {
 				playCmd := m.playCurrentTrack()
 				m.notifyMPRIS()
 				if batchCmd != nil {

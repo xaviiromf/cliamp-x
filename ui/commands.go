@@ -21,8 +21,9 @@ type tracksLoadedMsg []playlist.Track
 // along with the original source URLs so downstream handlers can identify
 // the source (e.g. YouTube Radio) without re-scanning external state.
 type feedsLoadedMsg struct {
-	tracks []playlist.Track
-	urls   []string // original source URLs that produced these tracks
+	tracks   []playlist.Track
+	urls      []string // original source URLs that produced these tracks
+	autoPlay bool     // whether to start playback automatically
 }
 
 // lyricsLoadedMsg carries parsed LRC output.
@@ -114,13 +115,13 @@ func fetchYTDLBatchCmd(gen uint64, pageURL string, start, count int) tea.Cmd {
 	}
 }
 
-func resolveRemoteCmd(urls []string) tea.Cmd {
+func resolveRemoteCmd(urls []string, autoPlay bool) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := resolve.Remote(urls)
 		if err != nil {
 			return err
 		}
-		return feedsLoadedMsg{tracks: tracks, urls: urls}
+		return feedsLoadedMsg{tracks: tracks, urls: urls, autoPlay: autoPlay}
 	}
 }
 

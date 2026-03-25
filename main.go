@@ -195,7 +195,7 @@ func run(overrides config.Overrides, positional []string) error {
 	if cfg.Visualizer != "" {
 		m.SetVisualizer(cfg.Visualizer)
 	}
-	if overrides.Play != nil && *overrides.Play {
+	if cfg.AutoPlay {
 		m.SetAutoPlay(true)
 	}
 	if cfg.Compact {

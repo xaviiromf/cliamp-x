@@ -65,6 +65,9 @@ func (o Overrides) Apply(cfg *Config) {
 	if o.Compact != nil {
 		cfg.Compact = *o.Compact
 	}
+	if o.Play != nil {
+		cfg.AutoPlay = *o.Play
+	}
 	cfg.clamp()
 }
 
