@@ -275,8 +275,9 @@ func run(overrides config.Overrides, positional []string) error {
 			Seek: func(secs float64) {
 				_ = p.Seek(time.Duration(secs * float64(time.Second)))
 			},
-			Next: func() { prog.Send(mpris.NextMsg{}) },
-			Prev: func() { prog.Send(mpris.PrevMsg{}) },
+			SetEQPreset: func(name string) { prog.Send(ui.SetEQPresetMsg{Name: name}) },
+			Next:         func() { prog.Send(mpris.NextMsg{}) },
+			Prev:         func() { prog.Send(mpris.PrevMsg{}) },
 		})
 	}
 

@@ -1296,6 +1296,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.player.Close()
 		m.quitting = true
 		return m, tea.Quit
+
+	case SetEQPresetMsg:
+		m.SetEQPreset(msg.Name)
+		return m, nil
 	}
 
 	return m, nil

@@ -17,6 +17,9 @@ import (
 
 // — Message types used by tea.Cmd constructors —
 
+// SetEQPresetMsg is sent by Lua plugins to change the EQ preset by name.
+type SetEQPresetMsg struct{ Name string }
+
 type tracksLoadedMsg []playlist.Track
 
 // feedsLoadedMsg carries tracks resolved from remote feed/M3U URLs,

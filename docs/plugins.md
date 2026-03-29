@@ -281,6 +281,7 @@ cliamp.player.set_volume(-5)      -- set volume in dB (-30 to +6)
 cliamp.player.set_speed(1.25)     -- set playback speed (0.25 to 2.0)
 cliamp.player.seek(30)            -- seek to 30 seconds
 cliamp.player.toggle_mono()       -- toggle mono output
+cliamp.player.set_eq_preset("Rock") -- switch EQ preset by name (sets bands + UI label)
 cliamp.player.set_eq_band(1, 6)   -- set EQ band 1 to +6 dB (bands 1-10, -12 to +12)
 ```
 

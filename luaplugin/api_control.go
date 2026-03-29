@@ -85,6 +85,14 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 		return 0
 	}))
 
+	L.SetField(tbl, "set_eq_preset", L.NewFunction(func(L *lua.LState) int {
+		if !guard("set_eq_preset") {
+			return 0
+		}
+		ctrl.SetEQPreset(L.CheckString(1))
+		return 0
+	}))
+
 	L.SetField(tbl, "set_eq_band", L.NewFunction(func(L *lua.LState) int {
 		if !guard("set_eq_band") {
 			return 0
