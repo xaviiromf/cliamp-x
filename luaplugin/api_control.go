@@ -12,10 +12,9 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 		return
 	}
 
-	hasControl := p.perms["control"]
 	warned := false
 	guard := func(name string) bool {
-		if !hasControl {
+		if !p.perms["control"] {
 			if !warned {
 				logger.log(p.Name, "warn", "%s requires permissions = {\"control\"} — further warnings suppressed", name)
 				warned = true
