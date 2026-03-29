@@ -18,6 +18,7 @@ import (
 	"cliamp/internal/resume"
 	"cliamp/luaplugin"
 	"cliamp/mpris"
+	"cliamp/pluginmgr"
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/resolve"
@@ -313,6 +314,11 @@ Appearance:
   --visualizer <mode>     Visualizer mode (Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, None)
   --eq-preset <name>      EQ preset name (e.g. "Bass Boost")
 
+Plugins:
+  cliamp plugins list                List installed plugins
+  cliamp plugins install <source>    Install a plugin (URL, user/repo, gitlab:user/repo, codeberg:user/repo)
+  cliamp plugins remove <name>       Remove a plugin
+
 General:
   -h, --help              Show this help message
   -v, --version           Show the current version
@@ -340,6 +346,31 @@ Playlists: ~/.config/cliamp/playlists/*.toml
 Formats:   mp3, wav, flac, ogg, m4a, aac, opus, wma (aac/opus/wma need ffmpeg)
 SoundCloud/YouTube/Bandcamp require yt-dlp`
 
+const pluginsHelpText = `cliamp plugins — manage Lua plugins
+
+Usage: cliamp plugins <command> [args]
+
+Commands:
+  list                    List installed plugins
+  install <source>        Install a plugin
+  remove <name>           Remove a plugin
+
+Install sources:
+  user/repo               GitHub repository (tries init.lua, then <repo>.lua)
+  user/repo@v1.0          GitHub repository at a specific tag
+  gitlab:user/repo        GitLab repository
+  codeberg:user/repo      Codeberg repository
+  https://example.com/p.lua   Direct URL
+
+Examples:
+  cliamp plugins list
+  cliamp plugins install bjarneo/cliamp-plugin-lastfm
+  cliamp plugins install bjarneo/cliamp-plugin-lastfm@v1.0
+  cliamp plugins install gitlab:user/my-visualizer
+  cliamp plugins install codeberg:user/my-plugin
+  cliamp plugins install https://example.com/my-plugin.lua
+  cliamp plugins remove lastfm`
+
 func main() {
 	action, overrides, positional, err := config.ParseFlags(os.Args[1:])
 	if err != nil {
@@ -360,6 +391,35 @@ func main() {
 		return
 	case "upgrade":
 		if err := upgrade.Run(version); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	case "plugins":
+		fmt.Println(pluginsHelpText)
+		return
+	case "plugins-list":
+		if err := pluginmgr.List(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	case "plugins-install":
+		if len(positional) == 0 {
+			fmt.Fprintln(os.Stderr, "usage: cliamp plugins install <source>")
+			os.Exit(1)
+		}
+		if err := pluginmgr.Install(positional[0]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	case "plugins-remove":
+		if len(positional) == 0 {
+			fmt.Fprintln(os.Stderr, "usage: cliamp plugins remove <name>")
+			os.Exit(1)
+		}
+		if err := pluginmgr.Remove(positional[0]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
