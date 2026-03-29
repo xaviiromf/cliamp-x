@@ -155,7 +155,7 @@ type Model struct {
 	plManager   plManagerState
 	fileBrowser fileBrowserState
 	navBrowser    navBrowserState
-	radioCatalog  radioCatalogState
+	radioBatch    radioBatchState
 	ytdlBatch     ytdlBatchState
 	reconnect   reconnectState
 	status      statusMsg
@@ -338,7 +338,7 @@ func (m Model) ThemeName() string {
 // use the slower tick rate.
 func (m *Model) isOverlayActive() bool {
 	return m.keymap.visible || m.themePicker.visible ||
-		m.fileBrowser.visible || m.navBrowser.visible || m.radioCatalog.visible ||
+		m.fileBrowser.visible || m.navBrowser.visible ||
 		m.plManager.visible ||
 		m.queue.visible || m.showInfo || m.search.active || m.netSearch.active ||
 		m.jumping || m.urlInputting
@@ -448,6 +448,7 @@ func (m *Model) switchProvider(idx int) tea.Cmd {
 	m.provLoading = true
 	m.provSignIn = false
 	m.provSearch.active = false
+	m.radioBatch = radioBatchState{} // reset catalog batch for new provider
 	m.focus = focusProvider
 	return fetchPlaylistsCmd(m.provider)
 }
@@ -588,16 +589,6 @@ func (m *Model) openNavBrowser() {
 	m.navBrowser.searching = false
 	m.navBrowser.search = ""
 	m.navBrowser.searchIdx = nil
-}
-
-// openRadioCatalog opens the radio catalog overlay and fetches top stations.
-func (m *Model) openRadioCatalog() tea.Cmd {
-	m.radioCatalog = radioCatalogState{
-		visible:   true,
-		loading:   true,
-		favorites: radio.LoadFavorites(),
-	}
-	return fetchRadioTopCmd()
 }
 
 // Init starts the tick timer and requests the terminal size.
@@ -876,6 +867,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case []playlist.PlaylistInfo:
 		m.providerLists = msg
 		m.provLoading = false
+		// Start loading catalog stations when the radio provider is active.
+		if _, ok := m.provider.(*radio.Provider); ok && !m.radioBatch.loading && !m.radioBatch.done {
+			m.radioBatch.loading = true
+			return m, fetchRadioBatchCmd(m.radioBatch.offset, radioBatchSize)
+		}
 		return m, nil
 
 	case tracksLoadedMsg:
@@ -934,16 +930,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.navBrowser.screen = navBrowseScreenTracks
 		return m, nil
 
-	case radioCatalogLoadedMsg:
-		m.radioCatalog.loading = false
+	case radioBatchMsg:
+		m.radioBatch.loading = false
 		if msg.err != nil {
-			m.radioCatalog.err = msg.err.Error()
-		} else {
-			m.radioCatalog.stations = msg.stations
-			m.radioCatalog.err = ""
+			m.radioBatch.done = true
+			m.status.text = "Catalog load failed"
+			m.status.ttl = statusTTLDefault
+			return m, nil
 		}
-		m.radioCatalog.cursor = 0
-		m.radioCatalog.scroll = 0
+		if len(msg.stations) == 0 {
+			m.radioBatch.done = true
+			return m, nil
+		}
+		if rp, ok := m.provider.(*radio.Provider); ok {
+			rp.AppendCatalog(msg.stations)
+			if lists, err := rp.Playlists(); err == nil {
+				m.providerLists = lists
+			}
+		}
+		m.radioBatch.offset += len(msg.stations)
+		if len(msg.stations) < radioBatchSize {
+			m.radioBatch.done = true
+		}
+		return m, nil
+
+	case radioProvSearchMsg:
+		m.provLoading = false
+		if rp, ok := m.provider.(*radio.Provider); ok {
+			if msg.err != nil {
+				m.status.text = "Search failed"
+				m.status.ttl = statusTTLDefault
+			} else {
+				rp.SetSearchResults(msg.stations)
+				if lists, err := rp.Playlists(); err == nil {
+					m.providerLists = lists
+				}
+				m.provCursor = 0
+				if len(msg.stations) == 0 {
+					m.status.text = "No stations found"
+					m.status.ttl = statusTTLDefault
+				}
+			}
+		}
 		return m, nil
 
 	case ytdlBatchMsg:

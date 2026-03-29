@@ -38,10 +38,19 @@ func SearchStations(query string, limit int) ([]CatalogStation, error) {
 
 // TopStations returns the most-voted stations globally.
 func TopStations(limit int) ([]CatalogStation, error) {
+	return TopStationsOffset(0, limit)
+}
+
+// TopStationsOffset returns a page of the most-voted stations starting at offset.
+func TopStationsOffset(offset, limit int) ([]CatalogStation, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	u := fmt.Sprintf("%s/stations/topvote/%d?hidebroken=true", radioBrowserBase, limit)
+	if offset < 0 {
+		offset = 0
+	}
+	u := fmt.Sprintf("%s/stations/topvote/%d?offset=%d&hidebroken=true",
+		radioBrowserBase, limit, offset)
 	return fetchStations(u)
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"cliamp/external/radio"
 	"cliamp/playlist"
 	"cliamp/theme"
 )
@@ -55,10 +56,6 @@ func (m Model) View() string {
 
 	if m.navBrowser.visible {
 		return m.renderNavBrowser()
-	}
-
-	if m.radioCatalog.visible {
-		return m.renderRadioCatalog()
 	}
 
 	if m.plManager.visible {
@@ -438,38 +435,71 @@ func (m Model) renderProviderList() string {
 		return dimStyle.Render("  No playlists found.\n  Add playlists to ~/.config/cliamp/playlists/")
 	}
 
+	_, isRadio := m.provider.(*radio.Provider)
+
 	var lines []string
 
 	if m.provSearch.active {
 		lines = append(lines, playlistSelectedStyle.Render("  / "+m.provSearch.query+"_"))
 
-		if m.provSearch.query == "" {
-			lines = append(lines, dimStyle.Render("  Type to filter…"))
-		} else if len(m.provSearch.results) == 0 {
-			lines = append(lines, dimStyle.Render("  No matches"))
-		} else {
-			visible := min(m.plVisible-1, len(m.provSearch.results))
-			scroll := max(0, m.provSearch.cursor-visible+1)
-			for j := scroll; j < scroll+visible && j < len(m.provSearch.results); j++ {
-				idx := m.provSearch.results[j]
-				p := m.providerLists[idx]
-				prefix, style := "  ", playlistItemStyle
-				if j == m.provSearch.cursor {
-					style = playlistSelectedStyle
-					prefix = "> "
-				}
-				lines = append(lines, style.Render(playlistLabel(prefix, p)))
+		if isRadio {
+			// Radio: API search — show prompt, Enter to search.
+			if m.provSearch.query == "" {
+				lines = append(lines, dimStyle.Render("  Type a station name, Enter to search…"))
+			} else {
+				lines = append(lines, dimStyle.Render("  Press Enter to search"))
 			}
-			lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d/%d playlists", len(m.provSearch.results), len(m.providerLists))))
+		} else {
+			// Other providers: live client-side filter.
+			if m.provSearch.query == "" {
+				lines = append(lines, dimStyle.Render("  Type to filter…"))
+			} else if len(m.provSearch.results) == 0 {
+				lines = append(lines, dimStyle.Render("  No matches"))
+			} else {
+				visible := min(m.plVisible-1, len(m.provSearch.results))
+				scroll := max(0, m.provSearch.cursor-visible+1)
+				for j := scroll; j < scroll+visible && j < len(m.provSearch.results); j++ {
+					idx := m.provSearch.results[j]
+					p := m.providerLists[idx]
+					prefix, style := "  ", playlistItemStyle
+					if j == m.provSearch.cursor {
+						style = playlistSelectedStyle
+						prefix = "> "
+					}
+					lines = append(lines, style.Render(playlistLabel(prefix, p)))
+				}
+				lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d/%d playlists", len(m.provSearch.results), len(m.providerLists))))
+			}
 		}
 		return strings.Join(lines, "\n")
 	}
 
 	visible := min(m.plVisible, len(m.providerLists))
 	scroll := max(0, m.provCursor-visible+1)
+	prevPrefix := ""
 
 	for j := scroll; j < scroll+visible && j < len(m.providerLists); j++ {
 		p := m.providerLists[j]
+
+		// Insert section headers on prefix transitions for the radio provider.
+		if isRadio {
+			pfx := radio.IDPrefix(p.ID)
+			if pfx != prevPrefix {
+				switch pfx {
+				case "f":
+					lines = append(lines, dimStyle.Render("  ── favorites ──"))
+					visible++
+				case "c":
+					lines = append(lines, dimStyle.Render("  ── catalog ──"))
+					visible++
+				case "s":
+					lines = append(lines, dimStyle.Render("  ── search results ──"))
+					visible++
+				}
+				prevPrefix = pfx
+			}
+		}
+
 		prefix, style := "  ", playlistItemStyle
 		if j == m.provCursor {
 			style = playlistSelectedStyle
@@ -477,6 +507,12 @@ func (m Model) renderProviderList() string {
 		}
 		lines = append(lines, style.Render(playlistLabel(prefix, p)))
 	}
+
+	// Loading indicator for catalog batch.
+	if isRadio && m.radioBatch.loading {
+		lines = append(lines, dimStyle.Render("  Loading more stations..."))
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -568,7 +604,11 @@ func (m Model) renderJumpOverlay() string {
 
 func (m Model) renderHelp() string {
 	if m.focus == focusProvider {
-		return helpKey("↑↓", "Navigate ") + helpKey("Enter", "Load ") + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
+		help := helpKey("↑↓", "Navigate ") + helpKey("Enter", "Load ") + helpKey("/", "Search ")
+		if _, ok := m.provider.(*radio.Provider); ok {
+			help += helpKey("f", "Fav ")
+		}
+		return help + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
 	}
 	if m.focus == focusProvPill {
 		return helpKey("←→", "Select ") + helpKey("Enter", "Open ") + helpKey("Esc", "Back ") + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
