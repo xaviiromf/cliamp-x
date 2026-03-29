@@ -120,7 +120,7 @@ func (m *Manager) RenderVis(name string, bands [10]float64, rows, cols int, fram
 		Fn:      vis.render,
 		NRet:    1,
 		Protect: true,
-	}, vis.obj, tbl, lua.LNumber(frame))
+	}, vis.obj, tbl, lua.LNumber(frame), lua.LNumber(rows), lua.LNumber(cols))
 	if err != nil {
 		return vis.last
 	}
