@@ -165,6 +165,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "tab":
 			m.focus = focusEQ
 		case "esc", "backspace", "b":
+			// If viewing radio search results, clear them first.
+			if rp, ok := m.provider.(*radio.Provider); ok && rp.IsSearching() {
+				m.restoreRadioCatalog(rp)
+				return nil
+			}
 			if m.playlist.Len() > 0 {
 				m.focus = focusPlaylist
 			}
