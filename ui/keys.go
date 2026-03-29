@@ -223,10 +223,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return m.quit()
 		case "]", "right", "l", "up", "k":
 			m.player.SetSpeed(m.player.Speed() + 0.25)
-			m.saveSpeed()
+			m.speedDirty = 20 // debounce: save after ~1s of inactivity
 		case "[", "left", "h", "down", "j":
 			m.player.SetSpeed(m.player.Speed() - 0.25)
-			m.saveSpeed()
+			m.speedDirty = 20
 		case "tab":
 			if len(m.providers) > 1 {
 				m.focus = focusProvPill
@@ -587,11 +587,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	case "]":
 		m.player.SetSpeed(m.player.Speed() + 0.25)
-		m.saveSpeed()
+		m.speedDirty = 20
 
 	case "[":
 		m.player.SetSpeed(m.player.Speed() - 0.25)
-		m.saveSpeed()
+		m.speedDirty = 20
 
 	case "ctrl+k":
 		m.keymap.visible = true

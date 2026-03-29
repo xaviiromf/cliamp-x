@@ -17,6 +17,16 @@ const (
 	tsSearch = 1024             // search: ±~23ms — covers multiple pitch periods
 )
 
+// Pre-computed linear crossfade table: alpha[i] = i / tsOvlp.
+// Avoids per-sample division in the hot crossfade loop.
+var tsAlpha [tsOvlp]float64
+
+func init() {
+	for i := range tsAlpha {
+		tsAlpha[i] = float64(i) / float64(tsOvlp)
+	}
+}
+
 // speedStreamer wraps a beep.Streamer and adjusts playback speed without
 // changing pitch, using WSOLA (Waveform Similarity Overlap-Add) time-stretching.
 // The speed ratio is stored atomically so the UI thread can change it
@@ -33,8 +43,9 @@ type speedStreamer struct {
 	outRd int
 	outWr int
 
-	tail  [tsOvlp][2]float64 // previous frame's trailing samples for crossfade
-	first bool                // true until first frame produced
+	tail [tsOvlp][2]float64 // previous frame's trailing samples for crossfade
+	// No tail data exists until the first frame writes to it;
+	// outWr == 0 && outRd == 0 signals this initial state.
 }
 
 func newSpeedStreamer(s beep.Streamer, speed *atomic.Uint64) *speedStreamer {
@@ -43,7 +54,6 @@ func newSpeedStreamer(s beep.Streamer, speed *atomic.Uint64) *speedStreamer {
 		speed: speed,
 		in:    make([][2]float64, 16384),
 		out:   make([][2]float64, 8192),
-		first: true,
 	}
 }
 
@@ -64,7 +74,6 @@ func (ss *speedStreamer) Stream(samples [][2]float64) (int, bool) {
 	return n, n > 0
 }
 
-// passthrough handles speed=1.0 by draining buffers then reading source directly.
 func (ss *speedStreamer) passthrough(samples [][2]float64) (int, bool) {
 	d := ss.drainOut(samples)
 	if d == len(samples) {
@@ -81,7 +90,9 @@ func (ss *speedStreamer) passthrough(samples [][2]float64) (int, bool) {
 			return d, true
 		}
 	}
-	ss.first = true
+	// Reset WSOLA state for clean re-entry.
+	ss.outRd = 0
+	ss.outWr = 0
 	ss.inN = 0
 	ss.inPos = 0
 	n, ok := ss.s.Stream(samples[d:])
@@ -152,8 +163,10 @@ func (ss *speedStreamer) wsolaFrame(speed float64) bool {
 		return false
 	}
 
+	first := ss.outWr == 0 && ss.outRd == 0
+
 	srcOff := expected
-	if !ss.first {
+	if !first {
 		srcOff = ss.searchBestOffset(expected)
 	}
 
@@ -171,24 +184,23 @@ func (ss *speedStreamer) wsolaFrame(speed float64) bool {
 		ss.out = newOut
 	}
 
-	if ss.first {
+	if first {
 		copy(ss.out[ss.outWr:ss.outWr+tsSeq], ss.in[srcOff:srcOff+tsSeq])
-		ss.outWr += tsSeq
-		ss.first = false
 	} else {
-		// Crossfade the overlap region with linear interpolation.
+		// Crossfade the overlap region using pre-computed alpha table.
 		for i := 0; i < tsOvlp; i++ {
-			alpha := float64(i) / float64(tsOvlp)
+			a := tsAlpha[i]
+			b := 1 - a
 			ss.out[ss.outWr+i] = [2]float64{
-				(1-alpha)*ss.tail[i][0] + alpha*ss.in[srcOff+i][0],
-				(1-alpha)*ss.tail[i][1] + alpha*ss.in[srcOff+i][1],
+				b*ss.tail[i][0] + a*ss.in[srcOff+i][0],
+				b*ss.tail[i][1] + a*ss.in[srcOff+i][1],
 			}
 		}
 		// Direct copy the rest — unmodified source samples.
 		copy(ss.out[ss.outWr+tsOvlp:ss.outWr+tsSeq],
 			ss.in[srcOff+tsOvlp:srcOff+tsSeq])
-		ss.outWr += tsSeq
 	}
+	ss.outWr += tsSeq
 
 	// Save tail for next frame's crossfade.
 	copy(ss.tail[:], ss.in[srcOff+tsSeq:srcOff+tsWin])
@@ -198,8 +210,9 @@ func (ss *speedStreamer) wsolaFrame(speed float64) bool {
 }
 
 // searchBestOffset finds the source position near expected whose start best
-// matches the previous tail, using normalized cross-correlation (corr/sqrt(energy)).
-// Normalizing prevents bias toward loud sections and ensures waveform shape matching.
+// matches the previous tail, using normalized cross-correlation.
+// Normalizing prevents bias toward loud sections. If no good match is found
+// (all correlations negative or silent), falls back to the expected offset.
 func (ss *speedStreamer) searchBestOffset(expected int) int {
 	lo := max(0, expected-tsSearch)
 	hi := min(ss.inN-tsWin, expected+tsSearch)
@@ -222,15 +235,10 @@ func (ss *speedStreamer) searchBestOffset(expected int) int {
 			corr += ss.tail[i][0]*ss.in[off+i][0] + ss.tail[i][1]*ss.in[off+i][1]
 			norm += ss.in[off+i][0]*ss.in[off+i][0] + ss.in[off+i][1]*ss.in[off+i][1]
 		}
-		// Skip silent candidates; avoid division by zero.
-		if norm < 1e-9 {
+		if norm < 1e-9 || corr <= 0 {
 			continue
 		}
-		// Compare corr^2/norm to avoid sqrt (equivalent ranking to corr/sqrt(norm)
-		// when corr > 0). Negative correlation = bad phase match, skip.
-		if corr <= 0 {
-			continue
-		}
+		// corr^2/norm avoids sqrt; equivalent ranking to corr/sqrt(norm).
 		score := corr * corr / norm
 		if score > bestScore {
 			bestScore = score

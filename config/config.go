@@ -119,7 +119,7 @@ type Config struct {
 	Repeat            string             // "off", "all", or "one"
 	Shuffle           bool
 	Mono              bool
-	Speed             float64            // playback speed ratio: 0.25–3.0 (default 1.0)
+	Speed             float64            // playback speed ratio: 0.25–2.0 (default 1.0)
 	AutoPlay          bool               // start playback automatically on launch (radio streams, CLI tracks)
 	SeekStepLarge     int                // seconds for Shift+Left/Right seek jumps
 	Provider          string             // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")

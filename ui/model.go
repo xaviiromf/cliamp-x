@@ -161,6 +161,7 @@ type Model struct {
 	reconnect   reconnectState
 	status      statusMsg
 	network     networkStats
+	speedDirty  int // tick countdown for debounced speed config save
 
 	// Jump to time mode
 	jumping   bool
@@ -732,6 +733,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status.ttl--
 			if m.status.ttl == 0 {
 				m.status.text = ""
+			}
+		}
+		// Debounced speed config save: write once after keypresses settle.
+		if m.speedDirty > 0 {
+			m.speedDirty--
+			if m.speedDirty == 0 {
+				m.saveSpeed()
 			}
 		}
 		// Decrement seek grace period.
