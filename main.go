@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -261,6 +262,23 @@ func run(overrides config.Overrides, positional []string) error {
 	}
 
 	prog := tea.NewProgram(m, tea.WithAltScreen())
+
+	// Wire Lua plugin control provider (needs prog.Send for next/prev).
+	if luaMgr != nil {
+		luaMgr.SetControlProvider(luaplugin.ControlProvider{
+			SetVolume:   func(db float64) { p.SetVolume(db) },
+			SetSpeed:    func(ratio float64) { p.SetSpeed(ratio) },
+			SetEQBand:   func(band int, db float64) { p.SetEQBand(band, db) },
+			ToggleMono:  func() { p.ToggleMono() },
+			TogglePause: func() { p.TogglePause() },
+			Stop:        func() { p.Stop() },
+			Seek: func(secs float64) {
+				_ = p.Seek(time.Duration(secs * float64(time.Second)))
+			},
+			Next: func() { prog.Send(mpris.NextMsg{}) },
+			Prev: func() { prog.Send(mpris.PrevMsg{}) },
+		})
+	}
 
 	if svc, err := mpris.New(func(msg interface{}) { prog.Send(msg) }); err == nil && svc != nil {
 		defer svc.Close()

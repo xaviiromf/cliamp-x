@@ -25,6 +25,7 @@ type Plugin struct {
 	L           *lua.LState
 	mu          sync.Mutex        // serializes all LState access (LState is not thread-safe)
 	config      map[string]string // per-plugin config from config.toml
+	perms       map[string]bool   // declared permissions (e.g. "control")
 }
 
 // StateProvider supplies read-only access to player/playlist state.
@@ -53,6 +54,20 @@ type StateProvider struct {
 	CurrentIndex  func() int // 0-based
 }
 
+// ControlProvider supplies write access to player controls.
+// Only available to plugins that declare permissions = {"control"}.
+type ControlProvider struct {
+	SetVolume   func(db float64)
+	SetSpeed    func(ratio float64)
+	SetEQBand   func(band int, db float64)
+	ToggleMono  func()
+	TogglePause func()
+	Stop        func()
+	Seek        func(secs float64)
+	Next        func() // injected via prog.Send
+	Prev        func() // injected via prog.Send
+}
+
 // Manager owns all loaded plugins and dispatches events to them.
 type Manager struct {
 	plugins  []*Plugin
@@ -60,6 +75,7 @@ type Manager struct {
 	visPlugs []*luaVis            // Lua visualizers in registration order
 	visMap   map[string]*luaVis   // name -> Lua visualizer
 	state    StateProvider
+	control  ControlProvider
 	timers   *timerManager
 	logger   *pluginLogger
 	mu       sync.RWMutex
@@ -225,6 +241,15 @@ func (m *Manager) registerPluginAPI(L *lua.LState, p *Plugin) {
 		if typ := opts.RawGetString("type"); typ != lua.LNil {
 			p.Type = typ.String()
 		}
+		// Parse permissions = {"control", ...}
+		if perms := opts.RawGetString("permissions"); perms != lua.LNil {
+			if tbl, ok := perms.(*lua.LTable); ok {
+				p.perms = make(map[string]bool)
+				tbl.ForEach(func(_, v lua.LValue) {
+					p.perms[v.String()] = true
+				})
+			}
+		}
 
 		// Return a plugin object with on() and config() methods.
 		obj := L.NewTable()
@@ -279,6 +304,7 @@ func (m *Manager) registerCliampAPI(L *lua.LState, p *Plugin) {
 	registerTrackAPI(L, cliamp, &m.state)
 	registerTimerAPI(L, cliamp, m.timers, p)
 	registerNotifyAPI(L, cliamp, m.logger, p.Name)
+	registerControlAPI(L, cliamp, &m.control, p, m.logger)
 	L.SetGlobal("cliamp", cliamp)
 }
 
@@ -286,6 +312,12 @@ func (m *Manager) registerCliampAPI(L *lua.LState, p *Plugin) {
 // query live player/playlist state.
 func (m *Manager) SetStateProvider(sp StateProvider) {
 	m.state = sp
+}
+
+// SetControlProvider sets the function pointers for player control.
+// Only plugins with permissions = {"control"} can use these.
+func (m *Manager) SetControlProvider(cp ControlProvider) {
+	m.control = cp
 }
 
 // Close fires the "app.quit" event synchronously and shuts down all Lua VMs.
