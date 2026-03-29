@@ -733,24 +733,11 @@ func (m *Model) handleRadioProvSearchKey(msg tea.KeyMsg, rp *radio.Provider) tea
 	switch msg.Type {
 	case tea.KeyEscape:
 		m.provSearch.active = false
-		if rp.IsSearching() {
-			rp.ClearSearch()
-			if lists, err := rp.Playlists(); err == nil {
-				m.providerLists = lists
-			}
-			m.provCursor = 0
-		}
+		m.restoreRadioCatalog(rp)
 	case tea.KeyEnter:
 		m.provSearch.active = false
 		if m.provSearch.query == "" {
-			// Empty query: clear search and restore catalog.
-			if rp.IsSearching() {
-				rp.ClearSearch()
-				if lists, err := rp.Playlists(); err == nil {
-					m.providerLists = lists
-				}
-				m.provCursor = 0
-			}
+			m.restoreRadioCatalog(rp)
 			return nil
 		}
 		m.provLoading = true
@@ -767,6 +754,18 @@ func (m *Model) handleRadioProvSearchKey(msg tea.KeyMsg, rp *radio.Provider) tea
 		}
 	}
 	return nil
+}
+
+// restoreRadioCatalog clears API search results and restores the normal catalog view.
+func (m *Model) restoreRadioCatalog(rp *radio.Provider) {
+	if !rp.IsSearching() {
+		return
+	}
+	rp.ClearSearch()
+	if lists, err := rp.Playlists(); err == nil {
+		m.providerLists = lists
+	}
+	m.provCursor = 0
 }
 
 func (m *Model) updateProvSearch() {
