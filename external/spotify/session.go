@@ -334,14 +334,7 @@ func (s *Session) NewStream(ctx context.Context, spotID librespot.SpotifyId, bit
 	return s.player.NewStream(ctx, http.DefaultClient, spotID, bitrate, 0)
 }
 
-// webApi calls the Spotify Web API using the OAuth2 access token.
-// This is the standard Web API token (not go-librespot's internal spclient token),
-// which has proper rate limits for api.spotify.com endpoints.
-func (s *Session) webApi(ctx context.Context, method, path string, query url.Values) (*http.Response, error) {
-	return s.webApiWithBody(ctx, method, path, query, nil, "")
-}
-
-// webApiWithBody is like webApi but accepts an optional request body and content type.
+// webApiWithBody calls the Spotify Web API using the OAuth2 access token.
 func (s *Session) webApiWithBody(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string) (*http.Response, error) {
 	s.mu.Lock()
 	ts := s.tokenSource
