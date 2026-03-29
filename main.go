@@ -355,9 +355,9 @@ Commands:
   install <source>        Install a plugin
   remove <name>           Remove a plugin
 
-Install sources:
-  user/repo               GitHub repository (tries init.lua, then <repo>.lua)
-  user/repo@v1.0          GitHub repository at a specific tag
+Install sources (repos must be named cliamp-plugin-<name>):
+  user/cliamp-plugin-foo            GitHub repository
+  user/cliamp-plugin-foo@v1.0       GitHub repository at a specific tag
   gitlab:user/repo        GitLab repository
   codeberg:user/repo      Codeberg repository
   https://example.com/p.lua   Direct URL

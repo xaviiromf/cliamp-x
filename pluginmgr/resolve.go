@@ -57,44 +57,40 @@ func resolveSource(source string) (urls []string, name string, err error) {
 	}
 	name = parts[1]
 
-	// Build candidate URLs: try init.lua first, then <reponame>.lua.
-	urls = buildForgeURLs(forge, repo, ref, name)
-	return urls, name, nil
+	// Convention: repos must be named cliamp-plugin-<name>.
+	// The installed plugin name is the short name (e.g. soap-bubbles).
+	short := strings.TrimPrefix(name, "cliamp-plugin-")
+	filenames := []string{name, short}
+	urls = buildForgeURLs(forge, repo, ref, filenames)
+	return urls, short, nil
 }
 
-func buildForgeURLs(forge, repo, ref, repoName string) []string {
+func buildForgeURLs(forge, repo, ref string, filenames []string) []string {
+	var base string
 	switch forge {
 	case "github":
 		if ref == "" {
 			ref = "HEAD"
 		}
-		base := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s", repo, ref)
-		return []string{
-			base + "/init.lua",
-			base + "/" + repoName + ".lua",
-		}
-
+		base = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s", repo, ref)
 	case "gitlab":
 		if ref == "" {
 			ref = "HEAD"
 		}
-		base := fmt.Sprintf("https://gitlab.com/%s/-/raw/%s", repo, ref)
-		return []string{
-			base + "/init.lua",
-			base + "/" + repoName + ".lua",
-		}
-
+		base = fmt.Sprintf("https://gitlab.com/%s/-/raw/%s", repo, ref)
 	case "codeberg":
-		var base string
 		if ref == "" {
 			base = fmt.Sprintf("https://codeberg.org/%s/raw/branch/main", repo)
 		} else {
 			base = fmt.Sprintf("https://codeberg.org/%s/raw/tag/%s", repo, ref)
 		}
-		return []string{
-			base + "/init.lua",
-			base + "/" + repoName + ".lua",
-		}
+	default:
+		return nil
 	}
-	return nil
+
+	urls := []string{base + "/init.lua"}
+	for _, name := range filenames {
+		urls = append(urls, base+"/"+name+".lua")
+	}
+	return urls
 }
