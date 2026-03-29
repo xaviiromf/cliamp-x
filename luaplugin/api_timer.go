@@ -141,3 +141,16 @@ func registerTimerAPI(L *lua.LState, cliamp *lua.LTable, tm *timerManager, p *Pl
 
 	L.SetField(cliamp, "timer", tbl)
 }
+
+// registerSleepAPI adds cliamp.sleep(secs) — a blocking sleep.
+// Note: this blocks the plugin's Lua VM, so other hooks for the same
+// plugin will be queued until the sleep completes. Max 10 seconds.
+func registerSleepAPI(L *lua.LState, cliamp *lua.LTable) {
+	L.SetField(cliamp, "sleep", L.NewFunction(func(L *lua.LState) int {
+		secs := float64(L.CheckNumber(1))
+		if secs > 0 && secs <= 10 {
+			time.Sleep(time.Duration(secs * float64(time.Second)))
+		}
+		return 0
+	}))
+}

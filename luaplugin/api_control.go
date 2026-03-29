@@ -1,10 +1,6 @@
 package luaplugin
 
-import (
-	"time"
-
-	lua "github.com/yuin/gopher-lua"
-)
+import lua "github.com/yuin/gopher-lua"
 
 // registerControlAPI adds cliamp.player control methods (next, prev, play_pause,
 // stop, set_volume, set_speed, seek, toggle_mono, set_eq_band) to the cliamp table.
@@ -16,37 +12,42 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 		return
 	}
 
+	hasControl := p.perms["control"]
+	warned := false
 	guard := func(name string) bool {
-		if !p.perms["control"] {
-			logger.log(p.Name, "warn", "%s requires permissions = {\"control\"}", name)
+		if !hasControl {
+			if !warned {
+				logger.log(p.Name, "warn", "%s requires permissions = {\"control\"} — further warnings suppressed", name)
+				warned = true
+			}
 			return false
 		}
 		return true
 	}
 
 	L.SetField(tbl, "next", L.NewFunction(func(L *lua.LState) int {
-		if guard("next") && ctrl.Next != nil {
+		if guard("next") {
 			ctrl.Next()
 		}
 		return 0
 	}))
 
 	L.SetField(tbl, "prev", L.NewFunction(func(L *lua.LState) int {
-		if guard("prev") && ctrl.Prev != nil {
+		if guard("prev") {
 			ctrl.Prev()
 		}
 		return 0
 	}))
 
 	L.SetField(tbl, "play_pause", L.NewFunction(func(L *lua.LState) int {
-		if guard("play_pause") && ctrl.TogglePause != nil {
+		if guard("play_pause") {
 			ctrl.TogglePause()
 		}
 		return 0
 	}))
 
 	L.SetField(tbl, "stop", L.NewFunction(func(L *lua.LState) int {
-		if guard("stop") && ctrl.Stop != nil {
+		if guard("stop") {
 			ctrl.Stop()
 		}
 		return 0
@@ -57,14 +58,7 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 			return 0
 		}
 		db := float64(L.CheckNumber(1))
-		if db < -30 {
-			db = -30
-		} else if db > 6 {
-			db = 6
-		}
-		if ctrl.SetVolume != nil {
-			ctrl.SetVolume(db)
-		}
+		ctrl.SetVolume(max(min(db, 6), -30))
 		return 0
 	}))
 
@@ -73,14 +67,7 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 			return 0
 		}
 		ratio := float64(L.CheckNumber(1))
-		if ratio < 0.25 {
-			ratio = 0.25
-		} else if ratio > 2.0 {
-			ratio = 2.0
-		}
-		if ctrl.SetSpeed != nil {
-			ctrl.SetSpeed(ratio)
-		}
+		ctrl.SetSpeed(max(min(ratio, 2.0), 0.25))
 		return 0
 	}))
 
@@ -88,15 +75,12 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 		if !guard("seek") {
 			return 0
 		}
-		secs := float64(L.CheckNumber(1))
-		if ctrl.Seek != nil {
-			ctrl.Seek(secs)
-		}
+		ctrl.Seek(float64(L.CheckNumber(1)))
 		return 0
 	}))
 
 	L.SetField(tbl, "toggle_mono", L.NewFunction(func(L *lua.LState) int {
-		if guard("toggle_mono") && ctrl.ToggleMono != nil {
+		if guard("toggle_mono") {
 			ctrl.ToggleMono()
 		}
 		return 0
@@ -107,28 +91,12 @@ func registerControlAPI(L *lua.LState, cliamp *lua.LTable, ctrl *ControlProvider
 			return 0
 		}
 		band := L.CheckInt(1) - 1 // Lua 1-indexed → Go 0-indexed
-		db := float64(L.CheckNumber(2))
 		if band < 0 || band > 9 {
 			L.ArgError(1, "band must be 1-10")
 			return 0
 		}
-		if db < -12 {
-			db = -12
-		} else if db > 12 {
-			db = 12
-		}
-		if ctrl.SetEQBand != nil {
-			ctrl.SetEQBand(band, db)
-		}
-		return 0
-	}))
-
-	// Convenience: sleep for plugin scripts that need timing.
-	L.SetField(tbl, "sleep", L.NewFunction(func(L *lua.LState) int {
-		secs := float64(L.CheckNumber(1))
-		if secs > 0 && secs <= 10 {
-			time.Sleep(time.Duration(secs * float64(time.Second)))
-		}
+		db := float64(L.CheckNumber(2))
+		ctrl.SetEQBand(band, max(min(db, 12), -12))
 		return 0
 	}))
 }
