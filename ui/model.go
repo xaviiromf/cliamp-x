@@ -453,6 +453,17 @@ func (m *Model) switchProvider(idx int) tea.Cmd {
 	return fetchPlaylistsCmd(m.provider)
 }
 
+// switchToProvider finds a provider by config key and switches to it.
+// Returns nil if the provider is not configured.
+func (m *Model) switchToProvider(key string) tea.Cmd {
+	for i, pe := range m.providers {
+		if pe.Key == key {
+			return m.switchProvider(i)
+		}
+	}
+	return nil
+}
+
 // SetPendingURLs stores remote URLs (feeds, M3U) for async resolution after Init.
 func (m *Model) SetPendingURLs(urls []string) {
 	m.pendingURLs = urls

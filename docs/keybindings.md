@@ -47,12 +47,15 @@ Press `Ctrl+K` in the player to see all keybindings.
 | Key | Action |
 |---|---|
 | `f` | Find on YouTube (queue play next) |
-| `F` | Find on SoundCloud (queue play next) |
+| `Ctrl+F` | Find on SoundCloud (queue play next) |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
-| `S` | Save track to ~/Music |
+| `Ctrl+S` | Save track to ~/Music |
 | `N` | Navidrome browser |
 | `R` | Open radio provider |
+| `S` | Open Spotify provider |
+| `P` | Open Plex provider |
+| `Y` | Open YouTube provider |
 
 ## Playlist and Queue
 

@@ -454,8 +454,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			m.queue.cursor = 0
 		}
 
-	case "S":
+	case "ctrl+s":
 		return m.saveTrack()
+	case "S":
+		return m.switchToProvider("spotify")
 
 	case "m":
 		m.player.ToggleMono()
@@ -468,10 +470,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.prevFocus = m.focus
 		m.focus = focusSearch
 
-	case "f", "F":
+	case "f", "ctrl+f":
 		m.netSearch.active = true
 		m.netSearch.query = ""
-		m.netSearch.soundcloud = msg.String() == "F"
+		m.netSearch.soundcloud = msg.String() == "ctrl+f"
 		m.prevFocus = m.focus
 		m.focus = focusNetSearch
 
@@ -517,11 +519,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case "R":
-		for i, pe := range m.providers {
-			if pe.Key == "radio" {
-				return m.switchProvider(i)
-			}
-		}
+		return m.switchToProvider("radio")
+	case "P":
+		return m.switchToProvider("plex")
+	case "Y":
+		return m.switchToProvider("yt")
 
 	case "v":
 		m.vis.CycleMode()
