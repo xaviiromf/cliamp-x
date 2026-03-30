@@ -17,6 +17,7 @@ import (
 	"cliamp/external/radio"
 	"cliamp/external/spotify"
 	"cliamp/external/ytmusic"
+	"cliamp/internal/appmeta"
 	"cliamp/internal/resume"
 	"cliamp/luaplugin"
 	"cliamp/mpris"
@@ -418,16 +419,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	appmeta.SetVersion(version)
 
 	switch action {
 	case "help":
 		fmt.Println(helpText)
 		return
 	case "version":
-		if version == "" {
+		if appmeta.Version() == "dev" {
 			fmt.Println("cliamp (dev build)")
 		} else {
-			fmt.Printf("cliamp %s\n", version)
+			fmt.Printf("cliamp %s\n", appmeta.Version())
 		}
 		return
 	case "upgrade":

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"cliamp/internal/appmeta"
 	"cliamp/playlist"
 	"cliamp/provider"
 )
@@ -209,6 +210,8 @@ func TestClientAuthenticatesWithPassword(t *testing.T) {
 }
 
 func TestClientReportNowPlaying(t *testing.T) {
+	appmeta.SetVersion("v1.31.2")
+	t.Cleanup(func() { appmeta.SetVersion("dev") })
 	c := NewClient("https://jf.example.com", "tok", "user-1", "", "")
 	track := playlist.Track{
 		ProviderMeta: map[string]string{provider.MetaJellyfinID: "track-1"},
@@ -223,6 +226,9 @@ func TestClientReportNowPlaying(t *testing.T) {
 		}
 		if got := req.Header.Get("X-Emby-Token"); got != "tok" {
 			t.Fatalf("X-Emby-Token = %q, want tok", got)
+		}
+		if got := req.Header.Get("X-Emby-Authorization"); !strings.Contains(got, `Version="v1.31.2"`) {
+			t.Fatalf("X-Emby-Authorization = %q, want release version", got)
 		}
 
 		var payload playbackInfo

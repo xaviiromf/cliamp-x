@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"cliamp/internal/appmeta"
 	"cliamp/playlist"
 	"cliamp/provider"
 )
@@ -515,7 +516,8 @@ func (c *Client) ensureAuth() error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Emby-Authorization",
-		fmt.Sprintf(`MediaBrowser Client="cliamp", Device="cliamp", DeviceId="%s", Version="dev"`, c.deviceID))
+		fmt.Sprintf(`MediaBrowser Client="%s", Device="%s", DeviceId="%s", Version="%s"`,
+			appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version()))
 
 	resp, err := apiClient.Do(req)
 	if err != nil {
@@ -565,7 +567,8 @@ func (c *Client) newRequestWithBody(method, p string, params url.Values, body io
 		req.Header.Set("X-Emby-Token", c.token)
 	}
 	req.Header.Set("X-Emby-Authorization",
-		fmt.Sprintf(`MediaBrowser Client="cliamp", Device="cliamp", DeviceId="%s", Version="dev"`, c.deviceID))
+		fmt.Sprintf(`MediaBrowser Client="%s", Device="%s", DeviceId="%s", Version="%s"`,
+			appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version()))
 	return req, nil
 }
 
