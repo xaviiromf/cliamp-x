@@ -63,49 +63,70 @@ func PrepareAudioDevice(device string) func() {
 	}
 }
 
-// SwitchAudioDevice moves this process's active audio stream to a
-// different output at runtime via pactl move-sink-input.
+// SwitchAudioDevice moves cliamp's audio stream to a different sink.
+// Falls back to changing the system default if the stream can't be found.
 func SwitchAudioDevice(deviceName string) error {
-	pid := os.Getpid()
-
 	out, err := exec.Command("pactl", "list", "sink-inputs").Output()
 	if err != nil {
 		return fmt.Errorf("pactl: %w", err)
 	}
 
+	pidStr := strconv.Itoa(os.Getpid())
 	sinkInputIdx := -1
 	currentIdx := 0
-	inEntry := false
+	props := map[string]string{}
 
-	for _, line := range strings.Split(string(out), "\n") {
+	// Parse all sink-inputs, collecting properties per entry.
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "Sink Input #") {
-			idx, _ := strconv.Atoi(strings.TrimPrefix(line, "Sink Input #"))
-			currentIdx = idx
-			inEntry = true
-		}
-		if inEntry && strings.Contains(line, "application.process.id") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				pidStr := strings.Trim(strings.TrimSpace(parts[1]), `"`)
-				if pidStr == strconv.Itoa(pid) {
-					sinkInputIdx = currentIdx
-					break
-				}
+			// Check previous entry before moving on.
+			if sinkInputIdx < 0 {
+				sinkInputIdx = matchCliamp(props, pidStr, currentIdx)
 			}
+			if sinkInputIdx >= 0 {
+				break
+			}
+			currentIdx, _ = strconv.Atoi(strings.TrimPrefix(line, "Sink Input #"))
+			props = map[string]string{}
+			continue
+		}
+		if key, val, ok := strings.Cut(line, "="); ok {
+			props[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(val), `"`)
 		}
 	}
-
+	// Check the last entry.
 	if sinkInputIdx < 0 {
-		return fmt.Errorf("no active audio stream found for PID %d", pid)
+		sinkInputIdx = matchCliamp(props, pidStr, currentIdx)
 	}
 
-	cmd := exec.Command("pactl", "move-sink-input",
-		strconv.Itoa(sinkInputIdx), deviceName)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("move-sink-input: %s (%w)",
-			strings.TrimSpace(string(out)), err)
+	if sinkInputIdx >= 0 {
+		cmd := exec.Command("pactl", "move-sink-input",
+			strconv.Itoa(sinkInputIdx), deviceName)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("move-sink-input: %s (%w)", strings.TrimSpace(string(out)), err)
+		}
+		return nil
 	}
 
+	// Fallback: change the system default sink.
+	if out, err := exec.Command("pactl", "set-default-sink", deviceName).CombinedOutput(); err != nil {
+		return fmt.Errorf("set-default-sink: %s (%w)", strings.TrimSpace(string(out)), err)
+	}
 	return nil
+}
+
+// matchCliamp checks if a sink-input's properties belong to cliamp.
+func matchCliamp(props map[string]string, pidStr string, idx int) int {
+	if props["application.process.id"] == pidStr {
+		return idx
+	}
+	if strings.EqualFold(props["application.process.binary"], "cliamp") {
+		return idx
+	}
+	if strings.Contains(strings.ToLower(props["application.name"]), "cliamp") {
+		return idx
+	}
+	return -1
 }
