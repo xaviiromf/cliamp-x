@@ -262,6 +262,7 @@ func run(overrides config.Overrides, positional []string) error {
 	}
 
 	prog := tea.NewProgram(m, tea.WithAltScreen())
+	prog.SetWindowTitle(ui.InitialTerminalTitle())
 
 	// Wire Lua plugin control provider (needs prog.Send for next/prev).
 	if luaMgr != nil {

@@ -192,6 +192,7 @@ type Model struct {
 	status         statusMsg
 	network        networkStats
 	speedSaveAfter time.Duration
+	termTitle      terminalTitleState
 
 	// Jump to time mode
 	jumping   bool
@@ -287,6 +288,7 @@ func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry
 		navScrobbleEnabled: navCfg.ScrobbleEnabled(),
 		luaMgr:             luaMgr,
 	}
+	m.termTitle = initialTerminalTitleState()
 	// Select the default provider pill.
 	for i, pe := range providers {
 		if pe.Key == defaultProvider {
@@ -414,6 +416,21 @@ func (m Model) activeScreen() topLevelScreen {
 
 func (m Model) isOverlayActive() bool {
 	return m.activeScreen().hidesVisualizer()
+}
+
+func tickIntervalForState(introActive, visualizerVisible, playing, paused bool) time.Duration {
+	if introActive || (visualizerVisible && playing && !paused) {
+		return tickFast
+	}
+	return tickSlow
+}
+
+func (m Model) isPlaying() bool {
+	return m.player != nil && m.player.IsPlaying()
+}
+
+func (m Model) isPaused() bool {
+	return m.player != nil && m.player.IsPaused()
 }
 
 // openThemePicker re-loads themes from disk (picking up new user files)
@@ -731,6 +748,9 @@ func (m Model) Init() tea.Cmd {
 		m.luaMgr.Emit(luaplugin.EventAppStart, nil)
 	}
 	cmds := []tea.Cmd{tickCmd(), tea.WindowSize()}
+	if cmd := m.terminalTitleCmd(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	if m.provider != nil {
 		cmds = append(cmds, fetchPlaylistsCmd(m.provider))
 	}
@@ -834,6 +854,9 @@ func advanceTickUnits(counter *int, elapsed *time.Duration, dt, quantum time.Dur
 }
 
 func (m *Model) tickInterval() time.Duration {
+	if m.termTitle.introActive {
+		return tickFast
+	}
 	if m.vis == nil {
 		return tickSlow
 	}
@@ -952,6 +975,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vis.Rows = max(defaultVisRows, (m.height-10)*4/5)
 		}
 		m.plVisible = m.defaultPlVisible()
+		return m, m.terminalTitleCmd()
 
 	case seekTickMsg:
 		// Async yt-dlp seek completed.
@@ -1129,6 +1153,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		m.advanceTerminalTitle()
+		if cmd := m.terminalTitleCmd(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 		cmds = append(cmds, tickCmdAt(m.tickInterval()))
 		return m, tea.Batch(cmds...)
 

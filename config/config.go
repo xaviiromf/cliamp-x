@@ -113,30 +113,30 @@ func (p PlexConfig) IsSet() bool {
 
 // Config holds user preferences loaded from the config file.
 type Config struct {
-	Volume            float64            // dB, range [-30, +6]
-	EQ                [10]float64        // per-band gain in dB, range [-12, +12]
-	EQPreset          string             // preset name, or "" for custom
-	Repeat            string             // "off", "all", or "one"
-	Shuffle           bool
-	Mono              bool
-	Speed             float64            // playback speed ratio: 0.25–2.0 (default 1.0)
-	AutoPlay          bool               // start playback automatically on launch (radio streams, CLI tracks)
-	SeekStepLarge     int                // seconds for Shift+Left/Right seek jumps
-	Provider          string             // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
-	Theme             string             // theme name, or "" for ANSI default
-	Visualizer        string             // visualizer mode name, or "" for default (Bars)
-	SampleRate        int                // output sample rate: 22050, 44100, 48000, 96000, 192000
-	BufferMs          int                // speaker buffer in milliseconds (50–500)
-	ResampleQuality   int                // beep resample quality factor (1–4)
-	BitDepth          int                // PCM bit depth for FFmpeg output: 16 or 32
-	Compact           bool               // compact mode: cap frame width at 80 columns
-	PaddingH          int                // horizontal padding for the UI frame (default 3)
-	PaddingV          int                // vertical padding for the UI frame (default 1)
-	Navidrome         NavidromeConfig    // optional Navidrome/Subsonic server credentials
-	Spotify           SpotifyConfig      // optional Spotify provider (requires Premium)
-	YouTubeMusic      YouTubeMusicConfig // optional YouTube Music provider
-	Plex              PlexConfig                    // optional Plex Media Server credentials
-	Plugins           map[string]map[string]string  // per-plugin config from [plugins.*] sections
+	Volume          float64     // dB, range [-30, +6]
+	EQ              [10]float64 // per-band gain in dB, range [-12, +12]
+	EQPreset        string      // preset name, or "" for custom
+	Repeat          string      // "off", "all", or "one"
+	Shuffle         bool
+	Mono            bool
+	Speed           float64                      // playback speed ratio: 0.25–2.0 (default 1.0)
+	AutoPlay        bool                         // start playback automatically on launch (radio streams, CLI tracks)
+	SeekStepLarge   int                          // seconds for Shift+Left/Right seek jumps
+	Provider        string                       // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
+	Theme           string                       // theme name, or "" for ANSI default
+	Visualizer      string                       // visualizer mode name, or "" for default (Bars)
+	SampleRate      int                          // output sample rate: 22050, 44100, 48000, 96000, 192000
+	BufferMs        int                          // speaker buffer in milliseconds (50–500)
+	ResampleQuality int                          // beep resample quality factor (1–4)
+	BitDepth        int                          // PCM bit depth for FFmpeg output: 16 or 32
+	Compact         bool                         // compact mode: cap frame width at 80 columns
+	PaddingH        int                          // horizontal padding for the UI frame (default 3)
+	PaddingV        int                          // vertical padding for the UI frame (default 1)
+	Navidrome       NavidromeConfig              // optional Navidrome/Subsonic server credentials
+	Spotify         SpotifyConfig                // optional Spotify provider (requires Premium)
+	YouTubeMusic    YouTubeMusicConfig           // optional YouTube Music provider
+	Plex            PlexConfig                   // optional Plex Media Server credentials
+	Plugins         map[string]map[string]string // per-plugin config from [plugins.*] sections
 }
 
 // defaultConfig returns a Config with sensible defaults.
@@ -589,5 +589,3 @@ func parseEQ(val string) [10]float64 {
 	}
 	return bands
 }
-
-

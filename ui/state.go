@@ -230,3 +230,10 @@ type networkStats struct {
 	lastBytes int64
 	sampleFor time.Duration
 }
+
+type terminalTitleState struct {
+	introActive bool
+	introOffset int
+	introTick   int
+	last        string
+}
