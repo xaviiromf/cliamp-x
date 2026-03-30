@@ -184,11 +184,11 @@ func run(overrides config.Overrides, positional []string) error {
 		p.RegisterStreamerFactory("spotify:", spotifyProv.NewStreamer)
 	}
 
-	// Register Navidrome/Subsonic URL matcher so those streams use the
-	// buffered download + ffmpeg pipeline for gapless, seekable playback.
-	if navClient != nil {
-		p.RegisterBufferedURLMatcher(navidrome.IsSubsonicStreamURL)
-	}
+	// Register URL matchers so media-server streams use the buffered
+	// download + ffmpeg pipeline for gapless, seekable playback.
+	p.RegisterBufferedURLMatcher(func(u string) bool {
+		return navidrome.IsSubsonicStreamURL(u) || jellyfin.IsStreamURL(u)
+	})
 
 	cfg.ApplyPlayer(p)
 	cfg.ApplyPlaylist(pl)

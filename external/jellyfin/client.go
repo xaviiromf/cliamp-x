@@ -371,6 +371,18 @@ func (c *Client) Tracks(albumID string) ([]Track, error) {
 	return out, nil
 }
 
+// IsStreamURL reports whether the given URL looks like a Jellyfin item download
+// endpoint. Used by the player to route these URLs through the buffered ffmpeg
+// pipeline instead of native HTTP streaming.
+func IsStreamURL(path string) bool {
+	u, err := url.Parse(path)
+	if err != nil {
+		return false
+	}
+	p := strings.ToLower(u.Path)
+	return strings.Contains(p, "/items/") && strings.HasSuffix(p, "/download")
+}
+
 // StreamURL returns an authenticated Jellyfin audio URL for a track item.
 func (c *Client) StreamURL(itemID string) string {
 	_ = c.ensureAuth()
