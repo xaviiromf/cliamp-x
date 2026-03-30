@@ -23,12 +23,13 @@ const maxResponseBody = 10 << 20
 
 // Client speaks to a Jellyfin server over its HTTP API.
 type Client struct {
-	baseURL  string
-	token    string
-	userID   string
-	user     string
-	password string
-	deviceID string
+	baseURL    string
+	token      string
+	userID     string
+	user       string
+	password   string
+	deviceID   string
+	albumCache []Album // cached after first Albums() call
 }
 
 // NewClient returns a Client for the given server URL and API token.
@@ -120,16 +121,7 @@ type authResponseDTO struct {
 	AccessToken string `json:"AccessToken"`
 }
 
-type playbackStartInfo struct {
-	CanSeek       bool   `json:"CanSeek"`
-	ItemID        string `json:"ItemId"`
-	IsPaused      bool   `json:"IsPaused"`
-	IsMuted       bool   `json:"IsMuted"`
-	PositionTicks int64  `json:"PositionTicks,omitempty"`
-	PlayMethod    string `json:"PlayMethod,omitempty"`
-}
-
-type playbackProgressInfo struct {
+type playbackInfo struct {
 	CanSeek       bool   `json:"CanSeek"`
 	ItemID        string `json:"ItemId"`
 	IsPaused      bool   `json:"IsPaused"`
@@ -195,7 +187,12 @@ func (c *Client) MusicLibraries() ([]Library, error) {
 }
 
 // Albums returns all albums across every Jellyfin music library.
+// Results are cached after the first successful call.
 func (c *Client) Albums() ([]Album, error) {
+	if c.albumCache != nil {
+		return c.albumCache, nil
+	}
+
 	libs, err := c.MusicLibraries()
 	if err != nil {
 		return nil, err
@@ -209,6 +206,7 @@ func (c *Client) Albums() ([]Album, error) {
 		}
 		out = append(out, albums...)
 	}
+	c.albumCache = out
 	return out, nil
 }
 
@@ -392,7 +390,7 @@ func (c *Client) StreamURL(itemID string) string {
 }
 
 func (c *Client) ReportNowPlaying(track playlist.Track, position time.Duration, canSeek bool) error {
-	return c.postJSON("/Sessions/Playing", playbackStartInfo{
+	return c.postJSON("/Sessions/Playing", playbackInfo{
 		CanSeek:       canSeek,
 		ItemID:        track.Meta(provider.MetaJellyfinID),
 		IsPaused:      false,
@@ -403,7 +401,7 @@ func (c *Client) ReportNowPlaying(track playlist.Track, position time.Duration, 
 }
 
 func (c *Client) ReportScrobble(track playlist.Track, elapsed time.Duration, canSeek bool) error {
-	progress := playbackProgressInfo{
+	progress := playbackInfo{
 		CanSeek:       canSeek,
 		ItemID:        track.Meta(provider.MetaJellyfinID),
 		IsPaused:      false,

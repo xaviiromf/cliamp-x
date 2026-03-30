@@ -217,7 +217,6 @@ type Model struct {
 	cachedDur  time.Duration
 	lastTickAt time.Time // wall time of previous tickMsg; used for tick delta
 
-	navScrobbleEnabled bool
 }
 
 func (m Model) activeScreen() topLevelScreen {

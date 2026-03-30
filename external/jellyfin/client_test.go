@@ -225,7 +225,7 @@ func TestClientReportNowPlaying(t *testing.T) {
 			t.Fatalf("X-Emby-Token = %q, want tok", got)
 		}
 
-		var payload playbackStartInfo
+		var payload playbackInfo
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			t.Fatalf("decode payload: %v", err)
 		}
@@ -254,7 +254,7 @@ func TestClientReportScrobble(t *testing.T) {
 			if req.URL.Path != "/Sessions/Playing/Progress" {
 				t.Fatalf("progress path = %s", req.URL.Path)
 			}
-			var payload playbackProgressInfo
+			var payload playbackInfo
 			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 				t.Fatalf("decode progress payload: %v", err)
 			}

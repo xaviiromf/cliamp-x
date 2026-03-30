@@ -204,7 +204,7 @@ func run(overrides config.Overrides, positional []string) error {
 		defer luaMgr.Close()
 	}
 
-	m := model.New(p, pl, providers, defaultProvider, localProv, themes, cfg.Navidrome, luaMgr)
+	m := model.New(p, pl, providers, defaultProvider, localProv, themes, luaMgr)
 
 	// Wire Lua plugin state provider with read-only access to player/playlist.
 	if luaMgr != nil {

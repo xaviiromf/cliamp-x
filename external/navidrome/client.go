@@ -80,13 +80,14 @@ var albumSortTypes = []provider.SortType{
 
 // NavidromeClient implements playlist.Provider for a Navidrome/Subsonic server.
 type NavidromeClient struct {
-	url           string
-	user          string
-	password      string
-	browseSort    string
-	mu            sync.Mutex
-	playlistCache []playlist.PlaylistInfo
-	trackCache    map[string][]playlist.Track
+	url              string
+	user             string
+	password         string
+	browseSort       string
+	scrobbleDisabled bool
+	mu               sync.Mutex
+	playlistCache    []playlist.PlaylistInfo
+	trackCache       map[string][]playlist.Track
 }
 
 // New creates a NavidromeClient with the given server credentials.
@@ -121,6 +122,7 @@ func NewFromConfig(cfg config.NavidromeConfig) *NavidromeClient {
 	if cfg.BrowseSort != "" {
 		client.browseSort = cfg.BrowseSort
 	}
+	client.scrobbleDisabled = cfg.ScrobbleDisabled
 	return client
 }
 
@@ -460,7 +462,7 @@ func (c *NavidromeClient) streamURL(id string) string {
 }
 
 func (c *NavidromeClient) CanReportPlayback(track playlist.Track) bool {
-	return track.Meta(provider.MetaNavidromeID) != ""
+	return !c.scrobbleDisabled && track.Meta(provider.MetaNavidromeID) != ""
 }
 
 func (c *NavidromeClient) ReportNowPlaying(track playlist.Track, _ time.Duration, _ bool) {

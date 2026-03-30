@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"cliamp/external/navidrome"
 	"cliamp/luaplugin"
 	"cliamp/mpris"
 	"cliamp/playlist"
@@ -155,11 +154,6 @@ func (m *Model) findPlaybackReporter(track playlist.Track) provider.PlaybackRepo
 	match := func(p playlist.Provider) provider.PlaybackReporter {
 		reporter, ok := p.(provider.PlaybackReporter)
 		if !ok || !reporter.CanReportPlayback(track) {
-			return nil
-		}
-		// Preserve the existing Navidrome opt-out behavior until reporting
-		// settings are generalized beyond the Navidrome config block.
-		if _, ok := p.(*navidrome.NavidromeClient); ok && !m.navScrobbleEnabled {
 			return nil
 		}
 		return reporter
