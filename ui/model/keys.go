@@ -597,9 +597,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	case "d":
 		m.devicePicker.visible = true
-		m.devicePicker.loading = true
 		m.devicePicker.cursor = 0
-		return listDevicesCmd()
+		if len(m.devicePicker.devices) == 0 {
+			m.devicePicker.loading = true
+			return listDevicesCmd()
+		}
 
 	case "]":
 		m.changeSpeed(0.25)

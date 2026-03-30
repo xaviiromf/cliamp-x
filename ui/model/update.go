@@ -577,9 +577,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status.Showf(statusTTLDefault, "Switch failed: %s", msg.err)
 		} else {
 			m.status.Showf(statusTTLDefault, "Audio output: %s", msg.name)
-			// Persist the selection to config.
-			_ = config.Save("audio_device", fmt.Sprintf("%q", msg.name))
+			_ = config.Save("audio_device", msg.name)
 		}
+		// Invalidate cached list so the next open refreshes Active markers.
+		m.devicePicker.devices = nil
 		return m, nil
 
 	case mpris.InitMsg:

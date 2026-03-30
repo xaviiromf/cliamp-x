@@ -33,12 +33,14 @@ func ListAudioDevices() ([]AudioDevice, error) {
 			devices = append(devices, AudioDevice{Index: idx})
 			cur = &devices[len(devices)-1]
 		} else if cur != nil {
-			switch {
-			case strings.HasPrefix(line, "Name: "):
-				cur.Name = strings.TrimPrefix(line, "Name: ")
-				cur.Active = cur.Name == defaultSink
-			case strings.HasPrefix(line, "Description: "):
-				cur.Description = strings.TrimPrefix(line, "Description: ")
+			if key, val, ok := strings.Cut(line, ": "); ok {
+				switch key {
+				case "Name":
+					cur.Name = val
+					cur.Active = val == defaultSink
+				case "Description":
+					cur.Description = val
+				}
 			}
 		}
 	}
@@ -48,10 +50,17 @@ func ListAudioDevices() ([]AudioDevice, error) {
 
 // PrepareAudioDevice sets PIPEWIRE_NODE so the PipeWire ALSA plugin
 // routes this process's audio to the named device.
-// Must be called before player.New(). Returns a no-op cleanup.
+// Must be called before player.New(). Returns a cleanup that restores the env.
 func PrepareAudioDevice(device string) func() {
+	prev, hadPrev := os.LookupEnv("PIPEWIRE_NODE")
 	os.Setenv("PIPEWIRE_NODE", device)
-	return func() {}
+	return func() {
+		if hadPrev {
+			os.Setenv("PIPEWIRE_NODE", prev)
+		} else {
+			os.Unsetenv("PIPEWIRE_NODE")
+		}
+	}
 }
 
 // SwitchAudioDevice moves this process's active audio stream to a

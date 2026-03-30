@@ -28,7 +28,7 @@ func ListAudioDevices() ([]AudioDevice, error) {
 			Index:       i,
 			Name:        strings.TrimSpace(id),
 			Description: strings.TrimSpace(name),
-			Active:      i == 0, // first device is typically the default
+			Active:      false,
 		})
 	}
 	return devices, nil
