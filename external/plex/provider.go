@@ -1,11 +1,19 @@
 package plex
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"cliamp/config"
 	"cliamp/playlist"
+	"cliamp/provider"
+)
+
+// Compile-time interface checks.
+var (
+	_ provider.Searcher         = (*Provider)(nil)
+	_ provider.AlbumTrackLoader = (*Provider)(nil)
 )
 
 // Provider implements playlist.Provider for a Plex Media Server.
@@ -99,10 +107,35 @@ func (p *Provider) Tracks(albumRatingKey string) ([]playlist.Track, error) {
 		return nil, err
 	}
 
+	tracks := p.convertTracks(plexTracks, 0)
+
+	p.mu.Lock()
+	if p.trackCache == nil {
+		p.trackCache = make(map[string][]playlist.Track)
+	}
+	p.trackCache[albumRatingKey] = tracks
+	p.mu.Unlock()
+
+	return tracks, nil
+}
+
+// SearchTracks searches the Plex music library for tracks matching query.
+// Implements provider.Searcher.
+func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]playlist.Track, error) {
+	plexTracks, err := p.client.Search(query)
+	if err != nil {
+		return nil, err
+	}
+	return p.convertTracks(plexTracks, limit), nil
+}
+
+// convertTracks converts Plex tracks to playlist tracks, skipping entries
+// without a streamable part. If limit > 0, at most limit tracks are returned.
+func (p *Provider) convertTracks(plexTracks []Track, limit int) []playlist.Track {
 	tracks := make([]playlist.Track, 0, len(plexTracks))
 	for _, t := range plexTracks {
 		if t.PartKey == "" {
-			continue // no streamable file attached; skip silently
+			continue
 		}
 		tracks = append(tracks, playlist.Track{
 			Path:         p.client.StreamURL(t.PartKey),
@@ -114,14 +147,15 @@ func (p *Provider) Tracks(albumRatingKey string) ([]playlist.Track, error) {
 			DurationSecs: t.Duration / 1000,
 			Stream:       true,
 		})
+		if limit > 0 && len(tracks) >= limit {
+			break
+		}
 	}
+	return tracks
+}
 
-	p.mu.Lock()
-	if p.trackCache == nil {
-		p.trackCache = make(map[string][]playlist.Track)
-	}
-	p.trackCache[albumRatingKey] = tracks
-	p.mu.Unlock()
-
-	return tracks, nil
+// AlbumTracks returns the tracks for the given album (ratingKey).
+// Implements provider.AlbumTrackLoader.
+func (p *Provider) AlbumTracks(albumID string) ([]playlist.Track, error) {
+	return p.Tracks(albumID)
 }

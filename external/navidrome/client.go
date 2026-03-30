@@ -10,11 +10,21 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"cliamp/config"
 	"cliamp/playlist"
+	"cliamp/provider"
+)
+
+// Compile-time interface checks.
+var (
+	_ provider.ArtistBrowser   = (*NavidromeClient)(nil)
+	_ provider.AlbumBrowser    = (*NavidromeClient)(nil)
+	_ provider.AlbumTrackLoader = (*NavidromeClient)(nil)
+	_ provider.Scrobbler       = (*NavidromeClient)(nil)
 )
 
 // httpClient is used for all Navidrome API calls with a finite timeout.
@@ -47,46 +57,42 @@ var SortTypes = []string{
 	SortByGenre,
 }
 
-// SortTypeLabel returns a human-readable label for a sort type constant.
-func SortTypeLabel(s string) string {
-	switch s {
-	case SortAlphabeticalByName:
-		return "Alphabetical by Name"
-	case SortAlphabeticalByArtist:
-		return "Alphabetical by Artist"
-	case SortNewest:
-		return "Newest"
-	case SortRecent:
-		return "Recently Played"
-	case SortFrequent:
-		return "Most Played"
-	case SortStarred:
-		return "Starred"
-	case SortByYear:
-		return "By Year"
-	case SortByGenre:
-		return "By Genre"
-	default:
-		return s
+// IsSubsonicStreamURL reports whether path is a Subsonic stream or download
+// endpoint. Used by the player to select the buffered download pipeline.
+func IsSubsonicStreamURL(path string) bool {
+	u, err := url.Parse(path)
+	if err != nil {
+		return false
 	}
+	p := strings.ToLower(u.Path)
+	return strings.HasSuffix(p, "/rest/stream") ||
+		strings.HasSuffix(p, "/rest/stream.view") ||
+		strings.HasSuffix(p, "/rest/download") ||
+		strings.HasSuffix(p, "/rest/download.view")
 }
 
-// Artist represents a Navidrome/Subsonic artist entry.
-type Artist struct {
-	ID         string
-	Name       string
-	AlbumCount int
+// Artist is a Navidrome/Subsonic artist — aliased to the provider type.
+type Artist = provider.ArtistInfo
+
+// Album is a Navidrome/Subsonic album — aliased to the provider type.
+type Album = provider.AlbumInfo
+
+// albumSortTypes is the static list of sort options for album browsing.
+var albumSortTypes = []provider.SortType{
+	{ID: SortAlphabeticalByName, Label: "Alphabetical by Name"},
+	{ID: SortAlphabeticalByArtist, Label: "Alphabetical by Artist"},
+	{ID: SortNewest, Label: "Newest"},
+	{ID: SortRecent, Label: "Recently Played"},
+	{ID: SortFrequent, Label: "Most Played"},
+	{ID: SortStarred, Label: "Starred"},
+	{ID: SortByYear, Label: "By Year"},
+	{ID: SortByGenre, Label: "By Genre"},
 }
 
-// Album represents a Navidrome/Subsonic album entry.
-type Album struct {
-	ID        string
-	Name      string
-	Artist    string
-	ArtistID  string
-	Year      int
-	SongCount int
-	Genre     string
+// AlbumSortTypes returns the available sort options for album browsing.
+// Implements provider.AlbumBrowser.
+func (c *NavidromeClient) AlbumSortTypes() []provider.SortType {
+	return albumSortTypes
 }
 
 // NavidromeClient implements playlist.Provider for a Navidrome/Subsonic server.
@@ -397,7 +403,6 @@ type subsonicSong struct {
 func (c *NavidromeClient) songToTrack(s subsonicSong) playlist.Track {
 	return playlist.Track{
 		Path:         c.streamURL(s.ID),
-		NavidromeID:  s.ID,
 		Title:        s.Title,
 		Artist:       s.Artist,
 		Album:        s.Album,
@@ -406,6 +411,7 @@ func (c *NavidromeClient) songToTrack(s subsonicSong) playlist.Track {
 		Genre:        s.Genre,
 		Stream:       true,
 		DurationSecs: s.Duration,
+		ProviderMeta: map[string]string{provider.MetaNavidromeID: s.ID},
 	}
 }
 
@@ -445,7 +451,13 @@ func (c *NavidromeClient) streamURL(id string) string {
 // If submission is false, it registers a "now playing" notification only.
 // If submission is true, it records a full play (updates play count, last.fm, etc.).
 // The call is best-effort: errors are silently discarded.
-func (c *NavidromeClient) Scrobble(id string, submission bool) {
+// Scrobble reports playback to the Navidrome/Subsonic server.
+// Implements provider.Scrobbler.
+func (c *NavidromeClient) Scrobble(track playlist.Track, submission bool) {
+	id := track.Meta(provider.MetaNavidromeID)
+	if id == "" {
+		return
+	}
 	params := url.Values{
 		"id":         {id},
 		"submission": {fmt.Sprintf("%t", submission)},

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"cliamp/external/navidrome"
 	"cliamp/lyrics"
 	"cliamp/playlist"
+	"cliamp/provider"
 )
 
 // searchState holds state for the playlist search overlay.
@@ -98,18 +98,21 @@ type fileBrowserState struct {
 	err      string
 }
 
-// navBrowserState holds state for the Navidrome explore browser overlay.
+// navBrowserState holds state for the provider explore browser overlay.
+// Works with any provider implementing the browse capability interfaces
+// (provider.ArtistBrowser, provider.AlbumBrowser, provider.AlbumTrackLoader).
 type navBrowserState struct {
+	prov         playlist.Provider // the provider being browsed (may differ from active provider)
 	visible      bool
 	mode         navBrowseModeType
 	screen       navBrowseScreenType
 	cursor       int
 	scroll       int
-	artists      []navidrome.Artist
-	albums       []navidrome.Album
+	artists      []provider.ArtistInfo
+	albums       []provider.AlbumInfo
 	tracks       []playlist.Track
-	selArtist    navidrome.Artist
-	selAlbum     navidrome.Album
+	selArtist    provider.ArtistInfo
+	selAlbum     provider.AlbumInfo
 	sortType     string
 	albumLoading bool
 	albumDone    bool
@@ -129,8 +132,9 @@ const (
 	spotSearchNewName                              // typing new playlist name
 )
 
-// spotSearchState holds state for the Spotify song search + add-to-playlist overlay.
+// spotSearchState holds state for the provider search + add-to-playlist overlay.
 type spotSearchState struct {
+	prov      playlist.Provider // the provider being searched (may differ from active provider)
 	visible   bool
 	screen    spotSearchScreenType
 	query     string
@@ -143,8 +147,8 @@ type spotSearchState struct {
 	err       string
 }
 
-// radioBatchState holds state for lazy-loading catalog stations from the Radio Browser API.
-type radioBatchState struct {
+// catalogBatchState holds state for lazy-loading catalog entries from a provider.CatalogLoader.
+type catalogBatchState struct {
 	offset  int  // next offset to fetch
 	loading bool // true while a fetch is in flight
 	done    bool // true when all stations have been loaded

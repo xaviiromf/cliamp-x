@@ -12,14 +12,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"cliamp/config"
-	"cliamp/external/local"
-	"cliamp/external/navidrome"
-	"cliamp/external/radio"
-	"cliamp/external/spotify"
 	"cliamp/luaplugin"
 	"cliamp/mpris"
 	"cliamp/player"
 	"cliamp/playlist"
+	"cliamp/provider"
 	"cliamp/theme"
 )
 
@@ -160,9 +157,8 @@ type Model struct {
 	height          int
 
 	// Provider state
-	provider        playlist.Provider
-	localProvider   *local.Provider          // direct ref for write operations (add-to-playlist)
-	spotifyProvider *spotify.SpotifyProvider // direct ref for search/playlist write operations
+	provider      playlist.Provider
+	localProvider playlist.Provider // local playlist provider for file-based playlist management (always available)
 	providerLists   []playlist.PlaylistInfo
 	provCursor      int
 	provLoading     bool
@@ -185,7 +181,7 @@ type Model struct {
 	spotSearch     spotSearchState
 	fileBrowser    fileBrowserState
 	navBrowser     navBrowserState
-	radioBatch     radioBatchState
+	catalogBatch     catalogBatchState
 	ytdlBatch      ytdlBatchState
 	reconnect      reconnectState
 	save           saveState
@@ -254,39 +250,30 @@ type Model struct {
 	cachedDur  time.Duration
 	lastTickAt time.Time // wall time of previous tickMsg; used for tick delta
 
-	// Navidrome client (kept separate from navBrowser for non-browser operations)
-	navClient          *navidrome.NavidromeClient
-	navScrobbleEnabled bool
 }
 
 // NewModel creates a Model wired to the given player and playlist.
 // providers is the ordered list of available providers (Radio, Navidrome, Spotify).
-// defaultProvider is the config key of the provider to select initially ("radio", "navidrome", "spotify").
+// defaultProvider is the config key of the provider to select initially.
 // localProv is an optional direct reference to the local provider for write ops.
-// navCfg is the Navidrome config used to seed the initial browse sort preference.
-// nav is the raw NavidromeClient (may be nil); stored directly so the browser
-// key handler doesn't have to unwrap a provider.
-func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry, defaultProvider string, localProv *local.Provider, spotifyProv *spotify.SpotifyProvider, themes []theme.Theme, navCfg config.NavidromeConfig, nav *navidrome.NavidromeClient, luaMgr *luaplugin.Manager) Model {
-	sortType := navCfg.BrowseSort
-	if sortType == "" {
-		sortType = navidrome.SortAlphabeticalByName
+// browseSortType seeds the initial album browse sort preference (empty = default).
+func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry, defaultProvider string, localProv playlist.Provider, themes []theme.Theme, browseSortType string, luaMgr *luaplugin.Manager) Model {
+	if browseSortType == "" {
+		browseSortType = "alphabeticalByName"
 	}
 	m := Model{
-		player:             p,
-		playlist:           pl,
-		vis:                NewVisualizer(float64(p.SampleRate())),
-		seekStepLarge:      30 * time.Second,
-		plVisible:          5,
-		eqPresetIdx:        -1, // custom until a preset is selected
-		themes:             themes,
-		themeIdx:           -1, // Default (ANSI)
-		localProvider:      localProv,
-		spotifyProvider:    spotifyProv,
-		providers:          providers,
-		navBrowser:         navBrowserState{sortType: sortType},
-		navClient:          nav,
-		navScrobbleEnabled: navCfg.ScrobbleEnabled(),
-		luaMgr:             luaMgr,
+		player:        p,
+		playlist:      pl,
+		vis:           NewVisualizer(float64(p.SampleRate())),
+		seekStepLarge: 30 * time.Second,
+		plVisible:     5,
+		eqPresetIdx:   -1, // custom until a preset is selected
+		themes:        themes,
+		themeIdx:      -1, // Default (ANSI)
+		localProvider: localProv,
+		providers:     providers,
+		navBrowser:    navBrowserState{sortType: browseSortType},
+		luaMgr:        luaMgr,
 	}
 	m.termTitle = initialTerminalTitleState()
 	// Select the default provider pill.
@@ -303,6 +290,22 @@ func NewModel(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry
 		m.provider = providers[0].Provider
 	}
 	return m
+}
+
+// findProviderWith returns the first registered provider that satisfies the
+// given capability check. This is used for cross-provider shortcuts like "N"
+// (browse) and "F" (search) which should work regardless of the active provider.
+func (m *Model) findProviderWith(check func(playlist.Provider) bool) playlist.Provider {
+	// Prefer the active provider if it matches.
+	if check(m.provider) {
+		return m.provider
+	}
+	for _, pe := range m.providers {
+		if pe.Provider != nil && check(pe.Provider) {
+			return pe.Provider
+		}
+	}
+	return nil
 }
 
 // SetAutoPlay makes the player start playback immediately on Init.
@@ -528,7 +531,7 @@ func (m *Model) switchProvider(idx int) tea.Cmd {
 	m.provLoading = true
 	m.provSignIn = false
 	m.provSearch.active = false
-	m.radioBatch = radioBatchState{} // reset catalog batch for new provider
+	m.catalogBatch = catalogBatchState{} // reset catalog batch for new provider
 	m.focus = focusProvider
 	return fetchPlaylistsCmd(m.provider)
 }
@@ -655,15 +658,20 @@ func (m *Model) flushPendingSpeedSave() {
 
 // fetchNavArtistAllTracksCmd first fetches the artist's album list, then fetches
 // all tracks across every album. This is used by the "By Artist" browse mode.
-func (m *Model) fetchNavArtistAllTracksCmd(navClient *navidrome.NavidromeClient, artistID string) tea.Cmd {
+// The provider must implement both ArtistBrowser and AlbumTrackLoader.
+func (m *Model) fetchNavArtistAllTracksCmd(ab provider.ArtistBrowser, artistID string) tea.Cmd {
+	loader, _ := m.navBrowser.prov.(provider.AlbumTrackLoader)
 	return func() tea.Msg {
-		albums, err := navClient.ArtistAlbums(artistID)
+		albums, err := ab.ArtistAlbums(artistID)
 		if err != nil {
 			return err
 		}
+		if loader == nil {
+			return navTracksLoadedMsg(nil)
+		}
 		var all []playlist.Track
 		for _, album := range albums {
-			tracks, err := navClient.AlbumTracks(album.ID)
+			tracks, err := loader.AlbumTracks(album.ID)
 			if err != nil {
 				return err
 			}
@@ -718,7 +726,20 @@ func (m *Model) navClearSearch() {
 	m.navBrowser.scroll = 0
 }
 
-func (m *Model) openNavBrowser() {
+// findBrowseProvider returns the first provider that supports browsing
+// (ArtistBrowser or AlbumBrowser), preferring the active provider.
+func (m *Model) findBrowseProvider() playlist.Provider {
+	return m.findProviderWith(func(p playlist.Provider) bool {
+		if _, ok := p.(provider.ArtistBrowser); ok {
+			return true
+		}
+		_, ok := p.(provider.AlbumBrowser)
+		return ok
+	})
+}
+
+func (m *Model) openNavBrowserWith(prov playlist.Provider) {
+	m.navBrowser.prov = prov
 	m.navBrowser.visible = true
 	m.navBrowser.mode = navBrowseModeMenu
 	m.navBrowser.screen = navBrowseScreenList
@@ -900,14 +921,6 @@ func (m Model) maybeRequestVisualizerRefresh(msg tea.Msg, wasScreen topLevelScre
 func (m Model) mainFrameFixedLines(includeTransient bool) int {
 	content := strings.Join(m.mainSections("", includeTransient), "\n")
 	return lipgloss.Height(frameStyle.Render(content))
-}
-
-func (m Model) playlistVisibleLimit(limit int) int {
-	available := m.height - m.mainFrameFixedLines(false)
-	if available < minPlVisible {
-		return minPlVisible
-	}
-	return min(limit, available)
 }
 
 func (m Model) effectivePlaylistVisible() int {
@@ -1156,10 +1169,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case []playlist.PlaylistInfo:
 		m.providerLists = msg
 		m.provLoading = false
-		// Start loading catalog stations when the radio provider is active.
-		if _, ok := m.provider.(*radio.Provider); ok && !m.radioBatch.loading && !m.radioBatch.done {
-			m.radioBatch.loading = true
-			return m, fetchRadioBatchCmd(m.radioBatch.offset, radioBatchSize)
+		// Start loading catalog when the provider supports lazy catalog loading.
+		if loader, ok := m.provider.(provider.CatalogLoader); ok && !m.catalogBatch.loading && !m.catalogBatch.done {
+			m.catalogBatch.loading = true
+			return m, fetchCatalogBatchCmd(loader, m.catalogBatch.offset, catalogBatchSize)
 		}
 		return m, nil
 
@@ -1183,7 +1196,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case navArtistsLoadedMsg:
-		m.navBrowser.artists = []navidrome.Artist(msg)
+		m.navBrowser.artists = []provider.ArtistInfo(msg)
 		m.navBrowser.loading = false
 		m.navBrowser.cursor = 0
 		m.navBrowser.scroll = 0
@@ -1219,43 +1232,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.navBrowser.screen = navBrowseScreenTracks
 		return m, nil
 
-	case radioBatchMsg:
-		m.radioBatch.loading = false
+	case catalogBatchMsg:
+		m.catalogBatch.loading = false
 		if msg.err != nil {
-			m.radioBatch.done = true
+			m.catalogBatch.done = true
 			m.status.Show("Catalog load failed", statusTTLDefault)
 			return m, nil
 		}
-		if len(msg.stations) == 0 {
-			m.radioBatch.done = true
+		if msg.added == 0 {
+			m.catalogBatch.done = true
 			return m, nil
 		}
-		if rp, ok := m.provider.(*radio.Provider); ok {
-			rp.AppendCatalog(msg.stations)
-			if lists, err := rp.Playlists(); err == nil {
-				m.providerLists = lists
-			}
+		if lists, err := m.provider.Playlists(); err == nil {
+			m.providerLists = lists
 		}
-		m.radioBatch.offset += len(msg.stations)
-		if len(msg.stations) < radioBatchSize {
-			m.radioBatch.done = true
+		m.catalogBatch.offset += msg.added
+		if msg.added < catalogBatchSize {
+			m.catalogBatch.done = true
 		}
 		return m, nil
 
-	case radioProvSearchMsg:
+	case catalogSearchMsg:
 		m.provLoading = false
-		if rp, ok := m.provider.(*radio.Provider); ok {
-			if msg.err != nil {
-				m.status.Show("Search failed", statusTTLDefault)
-			} else {
-				rp.SetSearchResults(msg.stations)
-				if lists, err := rp.Playlists(); err == nil {
-					m.providerLists = lists
-				}
-				m.provCursor = 0
-				if len(msg.stations) == 0 {
-					m.status.Show("No stations found", statusTTLDefault)
-				}
+		if msg.err != nil {
+			m.status.Show("Search failed", statusTTLDefault)
+		} else {
+			if lists, err := m.provider.Playlists(); err == nil {
+				m.providerLists = lists
+			}
+			m.provCursor = 0
+			if msg.count == 0 {
+				m.status.Show("No stations found", statusTTLDefault)
 			}
 		}
 		return m, nil
@@ -1943,8 +1950,8 @@ func (m *Model) lyricsSyncable() bool {
 		return false
 	}
 	// ICY radio streams: position counts from stream connect, not song start.
-	// Navidrome streams have NavidromeID set — those track position correctly.
-	if track.Stream && track.NavidromeID == "" {
+	// Provider streams with metadata (e.g. Navidrome) track position correctly.
+	if track.Stream && len(track.ProviderMeta) == 0 {
 		return false
 	}
 	return true
@@ -1980,7 +1987,7 @@ func (m *Model) updateSearch() {
 // conditions are met:
 //   - navClient is configured
 //   - scrobbling is enabled in config
-//   - the track has a NavidromeID (i.e. it came from Navidrome)
+//   - a registered provider implements Scrobbler
 //   - elapsed is at least 50% of the track's known duration
 //
 // The call is dispatched in a goroutine so it never blocks the UI.
@@ -1998,10 +2005,8 @@ func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Durat
 		}
 	}
 
-	if m.navClient == nil || !m.navScrobbleEnabled {
-		return
-	}
-	if track.NavidromeID == "" {
+	scrobbler := m.findScrobbler()
+	if scrobbler == nil {
 		return
 	}
 	if duration <= 0 {
@@ -2014,8 +2019,7 @@ func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Durat
 	if elapsed < duration/2 {
 		return // less than 50% played
 	}
-	id := track.NavidromeID
-	go m.navClient.Scrobble(id, true)
+	go scrobbler.Scrobble(track, true)
 }
 
 // nowPlaying fires a now-playing notification for the given track if configured.
@@ -2024,8 +2028,19 @@ func (m *Model) nowPlaying(track playlist.Track) {
 		m.luaMgr.Emit(luaplugin.EventTrackChange, trackToMap(track))
 	}
 
-	if m.navClient == nil || !m.navScrobbleEnabled || track.NavidromeID == "" {
-		return
+	if scrobbler := m.findScrobbler(); scrobbler != nil {
+		go scrobbler.Scrobble(track, false)
 	}
-	go m.navClient.Scrobble(track.NavidromeID, false)
+}
+
+// findScrobbler returns the first registered provider that implements Scrobbler.
+func (m *Model) findScrobbler() provider.Scrobbler {
+	prov := m.findProviderWith(func(p playlist.Provider) bool {
+		_, ok := p.(provider.Scrobbler)
+		return ok
+	})
+	if prov == nil {
+		return nil
+	}
+	return prov.(provider.Scrobbler)
 }
