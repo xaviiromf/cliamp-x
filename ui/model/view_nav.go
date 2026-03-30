@@ -45,8 +45,12 @@ func (m Model) renderNavBrowser() string {
 }
 
 func (m Model) renderNavMenu() []string {
+	title := "B R O W S E"
+	if m.navBrowser.prov != nil {
+		title = spacedTitle(m.navBrowser.prov.Name())
+	}
 	lines := []string{
-		titleStyle.Render("N A V I D R O M E"),
+		titleStyle.Render(title),
 		"",
 	}
 
@@ -223,8 +227,6 @@ func (m Model) renderNavTrackList() []string {
 	return lines
 }
 
-// navSortLabel returns the human-readable label for the current sort type
-// by querying the provider's AlbumSortTypes. Falls back to the raw ID.
 func (m Model) navSortLabel(sortID string) string {
 	if ab, ok := m.navBrowser.prov.(provider.AlbumBrowser); ok {
 		for _, st := range ab.AlbumSortTypes() {
@@ -234,4 +236,17 @@ func (m Model) navSortLabel(sortID string) string {
 		}
 	}
 	return sortID
+}
+
+func spacedTitle(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "B R O W S E"
+	}
+	runes := []rune(strings.ToUpper(s))
+	parts := make([]string, 0, len(runes))
+	for _, r := range runes {
+		parts = append(parts, string(r))
+	}
+	return strings.Join(parts, " ")
 }

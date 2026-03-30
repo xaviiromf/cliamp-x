@@ -6,7 +6,7 @@
  ██████ ███████ ██ ██   ██ ██      ██ ██
 ```
 
-A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, YouTube Music, SoundCloud, Bilibili, Spotify, Xiaoyuzhou (小宇宙), Navidrome, and Plex with a spectrum visualizer, parametric EQ, and playlist management.
+A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, YouTube Music, SoundCloud, Bilibili, Spotify, Xiaoyuzhou (小宇宙), Navidrome, Plex, and Jellyfin with a spectrum visualizer, parametric EQ, and playlist management.
 
 Built with [Bubbletea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss), [Beep](https://github.com/gopxl/beep), and [go-librespot](https://github.com/devgianlu/go-librespot).
 
@@ -119,6 +119,7 @@ go build -o cliamp .
 - [Spotify](docs/spotify.md)
 - [Navidrome](docs/navidrome.md)
 - [Plex](docs/plex.md)
+- [Jellyfin](docs/jellyfin.md)
 - [Themes](docs/themes.md)
 - [Audio Quality](docs/audio-quality.md)
 - [MPRIS](docs/mpris.md)

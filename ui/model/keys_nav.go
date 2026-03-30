@@ -3,14 +3,17 @@ package model
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"cliamp/config"
 	"cliamp/playlist"
 	"cliamp/provider"
 )
 
 // handleNavBrowserKey processes key presses while the provider browser is open.
-// Works with any provider implementing ArtistBrowser, AlbumBrowser, and/or AlbumTrackLoader.
 func (m *Model) handleNavBrowserKey(msg tea.KeyMsg) tea.Cmd {
+	if m.navBrowser.prov == nil {
+		m.navBrowser.visible = false
+		return nil
+	}
+
 	// Search bar: active on any list/track screen (not the mode menu).
 	if m.navBrowser.mode != navBrowseModeMenu {
 		if m.navBrowser.searching {
@@ -133,7 +136,7 @@ func (m *Model) handleNavByArtistAlbumKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// handleNavArtistListKey handles the artist list screen (used by both By Artist and By Artist/Album modes).
+// handleNavArtistListKey handles the artist list screen.
 func (m *Model) handleNavArtistListKey(msg tea.KeyMsg) tea.Cmd {
 	// Determine effective list length (filtered or full).
 	listLen := len(m.navBrowser.artists)
@@ -181,7 +184,6 @@ func (m *Model) handleNavArtistListKey(msg tea.KeyMsg) tea.Cmd {
 			m.navClearSearch()
 			return fetchNavArtistAlbumsCmd(ab, artist.ID)
 		}
-		// By Artist: fetch all albums first, then all tracks via a two-step command.
 		m.navClearSearch()
 		return m.fetchNavArtistAllTracksCmd(ab, artist.ID)
 	case "esc", "h", "left", "backspace":
@@ -248,7 +250,6 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyMsg, artistAlbums bool) tea.Cmd
 		if !ok {
 			return nil
 		}
-		// Cycle to the next sort type.
 		m.navBrowser.sortType = navNextSort(m.navBrowser.sortType, ab.AlbumSortTypes())
 		m.navBrowser.albums = nil
 		m.navBrowser.cursor = 0
@@ -256,9 +257,10 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyMsg, artistAlbums bool) tea.Cmd
 		m.navBrowser.albumLoading = true
 		m.navBrowser.albumDone = false
 		m.navClearSearch()
-		// Persist the new sort preference.
-		if err := config.SaveNavidromeSort(m.navBrowser.sortType); err != nil {
-			m.status.Showf(statusTTLDefault, "Sort save failed: %s", err)
+		if saver, ok := m.navBrowser.prov.(provider.AlbumSortSaver); ok {
+			if err := saver.SaveAlbumSort(m.navBrowser.sortType); err != nil {
+				m.status.Showf(statusTTLDefault, "Sort save failed: %s", err)
+			}
 		}
 		return fetchNavAlbumListCmd(ab, m.navBrowser.sortType, 0)
 	case "esc", "h", "left", "backspace":
@@ -453,7 +455,7 @@ func (m *Model) handleNavSearchKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// navNextSort returns the sort type that follows s in the given sort types, wrapping around.
+// navNextSort returns the next sort option, wrapping around the list.
 func navNextSort(s string, types []provider.SortType) string {
 	for i, t := range types {
 		if t.ID == s {

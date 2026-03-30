@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"cliamp/config"
 	"cliamp/luaplugin"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -20,27 +21,25 @@ func applyThemeAll(t theme.Theme) {
 }
 
 // New creates a Model wired to the given player and playlist.
-// providers is the ordered list of available providers (Radio, Navidrome, Spotify).
+// providers is the ordered list of available providers (Radio, Navidrome, Spotify, Jellyfin, etc.).
 // defaultProvider is the config key of the provider to select initially.
 // localProv is an optional direct reference to the local provider for write ops.
-// browseSortType seeds the initial album browse sort preference (empty = default).
-func New(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry, defaultProvider string, localProv playlist.Provider, themes []theme.Theme, browseSortType string, luaMgr *luaplugin.Manager) Model {
-	if browseSortType == "" {
-		browseSortType = "alphabeticalByName"
-	}
+// navCfg is used for Navidrome-specific reporting preferences.
+func New(p *player.Player, pl *playlist.Playlist, providers []ProviderEntry, defaultProvider string, localProv playlist.Provider, themes []theme.Theme, navCfg config.NavidromeConfig, luaMgr *luaplugin.Manager) Model {
 	m := Model{
-		player:        p,
-		playlist:      pl,
-		vis:           ui.NewVisualizer(float64(p.SampleRate())),
-		seekStepLarge: 30 * time.Second,
-		plVisible:     5,
-		eqPresetIdx:   -1, // custom until a preset is selected
-		themes:        themes,
-		themeIdx:      -1, // Default (ANSI)
-		localProvider: localProv,
-		providers:     providers,
-		navBrowser:    navBrowserState{sortType: browseSortType},
-		luaMgr:        luaMgr,
+		player:             p,
+		playlist:           pl,
+		vis:                ui.NewVisualizer(float64(p.SampleRate())),
+		seekStepLarge:      30 * time.Second,
+		plVisible:          5,
+		eqPresetIdx:        -1, // custom until a preset is selected
+		themes:             themes,
+		themeIdx:           -1, // Default (ANSI)
+		localProvider:      localProv,
+		providers:          providers,
+		navBrowser:         navBrowserState{},
+		navScrobbleEnabled: navCfg.ScrobbleEnabled(),
+		luaMgr:             luaMgr,
 	}
 	m.termTitle = initialTerminalTitleState()
 	// Select the default provider pill.

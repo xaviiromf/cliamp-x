@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"cliamp/external/navidrome"
 	"cliamp/luaplugin"
 	"cliamp/mpris"
 	"cliamp/playlist"
@@ -102,17 +103,18 @@ func (m *Model) nowPlaying(track playlist.Track) {
 		m.luaMgr.Emit(luaplugin.EventTrackChange, trackToMap(track))
 	}
 
-	if scrobbler := m.findScrobbler(); scrobbler != nil {
-		go scrobbler.Scrobble(track, false)
+	reporter := m.findPlaybackReporter(track)
+	if reporter == nil {
+		return
 	}
+	canSeek := m.player.Seekable()
+	go reporter.ReportNowPlaying(track, m.player.Position(), canSeek)
 }
 
-// maybeScrobble fires a submission scrobble for the given track if all
+// maybeScrobble fires a playback-complete report for the given track if all
 // conditions are met:
-//   - navClient is configured
-//   - scrobbling is enabled in config
-//   - a registered provider implements Scrobbler
-//   - elapsed is at least 50% of the track's known duration
+//   - a provider claims the track via provider metadata
+//   - the track reached at least 50% of its known duration
 //
 // The call is dispatched in a goroutine so it never blocks the UI.
 func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Duration) {
@@ -129,8 +131,8 @@ func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Durat
 		}
 	}
 
-	scrobbler := m.findScrobbler()
-	if scrobbler == nil {
+	reporter := m.findPlaybackReporter(track)
+	if reporter == nil {
 		return
 	}
 	if duration <= 0 {
@@ -143,17 +145,36 @@ func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Durat
 	if elapsed < duration/2 {
 		return // less than 50% played
 	}
-	go scrobbler.Scrobble(track, true)
+	canSeek := m.player.Seekable()
+	go reporter.ReportScrobble(track, elapsed, duration, canSeek)
 }
 
-// findScrobbler returns the first registered provider that implements Scrobbler.
-func (m *Model) findScrobbler() provider.Scrobbler {
-	prov := m.findProviderWith(func(p playlist.Provider) bool {
-		_, ok := p.(provider.Scrobbler)
-		return ok
-	})
-	if prov == nil {
-		return nil
+// findPlaybackReporter returns the first registered provider that can report
+// playback for the given track.
+func (m *Model) findPlaybackReporter(track playlist.Track) provider.PlaybackReporter {
+	match := func(p playlist.Provider) provider.PlaybackReporter {
+		reporter, ok := p.(provider.PlaybackReporter)
+		if !ok || !reporter.CanReportPlayback(track) {
+			return nil
+		}
+		// Preserve the existing Navidrome opt-out behavior until reporting
+		// settings are generalized beyond the Navidrome config block.
+		if _, ok := p.(*navidrome.NavidromeClient); ok && !m.navScrobbleEnabled {
+			return nil
+		}
+		return reporter
 	}
-	return prov.(provider.Scrobbler)
+
+	if reporter := match(m.provider); reporter != nil {
+		return reporter
+	}
+	for _, pe := range m.providers {
+		if pe.Provider == nil {
+			continue
+		}
+		if reporter := match(pe.Provider); reporter != nil {
+			return reporter
+		}
+	}
+	return nil
 }

@@ -55,9 +55,9 @@ Set which provider to start with:
 provider = "radio"
 ```
 
-Valid values: `radio` (default), `navidrome`, `spotify`.
+Valid values: `radio` (default), `navidrome`, `spotify`, `plex`, `jellyfin`, `yt`, `youtube`, `ytmusic`.
 
-You can also override from the CLI: `cliamp --provider navidrome`.
+You can also override from the CLI: `cliamp --provider jellyfin`.
 
 ## Custom Radio Stations
 

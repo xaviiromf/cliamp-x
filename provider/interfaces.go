@@ -26,6 +26,12 @@ type ArtistBrowser interface {
 type AlbumBrowser interface {
 	AlbumList(sortType string, offset, size int) ([]AlbumInfo, error)
 	AlbumSortTypes() []SortType
+	DefaultAlbumSort() string
+}
+
+// AlbumSortSaver is implemented by providers that persist album sort changes.
+type AlbumSortSaver interface {
+	SaveAlbumSort(sortType string) error
 }
 
 // AlbumTrackLoader is implemented by providers that can return the tracks
@@ -34,10 +40,12 @@ type AlbumTrackLoader interface {
 	AlbumTracks(albumID string) ([]playlist.Track, error)
 }
 
-// Scrobbler is implemented by providers that report playback to an
-// external service (e.g. Navidrome/Subsonic, Last.fm).
-type Scrobbler interface {
-	Scrobble(track playlist.Track, submission bool)
+// PlaybackReporter is implemented by providers that accept now-playing and
+// playback-completion reports for tracks they originated.
+type PlaybackReporter interface {
+	CanReportPlayback(track playlist.Track) bool
+	ReportNowPlaying(track playlist.Track, position time.Duration, canSeek bool)
+	ReportScrobble(track playlist.Track, elapsed, duration time.Duration, canSeek bool)
 }
 
 // PlaylistWriter is implemented by providers that support adding tracks

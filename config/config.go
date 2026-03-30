@@ -39,6 +39,11 @@ func (n NavidromeConfig) IsSet() bool {
 	return n.URL != "" && n.User != "" && n.Password != ""
 }
 
+// ScrobbleEnabled reports whether scrobbling is enabled for this config.
+func (n NavidromeConfig) ScrobbleEnabled() bool {
+	return !n.ScrobbleDisabled
+}
+
 // SpotifyConfig holds settings for the Spotify provider.
 // Requires a Spotify Premium account and a client_id from
 // developer.spotify.com/dashboard.
@@ -105,6 +110,22 @@ func (p PlexConfig) IsSet() bool {
 	return p.URL != "" && p.Token != ""
 }
 
+// JellyfinConfig holds credentials for a Jellyfin server.
+// URL is required. Authenticate either with Token, or with User+Password.
+// UserID is optional and can be discovered lazily.
+type JellyfinConfig struct {
+	URL      string // e.g. "https://jellyfin.example.com"
+	Token    string // API access token
+	User     string // optional username for password-based login
+	Password string // optional password for password-based login
+	UserID   string // optional user id to skip discovery via /Users/Me
+}
+
+// IsSet reports whether the Jellyfin provider is configured.
+func (j JellyfinConfig) IsSet() bool {
+	return j.URL != "" && (j.Token != "" || (j.User != "" && j.Password != ""))
+}
+
 // Config holds user preferences loaded from the config file.
 type Config struct {
 	Volume          float64     // dB, range [-30, +6]
@@ -116,7 +137,7 @@ type Config struct {
 	Speed           float64                      // playback speed ratio: 0.25–2.0 (default 1.0)
 	AutoPlay        bool                         // start playback automatically on launch (radio streams, CLI tracks)
 	SeekStepLarge   int                          // seconds for Shift+Left/Right seek jumps
-	Provider        string                       // default provider: "radio", "navidrome", "spotify", "ytmusic" (default "radio")
+	Provider        string                       // default provider: "radio", "navidrome", "spotify", "plex", "jellyfin", "ytmusic" (default "radio")
 	Theme           string                       // theme name, or "" for ANSI default
 	Visualizer      string                       // visualizer mode name, or "" for default (Bars)
 	SampleRate      int                          // output sample rate: 22050, 44100, 48000, 96000, 192000
@@ -130,6 +151,7 @@ type Config struct {
 	Spotify         SpotifyConfig                // optional Spotify provider (requires Premium)
 	YouTubeMusic    YouTubeMusicConfig           // optional YouTube Music provider
 	Plex            PlexConfig                   // optional Plex Media Server credentials
+	Jellyfin        JellyfinConfig               // optional Jellyfin server credentials
 	Plugins         map[string]map[string]string // per-plugin config from [plugins.*] sections
 }
 
@@ -251,6 +273,19 @@ func Load() (Config, error) {
 				cfg.Plex.URL = strings.Trim(val, `"'`)
 			case "token":
 				cfg.Plex.Token = strings.Trim(val, `"'`)
+			}
+		case "jellyfin":
+			switch key {
+			case "url":
+				cfg.Jellyfin.URL = strings.Trim(val, `"'`)
+			case "token":
+				cfg.Jellyfin.Token = strings.Trim(val, `"'`)
+			case "user":
+				cfg.Jellyfin.User = strings.Trim(val, `"'`)
+			case "password":
+				cfg.Jellyfin.Password = strings.Trim(val, `"'`)
+			case "user_id":
+				cfg.Jellyfin.UserID = strings.Trim(val, `"'`)
 			}
 		default:
 			// Handle [plugins] and [plugins.*] sections.

@@ -38,12 +38,12 @@ type Track struct {
 	Genre        string
 	Year         int
 	TrackNumber  int
-	Stream       bool   // true for HTTP/HTTPS URLs
-	Realtime     bool   // true for real-time/live streams (e.g. radio)
-	DurationSecs int    // known duration in seconds (0 = unknown)
+	Stream       bool // true for HTTP/HTTPS URLs
+	Realtime     bool // true for real-time/live streams (e.g. radio)
+	DurationSecs int  // known duration in seconds (0 = unknown)
 
 	// ProviderMeta holds provider-specific key-value pairs.
-	// Keys are namespaced by provider, e.g. "navidrome.id", "spotify.uri".
+	// Keys are namespaced by provider, e.g. "navidrome.id", "jellyfin.id".
 	ProviderMeta map[string]string
 }
 

@@ -80,6 +80,13 @@ func (m *Model) openNavBrowserWith(prov playlist.Provider) {
 	m.navBrowser.searching = false
 	m.navBrowser.search = ""
 	m.navBrowser.searchIdx = nil
+	m.navBrowser.selArtist = provider.ArtistInfo{}
+	m.navBrowser.selAlbum = provider.AlbumInfo{}
+	if ab, ok := prov.(provider.AlbumBrowser); ok {
+		m.navBrowser.sortType = ab.DefaultAlbumSort()
+	} else {
+		m.navBrowser.sortType = ""
+	}
 }
 
 // navUpdateSearch rebuilds navSearchIdx from the current navSearch query

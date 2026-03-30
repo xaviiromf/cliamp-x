@@ -344,7 +344,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		if m.focus == focusEQ {
 			bands := m.player.EQBands()
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]+1)
-			m.eqPresetIdx = -1  // manual tweak → custom
+			m.eqPresetIdx = -1 // manual tweak → custom
 			m.eqCustomLabel = ""
 			m.saveEQ()
 		} else {
@@ -361,7 +361,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		if m.focus == focusEQ {
 			bands := m.player.EQBands()
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]-1)
-			m.eqPresetIdx = -1  // manual tweak → custom
+			m.eqPresetIdx = -1 // manual tweak → custom
 			m.eqCustomLabel = ""
 			m.saveEQ()
 		} else {

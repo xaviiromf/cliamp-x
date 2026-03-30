@@ -98,11 +98,9 @@ type fileBrowserState struct {
 	err      string
 }
 
-// navBrowserState holds state for the provider explore browser overlay.
-// Works with any provider implementing the browse capability interfaces
-// (provider.ArtistBrowser, provider.AlbumBrowser, provider.AlbumTrackLoader).
+// navBrowserState holds state for the provider browser overlay.
 type navBrowserState struct {
-	prov         playlist.Provider // the provider being browsed (may differ from active provider)
+	prov         playlist.Provider
 	visible      bool
 	mode         navBrowseModeType
 	screen       navBrowseScreenType
@@ -142,8 +140,8 @@ type spotSearchState struct {
 	cursor    int
 	loading   bool
 	playlists []playlist.PlaylistInfo // user's Spotify playlists for picker
-	selTrack  playlist.Track         // track selected to add
-	newName   string                 // new playlist name input
+	selTrack  playlist.Track          // track selected to add
+	newName   string                  // new playlist name input
 	err       string
 }
 
