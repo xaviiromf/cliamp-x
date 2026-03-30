@@ -183,6 +183,9 @@ func writeTrack(w io.Writer, t playlist.Track) {
 	fmt.Fprintln(w, "[[track]]")
 	fmt.Fprintf(w, "path = %q\n", t.Path)
 	fmt.Fprintf(w, "title = %q\n", t.Title)
+	if t.Feed {
+		fmt.Fprintln(w, "feed = true")
+	}
 	if t.Artist != "" {
 		fmt.Fprintf(w, "artist = %q\n", t.Artist)
 	}
@@ -245,6 +248,8 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 		case "path":
 			current.Path = val
 			current.Stream = playlist.IsURL(val)
+		case "feed":
+			current.Feed = val == "true"
 		case "title":
 			current.Title = val
 		case "artist":

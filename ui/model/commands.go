@@ -45,6 +45,11 @@ type feedsLoadedMsg struct {
 	autoPlay bool     // whether to start playback automatically
 }
 
+// feedTrackResolvedMsg carries episodes resolved from a feed track in the playlist.
+type feedTrackResolvedMsg struct {
+	tracks []playlist.Track
+}
+
 // lyricsLoadedMsg carries parsed LRC output.
 type lyricsLoadedMsg struct {
 	lines []lyrics.Line
@@ -137,6 +142,16 @@ func fetchYTDLBatchCmd(gen uint64, pageURL string, start, count int) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := resolve.ResolveYTDLBatch(pageURL, start, count)
 		return ytdlBatchMsg{gen: gen, tracks: tracks, err: err}
+	}
+}
+
+func resolveFeedTrackCmd(feedURL string) tea.Cmd {
+	return func() tea.Msg {
+		tracks, err := resolve.Remote([]string{feedURL})
+		if err != nil {
+			return err
+		}
+		return feedTrackResolvedMsg{tracks: tracks}
 	}
 }
 

@@ -373,6 +373,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ytdlBatch.loading = true
 		return m, fetchYTDLBatchCmd(m.ytdlBatch.gen, m.ytdlBatch.url, m.ytdlBatch.offset, ytdlBatchSize)
 
+	case feedTrackResolvedMsg:
+		m.feedLoading = false
+		if len(msg.tracks) == 0 {
+			m.status.Show("No episodes found in feed.", statusTTLDefault)
+			return m, nil
+		}
+		m.playlist.Replace(msg.tracks)
+		m.plCursor = 0
+		m.plScroll = 0
+		m.status.Showf(statusTTLDefault, "Loaded %d episode(s)", len(msg.tracks))
+		playCmd := m.playCurrentTrack()
+		m.notifyAll()
+		return m, playCmd
+
 	case feedsLoadedMsg:
 		m.feedLoading = false
 		if len(msg.tracks) > 0 {

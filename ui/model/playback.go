@@ -58,6 +58,12 @@ func (m *Model) playCurrentTrack() tea.Cmd {
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.
 // yt-dlp URLs are streamed via a piped yt-dlp | ffmpeg chain for instant playback.
 func (m *Model) playTrack(track playlist.Track) tea.Cmd {
+	if track.Feed || playlist.IsFeed(track.Path) {
+		m.feedLoading = true
+		m.status.Show("Loading feed...", statusTTLLong)
+		return resolveFeedTrackCmd(track.Path)
+	}
+
 	m.reconnect.attempts = 0
 	m.reconnect.at = time.Time{}
 	m.streamTitle = ""

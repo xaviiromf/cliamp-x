@@ -40,6 +40,7 @@ type Track struct {
 	TrackNumber  int
 	Stream       bool // true for HTTP/HTTPS URLs
 	Realtime     bool // true for real-time/live streams (e.g. radio)
+	Feed         bool // true for RSS/podcast feed URLs (resolved before playback)
 	DurationSecs int  // known duration in seconds (0 = unknown)
 
 	// ProviderMeta holds provider-specific key-value pairs.

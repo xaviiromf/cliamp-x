@@ -85,6 +85,36 @@ Each `[[track]]` section supports:
 
 HTTP/HTTPS paths are automatically treated as streams.
 
+### Podcast / RSS Feed Playlists
+
+You can save podcast RSS feed URLs in a playlist. Add `feed = true` to mark a track as a feed — when played, the feed is resolved into individual episodes instead of being streamed directly.
+
+```toml
+# ~/.config/cliamp/playlists/podcasts.toml
+
+[[track]]
+path = "https://feeds.simplecast.com/54nAGcIl"
+title = "The Daily"
+feed = true
+
+[[track]]
+path = "https://lexfridman.com/feed/podcast/"
+title = "Lex Fridman Podcast"
+feed = true
+```
+
+Each `[[track]]` with `feed = true` supports:
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `path` | Yes | RSS/Atom feed URL |
+| `title` | Yes | Display name for the feed |
+| `feed` | Yes | Must be `true` to enable feed resolution |
+
+When you select a feed entry, cliamp fetches the RSS feed, extracts all episodes with audio enclosures, and loads them into the playlist. Episode titles and durations (from `<itunes:duration>`) are preserved.
+
+URLs with `.xml`, `.rss`, or `.atom` extensions are also auto-detected as feeds without needing `feed = true`.
+
 ### Browsing and Loading Playlists
 
 Running `cliamp` without arguments connects to the built-in radio channel. If Navidrome is configured, it opens the provider browser instead.
