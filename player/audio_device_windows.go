@@ -40,7 +40,22 @@ func PrepareAudioDevice(device string) func() {
 	return func() {}
 }
 
-// SwitchAudioDevice is not supported on Windows at runtime.
+// SwitchAudioDevice changes the Windows system default output device.
+// The running audio stream keeps its original device; the change
+// takes full effect on the next app restart.
 func SwitchAudioDevice(deviceName string) error {
-	return fmt.Errorf("runtime audio device switching is not supported on Windows; set the default device in Windows Settings")
+	script := fmt.Sprintf(
+		`Get-AudioDevice -PlaybackCommunication | Out-Null; `+
+			`Set-AudioDevice -ID '%s' -ErrorAction Stop`,
+		strings.ReplaceAll(deviceName, "'", "''"),
+	)
+	if out, err := exec.Command("powershell", "-NoProfile", "-Command", script).CombinedOutput(); err != nil {
+		// AudioDeviceCmdlets may not be installed; fall back to nircmd.
+		cmd := exec.Command("nircmd", "setdefaultsounddevice", deviceName)
+		if out2, err2 := cmd.CombinedOutput(); err2 != nil {
+			return fmt.Errorf("failed to set output device (install AudioDeviceCmdlets or nircmd): %s / %s",
+				strings.TrimSpace(string(out)), strings.TrimSpace(string(out2)))
+		}
+	}
+	return nil
 }
