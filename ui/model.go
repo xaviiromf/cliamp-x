@@ -170,7 +170,9 @@ type Model struct {
 	providers       []ProviderEntry // all available providers
 	provPillIdx     int             // selected pill index
 	eqPresetIdx     int             // -1 = custom, 0+ = index into eqPresets
+	eqCustomLabel   string          // non-empty = plugin-defined preset label (shown instead of "Custom")
 
+	// Overlay / feature state (see state.go for struct definitions)
 	search         searchState
 	netSearch      netSearchState
 	provSearch     provSearchState
@@ -190,37 +192,6 @@ type Model struct {
 	status         statusMsg
 	network        networkStats
 	speedSaveAfter time.Duration
-	provider      playlist.Provider
-	localProvider   *local.Provider           // direct ref for write operations (add-to-playlist)
-	spotifyProvider *spotify.SpotifyProvider  // direct ref for search/playlist write operations
-	providerLists []playlist.PlaylistInfo
-	provCursor    int
-	provLoading   bool
-	provSignIn    bool            // true when provider needs interactive sign-in
-	providers     []ProviderEntry // all available providers
-	provPillIdx   int             // selected pill index
-	eqPresetIdx   int             // -1 = custom, 0+ = index into eqPresets
-	eqCustomLabel string          // non-empty = plugin-defined preset label (shown instead of "Custom")
-
-	// Overlay / feature state (see state.go for struct definitions)
-	search      searchState
-	netSearch   netSearchState
-	provSearch  provSearchState
-	seek        seekState
-	themePicker themePickerState
-	lyrics      lyricsState
-	keymap      keymapOverlay
-	queue       queueOverlay
-	plManager   plManagerState
-	spotSearch  spotSearchState
-	fileBrowser fileBrowserState
-	navBrowser    navBrowserState
-	radioBatch    radioBatchState
-	ytdlBatch     ytdlBatchState
-	reconnect   reconnectState
-	status      statusMsg
-	network     networkStats
-	speedDirty  int // tick countdown for debounced speed config save
 
 	// Jump to time mode
 	jumping   bool
