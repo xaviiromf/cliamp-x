@@ -50,7 +50,8 @@ func (t *tap) Err() error {
 }
 
 // SamplesInto copies the last len(dst) samples into dst, avoiding allocation.
-// Returns the number of samples written.
+// Uses two copy() calls for the ring buffer wraparound instead of per-element
+// modulo, which is significantly faster for large buffers (e.g. FFT size 2048).
 func (t *tap) SamplesInto(dst []float64) int {
 	n := len(dst)
 	if n > t.size {
@@ -58,8 +59,12 @@ func (t *tap) SamplesInto(dst []float64) int {
 	}
 	p := int(t.pos.Load())
 	start := (p - n + t.size) % t.size
-	for i := range n {
-		dst[i] = t.buf[(start+i)%t.size]
+	if start+n <= t.size {
+		copy(dst, t.buf[start:start+n])
+	} else {
+		first := t.size - start
+		copy(dst[:first], t.buf[start:])
+		copy(dst[first:], t.buf[:n-first])
 	}
 	return n
 }

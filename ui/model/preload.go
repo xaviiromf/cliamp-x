@@ -71,6 +71,6 @@ func (m *Model) preloadNext() tea.Cmd {
 		return preloadStreamCmd(m.player, next.Path, nextDur)
 	}
 	nextDur := time.Duration(next.DurationSecs) * time.Second
-	m.player.Preload(next.Path, nextDur)
-	return nil
+	m.preloading = true
+	return preloadLocalCmd(m.player, next.Path, nextDur)
 }

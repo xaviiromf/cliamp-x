@@ -180,7 +180,7 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 		p.mu.Unlock()
 
 		speaker.Play(p.ctrl)
-		closePipelines(oldCurrent, oldNext)
+		go closePipelines(oldCurrent, oldNext)
 		return nil
 	}
 
@@ -188,8 +188,9 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 	p.paused.Store(false)
 	p.mu.Unlock()
 
-	// Close old resources after all locks are released
-	closePipelines(oldCurrent, oldNext)
+	// Close old resources asynchronously to avoid blocking the caller
+	// (UI thread) on slow Close() operations (ffmpeg wait, HTTP teardown).
+	go closePipelines(oldCurrent, oldNext)
 	return nil
 }
 
@@ -510,6 +511,27 @@ func (p *Player) Duration() time.Duration {
 		return cur.format.SampleRate.D(n)
 	}
 	return cur.knownDuration
+}
+
+// PositionAndDuration returns both position and duration under a single
+// speaker lock, avoiding two separate lock acquisitions per tick.
+func (p *Player) PositionAndDuration() (time.Duration, time.Duration) {
+	speaker.Lock()
+	defer speaker.Unlock()
+	p.mu.Lock()
+	cur := p.current
+	p.mu.Unlock()
+	if cur == nil {
+		return 0, 0
+	}
+	pos := cur.format.SampleRate.D(cur.decoder.Position()) + cur.streamOffset
+	var dur time.Duration
+	if n := cur.decoder.Len(); n > 0 {
+		dur = cur.format.SampleRate.D(n)
+	} else {
+		dur = cur.knownDuration
+	}
+	return pos, dur
 }
 
 // SetVolume sets the volume in dB, clamped to [-30, +6].

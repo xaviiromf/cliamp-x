@@ -195,6 +195,13 @@ func preloadStreamCmd(p *player.Player, path string, knownDuration time.Duration
 	}
 }
 
+func preloadLocalCmd(p *player.Player, path string, knownDuration time.Duration) tea.Cmd {
+	return func() tea.Msg {
+		p.Preload(path, knownDuration)
+		return streamPreloadedMsg{}
+	}
+}
+
 func playYTDLStreamCmd(p *player.Player, pageURL string, knownDuration time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		return streamPlayedMsg{err: p.PlayYTDL(pageURL, knownDuration)}

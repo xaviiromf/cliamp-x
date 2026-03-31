@@ -310,6 +310,7 @@ type Visualizer struct {
 	edgeCache      map[int][]float64
 	fftBufCache    map[int][]float64
 	windowCache    map[int][]float64
+	resultBufCache map[VisAnalysisSpec][]float64 // reusable output buffers for Analyze(), keyed by spec
 	bands          []float64
 	sr             float64
 	Mode           VisMode
@@ -340,6 +341,7 @@ func NewVisualizer(sampleRate float64) *Visualizer {
 		edgeCache:      make(map[int][]float64),
 		fftBufCache:    make(map[int][]float64),
 		windowCache:    make(map[int][]float64),
+		resultBufCache: make(map[VisAnalysisSpec][]float64),
 		luaDriverCache: make(map[int]visModeDriver),
 		refreshPending: true,
 	}
@@ -470,6 +472,19 @@ func (v *Visualizer) fftBuffer(size int) []float64 {
 	return buf
 }
 
+// resultBufFor returns a reusable []float64 for Analyze output, keyed by the
+// full analysis spec so different specs with the same band count don't alias.
+// Avoids allocating a new slice on every tick (20x/sec).
+func (v *Visualizer) resultBufFor(spec VisAnalysisSpec) []float64 {
+	if buf, ok := v.resultBufCache[spec]; ok {
+		clear(buf)
+		return buf
+	}
+	buf := make([]float64, spec.BandCount)
+	v.resultBufCache[spec] = buf
+	return buf
+}
+
 func (v *Visualizer) hannWindow(size int) []float64 {
 	if window, ok := v.windowCache[size]; ok {
 		return window
@@ -529,7 +544,7 @@ func (v *Visualizer) Analyze(samples []float64, spec VisAnalysisSpec) []float64 
 	}
 
 	prev := v.prevBands(spec)
-	bands := make([]float64, spec.BandCount)
+	bands := v.resultBufFor(spec)
 	if len(samples) == 0 {
 		// Decay previous values when no audio data
 		for b := range spec.BandCount {

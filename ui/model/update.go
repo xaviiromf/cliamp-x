@@ -84,9 +84,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Cache expensive player state once per tick so View() render
 		// functions don't re-acquire speaker.Lock() multiple times.
+		// PositionAndDuration() batches both reads under one speaker lock.
 		if !m.buffering {
-			m.cachedPos = m.displayPosition()
-			m.cachedDur = m.player.Duration()
+			if m.seek.active {
+				m.cachedPos = m.seek.targetPos
+				m.cachedDur = m.player.Duration()
+			} else {
+				m.cachedPos, m.cachedDur = m.player.PositionAndDuration()
+			}
 		} else {
 			track, _ := m.playlist.Current()
 			m.cachedDur = time.Duration(track.DurationSecs) * time.Second
