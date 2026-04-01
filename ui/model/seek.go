@@ -16,10 +16,21 @@ const seekDebounceTicks = 8 // ~800ms at 100ms tick interval
 type seekTickMsg struct{}
 
 // doSeek handles a seek keypress. For yt-dlp streams, accumulates into a
-// single target position and debounces. For local files, seeks immediately.
+// single target position and debounces. For HTTP seekable streams, dispatches
+// the seek asynchronously to avoid blocking the UI. For local files, seeks
+// immediately.
 func (m *Model) doSeek(d time.Duration) tea.Cmd {
+	if m.player.IsStreamSeek() {
+		// HTTP seek-by-reconnect: dispatch async so the Bubbletea event
+		// loop keeps running while the HTTP reconnect completes.
+		p := m.player
+		return func() tea.Msg {
+			p.Seek(d)
+			return seekTickMsg{}
+		}
+	}
 	if !m.player.IsYTDLSeek() {
-		// Local/HTTP seek: immediate.
+		// Local file seek: immediate.
 		m.player.Seek(d)
 		if m.mpris != nil {
 			m.mpris.EmitSeeked(m.player.Position().Microseconds())
