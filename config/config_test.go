@@ -177,9 +177,9 @@ func TestClampResampleQuality(t *testing.T) {
 
 func TestClampPadding(t *testing.T) {
 	tests := []struct {
-		name           string
-		inH, inV       int
-		wantH, wantV   int
+		name         string
+		inH, inV     int
+		wantH, wantV int
 	}{
 		{"negative clamped to 0", -1, -1, 0, 0},
 		{"over max clamped", 20, 10, 10, 5},
@@ -427,14 +427,14 @@ func TestOverridesApply(t *testing.T) {
 	play := true
 
 	overrides := Overrides{
-		Volume:  &vol,
-		Shuffle: &shuffle,
-		Repeat:  &repeat,
-		Mono:    &mono,
-		Theme:   &theme,
-		Compact: &compact,
+		Volume:     &vol,
+		Shuffle:    &shuffle,
+		Repeat:     &repeat,
+		Mono:       &mono,
+		Theme:      &theme,
+		Compact:    &compact,
 		SampleRate: &sr,
-		Play:    &play,
+		Play:       &play,
 	}
 
 	overrides.Apply(&cfg)
@@ -501,10 +501,10 @@ type mockPlayer struct {
 	mono   bool
 }
 
-func (m *mockPlayer) SetVolume(db float64)       { m.volume = db }
-func (m *mockPlayer) SetSpeed(ratio float64)      { m.speed = ratio }
+func (m *mockPlayer) SetVolume(db float64)           { m.volume = db }
+func (m *mockPlayer) SetSpeed(ratio float64)         { m.speed = ratio }
 func (m *mockPlayer) SetEQBand(band int, dB float64) { m.eq[band] = dB }
-func (m *mockPlayer) ToggleMono()                  { m.mono = !m.mono }
+func (m *mockPlayer) ToggleMono()                    { m.mono = !m.mono }
 
 func TestApplyPlayer(t *testing.T) {
 	cfg := defaultConfig()
@@ -567,16 +567,16 @@ type mockPlaylist struct {
 	shuffled     bool
 }
 
-func (m *mockPlaylist) CycleRepeat()    { m.repeatCycles++ }
-func (m *mockPlaylist) ToggleShuffle()  { m.shuffled = !m.shuffled }
+func (m *mockPlaylist) CycleRepeat()   { m.repeatCycles++ }
+func (m *mockPlaylist) ToggleShuffle() { m.shuffled = !m.shuffled }
 
 func TestApplyPlaylist(t *testing.T) {
 	tests := []struct {
-		name         string
-		repeat       string
-		shuffle      bool
-		wantCycles   int
-		wantShuffle  bool
+		name        string
+		repeat      string
+		shuffle     bool
+		wantCycles  int
+		wantShuffle bool
 	}{
 		{"off no shuffle", "off", false, 0, false},
 		{"all", "all", false, 1, false},

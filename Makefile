@@ -14,7 +14,7 @@ vet:
 	go vet ./...
 
 lint: vet
-	@command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || echo "staticcheck not installed — skipping (go install honnef.co/go/tools/cmd/staticcheck@latest)"
+	@if command -v staticcheck >/dev/null 2>&1; then staticcheck ./...; else echo "staticcheck not installed — skipping (go install honnef.co/go/tools/cmd/staticcheck@latest)"; fi
 
 fmt:
 	gofmt -l -w .

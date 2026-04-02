@@ -376,8 +376,8 @@ var visModes = [VisCount]visEntry{
 	VisScope:       {"Scope", newRenderOnlyDriver(spectrumAnalysisSpec(0), func(v *Visualizer, _ []float64) string { return v.renderScope() })},
 	VisHeartbeat:   {"Heartbeat", newRenderOnlyDriver(spectrumAnalysisSpec(0), func(v *Visualizer, _ []float64) string { return v.renderHeartbeat() })},
 	VisButterfly:   {"Butterfly", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderButterfly)},
-	VisAscii:        {"Ascii", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderAscii)},
-	VisNone:         {"None", newNoOpDriver},
+	VisAscii:       {"Ascii", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderAscii)},
+	VisNone:        {"None", newNoOpDriver},
 }
 
 var visNameMap map[string]VisMode

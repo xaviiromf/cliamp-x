@@ -33,9 +33,9 @@ func TestTrackMeta(t *testing.T) {
 
 func TestTrackDisplayName(t *testing.T) {
 	tests := []struct {
-		name   string
-		track  Track
-		want   string
+		name  string
+		track Track
+		want  string
 	}{
 		{
 			name:  "artist and title",

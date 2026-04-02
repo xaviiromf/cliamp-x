@@ -22,8 +22,8 @@ import (
 
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
-	"github.com/devgianlu/go-librespot/session"
 	devicespb "github.com/devgianlu/go-librespot/proto/spotify/connectstate/devices"
+	"github.com/devgianlu/go-librespot/session"
 	"golang.org/x/oauth2"
 	spotifyoauth2 "golang.org/x/oauth2/spotify"
 )
@@ -46,7 +46,7 @@ type Session struct {
 	sess        *session.Session
 	player      *librespotPlayer.Player
 	devID       string
-	clientID    string         // Spotify Developer app client ID
+	clientID    string             // Spotify Developer app client ID
 	tokenSource oauth2.TokenSource // auto-refreshing OAuth2 token source
 }
 
@@ -145,7 +145,6 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 
 // oauthScopes are the Spotify Web API scopes needed for cliamp.
 // See: https://developer.spotify.com/documentation/web-api/concepts/scopes
-//
 var oauthScopes = []string{
 	// Playlist browsing
 	"playlist-read-collaborative",
@@ -500,4 +499,3 @@ func saveCreds(creds *storedCreds) error {
 	}
 	return os.WriteFile(path, data, 0o600)
 }
-

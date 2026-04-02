@@ -27,8 +27,8 @@ import (
 
 // Compile-time interface checks.
 var (
-	_ provider.Searcher       = (*SpotifyProvider)(nil)
-	_ provider.PlaylistWriter = (*SpotifyProvider)(nil)
+	_ provider.Searcher        = (*SpotifyProvider)(nil)
+	_ provider.PlaylistWriter  = (*SpotifyProvider)(nil)
 	_ provider.PlaylistCreator = (*SpotifyProvider)(nil)
 	_ provider.CustomStreamer  = (*SpotifyProvider)(nil)
 	_ provider.Closer          = (*SpotifyProvider)(nil)

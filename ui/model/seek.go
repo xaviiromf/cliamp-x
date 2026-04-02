@@ -58,14 +58,6 @@ func (m *Model) doSeek(d time.Duration) tea.Cmd {
 	return nil
 }
 
-// displayPosition returns the position to show in the UI.
-func (m *Model) displayPosition() time.Duration {
-	if m.seek.active {
-		return m.seek.targetPos
-	}
-	return m.player.Position()
-}
-
 func (m *Model) clampPosition(pos time.Duration) time.Duration {
 	if pos < 0 {
 		return 0

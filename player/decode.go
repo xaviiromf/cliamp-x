@@ -79,7 +79,7 @@ func (s *sshReadCloser) Close() error {
 }
 
 // shellQuoteSSH wraps a string in single quotes for safe use in a remote shell command.
-// Single quotes inside the string are escaped as '\'' (end quote, escaped quote, start quote).
+// Single quotes inside the string are escaped as '\” (end quote, escaped quote, start quote).
 func shellQuoteSSH(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

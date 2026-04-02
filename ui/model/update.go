@@ -132,7 +132,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delay := time.Second << m.reconnect.attempts
 					m.reconnect.at = now.Add(delay)
 					m.reconnect.attempts++
-					m.err = fmt.Errorf("Reconnecting in %s...", delay)
+					m.err = fmt.Errorf("reconnecting in %s", delay)
 				}
 			} else {
 				m.err = err

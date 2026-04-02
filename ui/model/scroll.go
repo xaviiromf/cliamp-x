@@ -5,18 +5,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"cliamp/playlist"
 	"cliamp/ui"
 )
-
-// renderedLineCount returns how many rendered lines tracks[from..to) would take.
-func renderedLineCount(tracks []playlist.Track, from, to int) int {
-	end := min(to, len(tracks))
-	if end <= from {
-		return 0
-	}
-	return end - from
-}
 
 // defaultPlVisible recalculates the natural plVisible for the current terminal
 // height (same logic as the window-resize handler, capped at maxPlVisible).

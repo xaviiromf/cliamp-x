@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"cliamp/lyrics"
-	"cliamp/ui"
 	"cliamp/theme"
+	"cliamp/ui"
 )
 
 func (m Model) renderDeviceOverlay() string {

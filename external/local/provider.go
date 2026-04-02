@@ -358,4 +358,3 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 	}
 	return tracks, nil
 }
-
