@@ -92,8 +92,12 @@ sudo pacman -S alsa-lib
 ```sh
 git clone https://github.com/bjarneo/cliamp.git
 cd cliamp
-go build -o cliamp .
+make && make install
 ```
+
+Or without Make: `go build -o cliamp .`
+
+`make install` places the binary in `~/.local/bin/`.
 
 **Optional runtime dependencies:**
 
