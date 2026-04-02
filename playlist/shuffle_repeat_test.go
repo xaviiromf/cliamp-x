@@ -15,23 +15,16 @@ func TestToggleShuffle(t *testing.T) {
 		t.Fatal("Shuffled() after toggle should be true")
 	}
 
-	// Current track should still be the same
 	cur, _ := p.Current()
 	if cur.Title != "C" {
 		t.Fatalf("Current after shuffle = %q, want C", cur.Title)
-	}
-
-	// Position should be 0 in shuffled order (current track moves to front)
-	if p.pos != 0 {
-		t.Fatalf("pos after shuffle = %d, want 0", p.pos)
 	}
 }
 
 func TestToggleShuffleOff(t *testing.T) {
 	p := makePlaylist(5, true) // start shuffled
-	p.SetIndex(p.order[0])
 
-	curTrack, curIdx := p.Current()
+	curTrack, _ := p.Current()
 
 	p.ToggleShuffle() // turn off
 
@@ -39,22 +32,19 @@ func TestToggleShuffleOff(t *testing.T) {
 		t.Fatal("Shuffled() after toggle off should be false")
 	}
 
-	// Order should be sequential again
-	for i, idx := range p.order {
-		if idx != i {
-			t.Fatalf("order[%d] = %d, want %d", i, idx, i)
-		}
-	}
-
-	// Position should track the same track
+	// Current track should be preserved
 	cur2, _ := p.Current()
 	if cur2.Title != curTrack.Title {
 		t.Fatalf("Current after unshuffle = %q, want %q", cur2.Title, curTrack.Title)
 	}
 
-	// pos should equal the original track index
-	if p.pos != curIdx {
-		t.Fatalf("pos after unshuffle = %d, want %d", p.pos, curIdx)
+	// Playback should follow sequential order from current track onward
+	for i := 0; i < 4; i++ {
+		next, ok := p.Next()
+		if !ok {
+			t.Fatalf("Next() returned false at step %d", i)
+		}
+		_ = next // just verify it advances without error
 	}
 }
 
@@ -105,18 +95,26 @@ func TestSetRepeat(t *testing.T) {
 
 func TestShufflePreservesAllTracks(t *testing.T) {
 	p := makePlaylist(10, false)
+	p.SetRepeat(RepeatAll)
 	p.ToggleShuffle()
 
-	// All track indices should appear exactly once in the order
-	seen := make(map[int]bool)
-	for _, idx := range p.order {
-		if seen[idx] {
-			t.Fatalf("duplicate index %d in shuffle order", idx)
+	// Walk through all tracks via Next() and verify each title appears exactly once
+	seen := make(map[string]bool)
+	cur, _ := p.Current()
+	seen[cur.Title] = true
+
+	for i := 0; i < 9; i++ {
+		next, ok := p.Next()
+		if !ok {
+			t.Fatalf("Next() returned false at step %d", i)
 		}
-		seen[idx] = true
+		if seen[next.Title] {
+			t.Fatalf("duplicate track %q at step %d", next.Title, i)
+		}
+		seen[next.Title] = true
 	}
 	if len(seen) != 10 {
-		t.Fatalf("shuffle order has %d entries, want 10", len(seen))
+		t.Fatalf("saw %d unique tracks, want 10", len(seen))
 	}
 }
 

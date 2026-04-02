@@ -176,26 +176,28 @@ func TestClampResampleQuality(t *testing.T) {
 }
 
 func TestClampPadding(t *testing.T) {
-	cfg := defaultConfig()
-
-	cfg.PaddingH = -1
-	cfg.PaddingV = -1
-	cfg.clamp()
-	if cfg.PaddingH != 0 {
-		t.Errorf("PaddingH = %d, want 0", cfg.PaddingH)
+	tests := []struct {
+		name           string
+		inH, inV       int
+		wantH, wantV   int
+	}{
+		{"negative clamped to 0", -1, -1, 0, 0},
+		{"over max clamped", 20, 10, 10, 5},
+		{"within range", 3, 1, 3, 1},
 	}
-	if cfg.PaddingV != 0 {
-		t.Errorf("PaddingV = %d, want 0", cfg.PaddingV)
-	}
-
-	cfg.PaddingH = 20
-	cfg.PaddingV = 10
-	cfg.clamp()
-	if cfg.PaddingH != 10 {
-		t.Errorf("PaddingH = %d, want 10", cfg.PaddingH)
-	}
-	if cfg.PaddingV != 5 {
-		t.Errorf("PaddingV = %d, want 5", cfg.PaddingV)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.PaddingH = tt.inH
+			cfg.PaddingV = tt.inV
+			cfg.clamp()
+			if cfg.PaddingH != tt.wantH {
+				t.Errorf("PaddingH = %d, want %d", cfg.PaddingH, tt.wantH)
+			}
+			if cfg.PaddingV != tt.wantV {
+				t.Errorf("PaddingV = %d, want %d", cfg.PaddingV, tt.wantV)
+			}
+		})
 	}
 }
 
@@ -284,14 +286,21 @@ func TestNavidromeIsSet(t *testing.T) {
 }
 
 func TestNavidromeScrobbleEnabled(t *testing.T) {
-	cfg := NavidromeConfig{}
-	if !cfg.ScrobbleEnabled() {
-		t.Error("ScrobbleEnabled() should be true by default")
+	tests := []struct {
+		name     string
+		disabled bool
+		want     bool
+	}{
+		{"default enabled", false, true},
+		{"explicitly disabled", true, false},
 	}
-
-	cfg.ScrobbleDisabled = true
-	if cfg.ScrobbleEnabled() {
-		t.Error("ScrobbleEnabled() should be false when disabled")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NavidromeConfig{ScrobbleDisabled: tt.disabled}
+			if got := cfg.ScrobbleEnabled(); got != tt.want {
+				t.Errorf("ScrobbleEnabled() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -384,24 +393,24 @@ func TestYouTubeMusicIsSetOrFallback(t *testing.T) {
 func TestYouTubeMusicResolveCredentials(t *testing.T) {
 	fallback := func() (string, string) { return "fb_id", "fb_secret" }
 
-	// User credentials take priority
-	cfg := YouTubeMusicConfig{ClientID: "my_id", ClientSecret: "my_secret"}
-	id, secret := cfg.ResolveCredentials(fallback)
-	if id != "my_id" || secret != "my_secret" {
-		t.Errorf("got (%q, %q), want (my_id, my_secret)", id, secret)
+	tests := []struct {
+		name       string
+		cfg        YouTubeMusicConfig
+		fallbackFn func() (string, string)
+		wantID     string
+		wantSecret string
+	}{
+		{"user credentials take priority", YouTubeMusicConfig{ClientID: "my_id", ClientSecret: "my_secret"}, fallback, "my_id", "my_secret"},
+		{"falls back when empty", YouTubeMusicConfig{}, fallback, "fb_id", "fb_secret"},
+		{"nil fallback returns empty", YouTubeMusicConfig{}, nil, "", ""},
 	}
-
-	// Falls back when user credentials empty
-	cfg = YouTubeMusicConfig{}
-	id, secret = cfg.ResolveCredentials(fallback)
-	if id != "fb_id" || secret != "fb_secret" {
-		t.Errorf("got (%q, %q), want (fb_id, fb_secret)", id, secret)
-	}
-
-	// Nil fallback returns empty
-	id, secret = cfg.ResolveCredentials(nil)
-	if id != "" || secret != "" {
-		t.Errorf("got (%q, %q), want empty", id, secret)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, secret := tt.cfg.ResolveCredentials(tt.fallbackFn)
+			if id != tt.wantID || secret != tt.wantSecret {
+				t.Errorf("got (%q, %q), want (%q, %q)", id, secret, tt.wantID, tt.wantSecret)
+			}
+		})
 	}
 }
 

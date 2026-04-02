@@ -2,7 +2,17 @@
 set -e
 
 REPO="bjarneo/cliamp"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+
+# Determine install directory: prefer ~/.local/bin (no sudo), fall back to /usr/local/bin
+if [ -z "$INSTALL_DIR" ]; then
+    LOCAL_BIN="$HOME/.local/bin"
+    if echo "$PATH" | tr ':' '\n' | grep -qx "$LOCAL_BIN"; then
+        mkdir -p "$LOCAL_BIN"
+        INSTALL_DIR="$LOCAL_BIN"
+    else
+        INSTALL_DIR="/usr/local/bin"
+    fi
+fi
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)

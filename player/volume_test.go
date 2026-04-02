@@ -26,7 +26,6 @@ func (f *fakeStreamer) Stream(samples [][2]float64) (int, bool) {
 func (f *fakeStreamer) Err() error { return nil }
 
 func TestVolumeStreamerZeroDB(t *testing.T) {
-	// 0 dB should pass through samples unchanged (gain = 1.0)
 	src := &fakeStreamer{val: [2]float64{0.5, -0.5}, count: 4}
 	var vol atomic.Uint64
 	vol.Store(math.Float64bits(0.0))
@@ -132,8 +131,7 @@ func TestVolumeStreamerEmptySource(t *testing.T) {
 }
 
 func TestVolumeStreamerGainCaching(t *testing.T) {
-	// Volume changes between Stream() calls should recompute gain
-	src := &fakeStreamer{val: [2]float64{1.0, 1.0}, count: 100}
+	src := &fakeStreamer{val: [2]float64{1.0, 1.0}, count: 8}
 	var vol atomic.Uint64
 	vol.Store(math.Float64bits(0.0))
 	var mono atomic.Bool

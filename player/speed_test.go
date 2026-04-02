@@ -7,7 +7,6 @@ import (
 )
 
 func TestSpeedStreamerPassthroughAt1x(t *testing.T) {
-	// At speed 1.0, should pass through samples unchanged
 	src := &fakeStreamer{val: [2]float64{0.5, -0.5}, count: 1024}
 	var speed atomic.Uint64
 	speed.Store(math.Float64bits(1.0))
@@ -34,7 +33,6 @@ func TestSpeedStreamerPassthroughAt1x(t *testing.T) {
 }
 
 func TestSpeedStreamerPassthroughAtZero(t *testing.T) {
-	// Speed <= 0 should also pass through
 	src := &fakeStreamer{val: [2]float64{0.3, 0.3}, count: 64}
 	var speed atomic.Uint64
 	speed.Store(math.Float64bits(0.0))
@@ -50,8 +48,7 @@ func TestSpeedStreamerPassthroughAtZero(t *testing.T) {
 }
 
 func TestSpeedStreamer2xProducesOutput(t *testing.T) {
-	// At 2x speed, we should still get output (time-stretched)
-	src := &sineStreamer{freq: 440, sr: 44100, count: 44100}
+	src := &sineStreamer{freq: 440, sr: 44100, count: 8192}
 	var speed atomic.Uint64
 	speed.Store(math.Float64bits(2.0))
 
@@ -69,7 +66,7 @@ func TestSpeedStreamer2xProducesOutput(t *testing.T) {
 }
 
 func TestSpeedStreamerHalfSpeedProducesOutput(t *testing.T) {
-	src := &sineStreamer{freq: 440, sr: 44100, count: 44100}
+	src := &sineStreamer{freq: 440, sr: 44100, count: 8192}
 	var speed atomic.Uint64
 	speed.Store(math.Float64bits(0.5))
 

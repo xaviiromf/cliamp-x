@@ -44,7 +44,6 @@ func TestRequestOmitsEmptyFields(t *testing.T) {
 		t.Fatalf("Marshal error: %v", err)
 	}
 
-	// Value, Playlist, Path, Name should be omitted
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
