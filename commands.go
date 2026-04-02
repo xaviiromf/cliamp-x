@@ -38,6 +38,7 @@ func buildApp() *cli.Command {
 		&cli.IntFlag{Name: "resample-quality", Usage: "resample quality factor (1-4)", HideDefault: true},
 		&cli.IntFlag{Name: "bit-depth", Usage: "PCM bit depth: 16 or 32", HideDefault: true},
 		&cli.StringFlag{Name: "audio-device", Usage: "audio output device (use 'list' to show)"},
+		&cli.StringFlag{Name: "playlist", Usage: "load a local TOML playlist by name and start playing"},
 	}
 
 	return &cli.Command{
@@ -72,6 +73,12 @@ func buildApp() *cli.Command {
 			queueCommand(),
 			themeCommand(),
 			visCommand(),
+			shuffleCommand(),
+			repeatCommand(),
+			monoCommand(),
+			speedCommand(),
+			eqCommand(),
+			deviceCommand(),
 		},
 	}
 }
@@ -170,6 +177,10 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 	if c.IsSet("audio-device") {
 		v := c.String("audio-device")
 		ov.AudioDevice = &v
+	}
+	if c.IsSet("playlist") {
+		v := c.String("playlist")
+		ov.Playlist = &v
 	}
 	return ov, nil
 }
@@ -383,6 +394,29 @@ func statusCommand() *cli.Command {
 				fmt.Printf("Position: %.0f / %.0f sec\n", resp.Position, resp.Duration)
 			}
 			fmt.Printf("Volume: %.0f dB\n", resp.Volume)
+			if resp.Shuffle != nil {
+				if *resp.Shuffle {
+					fmt.Println("Shuffle: on")
+				} else {
+					fmt.Println("Shuffle: off")
+				}
+			}
+			if resp.Repeat != "" {
+				fmt.Printf("Repeat: %s\n", resp.Repeat)
+			}
+			if resp.Mono != nil {
+				if *resp.Mono {
+					fmt.Println("Mono: on")
+				} else {
+					fmt.Println("Mono: off")
+				}
+			}
+			if resp.Speed > 0 {
+				fmt.Printf("Speed: %.2fx\n", resp.Speed)
+			}
+			if resp.EQPreset != "" {
+				fmt.Printf("EQ: %s\n", resp.EQPreset)
+			}
 			return nil
 		},
 	}
@@ -513,6 +547,164 @@ func visCommand() *cli.Command {
 				return err
 			}
 			fmt.Printf("Visualizer: %s\n", resp.Visualizer)
+			return nil
+		},
+	}
+}
+
+func shuffleCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "shuffle",
+		Usage:     "toggle or set shuffle mode",
+		ArgsUsage: "[on|off|toggle]",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			name := "toggle"
+			if c.Args().Len() > 0 {
+				name = strings.ToLower(c.Args().First())
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "shuffle", Name: name})
+			if err != nil {
+				return err
+			}
+			if resp.Shuffle != nil && *resp.Shuffle {
+				fmt.Println("Shuffle: on")
+			} else {
+				fmt.Println("Shuffle: off")
+			}
+			return nil
+		},
+	}
+}
+
+func repeatCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "repeat",
+		Usage:     "set or cycle repeat mode",
+		ArgsUsage: "[off|all|one|cycle]",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			name := "cycle"
+			if c.Args().Len() > 0 {
+				name = strings.ToLower(c.Args().First())
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "repeat", Name: name})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Repeat: %s\n", resp.Repeat)
+			return nil
+		},
+	}
+}
+
+func monoCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "mono",
+		Usage:     "toggle or set mono output",
+		ArgsUsage: "[on|off|toggle]",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			name := "toggle"
+			if c.Args().Len() > 0 {
+				name = strings.ToLower(c.Args().First())
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "mono", Name: name})
+			if err != nil {
+				return err
+			}
+			if resp.Mono != nil && *resp.Mono {
+				fmt.Println("Mono: on")
+			} else {
+				fmt.Println("Mono: off")
+			}
+			return nil
+		},
+	}
+}
+
+func speedCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "speed",
+		Usage:     "set playback speed (0.25-2.0)",
+		ArgsUsage: "<ratio>",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			if c.Args().Len() == 0 {
+				return fmt.Errorf("usage: cliamp speed <ratio>  (e.g. 1.0, 1.5, 0.75)")
+			}
+			ratio, err := strconv.ParseFloat(c.Args().First(), 64)
+			if err != nil {
+				return fmt.Errorf("invalid speed %q", c.Args().First())
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "speed", Value: ratio})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Speed: %.2fx\n", resp.Speed)
+			return nil
+		},
+	}
+}
+
+func eqCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "eq",
+		Usage:     "set EQ preset or individual band",
+		ArgsUsage: "<preset|band> [dB]",
+		Flags: []cli.Flag{
+			&cli.IntFlag{Name: "band", Usage: "EQ band index (0-9)", Value: -1, HideDefault: true},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			band := int(c.Int("band"))
+			if band >= 0 {
+				// Set a specific band.
+				if c.Args().Len() == 0 {
+					return fmt.Errorf("usage: cliamp eq --band N <dB>")
+				}
+				db, err := strconv.ParseFloat(c.Args().First(), 64)
+				if err != nil {
+					return fmt.Errorf("invalid dB value %q", c.Args().First())
+				}
+				resp, err := ipcSend(ipc.Request{Cmd: "eq", Band: band, Value: db})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("EQ band %d: %.1f dB (preset: %s)\n", band, db, resp.EQPreset)
+				return nil
+			}
+			// Apply a preset by name.
+			if c.Args().Len() == 0 {
+				return fmt.Errorf("usage: cliamp eq <preset>  (e.g. Flat, Rock, Pop, Jazz)")
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "eq", Name: c.Args().First()})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("EQ: %s\n", resp.EQPreset)
+			return nil
+		},
+	}
+}
+
+func deviceCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "device",
+		Usage:     "switch audio output device",
+		ArgsUsage: "<name|list>",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			if c.Args().Len() == 0 {
+				return fmt.Errorf("usage: cliamp device <name|list>")
+			}
+			if strings.EqualFold(c.Args().First(), "list") {
+				resp, err := ipcSend(ipc.Request{Cmd: "device", Name: "list"})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.Device)
+				return nil
+			}
+			resp, err := ipcSend(ipc.Request{Cmd: "device", Name: c.Args().First()})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Audio device: %s\n", resp.Device)
 			return nil
 		},
 	}

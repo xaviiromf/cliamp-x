@@ -11,6 +11,7 @@ cliamp --repeat all ~/Music           # repeat mode: off, all, one
 cliamp --mono track.mp3               # downmix to mono
 cliamp --no-mono track.mp3            # force stereo
 cliamp --auto-play ~/Music            # start playback immediately
+cliamp --playlist "Blade Runner"      # load a local TOML playlist and start playing
 ```
 
 ## Audio engine
@@ -73,6 +74,7 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--buffer-ms` | int | 100 | 50–500 |
 | `--resample-quality` | int | 4 | 1–4 |
 | `--bit-depth` | int | 16 | 16, 32 |
+| `--playlist` | string | | local TOML playlist name |
 
 CLI flags override config file values for the current session only. They are not persisted.
 
@@ -106,6 +108,14 @@ cliamp volume -5                       # adjust volume (dB)
 cliamp seek 30                         # seek to position (seconds)
 cliamp load "Playlist Name"            # load a playlist
 cliamp queue /path/to/file.mp3         # queue a track
+cliamp shuffle [on|off|toggle]         # toggle or set shuffle
+cliamp repeat [off|all|one|cycle]      # set or cycle repeat mode
+cliamp mono [on|off|toggle]            # toggle or set mono output
+cliamp speed 1.5                       # set playback speed (0.25–2.0)
+cliamp eq Rock                         # set EQ preset by name
+cliamp eq --band 0 6.0                 # set EQ band 0 to +6 dB
+cliamp device list                     # list audio output devices
+cliamp device "My DAC"                 # switch audio output device
 ```
 
 See [remote-control.md](remote-control.md) for the full protocol specification.

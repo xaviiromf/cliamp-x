@@ -219,11 +219,59 @@ func (s *Server) dispatch(req Request) Response {
 			return Response{OK: false, Error: "server shutting down"}
 		}
 
+	case "shuffle":
+		reply := make(chan Response, 1)
+		s.disp.Send(ShuffleMsg{Name: req.Name, Reply: reply})
+		return waitReply(reply, s.done)
+
+	case "repeat":
+		reply := make(chan Response, 1)
+		s.disp.Send(RepeatMsg{Name: req.Name, Reply: reply})
+		return waitReply(reply, s.done)
+
+	case "mono":
+		reply := make(chan Response, 1)
+		s.disp.Send(MonoMsg{Name: req.Name, Reply: reply})
+		return waitReply(reply, s.done)
+
+	case "speed":
+		if req.Value <= 0 {
+			return Response{OK: false, Error: "speed must be positive"}
+		}
+		reply := make(chan Response, 1)
+		s.disp.Send(SpeedMsg{Speed: req.Value, Reply: reply})
+		return waitReply(reply, s.done)
+
+	case "eq":
+		reply := make(chan Response, 1)
+		s.disp.Send(EQMsg{Name: req.Name, Band: req.Band, Value: req.Value, Reply: reply})
+		return waitReply(reply, s.done)
+
+	case "device":
+		if req.Name == "" {
+			return Response{OK: false, Error: "device requires a name (or 'list')"}
+		}
+		reply := make(chan Response, 1)
+		s.disp.Send(DeviceMsg{Name: req.Name, Reply: reply})
+		return waitReply(reply, s.done)
+
 	case "status":
 		return s.handleStatus()
 
 	default:
 		return Response{OK: false, Error: "unknown command: " + req.Cmd}
+	}
+}
+
+// waitReply waits up to 3 seconds for a response on the reply channel.
+func waitReply(reply chan Response, done chan struct{}) Response {
+	select {
+	case resp := <-reply:
+		return resp
+	case <-time.After(3 * time.Second):
+		return Response{OK: false, Error: "timeout"}
+	case <-done:
+		return Response{OK: false, Error: "server shutting down"}
 	}
 }
 

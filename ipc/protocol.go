@@ -12,6 +12,7 @@ type Request struct {
 	Playlist string  `json:"playlist,omitempty"`
 	Path     string  `json:"path,omitempty"`
 	Name     string  `json:"name,omitempty"`
+	Band     int     `json:"band,omitempty"`
 }
 
 // Response is the JSON response sent by the server.
@@ -27,6 +28,12 @@ type Response struct {
 	Index      int        `json:"index,omitempty"`
 	Total      int        `json:"total,omitempty"`
 	Visualizer string     `json:"visualizer,omitempty"`
+	Shuffle    *bool      `json:"shuffle,omitempty"`
+	Repeat     string     `json:"repeat,omitempty"`
+	Mono       *bool      `json:"mono,omitempty"`
+	Speed      float64    `json:"speed,omitempty"`
+	EQPreset   string     `json:"eq_preset,omitempty"`
+	Device     string     `json:"device,omitempty"`
 }
 
 // TrackInfo is the track metadata in a status response.
@@ -78,6 +85,49 @@ type ThemeMsg struct {
 // If Name is "next", the visualizer cycles to the next mode.
 // Reply receives confirmation or error if mode not found.
 type VisMsg struct {
+	Name  string
+	Reply chan Response
+}
+
+// ShuffleMsg requests toggling or setting shuffle mode.
+// If Name is "on"/"off", it sets the mode explicitly; "toggle" toggles.
+type ShuffleMsg struct {
+	Name  string
+	Reply chan Response
+}
+
+// RepeatMsg requests setting or cycling the repeat mode.
+// Name is "off", "all", "one", or "cycle".
+type RepeatMsg struct {
+	Name  string
+	Reply chan Response
+}
+
+// MonoMsg requests toggling or setting mono mode.
+// If Name is "on"/"off", it sets the mode explicitly; "toggle" toggles.
+type MonoMsg struct {
+	Name  string
+	Reply chan Response
+}
+
+// SpeedMsg requests setting the playback speed.
+type SpeedMsg struct {
+	Speed float64
+	Reply chan Response
+}
+
+// EQMsg requests setting EQ preset by name or a single band's gain.
+// If Band >= 0, sets that band to Value dB. Otherwise applies preset Name.
+type EQMsg struct {
+	Name  string
+	Band  int
+	Value float64
+	Reply chan Response
+}
+
+// DeviceMsg requests switching the audio output device or listing devices.
+// If Name is "list", returns available devices. Otherwise switches to named device.
+type DeviceMsg struct {
 	Name  string
 	Reply chan Response
 }

@@ -146,7 +146,14 @@ func run(overrides config.Overrides, positional []string) error {
 	defaultRadio := len(positional) == 0 && defaultProvider == "radio"
 
 	pl := playlist.New()
-	if defaultRadio {
+	if cfg.Playlist != "" && localProv != nil {
+		tracks, err := localProv.Tracks(cfg.Playlist)
+		if err != nil {
+			return fmt.Errorf("playlist %q: %w", cfg.Playlist, err)
+		}
+		pl.Add(tracks...)
+		cfg.AutoPlay = true
+	} else if defaultRadio {
 		pl.Add(
 			playlist.Track{Path: "http://radio.cliamp.stream/lofi/stream", Title: "Lofi Stream", Stream: true},
 			playlist.Track{Path: "http://radio.cliamp.stream/synthwave/stream", Title: "Synthwave Stream", Stream: true},

@@ -618,6 +618,11 @@ func (p *Playlist) CycleRepeat() {
 	p.repeat = (p.repeat + 1) % 3
 }
 
+// SetRepeat sets the repeat mode directly.
+func (p *Playlist) SetRepeat(mode RepeatMode) {
+	p.repeat = mode
+}
+
 // Shuffled returns whether shuffle is enabled.
 func (p *Playlist) Shuffled() bool { return p.shuffle }
 

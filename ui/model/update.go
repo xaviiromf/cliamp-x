@@ -11,6 +11,7 @@ import (
 	"cliamp/config"
 	"cliamp/ipc"
 	"cliamp/mpris"
+	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/provider"
 	"cliamp/theme"
@@ -755,6 +756,140 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.Reply <- resp
 		}
 		return m, nil
+	case ipc.ShuffleMsg:
+		switch strings.ToLower(msg.Name) {
+		case "on":
+			if !m.playlist.Shuffled() {
+				m.playlist.ToggleShuffle()
+			}
+		case "off":
+			if m.playlist.Shuffled() {
+				m.playlist.ToggleShuffle()
+			}
+		default: // "toggle" or empty
+			m.playlist.ToggleShuffle()
+		}
+		shuffled := m.playlist.Shuffled()
+		if err := config.Save("shuffle", fmt.Sprintf("%v", shuffled)); err != nil {
+			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
+		}
+		m.player.ClearPreload()
+		cmd := m.preloadNext()
+		if msg.Reply != nil {
+			msg.Reply <- ipc.Response{OK: true, Shuffle: &shuffled}
+		}
+		return m, cmd
+
+	case ipc.RepeatMsg:
+		switch strings.ToLower(msg.Name) {
+		case "off":
+			m.playlist.SetRepeat(playlist.RepeatOff)
+		case "all":
+			m.playlist.SetRepeat(playlist.RepeatAll)
+		case "one":
+			m.playlist.SetRepeat(playlist.RepeatOne)
+		default: // "cycle" or empty
+			m.playlist.CycleRepeat()
+		}
+		mode := m.playlist.Repeat()
+		if err := config.Save("repeat", fmt.Sprintf("%q", mode.String())); err != nil {
+			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
+		}
+		m.player.ClearPreload()
+		cmd := m.preloadNext()
+		if msg.Reply != nil {
+			msg.Reply <- ipc.Response{OK: true, Repeat: mode.String()}
+		}
+		return m, cmd
+
+	case ipc.MonoMsg:
+		switch strings.ToLower(msg.Name) {
+		case "on":
+			if !m.player.Mono() {
+				m.player.ToggleMono()
+			}
+		case "off":
+			if m.player.Mono() {
+				m.player.ToggleMono()
+			}
+		default: // "toggle" or empty
+			m.player.ToggleMono()
+		}
+		mono := m.player.Mono()
+		if msg.Reply != nil {
+			msg.Reply <- ipc.Response{OK: true, Mono: &mono}
+		}
+		return m, nil
+
+	case ipc.SpeedMsg:
+		m.player.SetSpeed(msg.Speed)
+		m.saveSpeed()
+		if msg.Reply != nil {
+			msg.Reply <- ipc.Response{OK: true, Speed: m.player.Speed()}
+		}
+		return m, nil
+
+	case ipc.EQMsg:
+		if msg.Band > 0 || (msg.Band == 0 && msg.Name == "") {
+			// Set a specific band (0-9).
+			m.player.SetEQBand(msg.Band, msg.Value)
+			m.saveEQ()
+			if msg.Reply != nil {
+				msg.Reply <- ipc.Response{OK: true, EQPreset: m.EQPresetName()}
+			}
+		} else if msg.Name != "" {
+			// Apply a preset by name.
+			m.SetEQPreset(msg.Name, nil)
+			m.saveEQ()
+			if msg.Reply != nil {
+				msg.Reply <- ipc.Response{OK: true, EQPreset: m.EQPresetName()}
+			}
+		} else {
+			if msg.Reply != nil {
+				msg.Reply <- ipc.Response{OK: false, Error: "eq requires a preset name or --band"}
+			}
+		}
+		return m, nil
+
+	case ipc.DeviceMsg:
+		if strings.EqualFold(msg.Name, "list") {
+			devices, err := player.ListAudioDevices()
+			if err != nil {
+				if msg.Reply != nil {
+					msg.Reply <- ipc.Response{OK: false, Error: fmt.Sprintf("list devices: %v", err)}
+				}
+				return m, nil
+			}
+			// Encode device list as newline-separated string in the Device field.
+			var lines []string
+			for _, d := range devices {
+				marker := "  "
+				if d.Active {
+					marker = "* "
+				}
+				lines = append(lines, fmt.Sprintf("%s%s", marker, d.Name))
+			}
+			if msg.Reply != nil {
+				msg.Reply <- ipc.Response{OK: true, Device: strings.Join(lines, "\n")}
+			}
+			return m, nil
+		}
+		err := player.SwitchAudioDevice(msg.Name)
+		if err != nil {
+			if msg.Reply != nil {
+				msg.Reply <- ipc.Response{OK: false, Error: fmt.Sprintf("switch device: %v", err)}
+			}
+			return m, nil
+		}
+		_ = config.Save("audio_device", msg.Name)
+		m.status.Showf(statusTTLDefault, "Audio output: %s", msg.Name)
+		// Invalidate cached list so the next open refreshes Active markers.
+		m.devicePicker.devices = nil
+		if msg.Reply != nil {
+			msg.Reply <- ipc.Response{OK: true, Device: msg.Name}
+		}
+		return m, nil
+
 	case ipc.StatusRequestMsg:
 		resp := ipc.Response{OK: true}
 		switch {
@@ -778,6 +913,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		resp.Index = m.playlist.Index()
 		resp.Total = m.playlist.Len()
 		resp.Visualizer = m.vis.ModeName()
+		shuffled := m.playlist.Shuffled()
+		resp.Shuffle = &shuffled
+		resp.Repeat = m.playlist.Repeat().String()
+		mono := m.player.Mono()
+		resp.Mono = &mono
+		resp.Speed = m.player.Speed()
+		resp.EQPreset = m.EQPresetName()
 		if msg.Reply != nil {
 			msg.Reply <- resp
 		}

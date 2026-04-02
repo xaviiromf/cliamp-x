@@ -17,6 +17,7 @@ type Overrides struct {
 	Play            *bool
 	Compact         *bool
 	AudioDevice     *string
+	Playlist        *string
 }
 
 // Apply merges non-nil overrides into cfg and clamps the result.
@@ -65,6 +66,9 @@ func (o Overrides) Apply(cfg *Config) {
 	}
 	if o.AudioDevice != nil {
 		cfg.AudioDevice = *o.AudioDevice
+	}
+	if o.Playlist != nil {
+		cfg.Playlist = *o.Playlist
 	}
 	cfg.clamp()
 }
