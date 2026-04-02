@@ -1,6 +1,7 @@
 package model
 
 import (
+	"cliamp/config"
 	"cliamp/ui"
 	"os"
 	"path/filepath"
@@ -23,8 +24,9 @@ func TestHandleSpeedKeyUsesArrowKeysWhenSpeedFocused(t *testing.T) {
 	})
 
 	m := Model{
-		player: sharedPlayer,
-		focus:  focusSpeed,
+		player:      sharedPlayer,
+		configSaver: config.SaveFunc{},
+		focus:       focusSpeed,
 	}
 
 	if cmd := m.handleKey(tea.KeyPressMsg{Code: tea.KeyRight}); cmd != nil {
@@ -63,7 +65,7 @@ func TestTickPendingSpeedSaveUsesElapsedTime(t *testing.T) {
 		sharedPlayer.SetSpeed(origSpeed)
 	})
 
-	m := Model{player: sharedPlayer}
+	m := Model{player: sharedPlayer, configSaver: config.SaveFunc{}}
 	m.changeSpeed(0.5)
 
 	configPath := filepath.Join(home, ".config", "cliamp", "config.toml")
@@ -103,7 +105,7 @@ func TestFlushPendingSpeedSavePersistsImmediately(t *testing.T) {
 		sharedPlayer.SetSpeed(origSpeed)
 	})
 
-	m := Model{player: sharedPlayer}
+	m := Model{player: sharedPlayer, configSaver: config.SaveFunc{}}
 	m.changeSpeed(0.25)
 	m.flushPendingSpeedSave()
 

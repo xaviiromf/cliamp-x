@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/config"
 	"cliamp/ipc"
 	"cliamp/mpris"
 	"cliamp/player"
@@ -603,7 +602,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status.Showf(statusTTLDefault, "Switch failed: %s", msg.err)
 		} else {
 			m.status.Showf(statusTTLDefault, "Audio output: %s", msg.name)
-			_ = config.Save("audio_device", msg.name)
+			_ = m.configSaver.Save("audio_device", msg.name)
 		}
 		// Invalidate cached list so the next open refreshes Active markers.
 		m.devicePicker.devices = nil
@@ -725,7 +724,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.EqualFold(themeName, "default") {
 				themeName = ""
 			}
-			_ = config.Save("theme", fmt.Sprintf("%q", themeName))
+			_ = m.configSaver.Save("theme", fmt.Sprintf("%q", themeName))
 			if msg.Reply != nil {
 				msg.Reply <- ipc.Response{OK: true}
 			}
@@ -770,7 +769,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.playlist.ToggleShuffle()
 		}
 		shuffled := m.playlist.Shuffled()
-		if err := config.Save("shuffle", fmt.Sprintf("%v", shuffled)); err != nil {
+		if err := m.configSaver.Save("shuffle", fmt.Sprintf("%v", shuffled)); err != nil {
 			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 		}
 		m.player.ClearPreload()
@@ -792,7 +791,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.playlist.CycleRepeat()
 		}
 		mode := m.playlist.Repeat()
-		if err := config.Save("repeat", fmt.Sprintf("%q", mode.String())); err != nil {
+		if err := m.configSaver.Save("repeat", fmt.Sprintf("%q", mode.String())); err != nil {
 			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 		}
 		m.player.ClearPreload()
@@ -881,7 +880,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		_ = config.Save("audio_device", msg.Name)
+		_ = m.configSaver.Save("audio_device", msg.Name)
 		m.status.Showf(statusTTLDefault, "Audio output: %s", msg.Name)
 		// Invalidate cached list so the next open refreshes Active markers.
 		m.devicePicker.devices = nil

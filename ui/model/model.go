@@ -12,6 +12,12 @@ import (
 	"cliamp/ui"
 )
 
+// ConfigSaver persists individual config key-value pairs.
+// Satisfied by config.SaveFunc (the default) or a test stub.
+type ConfigSaver interface {
+	Save(key, value string) error
+}
+
 type focusArea int
 
 const (
@@ -105,8 +111,9 @@ const minPlVisible = 5
 // Model is the Bubbletea model for the CLIAMP TUI.
 type Model struct {
 	// Core playback
-	player        *player.Player
+	player        player.Engine
 	playlist      *playlist.Playlist
+	configSaver   ConfigSaver
 	vis           *ui.Visualizer
 	seekStepLarge time.Duration
 

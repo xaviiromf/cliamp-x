@@ -12,7 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var sharedPlayer *player.Player
+var sharedPlayer player.Engine
 
 func TestMain(m *testing.M) {
 	sr := player.DeviceSampleRate()

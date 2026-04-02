@@ -11,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"cliamp/config"
 	"cliamp/internal/fileutil"
 	"cliamp/playlist"
 	"cliamp/provider"
@@ -451,7 +450,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "r":
 		m.playlist.CycleRepeat()
-		if err := config.Save("repeat", fmt.Sprintf("%q", m.playlist.Repeat().String())); err != nil {
+		if err := m.configSaver.Save("repeat", fmt.Sprintf("%q", m.playlist.Repeat().String())); err != nil {
 			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 		}
 		m.player.ClearPreload()
@@ -459,7 +458,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "z":
 		m.playlist.ToggleShuffle()
-		if err := config.Save("shuffle", fmt.Sprintf("%v", m.playlist.Shuffled())); err != nil {
+		if err := m.configSaver.Save("shuffle", fmt.Sprintf("%v", m.playlist.Shuffled())); err != nil {
 			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 		}
 		m.player.ClearPreload()
@@ -601,7 +600,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "v":
 		m.vis.CycleMode()
-		if err := config.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
+		if err := m.configSaver.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
 			m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 		}
 
