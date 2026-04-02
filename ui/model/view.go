@@ -205,35 +205,31 @@ func (m Model) renderTrackInfo() string {
 		name = m.streamTitle
 	}
 
-	maxW := ui.PanelWidth - 4
-	runes := []rune(name)
-
-	var titleLine string
-	if len(runes) <= maxW {
-		titleLine = trackStyle.Render("♫ " + name)
-	} else {
-		// Cyclic scrolling for long titles
-		padded := append(runes, titleScrollSep...)
-		total := len(padded)
-		off := m.titleOff % total
-
-		display := make([]rune, maxW)
-		for i := range maxW {
-			display[i] = padded[(off+i)%total]
-		}
-		titleLine = trackStyle.Render("♫ " + string(display))
-	}
-
-	// Show album subtitle when available.
+	// Append album to the title line to save vertical space.
 	album := track.Album
 	if m.streamTitle != "" && track.Stream {
 		album = ""
 	}
 	if album != "" {
-		album = truncate(album, maxW)
-		return titleLine + "\n" + dimStyle.Render("  "+album)
+		name += " · " + album
 	}
-	return titleLine
+
+	maxW := ui.PanelWidth - 4
+	runes := []rune(name)
+
+	if len(runes) <= maxW {
+		return trackStyle.Render("♫ " + name)
+	}
+	// Cyclic scrolling for long titles
+	padded := append(runes, titleScrollSep...)
+	total := len(padded)
+	off := m.titleOff % total
+
+	display := make([]rune, maxW)
+	for i := range maxW {
+		display[i] = padded[(off+i)%total]
+	}
+	return trackStyle.Render("♫ " + string(display))
 }
 
 func (m Model) renderTimeStatus() string {
