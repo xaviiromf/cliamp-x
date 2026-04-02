@@ -60,7 +60,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			frameW = min(frameW, 80)
 		}
 		ui.FrameStyle = ui.FrameStyle.Width(frameW)
-		ui.PanelWidth = max(0, frameW-2*ui.PaddingH)
+		m.restorePanelWidth()
 		if m.fullVis {
 			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
 			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
@@ -927,4 +927,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// restorePanelWidth resets PanelWidth to the correct value based on compact mode.
+func (m *Model) restorePanelWidth() {
+	frameW := m.width
+	if m.compact {
+		frameW = min(frameW, 80)
+	}
+	ui.PanelWidth = max(0, frameW-2*ui.PaddingH)
 }

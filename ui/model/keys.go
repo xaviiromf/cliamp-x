@@ -282,6 +282,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.fullVis {
 			m.fullVis = false
 			m.vis.Rows = ui.DefaultVisRows
+			m.restorePanelWidth()
 		} else if m.focus == focusPlaylist {
 			m.plVisible = m.defaultPlVisible()
 			m.focus = focusProvider
@@ -611,7 +612,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		} else {
 			m.vis.Rows = ui.DefaultVisRows
-			ui.PanelWidth = max(0, min(m.width, 80)-2*ui.PaddingH)
+			m.restorePanelWidth()
 		}
 
 	case "x":
