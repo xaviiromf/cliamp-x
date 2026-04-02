@@ -205,33 +205,35 @@ func (m Model) renderTrackInfo() string {
 		name = m.streamTitle
 	}
 
-	// Append album to the display name when available.
+	maxW := ui.PanelWidth - 4
+	runes := []rune(name)
+
+	var titleLine string
+	if len(runes) <= maxW {
+		titleLine = trackStyle.Render("♫ " + name)
+	} else {
+		// Cyclic scrolling for long titles
+		padded := append(runes, titleScrollSep...)
+		total := len(padded)
+		off := m.titleOff % total
+
+		display := make([]rune, maxW)
+		for i := range maxW {
+			display[i] = padded[(off+i)%total]
+		}
+		titleLine = trackStyle.Render("♫ " + string(display))
+	}
+
+	// Show album subtitle when available.
 	album := track.Album
 	if m.streamTitle != "" && track.Stream {
 		album = ""
 	}
 	if album != "" {
-		name += " · " + album
+		album = truncate(album, maxW)
+		return titleLine + "\n" + dimStyle.Render("  "+album)
 	}
-
-	maxW := ui.PanelWidth - 4
-	runes := []rune(name)
-
-	if len(runes) <= maxW {
-		return trackStyle.Render("♫ " + name)
-	}
-
-	// Cyclic scrolling for long titles
-	padded := append(runes, titleScrollSep...)
-	total := len(padded)
-	off := m.titleOff % total
-
-	display := make([]rune, maxW)
-	for i := range maxW {
-		display[i] = padded[(off+i)%total]
-	}
-
-	return trackStyle.Render("♫ " + string(display))
+	return titleLine
 }
 
 func (m Model) renderTimeStatus() string {
@@ -581,17 +583,7 @@ func (m Model) renderPlaylist() string {
 	// The loop below counts every appended line against this budget
 	// so the playlist never overflows its area.
 	lines := make([]string, 0, budget) // tracks
-	prevAlbum := ""
-	if scroll > 0 {
-		prevAlbum = tracks[scroll-1].Album
-	}
 	for i := scroll; i < len(tracks) && len(lines) < budget; i++ {
-		// Insert album separator when album changes between consecutive tracks.
-		if album := tracks[i].Album; album != "" && album != prevAlbum && len(lines) < budget-1 {
-			lines = append(lines, m.albumSeparator(album, tracks[i].Year))
-		}
-		prevAlbum = tracks[i].Album
-
 		prefix := "  "
 		style := playlistItemStyle
 
