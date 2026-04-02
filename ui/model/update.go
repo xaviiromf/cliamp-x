@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"cliamp/config"
 	"cliamp/ipc"
@@ -35,7 +35,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}()
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		cmd := m.handleKey(msg)
 		if m.quitting {
 			return m, tea.Quit
@@ -62,9 +62,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		ui.PanelWidth = max(0, frameW-2*ui.PaddingH)
 		if m.fullVis {
 			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
+			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		}
 		m.plVisible = m.defaultPlVisible()
-		return m, m.terminalTitleCmd()
+		return m, nil
 
 	case seekTickMsg:
 		// Async yt-dlp seek completed.
@@ -254,9 +255,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.advanceTerminalTitle()
-		if cmd := m.terminalTitleCmd(); cmd != nil {
-			cmds = append(cmds, cmd)
-		}
 		cmds = append(cmds, tickCmdAt(m.tickInterval()))
 		return m, tea.Batch(cmds...)
 

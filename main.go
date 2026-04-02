@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"cliamp/config"
 	"cliamp/external/jellyfin"
@@ -270,8 +270,7 @@ func run(overrides config.Overrides, positional []string) error {
 		}
 	}
 
-	prog := tea.NewProgram(m, tea.WithAltScreen())
-	prog.SetWindowTitle(model.InitialTerminalTitle())
+	prog := tea.NewProgram(m)
 
 	if luaMgr != nil {
 		luaMgr.SetControlProvider(luaplugin.ControlProvider{

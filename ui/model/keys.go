@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"cliamp/config"
-	"cliamp/ui"
 	"cliamp/internal/fileutil"
 	"cliamp/playlist"
 	"cliamp/provider"
+	"cliamp/ui"
 )
 
 // quit shuts down the player and signals the TUI to exit.
@@ -47,7 +47,7 @@ func (m *Model) scrobbleCurrent() {
 	}
 }
 
-func (m *Model) handleSpeedKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleSpeedKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m.quit()
@@ -63,14 +63,14 @@ func (m *Model) handleSpeedKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case "esc", "backspace":
 		m.focus = focusEQ
-	case " ":
+	case "space":
 		return m.togglePlayPause()
 	}
 	return nil
 }
 
 // handleKey processes a single key press and returns an optional command.
-func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.keymap.visible {
 		return m.handleKeymapKey(msg)
 	}
@@ -175,7 +175,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			} else if len(m.providerLists) > 0 {
 				m.provCursor = len(m.providerLists) - 1
 			}
-		case " ":
+		case "space":
 			return m.togglePlayPause()
 		case "down", "j":
 			if m.provCursor < len(m.providerLists)-1 {
@@ -269,7 +269,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			m.focus = focusPlaylist
 		case "esc", "backspace":
 			m.focus = focusSpeed
-		case " ":
+		case "space":
 			return m.togglePlayPause()
 		}
 		return nil
@@ -287,7 +287,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 			m.focus = focusProvider
 		}
 
-	case " ":
+	case "space":
 		cmd := m.togglePlayPause()
 		m.notifyMPRIS()
 		return cmd
@@ -608,8 +608,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.fullVis = !m.fullVis
 		if m.fullVis {
 			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
+			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		} else {
 			m.vis.Rows = ui.DefaultVisRows
+			ui.PanelWidth = max(0, min(m.width, 80)-2*ui.PaddingH)
 		}
 
 	case "x":
@@ -712,14 +714,14 @@ func (m *Model) closeJumpMode() {
 }
 
 // handleJumpKey processes key presses while in jump-time mode.
-func (m *Model) handleJumpKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
 		m.closeJumpMode()
 		return m.quit()
 	}
 
-	switch msg.Type {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.closeJumpMode()
 		return nil
@@ -745,8 +747,8 @@ func (m *Model) handleJumpKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	if msg.Type == tea.KeyRunes {
-		m.jumpInput += string(msg.Runes)
+	if len(msg.Text) > 0 {
+		m.jumpInput += msg.Text
 	}
 	return nil
 }
@@ -754,12 +756,12 @@ func (m *Model) handleJumpKey(msg tea.KeyMsg) tea.Cmd {
 // handleProvSearchKey processes key presses while filtering the provider playlist list.
 // For the radio provider, Enter fires an API search; for others, Enter loads the
 // selected result. Esc cancels and restores the normal catalog view.
-func (m *Model) handleProvSearchKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleProvSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	// Catalog search: API-based search (no live client-side filtering).
 	if cs, ok := m.provider.(provider.CatalogSearcher); ok {
 		return m.handleCatalogSearchKey(msg, cs)
 	}
-	switch msg.Type {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.provSearch.active = false
 	case tea.KeyEnter:
@@ -787,8 +789,8 @@ func (m *Model) handleProvSearchKey(msg tea.KeyMsg) tea.Cmd {
 		m.provSearch.query += " "
 		m.updateProvSearch()
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.provSearch.query += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.provSearch.query += msg.Text
 			m.updateProvSearch()
 		}
 	}
@@ -797,8 +799,8 @@ func (m *Model) handleProvSearchKey(msg tea.KeyMsg) tea.Cmd {
 
 // handleCatalogSearchKey handles search input for providers with catalog search.
 // Types a query, Enter fires API search, Esc cancels/clears.
-func (m *Model) handleCatalogSearchKey(msg tea.KeyMsg, cs provider.CatalogSearcher) tea.Cmd {
-	switch msg.Type {
+func (m *Model) handleCatalogSearchKey(msg tea.KeyPressMsg, cs provider.CatalogSearcher) tea.Cmd {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.provSearch.active = false
 		m.restoreCatalog(cs)
@@ -817,8 +819,8 @@ func (m *Model) handleCatalogSearchKey(msg tea.KeyMsg, cs provider.CatalogSearch
 	case tea.KeySpace:
 		m.provSearch.query += " "
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.provSearch.query += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.provSearch.query += msg.Text
 		}
 	}
 	return nil
@@ -868,7 +870,7 @@ func (m *Model) toggleExpandPlaylist() {
 	m.adjustScroll()
 }
 
-func (m *Model) handleSearchKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	// Allow opening overlays during search (ctrl combos don't conflict with text input).
 	switch msg.String() {
 	case "ctrl+k":
@@ -876,7 +878,7 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	switch msg.Type {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.search.active = false
 		m.focus = m.prevFocus
@@ -925,8 +927,8 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) tea.Cmd {
 		m.updateSearch()
 
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.search.query += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.search.query += msg.Text
 			m.updateSearch()
 		}
 	}
@@ -935,14 +937,14 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handleNetSearchKey processes key presses while in net search mode.
-func (m *Model) handleNetSearchKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleNetSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+k":
 		m.keymap.visible = true
 		return nil
 	}
 
-	switch msg.Type {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.netSearch.active = false
 		m.focus = m.prevFocus
@@ -968,8 +970,8 @@ func (m *Model) handleNetSearchKey(msg tea.KeyMsg) tea.Cmd {
 		m.netSearch.query += " "
 
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.netSearch.query += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.netSearch.query += msg.Text
 		}
 	}
 
@@ -977,8 +979,8 @@ func (m *Model) handleNetSearchKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handleURLInputKey processes key presses while in URL input mode.
-func (m *Model) handleURLInputKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.Type {
+func (m *Model) handleURLInputKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.urlInputting = false
 	case tea.KeyEnter:
@@ -992,15 +994,15 @@ func (m *Model) handleURLInputKey(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeyBackspace:
 		m.urlInput = removeLastRune(m.urlInput)
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.urlInput += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.urlInput += msg.Text
 		}
 	}
 	return nil
 }
 
 // handlePlaylistManagerKey dispatches keys to the active manager screen.
-func (m *Model) handlePlaylistManagerKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handlePlaylistManagerKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch m.plManager.screen {
 	case plMgrScreenList:
 		return m.handlePlMgrListKey(msg)
@@ -1013,7 +1015,7 @@ func (m *Model) handlePlaylistManagerKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handlePlMgrListKey handles keys on screen 0 (playlist list).
-func (m *Model) handlePlMgrListKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 	// If waiting for delete confirmation, only accept y/n.
 	if m.plManager.confirmDel {
 		switch msg.String() {
@@ -1078,7 +1080,7 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handlePlMgrTracksKey handles keys on screen 1 (track list inside a playlist).
-func (m *Model) handlePlMgrTracksKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
 		m.plManager.visible = false
@@ -1157,8 +1159,8 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handlePlMgrNewNameKey handles keys on screen 2 (new playlist name input).
-func (m *Model) handlePlMgrNewNameKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.Type {
+func (m *Model) handlePlMgrNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.Code {
 	case tea.KeyEscape:
 		m.plManager.screen = plMgrScreenList
 	case tea.KeyEnter:
@@ -1173,8 +1175,8 @@ func (m *Model) handlePlMgrNewNameKey(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeySpace:
 		m.plManager.newName += " "
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.plManager.newName += string(msg.Runes)
+		if len(msg.Text) > 0 {
+			m.plManager.newName += msg.Text
 		}
 	}
 	return nil
@@ -1203,7 +1205,7 @@ func (m *Model) addToPlaylist(name string) {
 }
 
 // handleThemeKey processes key presses while the theme picker is open.
-func (m *Model) handleThemeKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleThemeKey(msg tea.KeyPressMsg) tea.Cmd {
 	count := len(m.themes) + 1 // +1 for Default
 	switch msg.String() {
 	case "ctrl+c":
@@ -1234,7 +1236,7 @@ func (m *Model) handleThemeKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handleQueueKey processes key presses while the queue manager overlay is open.
-func (m *Model) handleQueueKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 	qLen := m.playlist.QueueLen()
 
 	switch msg.String() {
@@ -1284,7 +1286,7 @@ func (m *Model) handleQueueKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // handleDeviceKey processes key presses while the audio device picker is open.
-func (m *Model) handleDeviceKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleDeviceKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
 		m.devicePicker.visible = false
