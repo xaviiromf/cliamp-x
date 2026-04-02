@@ -206,21 +206,34 @@ func (m Model) renderTrackInfo() string {
 	}
 
 	// Append album to the title line to save vertical space.
+	// The album is truncated (never scrolled) so artist/song stays readable.
 	album := track.Album
 	if m.streamTitle != "" && track.Stream {
 		album = ""
 	}
-	if album != "" {
-		name += " · " + album
-	}
 
 	maxW := ui.PanelWidth - 4
+	nameRunes := []rune(name)
+
+	if album != "" {
+		sep := " · "
+		sepLen := len([]rune(sep))
+		remaining := maxW - len(nameRunes) - sepLen
+		if remaining >= 4 { // enough room for at least a few album chars
+			name += sep + truncate(album, remaining)
+		} else if remaining >= 0 { // very tight — skip album entirely
+			// name stays as-is
+		} else {
+			// name itself is longer than maxW, album won't help
+		}
+	}
+
 	runes := []rune(name)
 
 	if len(runes) <= maxW {
 		return trackStyle.Render("♫ " + name)
 	}
-	// Cyclic scrolling for long titles
+	// Cyclic scrolling for long titles (only artist/song, album already handled)
 	padded := append(runes, titleScrollSep...)
 	total := len(padded)
 	off := m.titleOff % total
@@ -604,12 +617,18 @@ func (m Model) renderPlaylist() string {
 		if qp := m.playlist.QueuePosition(i); qp > 0 {
 			queueSuffix = fmt.Sprintf(" [Q%d]", qp)
 		}
+		queueLen := utf8.RuneCountInString(queueSuffix)
+		// Truncate the track name only against queue/fav overhead, never album.
+		name = truncate(name, ui.PanelWidth-6-queueLen-favBudget)
+		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
 		if album := tracks[i].Album; album != "" {
-			albumSuffix = " · " + album
+			nameLen := utf8.RuneCountInString(name)
+			remaining := ui.PanelWidth - 6 - favBudget - nameLen - queueLen - 3 // 3 = " · "
+			if remaining >= 4 {
+				albumSuffix = " · " + truncate(album, remaining)
+			}
 		}
-		suffixLen := utf8.RuneCountInString(queueSuffix) + utf8.RuneCountInString(albumSuffix)
-		name = truncate(name, ui.PanelWidth-6-suffixLen-favBudget)
 
 		numStr := fmt.Sprintf("%s%d. ", prefix, i+1)
 		line := style.Render(numStr)
