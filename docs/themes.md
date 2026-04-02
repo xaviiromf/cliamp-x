@@ -1,6 +1,6 @@
 # Themes
 
-cliamp ships with 20 built-in color themes and supports custom themes via simple TOML files.
+cliamp ships with 17 built-in color themes and supports custom themes via simple TOML files.
 
 Press `t` during playback to open the theme picker. Navigate with `↑`/`↓`, preview live as you move, confirm with `Enter`, or cancel with `Esc`.
 

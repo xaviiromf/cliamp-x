@@ -50,7 +50,7 @@ Press `f` in the player to search YouTube interactively, or `F` (Shift+F) to sea
 
 ## Mixing flags and files
 
-Flags can appear anywhere — before, after, or between positional arguments:
+Flags can appear before, after, or between positional arguments:
 
 ```sh
 cliamp --shuffle track.mp3 --volume -5

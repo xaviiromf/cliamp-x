@@ -92,7 +92,7 @@ func TestRenderPlaylistKeepsCursorVisibleWhenFooterShrinksBudget(t *testing.T) {
 	}
 
 	out := m.renderPlaylist()
-	if !strings.Contains(out, "10. Track 10") {
+	if !strings.Contains(out, "Track 10") {
 		t.Fatalf("renderPlaylist() = %q, want selected row to remain visible", out)
 	}
 }

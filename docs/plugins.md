@@ -1,6 +1,6 @@
 # Lua Plugins
 
-cliamp has a Lua 5.1 plugin system. Plugins can hook into playback events (scrobbling, notifications, status bar output) and add custom visualizers. Each plugin runs in an isolated VM — a crash in one plugin cannot affect others or the player.
+cliamp has a Lua 5.1 plugin system. Plugins can hook into playback events (scrobbling, notifications, status bar output) and add custom visualizers. Each plugin runs in an isolated VM. A crash in one plugin cannot affect others or the player.
 
 Plugins live in `~/.config/cliamp/plugins/`. Create the directory:
 

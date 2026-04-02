@@ -70,9 +70,9 @@ Formats requiring ffmpeg (`.m4a`, `.wma`) may not work over SSH since the ffmpeg
 | Scenario | Behavior |
 |----------|----------|
 | Host unreachable | Player shows error, advances to next track |
-| Auth failure | SSH uses `BatchMode=yes` — never hangs on password prompts |
+| Auth failure | SSH uses `BatchMode=yes` and never hangs on password prompts |
 | Connection drops mid-stream | Player detects EOF, advances to next track |
-| Unknown host key | Rejected — add the host to `~/.ssh/known_hosts` first, or configure in `~/.ssh/config` |
+| Unknown host key | Rejected. Add the host to `~/.ssh/known_hosts` first, or configure in `~/.ssh/config` |
 
 ## Mixing Local and SSH Tracks
 
