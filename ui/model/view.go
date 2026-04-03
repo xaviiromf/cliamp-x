@@ -191,7 +191,17 @@ func (m Model) centerOverlay(content string) string {
 }
 
 func (m Model) renderTitle() string {
-	return titleStyle.Render("C L I A M P")
+	title := titleStyle.Render("C L I A M P")
+	label := m.focus.label()
+	if label == "" {
+		return title
+	}
+	indicator := dimStyle.Render("[" + label + "]")
+	gap := ui.PanelWidth - lipgloss.Width(title) - lipgloss.Width(indicator)
+	if gap < 1 {
+		gap = 1
+	}
+	return title + strings.Repeat(" ", gap) + indicator
 }
 
 func (m Model) renderTrackInfo() string {

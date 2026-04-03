@@ -30,6 +30,27 @@ const (
 	focusNetSearch
 )
 
+func (f focusArea) label() string {
+	switch f {
+	case focusPlaylist:
+		return "Playlist"
+	case focusEQ:
+		return "Equalizer"
+	case focusSpeed:
+		return "Speed"
+	case focusProvPill:
+		return "Source"
+	case focusProvider:
+		return "Provider"
+	case focusSearch:
+		return "Search"
+	case focusNetSearch:
+		return "Online Search"
+	default:
+		return ""
+	}
+}
+
 type topLevelScreen int
 
 const (
