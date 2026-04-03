@@ -119,6 +119,8 @@ Or without Make: `go build -o cliamp .`
 - [Plex](docs/plex.md)
 - [Jellyfin](docs/jellyfin.md)
 - [Themes](docs/themes.md)
+- [SSH Streaming](docs/ssh-streaming.md)
+- [Remote Control (IPC)](docs/remote-control.md)
 - [Audio Quality](docs/audio-quality.md)
 - [MPRIS](docs/mpris.md)
 - [Lua Plugins](docs/plugins.md)
