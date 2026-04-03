@@ -305,7 +305,7 @@ func (m Model) renderFullVisualizer() string {
 		m.renderSpectrum(),
 		m.renderSeekBar(),
 		"",
-		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "⏯ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol"),
+		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol"),
 	}
 
 	return strings.Join(sections, "\n")
@@ -688,7 +688,7 @@ func (m Model) renderHelp() string {
 		hints = append(hints,
 			helpHint{helpKey("←→", "Speed "), 100},
 			helpHint{helpKey("[]", "Speed "), 90},
-			helpHint{helpKey("Spc", "⏯ "), 80},
+			helpHint{helpKey("Spc", "▶❚❚ "), 80},
 			helpHint{helpKey("Tab", "Focus "), 70},
 			helpHint{helpKey("Ctrl+K", "Keys"), 100},
 		)
@@ -697,7 +697,7 @@ func (m Model) renderHelp() string {
 			helpHint{helpKey("←→", "Band "), 100},
 			helpHint{helpKey("↑↓", "Gain "), 100},
 			helpHint{helpKey("e", "Preset "), 90},
-			helpHint{helpKey("Spc", "⏯ "), 80},
+			helpHint{helpKey("Spc", "▶❚❚ "), 80},
 			helpHint{helpKey("Tab", "Focus "), 70},
 			helpHint{helpKey("Ctrl+K", "Keys"), 100},
 		)
@@ -706,7 +706,7 @@ func (m Model) renderHelp() string {
 		hints = append(hints,
 			helpHint{helpKey("↑↓", "Scroll "), 100},
 			helpHint{helpKey("Enter", "Play "), 100},
-			helpHint{helpKey("Spc", "⏯ "), 90},
+			helpHint{helpKey("Spc", "▶❚❚ "), 90},
 		)
 		track, _ := m.playlist.Current()
 		if !track.Stream || m.player.Seekable() {

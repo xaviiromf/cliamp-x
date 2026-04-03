@@ -19,6 +19,8 @@ var (
 	ColorSeekBar color.Color = lipgloss.ANSIColor(11) // bright yellow
 	ColorVolume  color.Color = lipgloss.ANSIColor(2)  // green
 	ColorError   color.Color = lipgloss.ANSIColor(9)  // bright red
+	ColorKeyBG   color.Color = lipgloss.ANSIColor(8)  // bright black (dark gray)
+	ColorKeyFG   color.Color = lipgloss.ANSIColor(15) // bright white
 
 	// Spectrum gradient: green -> yellow -> red
 	SpectrumLow  color.Color = lipgloss.ANSIColor(10) // bright green
@@ -61,6 +63,8 @@ func ApplyThemeColors(t theme.Theme) {
 		ColorSeekBar = lipgloss.ANSIColor(11)
 		ColorVolume = lipgloss.ANSIColor(2)
 		ColorError = lipgloss.ANSIColor(9)
+		ColorKeyBG = lipgloss.ANSIColor(8)
+		ColorKeyFG = lipgloss.ANSIColor(15)
 		SpectrumLow = lipgloss.ANSIColor(10)
 		SpectrumMid = lipgloss.ANSIColor(11)
 		SpectrumHigh = lipgloss.ANSIColor(9)
@@ -73,6 +77,8 @@ func ApplyThemeColors(t theme.Theme) {
 		ColorSeekBar = lipgloss.Color(t.Accent)
 		ColorVolume = lipgloss.Color(t.Green)
 		ColorError = lipgloss.Color(t.Red)
+		ColorKeyBG = lipgloss.Color(t.FG)
+		ColorKeyFG = lipgloss.Color(t.BrightFG)
 		SpectrumLow = lipgloss.Color(t.Green)
 		SpectrumMid = lipgloss.Color(t.Yellow)
 		SpectrumHigh = lipgloss.Color(t.Red)

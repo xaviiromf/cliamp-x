@@ -50,9 +50,9 @@ func padLines(lines []string, maxVisible, rendered int) []string {
 	return lines
 }
 
-// helpKey renders a key in accent color inside dim brackets, followed by a dim label.
+// helpKey renders a key as a pill (background-highlighted) followed by a dim label.
 func helpKey(key, label string) string {
-	return dimStyle.Render("[") + activeToggle.Render(key) + dimStyle.Render("]") + helpStyle.Render(label)
+	return helpKeyStyle.Render(" "+key+" ") + helpStyle.Render(" "+label)
 }
 
 // albumSeparator builds a full-width album divider line.
