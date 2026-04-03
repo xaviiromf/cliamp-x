@@ -38,8 +38,8 @@ That's it. Press `t` and your theme appears in the list immediately.
 | Key         | What it colors                                    |
 |-------------|---------------------------------------------------|
 | `accent`    | Title, track name, seek bar, selected items       |
-| `bright_fg` | Primary text, time display                        |
-| `fg`        | Muted/secondary text, help bar, inactive elements |
+| `bright_fg` | Primary text, time display, help key pill text     |
+| `fg`        | Muted/secondary text, help bar, inactive elements, help key pill background |
 | `green`     | Playing indicator, volume bar, spectrum low        |
 | `yellow`    | Spectrum middle                                   |
 | `red`       | Spectrum top, error messages                      |
