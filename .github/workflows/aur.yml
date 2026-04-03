@@ -93,7 +93,7 @@ jobs:
           # Copy PKGBUILD and generate .SRCINFO
           cp ../PKGBUILD .
           docker run --rm -v "$PWD:/pkg" archlinux:base bash -c \
-            'pacman -Sy --noconfirm pacman-contrib && chown -R nobody /pkg && cd /pkg && sudo -u nobody makepkg --printsrcinfo > .SRCINFO'
+            'pacman -Sy --noconfirm pacman-contrib && chown -R nobody /pkg && cd /pkg && runuser -u nobody -- makepkg --printsrcinfo > .SRCINFO'
 
           # Commit and push
           git add PKGBUILD .SRCINFO
