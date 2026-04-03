@@ -408,12 +408,10 @@ func (s *Session) Reconnect(ctx context.Context) error {
 	return s.reconnect(ctx, NewSessionSilent)
 }
 
-// ReconnectInteractive clears stored credentials and forces a fresh
-// browser-based OAuth2 flow.
+// ReconnectInteractive forces a fresh browser-based OAuth2 flow.
+// Stored credentials are preserved until the new session succeeds —
+// newInteractiveSession overwrites them via saveCreds on success.
 func (s *Session) ReconnectInteractive(ctx context.Context) error {
-	if err := deleteCreds(); err != nil {
-		return fmt.Errorf("spotify: clear stored credentials: %w", err)
-	}
 	return s.reconnect(ctx, newInteractiveSession)
 }
 
@@ -454,18 +452,6 @@ func (s *Session) reconnect(ctx context.Context, build func(context.Context, str
 	newSess.mu.Unlock()
 
 	fmt.Fprintf(os.Stderr, "spotify: re-authenticated successfully\n")
-	return nil
-}
-
-// deleteCreds removes the stored credentials file.
-func deleteCreds() error {
-	path, err := credsPath()
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
 	return nil
 }
 
