@@ -109,8 +109,22 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 	}
 	if oauthToken == nil {
 		if silentOnly {
-			sess.Close()
-			return nil, fmt.Errorf("silent token refresh failed, interactive auth required")
+			// Web API token refresh failed, but the spclient session is valid.
+			// Continue without a token source — webApiWithBody falls back to spclient token.
+			fmt.Fprintf(os.Stderr, "spotify: silent token refresh failed, continuing with spclient token\n")
+			s := &Session{sess: sess, devID: devID, clientID: clientID}
+			if err := saveCreds(&storedCreds{
+				Username: sess.Username(),
+				Data:     sess.StoredCredentials(),
+				DeviceID: devID,
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "spotify: failed to save credentials: %v\n", err)
+			}
+			if err := s.initPlayer(); err != nil {
+				sess.Close()
+				return nil, err
+			}
+			return s, nil
 		}
 		token, err := doWebAPIAuth(ctx, clientID)
 		if err != nil {
