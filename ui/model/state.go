@@ -5,8 +5,10 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"cliamp/applog"
 	"cliamp/lyrics"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -233,6 +235,34 @@ func (s *statusMsg) ShowAt(now time.Time, text string, ttl statusTTL) {
 
 func (s *statusMsg) Clear() {
 	*s = statusMsg{}
+}
+
+// logLine is a timestamped log message shown in the footer.
+type logLine struct {
+	text      string
+	expiresAt time.Time
+}
+
+const logLineTTL = 6 * time.Second
+
+// tickLogLines drains the applog buffer and expires old entries.
+func (m *Model) tickLogLines(now time.Time) {
+	for _, e := range applog.Drain() {
+		text := strings.TrimRight(e.Text, "\n")
+		m.logLines = append(m.logLines, logLine{
+			text:      text,
+			expiresAt: e.At.Add(logLineTTL),
+		})
+	}
+	// Expire old entries.
+	n := 0
+	for _, l := range m.logLines {
+		if now.Before(l.expiresAt) {
+			m.logLines[n] = l
+			n++
+		}
+	}
+	m.logLines = m.logLines[:n]
 }
 
 // networkStats tracks network throughput for the stream status bar.

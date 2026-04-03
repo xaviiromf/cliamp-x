@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +20,7 @@ import (
 	"github.com/devgianlu/go-librespot/audio"
 	"github.com/gopxl/beep/v2"
 
+	"cliamp/applog"
 	"cliamp/playlist"
 	"cliamp/provider"
 )
@@ -487,7 +487,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 	}
 
 	// Auth error — try silent reconnect first.
-	fmt.Fprintf(os.Stderr, "spotify: stream auth error (%v), attempting silent reconnect...\n", err)
+	applog.Printf("spotify: stream auth error (%v), attempting silent reconnect...\n", err)
 
 	reconnCtx, reconnCancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	reconnErr := p.session.Reconnect(reconnCtx)
@@ -501,9 +501,9 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 		if !isAuthError(err) {
 			return nil, beep.Format{}, 0, fmt.Errorf("spotify: new stream after silent reconnect: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "spotify: stream still failing after silent reconnect (%v), falling back to interactive...\n", err)
+		applog.Printf("spotify: stream still failing after silent reconnect (%v), falling back to interactive...\n", err)
 	} else {
-		fmt.Fprintf(os.Stderr, "spotify: silent reconnect failed (%v), falling back to interactive...\n", reconnErr)
+		applog.Printf("spotify: silent reconnect failed (%v), falling back to interactive...\n", reconnErr)
 	}
 
 	interactiveCtx, interactiveCancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -559,7 +559,7 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 					wait = time.Duration(secs) * time.Second
 				}
 			}
-			fmt.Fprintf(os.Stderr, "spotify: rate limited on %s, retrying in %v (attempt %d/%d)\n", path, wait, attempt+1, maxRetries)
+			applog.Printf("spotify: rate limited on %s, retrying in %v (attempt %d/%d)\n", path, wait, attempt+1, maxRetries)
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()

@@ -182,6 +182,7 @@ type Model struct {
 	reconnect      reconnectState
 	save           saveState
 	status         statusMsg
+	logLines       []logLine
 	network        networkStats
 	speedSaveAfter time.Duration
 	termTitle      terminalTitleState

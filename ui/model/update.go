@@ -116,6 +116,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.status.expiresAt.IsZero() && !now.Before(m.status.expiresAt) {
 			m.status.Clear()
 		}
+		// Drain app log buffer and expire old entries.
+		m.tickLogLines(now)
 		m.tickPendingSpeedSave(dt)
 		// Decrement seek grace period.
 		advanceTickUnits(&m.seek.grace, &m.seek.graceFor, dt, ui.TickFast)

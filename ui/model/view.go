@@ -158,6 +158,9 @@ func (m Model) footerMessages() []string {
 	if m.status.text != "" {
 		lines = append(lines, statusStyle.Render(m.status.text))
 	}
+	for _, l := range m.logLines {
+		lines = append(lines, dimStyle.Render(l.text))
+	}
 	return lines
 }
 
