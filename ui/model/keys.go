@@ -55,13 +55,13 @@ func (m *Model) handleSpeedKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "[", "left", "h", "down", "j":
 		m.changeSpeed(-0.25)
 	case "tab":
+		m.focus = focusPlaylist
+	case "esc", "backspace":
 		if len(m.providers) > 1 {
 			m.focus = focusProvPill
 		} else {
-			m.focus = focusPlaylist
+			m.focus = focusEQ
 		}
-	case "esc", "backspace":
-		m.focus = focusEQ
 	case "space":
 		return m.togglePlayPause()
 	}
@@ -265,9 +265,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		case "enter":
 			return m.switchProvider(m.provPillIdx)
 		case "tab":
-			m.focus = focusPlaylist
-		case "esc", "backspace":
 			m.focus = focusSpeed
+		case "esc", "backspace":
+			m.focus = focusEQ
 		case "space":
 			return m.togglePlayPause()
 		}
@@ -466,13 +466,15 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		case focusPlaylist:
 			m.focus = focusEQ
 		case focusEQ:
-			m.focus = focusSpeed
-		case focusSpeed:
 			if len(m.providers) > 1 {
 				m.focus = focusProvPill
 			} else {
-				m.focus = focusPlaylist
+				m.focus = focusSpeed
 			}
+		case focusProvPill:
+			m.focus = focusSpeed
+		case focusSpeed:
+			m.focus = focusPlaylist
 		default:
 			m.focus = focusPlaylist
 		}
