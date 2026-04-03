@@ -88,7 +88,13 @@ type SpotifyProvider struct {
 	mu         sync.Mutex
 	trackCache map[string]*playlistCache // playlist ID → cache entry
 	authCancel context.CancelFunc        // cancels any in-progress OAuth flow
+
+	// Playlist list cache to avoid redundant API calls on provider switch.
+	listCache   []playlist.PlaylistInfo
+	listCacheAt time.Time
 }
+
+const playlistListCacheTTL = 5 * time.Minute
 
 // New creates a SpotifyProvider. If session is nil, authentication is
 // deferred until the user first selects the Spotify provider.
@@ -215,6 +221,15 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	if err := p.ensureSession(); err != nil {
 		return nil, err
 	}
+
+	p.mu.Lock()
+	if p.listCache != nil && time.Since(p.listCacheAt) < playlistListCacheTTL {
+		cached := p.listCache
+		p.mu.Unlock()
+		return cached, nil
+	}
+	p.mu.Unlock()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -303,6 +318,11 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		}
 		offset += limit
 	}
+
+	p.mu.Lock()
+	p.listCache = all
+	p.listCacheAt = time.Now()
+	p.mu.Unlock()
 
 	return all, nil
 }
@@ -670,9 +690,10 @@ func (p *SpotifyProvider) AddTrackToPlaylist(ctx context.Context, playlistID str
 	}
 	resp.Body.Close()
 
-	// Invalidate cache for this playlist.
+	// Invalidate caches for this playlist.
 	p.mu.Lock()
 	delete(p.trackCache, playlistID)
+	p.listCache = nil
 	p.mu.Unlock()
 
 	return nil
@@ -703,6 +724,12 @@ func (p *SpotifyProvider) CreatePlaylist(ctx context.Context, name string) (stri
 	if err := decodeBody(resp, &result); err != nil {
 		return "", fmt.Errorf("spotify: parse created playlist: %w", err)
 	}
+
+	// Invalidate playlist list cache.
+	p.mu.Lock()
+	p.listCache = nil
+	p.mu.Unlock()
+
 	return result.ID, nil
 }
 
