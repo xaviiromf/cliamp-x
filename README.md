@@ -124,6 +124,7 @@ Or without Make: `go build -o cliamp .`
 - [Audio Quality](docs/audio-quality.md)
 - [MPRIS](docs/mpris.md)
 - [Lua Plugins](docs/plugins.md)
+  - [Community Plugins](docs/community-plugins.md)
   - [Soap Bubbles Visualizer](https://github.com/bjarneo/cliamp-plugin-soap-bubbles)
 
 ## Troubleshooting
