@@ -8,9 +8,8 @@ import (
 	"cliamp/ui"
 )
 
-// defaultPlVisible recalculates the natural plVisible for the current terminal
-// height (same logic as the window-resize handler, capped at maxPlVisible).
-func (m *Model) defaultPlVisible() int {
+// measurePlVisible calculates playlist lines available for a given upper limit.
+func (m *Model) measurePlVisible(limit int) int {
 	saved := m.plVisible
 	m.plVisible = 3 // temporary minimal value for measurement
 	defer func() { m.plVisible = saved }()
@@ -21,7 +20,26 @@ func (m *Model) defaultPlVisible() int {
 		"x", "", m.renderHelp(), m.renderBottomStatus(),
 	}, "\n")
 	fixedLines := lipgloss.Height(ui.FrameStyle.Render(probe)) - 1
-	return max(3, min(maxPlVisible, m.height-fixedLines))
+	return max(3, min(limit, m.height-fixedLines))
+}
+
+// collapsedPlVisible returns the natural (non-expanded) playlist height.
+func (m *Model) collapsedPlVisible() int {
+	return m.measurePlVisible(maxPlVisible)
+}
+
+// expandedPlVisible returns the expanded playlist height with no cap.
+func (m *Model) expandedPlVisible() int {
+	return m.measurePlVisible(m.height)
+}
+
+// applyHeightMode sets plVisible based on the current heightExpanded state.
+func (m *Model) applyHeightMode() {
+	if m.heightExpanded {
+		m.plVisible = m.expandedPlVisible()
+	} else {
+		m.plVisible = m.collapsedPlVisible()
+	}
 }
 
 // adjustScroll ensures plCursor is visible in the playlist view.

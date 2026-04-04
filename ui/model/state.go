@@ -97,6 +97,7 @@ type fileBrowserState struct {
 	dir      string
 	entries  []fbEntry
 	cursor   int
+	scroll   int
 	selected map[string]bool
 	err      string
 }

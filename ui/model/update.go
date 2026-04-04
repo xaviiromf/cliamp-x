@@ -64,7 +64,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
 			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		}
-		m.plVisible = m.defaultPlVisible()
+		m.applyHeightMode()
+		m.adjustScroll()
+		if m.focus == focusProvider {
+			m.providerMaybeAdjustScroll()
+		}
+		if m.fileBrowser.visible {
+			m.fbMaybeAdjustScroll(m.fbVisible())
+		}
 		return m, nil
 
 	case seekTickMsg:
@@ -355,6 +362,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.providerLists = lists
 			}
 			m.provCursor = 0
+			m.provScroll = 0
 			if msg.count == 0 {
 				m.status.Show("No stations found", statusTTLDefault)
 			}
