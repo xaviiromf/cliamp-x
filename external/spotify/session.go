@@ -115,9 +115,10 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 			applog.Printf("spotify: silent token refresh failed, continuing with spclient token\n")
 			s := &Session{sess: sess, devID: devID, clientID: clientID}
 			if err := saveCreds(&storedCreds{
-				Username: sess.Username(),
-				Data:     sess.StoredCredentials(),
-				DeviceID: devID,
+				Username:     sess.Username(),
+				Data:         sess.StoredCredentials(),
+				DeviceID:     devID,
+				RefreshToken: creds.RefreshToken, // preserve for next attempt
 			}); err != nil {
 				applog.Printf("spotify: failed to save credentials: %v\n", err)
 			}
