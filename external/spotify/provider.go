@@ -356,8 +356,12 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 			Name        string `json:"name"`
 			ReleaseDate string `json:"release_date"`
 		} `json:"album"`
-		DurationMs  int `json:"duration_ms"`
-		TrackNumber int `json:"track_number"`
+		DurationMs   int   `json:"duration_ms"`
+		TrackNumber  int   `json:"track_number"`
+		IsPlayable   *bool `json:"is_playable"`
+		Restrictions struct {
+			Reason string `json:"reason"`
+		} `json:"restrictions"`
 	}
 
 	var all []playlist.Track
@@ -380,7 +384,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 			query := url.Values{
 				"limit":  {fmt.Sprintf("%d", limit)},
 				"offset": {fmt.Sprintf("%d", offset)},
-				"fields": {"items(item(id,name,artists(name),album(name,release_date),duration_ms,track_number)),total"},
+				"fields": {"items(item(id,name,artists(name),album(name,release_date),duration_ms,track_number,is_playable,restrictions(reason))),total"},
 			}
 			path := fmt.Sprintf("/v1/playlists/%s/items", playlistID)
 			resp, err = p.webAPI(ctx, "GET", path, query)
@@ -425,6 +429,8 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 				}
 			}
 
+			unavailable := (t.IsPlayable != nil && !*t.IsPlayable) || t.Restrictions.Reason != ""
+
 			all = append(all, playlist.Track{
 				Path:         fmt.Sprintf("spotify:track:%s", t.ID),
 				Title:        t.Name,
@@ -434,6 +440,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 				Stream:       false, // must be false: true causes togglePlayPause to stop+restart instead of pause/resume
 				DurationSecs: t.DurationMs / 1000,
 				TrackNumber:  t.TrackNumber,
+				Unplayable:   unavailable,
 			})
 		}
 

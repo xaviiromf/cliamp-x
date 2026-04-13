@@ -640,6 +640,14 @@ func (m Model) renderPlaylist() string {
 			style = playlistSelectedStyle
 		}
 
+		if tracks[i].Unplayable {
+			if m.focus == focusPlaylist && i == m.plCursor {
+				style = dimStyle
+			} else {
+				style = playlistUnavailableStyle
+			}
+		}
+
 		name := tracks[i].DisplayName()
 		isFav := tracks[i].Favorite
 		favBudget := 0
@@ -658,8 +666,13 @@ func (m Model) renderPlaylist() string {
 		name = truncate(name, ui.PanelWidth-linePrefixWidth-queueLen-favBudget)
 		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
-		if album := tracks[i].Album; album != "" {
-			nameLen := utf8.RuneCountInString(name)
+		nameLen := utf8.RuneCountInString(name)
+		if tracks[i].Unplayable {
+			remaining := ui.PanelWidth - linePrefixWidth - favBudget - nameLen - queueLen
+			if remaining >= 4 {
+				albumSuffix = truncate(" (unavailable)", remaining)
+			}
+		} else if album := tracks[i].Album; album != "" {
 			remaining := ui.PanelWidth - linePrefixWidth - favBudget - nameLen - queueLen - 3 // 3 = " · "
 			if remaining >= 4 {
 				albumSuffix = " · " + truncate(album, remaining)
