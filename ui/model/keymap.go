@@ -67,7 +67,7 @@ var keymapEntries = []keymapEntry{
 }
 
 func (m *Model) keymapCount() int {
-	if m.keymap.search != "" {
+	if m.keymap.searching || m.keymap.search != "" {
 		return len(m.keymap.filtered)
 	}
 	return len(keymapEntries)
