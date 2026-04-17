@@ -52,6 +52,7 @@ const (
 	VisBinary                     // streaming binary 0s and 1s
 	VisSakura                     // falling cherry blossom petals
 	VisFirework                   // exploding firework bursts
+	VisBubbles                    // rising hollow ring bubbles
 	VisLogo                       // CLIAMP pixel text
 	VisTerrain                    // scrolling side-view mountain range
 	VisScope                      // Lissajous XY oscilloscope
@@ -382,6 +383,7 @@ var visModes = [VisCount]visEntry{
 	VisBinary:      {"Binary", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBinary)},
 	VisSakura:      {"Sakura", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderSakura)},
 	VisFirework:    {"Firework", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderFirework)},
+	VisBubbles:     {"Bubbles", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBubbles)},
 	VisLogo:        {"Logo", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderLogo)},
 	VisTerrain:     {"Terrain", newTerrainDriver},
 	VisScope:       {"Scope", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderScope() })},
