@@ -764,8 +764,10 @@ func (m Model) renderHelp() string {
 		if !track.Stream || m.player.Seekable() {
 			hints = append(hints, helpHint{helpKey("←→", "Seek "), 80})
 		}
+		if m.loadedPlaylist != "" {
+			hints = append(hints, helpHint{helpKey("f", "Bookmark "), 75})
+		}
 		hints = append(hints,
-			helpHint{helpKey("*", "Fav "), 75},
 			helpHint{helpKey("Tab", "Focus "), 70},
 			helpHint{helpKey("Ctrl+K", "Keys"), 100},
 		)

@@ -273,7 +273,7 @@ func PlaylistBookmarks() error {
 	}
 
 	if total == 0 {
-		fmt.Println("No bookmarks yet. Press Ctrl+B on a track to bookmark it.")
+		fmt.Println("No bookmarks yet. Press f on a track to bookmark it.")
 	} else {
 		fmt.Printf("\n  %d bookmarks across %d playlists.\n", total, len(lists))
 	}

@@ -428,7 +428,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "shift+right":
 		return m.doSeek(m.seekStepLarge)
 
-	case "ctrl+b":
+	case "f":
 		if m.focus == focusPlaylist && m.plCursor >= 0 && m.plCursor < m.playlist.Len() && m.loadedPlaylist != "" {
 			if bs, ok := m.localProvider.(provider.BookmarkSetter); ok {
 				m.playlist.ToggleBookmark(m.plCursor)
@@ -622,23 +622,21 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.prevFocus = m.focus
 		m.focus = focusSearch
 
-	case "f", "ctrl+f":
-		m.netSearch.active = true
-		m.netSearch.query = ""
-		m.netSearch.soundcloud = msg.String() == "ctrl+f"
-		m.prevFocus = m.focus
-		m.focus = focusNetSearch
-
-	case "F":
-		if prov := m.findProviderWith(func(p playlist.Provider) bool {
-			_, ok := p.(provider.Searcher)
-			return ok
-		}); prov != nil {
+	case "ctrl+f":
+		// Context-aware search: active provider's native search if it supports
+		// Searcher (e.g. Spotify); otherwise YouTube net search.
+		if _, ok := m.provider.(provider.Searcher); ok {
 			m.spotSearch = spotSearchState{
-				prov:    prov,
+				prov:    m.provider,
 				visible: true,
 				screen:  spotSearchInput,
 			}
+		} else {
+			m.netSearch.active = true
+			m.netSearch.query = ""
+			m.netSearch.soundcloud = false
+			m.prevFocus = m.focus
+			m.focus = focusNetSearch
 		}
 
 	case "ctrl+j":

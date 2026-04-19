@@ -47,9 +47,8 @@ Press `Ctrl+K` in the player to see all keybindings.
 
 | Key | Action |
 |---|---|
-| `f` | Find on YouTube (queue play next) |
-| `Ctrl+F` | Find on SoundCloud (queue play next) |
-| `F` | Spotify search + add to playlist |
+| `f` | Toggle bookmark ★ on selected track (or favorite radio station in radio browser) |
+| `Ctrl+F` | Search — active provider's native search (Spotify) or YouTube |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
 | `Ctrl+S` | Save track to ~/Music |
@@ -70,7 +69,6 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `p` | Playlist manager |
 | `r` | Cycle repeat (Off / All / One) |
 | `z` | Toggle shuffle |
-| `Ctrl+B` | Toggle bookmark ★ on selected track |
 
 ## General
 
