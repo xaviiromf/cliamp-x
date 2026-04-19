@@ -428,15 +428,15 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "shift+right":
 		return m.doSeek(m.seekStepLarge)
 
-	case "*":
+	case "ctrl+b":
 		if m.focus == focusPlaylist && m.plCursor >= 0 && m.plCursor < m.playlist.Len() && m.loadedPlaylist != "" {
-			if fs, ok := m.localProvider.(provider.FavoriteSetter); ok {
-				m.playlist.ToggleFavorite(m.plCursor)
-				if err := fs.SetFavorite(m.loadedPlaylist, m.plCursor); err != nil {
+			if bs, ok := m.localProvider.(provider.BookmarkSetter); ok {
+				m.playlist.ToggleBookmark(m.plCursor)
+				if err := bs.SetBookmark(m.loadedPlaylist, m.plCursor); err != nil {
 					m.status.Showf(statusTTLDefault, "Save failed: %s", err)
 				}
 				t := m.playlist.Tracks()[m.plCursor]
-				if t.Favorite {
+				if t.Bookmark {
 					m.status.Showf(statusTTLDefault, "★ %s", t.DisplayName())
 				} else {
 					m.status.Showf(statusTTLDefault, "☆ %s", t.DisplayName())

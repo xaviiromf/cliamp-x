@@ -44,7 +44,7 @@ func (v *Visualizer) renderBubbles(bands []float64) string {
 		// Continuous upward scroll with off-screen buffer for smooth entry/exit.
 		wrapH := dotRows + int(radius*2) + 8
 		baseY := int((seed * 3037) % uint64(wrapH))
-		y := wrapH - 1 - ((baseY+int(v.frame)/speedDiv)%wrapH) - int(radius) - 2
+		y := wrapH - 1 - ((baseY + int(v.frame)/speedDiv) % wrapH) - int(radius) - 2
 
 		// Horizontal position with gentle sinusoidal sway. Amplitude scales
 		// with overall energy — quiet passages drift calmly, loud passages

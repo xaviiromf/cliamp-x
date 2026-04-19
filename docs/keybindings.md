@@ -70,6 +70,7 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `p` | Playlist manager |
 | `r` | Cycle repeat (Off / All / One) |
 | `z` | Toggle shuffle |
+| `Ctrl+B` | Toggle bookmark ★ on selected track |
 
 ## General
 
