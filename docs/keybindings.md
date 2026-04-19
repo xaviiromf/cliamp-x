@@ -12,6 +12,7 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `<` `,` | Previous track |
 | `Left` `Right` | Seek -/+5s |
 | `Shift+Left` `Shift+Right` | Seek -/+30s (configurable) |
+| `N` then `j` | Seek to N×10% of the track (e.g. `7j` jumps to 70%, `0j` to the start) |
 | `+` `-` | Volume up/down |
 | `]` `[` | Speed up/down (±0.25x) |
 | `m` | Toggle mono |

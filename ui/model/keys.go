@@ -370,16 +370,23 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	// Shift+0-9: percentage seeking.
-	shiftedDigits := map[string]int{
-		")": 0, "!": 1, "@": 2, "#": 3, "$": 4,
-		"%": 5, "^": 6, "&": 7, "*": 8, "(": 9,
+	// Vim-style count prefix: a digit primes a pending percentage; the next `j`
+	// jumps there (e.g. `7j` → 70%). Any other key cancels and runs normally.
+	if s := msg.String(); m.focus == focusPlaylist && len(s) == 1 && s[0] >= '0' && s[0] <= '9' {
+		m.pendingSeekActive = true
+		m.pendingSeekPct = int(s[0] - '0')
+		m.status.Showf(statusTTLMedium, "%dj → seek to %d%%", m.pendingSeekPct, m.pendingSeekPct*10)
+		return nil
 	}
-	if digit, ok := shiftedDigits[msg.Text]; ok {
-		dur := m.player.Duration()
-		if dur > 0 {
-			target := dur * time.Duration(digit) / 10
-			return m.seekAbsolute(target)
+	if m.pendingSeekActive {
+		pct := m.pendingSeekPct
+		m.pendingSeekActive = false
+		m.status.Clear()
+		if msg.String() == "j" && m.focus == focusPlaylist {
+			if dur := m.player.Duration(); dur > 0 {
+				return m.seekAbsolute(dur * time.Duration(pct) / 10)
+			}
+			return nil
 		}
 	}
 

@@ -135,6 +135,10 @@ type Model struct {
 	vis           *ui.Visualizer
 	seekStepLarge time.Duration
 
+	// Primed Nj seek: digit sets pct, next `j` completes.
+	pendingSeekActive bool
+	pendingSeekPct    int
+
 	// UI navigation
 	focus           focusArea
 	prevFocus       focusArea // focus to restore on cancel (search, net search)
