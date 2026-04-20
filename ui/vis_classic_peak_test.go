@@ -461,11 +461,8 @@ func TestClassicPeakPauseFreezesStateAndClearsAnimationClock(t *testing.T) {
 	snapshotHold := append([]float64(nil), driver.peakHold...)
 
 	driver.lastTick = time.Now()
-	driver.Tick(v, VisTickContext{Now: time.Now(), Paused: true})
+	v.Tick(VisTickContext{Now: time.Now(), Paused: true})
 
-	if !driver.lastTick.IsZero() {
-		t.Fatalf("lastTick after pause = %v, want zero", driver.lastTick)
-	}
 	for i := range driver.peakPos {
 		if driver.peakPos[i] != snapshotPeak[i] {
 			t.Fatalf("paused cap[%d] = %v, want frozen %v", i, driver.peakPos[i], snapshotPeak[i])

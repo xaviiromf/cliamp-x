@@ -656,6 +656,9 @@ func (v *Visualizer) TickInterval(ctx VisTickContext) time.Duration {
 	if driver == nil {
 		return TickSlow
 	}
+	if ctx.Paused {
+		return TickSlow
+	}
 	return driver.TickInterval(v, ctx)
 }
 
@@ -665,6 +668,9 @@ func (v *Visualizer) Tick(ctx VisTickContext) {
 		return
 	}
 	v.refreshPending = false
+	if ctx.Paused {
+		return
+	}
 	if v.Mode != VisNone && !ctx.OverlayActive {
 		v.frame++
 	}
