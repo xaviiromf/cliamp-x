@@ -98,7 +98,7 @@ func (d *classicPeakDriver) Render(v *Visualizer) string {
 			}
 		}
 
-		lines[row] = specStyle(rowBottom).Render(content.String())
+		lines[row] = specWrap(rowBottom, content.String())
 	}
 
 	return strings.Join(lines, "\n")
