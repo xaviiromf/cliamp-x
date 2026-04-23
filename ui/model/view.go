@@ -223,6 +223,9 @@ func (m Model) renderTrackInfo() string {
 	}
 
 	maxW := ui.PanelWidth - 4
+	if maxW < 1 {
+		return trackStyle.Render("♫ " + name)
+	}
 	nameRunes := []rune(name)
 
 	if album != "" {
