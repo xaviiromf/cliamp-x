@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"cliamp/applog"
 	"cliamp/config"
 	"cliamp/external/jellyfin"
 	"cliamp/external/local"
@@ -17,6 +19,7 @@ import (
 	"cliamp/external/radio"
 	"cliamp/external/spotify"
 	"cliamp/external/ytmusic"
+	"cliamp/internal/appdir"
 	"cliamp/internal/appmeta"
 	"cliamp/internal/playback"
 	"cliamp/internal/resume"
@@ -40,6 +43,15 @@ func run(overrides config.Overrides, positional []string) error {
 		return fmt.Errorf("config: %w", err)
 	}
 	overrides.Apply(&cfg)
+
+	closeLog, appliedLevel, logErr := initLogging(cfg.LogLevel)
+	defer closeLog()
+	if logErr != nil {
+		fmt.Fprintf(os.Stderr, "logging: %v (continuing without file log)\n", logErr)
+		applog.Status("logging: %v", logErr)
+	} else {
+		applog.Info("cliamp starting (version=%s level=%s)", appmeta.Version(), appliedLevel)
+	}
 
 	// Build provider list: Radio is always available, Navidrome and Spotify if configured.
 	radioProv := radio.New()
@@ -338,6 +350,27 @@ func run(overrides config.Overrides, positional []string) error {
 	}
 
 	return nil
+}
+
+// initLogging always returns a non-nil close func so the caller can defer
+// it unconditionally, plus the applied level as a string for diagnostics.
+// Errors come back as the third return value; the close func is a no-op
+// and the level string is empty in that case.
+func initLogging(levelStr string) (func() error, string, error) {
+	noop := func() error { return nil }
+	level, err := applog.ParseLevel(levelStr)
+	if err != nil {
+		return noop, "", err
+	}
+	dir, err := appdir.Dir()
+	if err != nil {
+		return noop, "", fmt.Errorf("resolve config dir: %w", err)
+	}
+	closeFn, err := applog.Init(filepath.Join(dir, "cliamp.log"), level)
+	if err != nil {
+		return noop, "", err
+	}
+	return closeFn, level.String(), nil
 }
 
 func wireMediaCtl(prog *tea.Program) (*mediactl.Service, error) {
