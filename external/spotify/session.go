@@ -20,6 +20,7 @@ import (
 	"cliamp/applog"
 	"cliamp/internal/appdir"
 	"cliamp/internal/browser"
+	"cliamp/playlist"
 
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
@@ -102,11 +103,25 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 	// The spclient's login5 token is NOT suitable for Web API calls.
 	// Try silent refresh first (no browser), fall back to interactive.
 	var oauthToken *oauth2.Token
+	var refreshErr error
 	if creds.RefreshToken != "" {
 		token, err := silentTokenRefresh(clientID, creds.RefreshToken)
 		if err == nil {
 			oauthToken = token
+		} else {
+			refreshErr = err
 		}
+	}
+	// If the refresh token is permanently dead (invalid_grant), clear stored
+	// credentials so future launches don't repeat the same failure. The user
+	// will be prompted to sign in again on the next provider open.
+	if isInvalidGrant(refreshErr) {
+		applog.UserError("spotify: stored refresh token is invalid; clearing credentials, please sign in again")
+		if err := deleteCreds(); err != nil {
+			applog.Warn("spotify: failed to clear stored credentials: %v", err)
+		}
+		sess.Close()
+		return nil, fmt.Errorf("spotify: %w", playlist.ErrNeedsAuth)
 	}
 	if oauthToken == nil {
 		if silentOnly {
@@ -205,6 +220,17 @@ func silentTokenRefresh(clientID, refreshToken string) (*oauth2.Token, error) {
 	conf := spotifyOAuthConfig(clientID)
 	src := conf.TokenSource(context.Background(), &oauth2.Token{RefreshToken: refreshToken})
 	return src.Token()
+}
+
+// isInvalidGrant reports whether err is an OAuth2 invalid_grant response
+// from the token endpoint, indicating the refresh token is dead and
+// retrying with the same token will not succeed.
+func isInvalidGrant(err error) bool {
+	var rerr *oauth2.RetrieveError
+	if !errors.As(err, &rerr) {
+		return false
+	}
+	return rerr.ErrorCode == "invalid_grant"
 }
 
 // oauthCallbackHTML is the response sent to the browser after a successful OAuth2 callback.
@@ -515,4 +541,29 @@ func saveCreds(creds *storedCreds) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
+}
+
+// deleteCreds removes the stored credentials file, if present.
+// Returns nil if the file does not exist.
+func deleteCreds() error {
+	path, err := credsPath()
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// CredsPath returns the absolute path to the stored Spotify credentials file.
+// Exposed for the 'cliamp spotify reset' subcommand.
+func CredsPath() (string, error) {
+	return credsPath()
+}
+
+// DeleteCreds removes the stored Spotify credentials file, if present.
+// Exposed for the 'cliamp spotify reset' subcommand.
+func DeleteCreds() error {
+	return deleteCreds()
 }

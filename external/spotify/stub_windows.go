@@ -8,10 +8,13 @@ package spotify
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gopxl/beep/v2"
 
+	"cliamp/internal/appdir"
 	"cliamp/playlist"
 )
 
@@ -65,4 +68,27 @@ func (p *SpotifyProvider) AddTrackToPlaylist(_ context.Context, _ string, _ play
 // CreatePlaylist is a no-op on Windows.
 func (p *SpotifyProvider) CreatePlaylist(_ context.Context, _ string) (string, error) {
 	return "", nil
+}
+
+// CredsPath returns the absolute path to the stored Spotify credentials file.
+// Useful on Windows for the 'cliamp spotify reset' subcommand even though
+// the provider itself is unavailable.
+func CredsPath() (string, error) {
+	dir, err := appdir.Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "spotify_credentials.json"), nil
+}
+
+// DeleteCreds removes the stored Spotify credentials file, if present.
+func DeleteCreds() error {
+	path, err := CredsPath()
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
