@@ -560,9 +560,7 @@ func (p *SpotifyProvider) webAPI(ctx context.Context, method, path string, query
 //     the spclient token aggressively on Web API endpoints, and waiting won't help.
 func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string, acceptStatus ...int) (*http.Response, error) {
 	const maxRetries = 8
-	// fallbackMaxAttempts: one initial attempt + one quick retry. After that,
-	// a 429 with the spclient fallback token is treated as auth failure.
-	const fallbackMaxAttempts = 2
+	const fallbackMaxAttempts = 2 // initial + one quick retry, then auth failure
 
 	// Buffer the body so it can be replayed on retry.
 	var bodyBytes []byte

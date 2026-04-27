@@ -300,12 +300,13 @@ func spotifyCommand() *cli.Command {
 					if err != nil {
 						return fmt.Errorf("locate credentials: %w", err)
 					}
-					if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+					removed, err := spotify.DeleteCreds()
+					if err != nil {
+						return fmt.Errorf("remove credentials: %w", err)
+					}
+					if !removed {
 						fmt.Println("No stored Spotify credentials to remove.")
 						return nil
-					}
-					if err := spotify.DeleteCreds(); err != nil {
-						return fmt.Errorf("remove credentials: %w", err)
 					}
 					fmt.Printf("Removed %s\n", path)
 					fmt.Println("Restart cliamp and select Spotify to sign in again.")

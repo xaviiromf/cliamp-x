@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	"cliamp/applog"
-	"cliamp/internal/appdir"
 	"cliamp/internal/browser"
 	"cliamp/playlist"
 
@@ -112,12 +111,11 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 			refreshErr = err
 		}
 	}
-	// If the refresh token is permanently dead (invalid_grant), clear stored
-	// credentials so future launches don't repeat the same failure. The user
-	// will be prompted to sign in again on the next provider open.
+	// Dead refresh tokens (invalid_grant) never recover — clear so we don't
+	// repeat the same failure on every launch.
 	if isInvalidGrant(refreshErr) {
 		applog.UserError("spotify: stored refresh token is invalid; clearing credentials, please sign in again")
-		if err := deleteCreds(); err != nil {
+		if _, err := DeleteCreds(); err != nil {
 			applog.Warn("spotify: failed to clear stored credentials: %v", err)
 		}
 		sess.Close()
@@ -498,14 +496,6 @@ func (s *Session) reconnect(ctx context.Context, build func(context.Context, str
 	return nil
 }
 
-func credsPath() (string, error) {
-	dir, err := appdir.Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "spotify_credentials.json"), nil
-}
-
 func generateDeviceID() string {
 	b := make([]byte, 20)
 	_, _ = rand.Read(b)
@@ -513,7 +503,7 @@ func generateDeviceID() string {
 }
 
 func loadCreds() (*storedCreds, error) {
-	path, err := credsPath()
+	path, err := CredsPath()
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +519,7 @@ func loadCreds() (*storedCreds, error) {
 }
 
 func saveCreds(creds *storedCreds) error {
-	path, err := credsPath()
+	path, err := CredsPath()
 	if err != nil {
 		return err
 	}
@@ -541,29 +531,4 @@ func saveCreds(creds *storedCreds) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
-}
-
-// deleteCreds removes the stored credentials file, if present.
-// Returns nil if the file does not exist.
-func deleteCreds() error {
-	path, err := credsPath()
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
-}
-
-// CredsPath returns the absolute path to the stored Spotify credentials file.
-// Exposed for the 'cliamp spotify reset' subcommand.
-func CredsPath() (string, error) {
-	return credsPath()
-}
-
-// DeleteCreds removes the stored Spotify credentials file, if present.
-// Exposed for the 'cliamp spotify reset' subcommand.
-func DeleteCreds() error {
-	return deleteCreds()
 }

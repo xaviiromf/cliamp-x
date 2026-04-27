@@ -58,8 +58,12 @@ func TestDeleteCreds(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	t.Run("missing file", func(t *testing.T) {
-		if err := deleteCreds(); err != nil {
-			t.Errorf("deleteCreds() on missing file returned %v, want nil", err)
+		removed, err := DeleteCreds()
+		if err != nil {
+			t.Errorf("DeleteCreds() on missing file returned %v, want nil", err)
+		}
+		if removed {
+			t.Error("DeleteCreds() reported removed=true for missing file")
 		}
 	})
 
@@ -73,11 +77,15 @@ func TestDeleteCreds(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := deleteCreds(); err != nil {
-			t.Fatalf("deleteCreds() = %v, want nil", err)
+		removed, err := DeleteCreds()
+		if err != nil {
+			t.Fatalf("DeleteCreds() = %v, want nil", err)
+		}
+		if !removed {
+			t.Error("DeleteCreds() reported removed=false after removing file")
 		}
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Errorf("file still exists after deleteCreds: stat err = %v", err)
+			t.Errorf("file still exists after DeleteCreds: stat err = %v", err)
 		}
 	})
 }
