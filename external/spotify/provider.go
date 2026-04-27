@@ -553,8 +553,16 @@ func (p *SpotifyProvider) webAPI(ctx context.Context, method, path string, query
 
 // webAPIWithBody is like webAPI but accepts an optional request body, content type,
 // and a set of acceptable HTTP status codes (e.g. 200, 201).
+//
+// 429 handling depends on whether the session has a real OAuth2 Web API token:
+//   - With a token source: full exponential backoff (real rate limits are transient).
+//   - With the spclient fallback: one quick retry, then ErrNeedsAuth — Spotify rate-limits
+//     the spclient token aggressively on Web API endpoints, and waiting won't help.
 func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string, acceptStatus ...int) (*http.Response, error) {
 	const maxRetries = 8
+	// fallbackMaxAttempts: one initial attempt + one quick retry. After that,
+	// a 429 with the spclient fallback token is treated as auth failure.
+	const fallbackMaxAttempts = 2
 
 	// Buffer the body so it can be replayed on retry.
 	var bodyBytes []byte
@@ -566,7 +574,13 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 	}
 
-	for attempt := range maxRetries {
+	maxAttempts := maxRetries
+	fallback := p.session.usingFallbackToken()
+	if fallback {
+		maxAttempts = fallbackMaxAttempts
+	}
+
+	for attempt := range maxAttempts {
 		var reqBody io.Reader
 		if bodyBytes != nil {
 			reqBody = bytes.NewReader(bodyBytes)
@@ -578,13 +592,25 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
+			if fallback {
+				if attempt+1 >= maxAttempts {
+					return nil, fmt.Errorf("spotify: stored auth no longer valid, sign in again: %w", playlist.ErrNeedsAuth)
+				}
+				applog.UserWarn("spotify: %s rate-limited (auth state may be stale), retrying once", path)
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Second):
+					continue
+				}
+			}
 			wait := time.Duration(1<<uint(attempt)) * time.Second
 			if ra := resp.Header.Get("Retry-After"); ra != "" {
 				if secs, err := strconv.Atoi(ra); err == nil && secs > 0 {
 					wait = time.Duration(secs) * time.Second
 				}
 			}
-			applog.UserWarn("spotify: rate limited on %s, retrying in %v (attempt %d/%d)", path, wait, attempt+1, maxRetries)
+			applog.UserWarn("spotify: web api rate-limited on %s, retrying in %v (attempt %d/%d)", path, wait, attempt+1, maxAttempts)
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -604,7 +630,7 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		return resp, nil
 	}
-	return nil, fmt.Errorf("http status 429 after %d retries", maxRetries)
+	return nil, fmt.Errorf("spotify: web api rate-limited on %s after %d retries (try re-authenticating)", path, maxAttempts)
 }
 
 // SearchTracks searches for tracks on Spotify and returns up to limit results.

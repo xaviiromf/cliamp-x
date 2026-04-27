@@ -112,7 +112,9 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 		if silentOnly {
 			// Web API token refresh failed, but the spclient session is valid.
 			// Continue without a token source — webApiWithBody falls back to spclient token.
-			applog.UserWarn("spotify: silent token refresh failed, continuing with spclient token")
+			// Spotify rate-limits the spclient token on Web API endpoints, so calls will
+			// likely return 429 until the user re-authenticates.
+			applog.UserError("spotify: stored auth no longer valid; web api calls may fail until you sign in again")
 			s := &Session{sess: sess, devID: devID, clientID: clientID}
 			if err := saveCreds(&storedCreds{
 				Username:     sess.Username(),
@@ -347,6 +349,17 @@ func (s *Session) NewStream(ctx context.Context, spotID librespot.SpotifyId, bit
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.player.NewStream(ctx, http.DefaultClient, spotID, bitrate, 0)
+}
+
+// usingFallbackToken reports whether the session has no OAuth2 token source
+// and is falling back to the spclient token for Web API calls. The spclient
+// token is not a real Web API token — Spotify rate-limits it aggressively,
+// so callers should treat 429s in this mode as an auth failure rather than
+// a transient rate limit.
+func (s *Session) usingFallbackToken() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tokenSource == nil
 }
 
 // webApiWithBody calls the Spotify Web API using the OAuth2 access token.
