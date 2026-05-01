@@ -87,6 +87,16 @@ cliamp track.mp3 --repeat all --mono ~/Music
 
 CLI flags override config file values for the current session only. They are not persisted.
 
+## Setup wizard
+
+Configure remote providers (Navidrome, Plex, Jellyfin, Spotify, YouTube Music) through a small TUI. Each provider page links to where to find the required credentials, validates the connection live, and writes the resulting `[provider]` block to `~/.config/cliamp/config.toml` without disturbing the rest of the file.
+
+```sh
+cliamp setup
+```
+
+Keys: `↑/↓` to navigate, `Enter` to confirm or submit, `Esc` to back out, `q` from the menu to quit. Passwords and tokens are masked. Running setup again for an already-configured provider replaces its section in place.
+
 ## Playlist Management
 
 Manage local TOML playlists from the command line without opening the TUI.

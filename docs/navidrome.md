@@ -2,6 +2,8 @@
 
 Cliamp can connect to a [Navidrome](https://www.navidrome.org/) server and stream music directly from your library. Navidrome is a self-hosted music server compatible with the Subsonic API.
 
+> **Quick start:** run `cliamp setup` for a guided TUI that prompts for the server URL, username, and password, validates the connection, and writes the `[navidrome]` block for you. Manual setup steps are below.
+
 ## Setup
 
 Set three environment variables before launching Cliamp:

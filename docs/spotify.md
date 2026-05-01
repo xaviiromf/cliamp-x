@@ -2,6 +2,8 @@
 
 Cliamp can stream your [Spotify](https://www.spotify.com/) library directly through its audio pipeline. EQ, visualizer, and all effects apply. Requires a [Spotify Premium](https://www.spotify.com/premium/) account.
 
+> **Quick start:** after creating your developer app (steps below), run `cliamp setup` to paste your Client ID into a guided TUI — it writes the `[spotify]` block for you. Sign-in still happens in cliamp on first use.
+
 ## Setup
 
 ### Creating your client ID

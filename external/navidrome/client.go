@@ -130,6 +130,13 @@ func (c *NavidromeClient) Name() string {
 	return "Navidrome"
 }
 
+// Ping verifies connectivity and credentials via the Subsonic ping.view
+// endpoint. Returns a descriptive error on auth or network failure.
+func (c *NavidromeClient) Ping() error {
+	var dummy struct{}
+	return c.subsonicGet("ping.view", nil, &dummy)
+}
+
 func (c *NavidromeClient) AlbumSortTypes() []provider.SortType {
 	return albumSortTypes
 }

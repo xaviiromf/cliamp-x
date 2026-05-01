@@ -6,6 +6,8 @@ Your playlists are automatically classified into two providers:
 - **YouTube Music**: playlists containing music content
 - **YouTube**: playlists containing non-music content (podcasts, vlogs, tutorials, etc.)
 
+> **Quick start:** YouTube Music works out of the box with built-in fallback credentials — just install yt-dlp and select it in the provider browser. Run `cliamp setup` if you want to disable it, supply your own OAuth client, or configure cookie-based age-gated playback. Manual setup steps for the custom path are below.
+
 ## Setup
 
 ### Creating your client ID

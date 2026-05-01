@@ -84,6 +84,14 @@ cliamp https://example.com/stream  # play a URL
 
 Press `Ctrl+K` to see all keybindings.
 
+**Configure remote providers** (Navidrome, Plex, Jellyfin, Spotify, YouTube Music) with the interactive wizard:
+
+```sh
+cliamp setup
+```
+
+It walks you through each provider, validates the connection, and writes the right block to `~/.config/cliamp/config.toml`. See [docs/cli.md](docs/cli.md#setup-wizard) for details.
+
 ## Building from source
 
 **Prerequisites:**

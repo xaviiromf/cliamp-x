@@ -64,6 +64,7 @@ func buildApp() *cli.Command {
 			upgradeCommand(),
 			pluginsCommand(),
 			playlistCommand(),
+			setupCommand(),
 			spotifyCommand(),
 			ipcSimpleCommand("play", "resume playback"),
 			ipcSimpleCommand("pause", "pause playback"),
@@ -283,6 +284,19 @@ func pluginsCommand() *cli.Command {
 					return nil
 				},
 			},
+		},
+	}
+}
+
+func setupCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "setup",
+		Usage: "interactive wizard to configure remote providers",
+		Description: "Walks through configuring Navidrome, Plex, Jellyfin, Spotify,\n" +
+			"and YouTube Music. Validates connections and writes\n" +
+			"~/.config/cliamp/config.toml.",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			return cmd.Setup()
 		},
 	}
 }

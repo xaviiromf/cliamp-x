@@ -2,6 +2,8 @@
 
 cliamp can stream music directly from your Plex Media Server, giving you access to your full Plex music library, including any library served by PlexAmp. Streaming uses the same Plex HTTP API that official Plex clients use; no extra software is required.
 
+> **Quick start:** run `cliamp setup` for a guided TUI that prompts for the server URL and `X-Plex-Token`, pings the server to verify the token, and writes the `[plex]` block for you. Manual setup steps are below.
+
 ## Prerequisites
 
 - Plex Media Server running and reachable on your network (or remotely)

@@ -1,6 +1,14 @@
 # Configuration
 
-Copy the example config to get started:
+For remote providers (Navidrome, Plex, Jellyfin, Spotify, YouTube Music), the fastest path is the interactive wizard:
+
+```sh
+cliamp setup
+```
+
+It validates your credentials live and writes the right TOML block without touching the rest of your config. See [cli.md](cli.md#setup-wizard) for details.
+
+For everything else, copy the example config and edit by hand:
 
 ```sh
 mkdir -p ~/.config/cliamp

@@ -2,6 +2,8 @@
 
 cliamp can stream music directly from a Jellyfin server using Jellyfin's authenticated HTTP API. The first integration exposes your music libraries as a flat album list in the normal provider pane, following the same shape as the Plex provider.
 
+> **Quick start:** run `cliamp setup` for a guided TUI that lets you pick API-token or username+password auth, validates against `/Users/Me`, and writes the `[jellyfin]` block for you. Manual setup steps are below.
+
 ## Prerequisites
 
 - A reachable Jellyfin server
