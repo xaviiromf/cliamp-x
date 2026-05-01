@@ -89,3 +89,64 @@ else
 fi
 
 echo "Installed cliamp to ${INSTALL_DIR}/cliamp"
+
+# Install desktop entry + icon (Linux only).
+# Pick user-local share dir for ~/.local/bin installs, /usr/local/share otherwise.
+if [ "$OS" = "linux" ]; then
+    case "$INSTALL_DIR" in
+        "$HOME"/*)
+            SHARE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+            SUDO=""
+            ;;
+        *)
+            SHARE_DIR="/usr/local/share"
+            SUDO="sudo"
+            [ -w "$SHARE_DIR" ] && SUDO=""
+            ;;
+    esac
+
+    APP_DIR="${SHARE_DIR}/applications"
+    ICON_DIR="${SHARE_DIR}/icons/hicolor/512x512/apps"
+
+    ICON_TMP=$(mktemp)
+    DESKTOP_TMP=$(mktemp)
+    ICON_URL="https://raw.githubusercontent.com/${REPO}/HEAD/Cliamp.png"
+
+    GOT_ICON=false
+    if command -v curl > /dev/null; then
+        curl -fSL -o "$ICON_TMP" "$ICON_URL" 2>/dev/null && GOT_ICON=true
+    elif command -v wget > /dev/null; then
+        wget -qO "$ICON_TMP" "$ICON_URL" 2>/dev/null && GOT_ICON=true
+    fi
+
+    cat > "$DESKTOP_TMP" <<EOF
+[Desktop Entry]
+Name=cliamp
+GenericName=Music Player
+Comment=A retro terminal music player inspired by Winamp 2.x
+Exec=${INSTALL_DIR}/cliamp
+Icon=cliamp
+Terminal=true
+Type=Application
+Categories=Audio;Music;Player;AudioVideo;ConsoleOnly;
+Keywords=music;audio;player;terminal;tui;winamp;radio;podcast;
+StartupNotify=false
+EOF
+
+    $SUDO mkdir -p "$APP_DIR" "$ICON_DIR"
+    $SUDO install -m 0644 "$DESKTOP_TMP" "${APP_DIR}/cliamp.desktop"
+    if [ "$GOT_ICON" = true ]; then
+        $SUDO install -m 0644 "$ICON_TMP" "${ICON_DIR}/cliamp.png"
+        echo "Installed icon to ${ICON_DIR}/cliamp.png"
+    fi
+    rm -f "$ICON_TMP" "$DESKTOP_TMP"
+
+    echo "Installed desktop entry to ${APP_DIR}/cliamp.desktop"
+
+    if command -v update-desktop-database > /dev/null; then
+        $SUDO update-desktop-database "$APP_DIR" 2>/dev/null || true
+    fi
+    if command -v gtk-update-icon-cache > /dev/null; then
+        $SUDO gtk-update-icon-cache -q "${SHARE_DIR}/icons/hicolor" 2>/dev/null || true
+    fi
+fi

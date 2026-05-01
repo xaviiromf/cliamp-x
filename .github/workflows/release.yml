@@ -237,10 +237,17 @@ jobs:
           name: checksums
 
       - name: Set env vars
+        env:
+          REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           cat checksums.txt
+
+          curl -fsSL "https://raw.githubusercontent.com/${REPO}/${TAG}/Cliamp.png" -o Cliamp.png
+          curl -fsSL "https://raw.githubusercontent.com/${REPO}/${TAG}/cliamp.desktop" -o cliamp.desktop
+          SHA_ICON=$(sha256sum Cliamp.png | awk '{print $1}')
+          SHA_DESKTOP=$(sha256sum cliamp.desktop | awk '{print $1}')
 
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "TAG=${TAG}" >> $GITHUB_ENV
@@ -248,6 +255,8 @@ jobs:
           echo "SHA_DARWIN_AMD64=$(grep 'darwin-amd64' checksums.txt | awk '{print $1}')" >> $GITHUB_ENV
           echo "SHA_LINUX_ARM64=$(grep 'linux-arm64' checksums.txt | awk '{print $1}')" >> $GITHUB_ENV
           echo "SHA_LINUX_AMD64=$(grep 'linux-amd64' checksums.txt | awk '{print $1}')" >> $GITHUB_ENV
+          echo "SHA_ICON=${SHA_ICON}" >> $GITHUB_ENV
+          echo "SHA_DESKTOP=${SHA_DESKTOP}" >> $GITHUB_ENV
 
       - name: Generate and push formula
         env:
@@ -297,6 +306,16 @@ jobs:
               end
             end
 
+            resource "icon" do
+              url "https://raw.githubusercontent.com/bjarneo/cliamp/${TAG}/Cliamp.png"
+              sha256 "${SHA_ICON}"
+            end
+
+            resource "desktop" do
+              url "https://raw.githubusercontent.com/bjarneo/cliamp/${TAG}/cliamp.desktop"
+              sha256 "${SHA_DESKTOP}"
+            end
+
             def install
               if build.head?
                 # Build from source for HEAD
@@ -305,6 +324,16 @@ jobs:
                 # Use pre-built binary for stable releases
                 binary = Dir["cliamp-*"].first
                 bin.install binary => "cliamp"
+              end
+
+              # Ship icon under pkgshare so it's always available; expose as
+              # XDG icon + desktop entry on Linux for app-launcher integration.
+              resource("icon").stage { pkgshare.install "Cliamp.png" => "cliamp.png" }
+
+              on_linux do
+                (share/"icons/hicolor/512x512/apps").install_symlink pkgshare/"cliamp.png"
+                (share/"pixmaps").install_symlink pkgshare/"cliamp.png"
+                resource("desktop").stage { (share/"applications").install "cliamp.desktop" }
               end
             end
 

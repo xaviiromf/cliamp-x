@@ -56,6 +56,10 @@ jobs:
           package() {
               cd "${pkgname}-${pkgver}"
               install -Dm755 cliamp "${pkgdir}/usr/bin/cliamp"
+              install -Dm644 cliamp.desktop "${pkgdir}/usr/share/applications/cliamp.desktop"
+              install -Dm644 Cliamp.png "${pkgdir}/usr/share/icons/hicolor/512x512/apps/cliamp.png"
+              install -Dm644 Cliamp.png "${pkgdir}/usr/share/pixmaps/cliamp.png"
+              install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
           }
           HEREDOC
 
