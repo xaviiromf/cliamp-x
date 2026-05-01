@@ -10,7 +10,7 @@ import (
 func (m *Model) handleSpotSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
-		m.spotSearch.visible = false
+		m.closeSpotSearch()
 		return m.quit()
 	}
 
@@ -31,7 +31,7 @@ func (m *Model) handleSpotSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *Model) handleSpotSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.Code {
 	case tea.KeyEscape:
-		m.spotSearch.visible = false
+		m.closeSpotSearch()
 	case tea.KeyEnter:
 		if m.spotSearch.query != "" && !m.spotSearch.loading {
 			s, ok := m.spotSearch.prov.(provider.Searcher)
@@ -74,6 +74,24 @@ func (m *Model) handleSpotSearchResultsKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.spotSearch.cursor = 0
 		}
 	case "enter":
+		if count > 0 && !m.spotSearch.loading {
+			track := m.spotSearch.results[m.spotSearch.cursor]
+			m.closeSpotSearch()
+			return m.playTrackImmediate(track)
+		}
+	case "a":
+		if count > 0 && !m.spotSearch.loading {
+			track := m.spotSearch.results[m.spotSearch.cursor]
+			m.closeSpotSearch()
+			return m.appendTrack(track)
+		}
+	case "q":
+		if count > 0 && !m.spotSearch.loading {
+			track := m.spotSearch.results[m.spotSearch.cursor]
+			m.closeSpotSearch()
+			return m.queueTrackNext(track)
+		}
+	case "p":
 		if count > 0 && !m.spotSearch.loading {
 			m.spotSearch.selTrack = m.spotSearch.results[m.spotSearch.cursor]
 			m.spotSearch.loading = true

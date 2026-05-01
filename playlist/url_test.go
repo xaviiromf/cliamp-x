@@ -11,8 +11,11 @@ func TestIsURL(t *testing.T) {
 		{"https://example.com/stream.mp3", true},
 		{"ytsearch:lofi hip hop", true},
 		{"ytsearch1:some song", true},
+		{"ytsearch10:multi result query", true},
 		{"scsearch:artist name", true},
 		{"scsearch1:track name", true},
+		{"scsearch10:multi result query", true},
+		{"ytsearchabc:bad", false},
 		{"/home/user/music/song.mp3", false},
 		{"relative/path.flac", false},
 		{"", false},
@@ -122,6 +125,7 @@ func TestIsYouTubeURL(t *testing.T) {
 		// ytsearch protocols should NOT match
 		{"ytsearch:lofi hip hop", false},
 		{"ytsearch1:some song", false},
+		{"ytsearch10:multi result query", false},
 		// Non-YouTube
 		{"https://soundcloud.com/artist/track", false},
 		{"/local/file.mp3", false},
@@ -170,8 +174,10 @@ func TestIsYTDL(t *testing.T) {
 		// Search protocols
 		{"ytsearch:lofi hip hop", true},
 		{"ytsearch1:some song", true},
+		{"ytsearch10:multi result query", true},
 		{"scsearch:artist name", true},
 		{"scsearch1:track name", true},
+		{"scsearch5:multi result query", true},
 		// SoundCloud
 		{"https://soundcloud.com/artist/track", true},
 		// Bandcamp

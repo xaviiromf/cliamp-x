@@ -652,9 +652,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				screen:  spotSearchInput,
 			}
 		} else {
-			m.netSearch.active = true
-			m.netSearch.query = ""
-			m.netSearch.soundcloud = false
+			m.netSearch = netSearchState{
+				active: true,
+				screen: netSearchInput,
+			}
 			m.prevFocus = m.focus
 			m.focus = focusNetSearch
 		}
@@ -1027,7 +1028,9 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	}
 
 	if m.netSearch.active {
-		m.netSearch.query += content
+		if m.netSearch.screen == netSearchInput {
+			m.netSearch.query += content
+		}
 		return nil
 	}
 
@@ -1118,32 +1121,37 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// handleNetSearchKey processes key presses while in net search mode.
+// handleNetSearchKey dispatches key presses to the active net search screen.
 func (m *Model) handleNetSearchKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "ctrl+k":
+	if msg.String() == "ctrl+k" {
 		m.openKeymap()
 		return nil
 	}
+	switch m.netSearch.screen {
+	case netSearchInput:
+		return m.handleNetSearchInputKey(msg)
+	case netSearchResults:
+		return m.handleNetSearchResultsKey(msg)
+	}
+	return nil
+}
 
+// handleNetSearchInputKey handles text entry on the net search overlay.
+func (m *Model) handleNetSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.Code {
 	case tea.KeyEscape:
-		m.netSearch.active = false
-		m.focus = m.prevFocus
+		m.closeNetSearch()
 
 	case tea.KeyEnter:
-		var cmd tea.Cmd
-		m.netSearch.active = false
-		m.focus = m.prevFocus
-		if strings.TrimSpace(m.netSearch.query) != "" {
-			prefix := "ytsearch1:"
+		if strings.TrimSpace(m.netSearch.query) != "" && !m.netSearch.loading {
+			prefix := "ytsearch10:"
 			if m.netSearch.soundcloud {
-				prefix = "scsearch1:"
+				prefix = "scsearch10:"
 			}
-			m.status.Show("Queuing search...", statusTTLShort)
-			cmd = fetchNetSearchCmd(prefix + strings.TrimSpace(m.netSearch.query))
+			m.netSearch.loading = true
+			m.netSearch.err = ""
+			return fetchNetSearchCmd(prefix + strings.TrimSpace(m.netSearch.query))
 		}
-		return cmd
 
 	case tea.KeyBackspace:
 		m.netSearch.query = removeLastRune(m.netSearch.query)
@@ -1156,7 +1164,50 @@ func (m *Model) handleNetSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.netSearch.query += msg.Text
 		}
 	}
+	return nil
+}
 
+// handleNetSearchResultsKey handles navigation through net search results.
+func (m *Model) handleNetSearchResultsKey(msg tea.KeyPressMsg) tea.Cmd {
+	count := len(m.netSearch.results)
+
+	switch msg.String() {
+	case "up", "k":
+		if m.netSearch.cursor > 0 {
+			m.netSearch.cursor--
+		} else if count > 0 {
+			m.netSearch.cursor = count - 1
+		}
+	case "down", "j":
+		if m.netSearch.cursor < count-1 {
+			m.netSearch.cursor++
+		} else if count > 0 {
+			m.netSearch.cursor = 0
+		}
+	case "enter":
+		if count > 0 && !m.netSearch.loading {
+			track := m.netSearch.results[m.netSearch.cursor]
+			m.closeNetSearch()
+			return m.playTrackImmediate(track)
+		}
+	case "a":
+		if count > 0 && !m.netSearch.loading {
+			track := m.netSearch.results[m.netSearch.cursor]
+			m.closeNetSearch()
+			return m.appendTrack(track)
+		}
+	case "q":
+		if count > 0 && !m.netSearch.loading {
+			track := m.netSearch.results[m.netSearch.cursor]
+			m.closeNetSearch()
+			return m.queueTrackNext(track)
+		}
+	case "esc", "backspace":
+		m.netSearch.screen = netSearchInput
+		m.netSearch.results = nil
+		m.netSearch.cursor = 0
+		m.netSearch.err = ""
+	}
 	return nil
 }
 

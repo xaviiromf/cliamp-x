@@ -23,11 +23,24 @@ type searchState struct {
 	cursor  int
 }
 
+// netSearchScreenType identifies which screen of the net search overlay is active.
+type netSearchScreenType int
+
+const (
+	netSearchInput   netSearchScreenType = iota // typing search query
+	netSearchResults                            // browsing search results
+)
+
 // netSearchState holds state for the internet search overlay.
 type netSearchState struct {
 	active     bool
+	screen     netSearchScreenType
 	query      string
 	soundcloud bool // true = SoundCloud (scsearch), false = YouTube (ytsearch)
+	loading    bool
+	results    []playlist.Track
+	cursor     int
+	err        string
 }
 
 // provSearchState holds state for filtering the provider playlist list.

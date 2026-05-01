@@ -62,8 +62,30 @@ func (t Track) Meta(key string) string {
 // IsURL reports whether path is an HTTP or HTTPS URL, or a yt-dlp search protocol string.
 func IsURL(path string) bool {
 	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") ||
-		strings.HasPrefix(path, "ytsearch:") || strings.HasPrefix(path, "ytsearch1:") ||
-		strings.HasPrefix(path, "scsearch:") || strings.HasPrefix(path, "scsearch1:")
+		IsYTSearch(path)
+}
+
+// IsYTSearch reports whether path is a yt-dlp search expression
+// (ytsearch:, ytsearchN:, scsearch:, scsearchN:).
+func IsYTSearch(path string) bool {
+	return matchSearchPrefix(path, "ytsearch") || matchSearchPrefix(path, "scsearch")
+}
+
+func matchSearchPrefix(path, name string) bool {
+	if !strings.HasPrefix(path, name) {
+		return false
+	}
+	rest := path[len(name):]
+	colon := strings.IndexByte(rest, ':')
+	if colon < 0 {
+		return false
+	}
+	for _, c := range rest[:colon] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // IsM3U reports whether the path points to an M3U playlist file (URL or local).
@@ -109,7 +131,7 @@ func IsYouTubeURL(path string) bool {
 		return false
 	}
 	// ytsearch: protocols are handled by yt-dlp, not the native YouTube client.
-	if strings.HasPrefix(path, "ytsearch:") || strings.HasPrefix(path, "ytsearch1:") {
+	if IsYTSearch(path) {
 		return false
 	}
 	u, err := url.Parse(path)
@@ -152,8 +174,7 @@ func IsYTDL(path string) bool {
 	if IsYouTubeURL(path) || IsYouTubeMusicURL(path) {
 		return true
 	}
-	if strings.HasPrefix(path, "ytsearch:") || strings.HasPrefix(path, "ytsearch1:") ||
-		strings.HasPrefix(path, "scsearch:") || strings.HasPrefix(path, "scsearch1:") {
+	if IsYTSearch(path) {
 		return true
 	}
 	u, err := url.Parse(path)

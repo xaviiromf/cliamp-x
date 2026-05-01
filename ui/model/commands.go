@@ -64,8 +64,12 @@ type lyricsLoadedMsg struct {
 	err   error
 }
 
-// netSearchLoadedMsg carries tracks dynamically searched from the internet.
-type netSearchLoadedMsg []playlist.Track
+// netSearchResultsMsg carries the result set of a yt-dlp/sc-dlp search query
+// so the UI can present a picker rather than auto-queuing.
+type netSearchResultsMsg struct {
+	tracks []playlist.Track
+	err    error
+}
 
 // streamPlayedMsg signals that async stream Play() completed.
 type streamPlayedMsg struct{ err error }
@@ -189,10 +193,7 @@ func fetchLyricsCmd(artist, title string) tea.Cmd {
 func fetchNetSearchCmd(query string) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := resolve.Remote([]string{query})
-		if err != nil {
-			return err
-		}
-		return netSearchLoadedMsg(tracks)
+		return netSearchResultsMsg{tracks: tracks, err: err}
 	}
 }
 

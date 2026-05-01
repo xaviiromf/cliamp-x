@@ -71,6 +71,19 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `r` | Cycle repeat (Off / All / One) |
 | `z` | Toggle shuffle |
 
+## Search results overlays
+
+When `Ctrl+F` opens the Spotify search or YouTube/SoundCloud net search and you're viewing the results list:
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k` | Move cursor |
+| `Enter` | Play the selected track now |
+| `a` | Append the selected track to the playlist |
+| `q` | Queue the selected track to play next |
+| `p` | (Spotify only) Save the selected track to a Spotify playlist |
+| `Esc` `Backspace` | Back to the search input |
+
 ## General
 
 | Key | Action |

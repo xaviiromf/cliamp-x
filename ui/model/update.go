@@ -442,21 +442,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case netSearchLoadedMsg:
-		if len(msg) == 0 {
-			m.status.Show("No tracks found online.", statusTTLDefault)
+	case netSearchResultsMsg:
+		m.netSearch.loading = false
+		if msg.err != nil {
+			m.netSearch.err = msg.err.Error()
 			return m, nil
 		}
-		startIdx := m.playlist.Len()
-		m.playlist.Add(msg...)
-		for i := startIdx; i < m.playlist.Len(); i++ {
-			m.playlist.Queue(i)
-		}
-		m.status.Showf(statusTTLDefault, "Added to Queue: %s", msg[0].DisplayName())
-		if !m.player.IsPlaying() {
-			cmd := m.playCurrentTrack()
-			m.notifyAll()
-			return m, cmd
+		m.netSearch.results = msg.tracks
+		m.netSearch.cursor = 0
+		m.netSearch.screen = netSearchResults
+		if len(msg.tracks) == 0 {
+			m.netSearch.err = "No results found"
 		}
 		return m, nil
 
@@ -580,7 +576,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.status.Showf(statusTTLDefault, "Added to %q", msg.name)
-		m.spotSearch.visible = false
+		m.closeSpotSearch()
 		return m, nil
 
 	case spotCreatedMsg:
@@ -590,7 +586,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.status.Showf(statusTTLDefault, "Created %q & added track", msg.name)
-		m.spotSearch.visible = false
+		m.closeSpotSearch()
 		return m, nil
 
 	case provAuthDoneMsg:

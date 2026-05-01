@@ -329,14 +329,66 @@ func (m Model) renderSearchOverlay() string {
 }
 
 func (m Model) renderNetSearchOverlay() string {
+	var lines []string
+	switch m.netSearch.screen {
+	case netSearchInput:
+		lines = m.renderNetSearchInput()
+	case netSearchResults:
+		lines = m.renderNetSearchResults()
+	}
+	if m.netSearch.err != "" {
+		lines = append(lines, "", helpStyle.Render("  "+m.netSearch.err))
+	}
+	return m.centerOverlay(strings.Join(lines, "\n"))
+}
+
+func (m Model) renderNetSearchInput() []string {
+	source := "YouTube"
+	if m.netSearch.soundcloud {
+		source = "SoundCloud"
+	}
 	lines := []string{
 		titleStyle.Render("F I N D   O N L I N E"),
 		"",
-		playlistSelectedStyle.Render("  Search: " + m.netSearch.query + "_"),
+		dimStyle.Render("  Source: " + source),
 		"",
-		helpKey("Enter", "Search & Queue ") + helpKey("Ctrl+K", "Keys ") + helpKey("Esc", "Cancel"),
 	}
-	return m.centerOverlay(strings.Join(lines, "\n"))
+	if m.netSearch.loading {
+		lines = append(lines, dimStyle.Render("  Searching..."))
+	} else {
+		lines = append(lines, playlistSelectedStyle.Render("  Search: "+m.netSearch.query+"_"))
+	}
+	lines = append(lines, "", helpKey("Enter", "Search ")+helpKey("Ctrl+K", "Keys ")+helpKey("Esc", "Cancel"))
+	return lines
+}
+
+func (m Model) renderNetSearchResults() []string {
+	lines := []string{
+		titleStyle.Render("S E A R C H  R E S U L T S"),
+		"",
+	}
+
+	maxVisible := 12
+	rendered := 0
+
+	if len(m.netSearch.results) == 0 {
+		lines = append(lines, dimStyle.Render("  No results"))
+		rendered = 1
+	} else {
+		scroll := scrollStart(m.netSearch.cursor, maxVisible)
+		for i := scroll; i < len(m.netSearch.results) && i < scroll+maxVisible; i++ {
+			t := m.netSearch.results[i]
+			label := t.DisplayName()
+			label = truncate(label, ui.PanelWidth-8)
+			lines = append(lines, cursorLine(label, i == m.netSearch.cursor))
+			rendered++
+		}
+	}
+
+	lines = padLines(lines, maxVisible, rendered)
+	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d results", len(m.netSearch.results))))
+	lines = append(lines, "", helpKey("↓↑", "Scroll ")+helpKey("Enter", "Play ")+helpKey("a", "Append ")+helpKey("q", "Queue next ")+helpKey("Esc", "Back"))
+	return lines
 }
 
 func (m Model) renderURLInputOverlay() string {
@@ -493,7 +545,7 @@ func (m Model) renderSpotSearchResults() []string {
 
 	lines = padLines(lines, maxVisible, rendered)
 	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d results", len(m.spotSearch.results))))
-	lines = append(lines, "", helpKey("↓↑", "Scroll ")+helpKey("Enter", "Add to playlist ")+helpKey("Esc", "Back"))
+	lines = append(lines, "", helpKey("↓↑", "Scroll ")+helpKey("Enter", "Play ")+helpKey("a", "Append ")+helpKey("q", "Queue next ")+helpKey("p", "Spotify playlist ")+helpKey("Esc", "Back"))
 	return lines
 }
 

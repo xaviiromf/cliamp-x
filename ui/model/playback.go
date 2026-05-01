@@ -79,6 +79,66 @@ func (m *Model) playCurrentTrack() tea.Cmd {
 	return m.playTrack(activation.Track)
 }
 
+// playTrackImmediate appends a track to the playlist and starts playing it now,
+// stopping any current playback. Used by search-result "Play now" actions.
+func (m *Model) playTrackImmediate(track playlist.Track) tea.Cmd {
+	m.player.Stop()
+	m.player.ClearPreload()
+	m.playlist.Add(track)
+	idx := m.playlist.Len() - 1
+	m.playlist.SetIndex(idx)
+	m.plCursor = idx
+	m.adjustScroll()
+	m.status.Showf(statusTTLMedium, "Playing: %s", track.DisplayName())
+	cmd := m.playCurrentTrack()
+	m.notifyPlayback()
+	return cmd
+}
+
+// appendTrack appends a track to the playlist; auto-plays if nothing is playing.
+func (m *Model) appendTrack(track playlist.Track) tea.Cmd {
+	wasEmpty := m.playlist.Len() == 0
+	m.playlist.Add(track)
+	idx := m.playlist.Len() - 1
+	m.status.Showf(statusTTLMedium, "Added: %s", track.DisplayName())
+	if wasEmpty || !m.player.IsPlaying() {
+		m.playlist.SetIndex(idx)
+		m.plCursor = idx
+		m.adjustScroll()
+		cmd := m.playCurrentTrack()
+		m.notifyPlayback()
+		return cmd
+	}
+	return nil
+}
+
+// closeNetSearch fully resets the net search overlay and restores focus,
+// dropping any cached results so they don't linger between sessions.
+func (m *Model) closeNetSearch() {
+	m.netSearch = netSearchState{}
+	m.focus = m.prevFocus
+}
+
+// closeSpotSearch fully resets the Spotify search overlay, dropping cached
+// results, playlists, and the selected track.
+func (m *Model) closeSpotSearch() {
+	m.spotSearch = spotSearchState{}
+}
+
+// queueTrackNext adds a track to the playlist and queues it to play next.
+func (m *Model) queueTrackNext(track playlist.Track) tea.Cmd {
+	m.playlist.Add(track)
+	idx := m.playlist.Len() - 1
+	m.playlist.Queue(idx)
+	m.status.Showf(statusTTLMedium, "Queued: %s", track.DisplayName())
+	if !m.player.IsPlaying() {
+		cmd := m.nextTrack()
+		m.notifyPlayback()
+		return cmd
+	}
+	return nil
+}
+
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.
 // yt-dlp URLs are streamed via a piped yt-dlp | ffmpeg chain for instant playback.
 func (m *Model) playTrack(track playlist.Track) tea.Cmd {
