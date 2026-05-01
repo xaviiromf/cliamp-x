@@ -8,3 +8,4 @@ spotify.log
 docs/ideas.md
 /plugins.md
 .worktrees/
+config.backup.toml
