@@ -8,20 +8,6 @@ Built with [Bubbletea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](
 https://github.com/user-attachments/assets/fbc33d20-e3ac-4a62-a991-8a2f0243c8ea
 
 
-## Radio
-
-Tune in to our radio channel:
-
-```sh
-cliamp https://radio.cliamp.stream/lofi/stream.pls
-```
-
-Press `R` in the player to browse and search 30,000+ online radio stations from the [Radio Browser](https://www.radio-browser.info/) directory.
-
-Add your own stations to `~/.config/cliamp/radios.toml`. See [docs/configuration.md](docs/configuration.md#custom-radio-stations).
-
-Want to host your own radio? Check out [cliamp-server](https://github.com/bjarneo/cliamp-server).
-
 ## Install
 
 ```sh
@@ -91,6 +77,14 @@ cliamp setup
 ```
 
 It walks you through each provider, validates the connection, and writes the right block to `~/.config/cliamp/config.toml`. See [docs/cli.md](docs/cli.md#setup-wizard) for details.
+
+## Radio
+
+Press `R` in the player to browse and search 30,000+ online radio stations from the [Radio Browser](https://www.radio-browser.info/) directory.
+
+Add your own stations to `~/.config/cliamp/radios.toml`. See [docs/configuration.md](docs/configuration.md#custom-radio-stations).
+
+Want to host your own radio? Check out [cliamp-server](https://github.com/bjarneo/cliamp-server).
 
 ## Building from source
 
