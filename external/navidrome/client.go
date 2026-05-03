@@ -1,6 +1,7 @@
 package navidrome
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,7 @@ var (
 	_ provider.AlbumTrackLoader = (*NavidromeClient)(nil)
 	_ provider.AlbumSortSaver   = (*NavidromeClient)(nil)
 	_ provider.PlaybackReporter = (*NavidromeClient)(nil)
+	_ provider.Searcher         = (*NavidromeClient)(nil)
 )
 
 // httpClient is used for all Navidrome API calls with a finite timeout.
@@ -403,6 +406,35 @@ func (c *NavidromeClient) AlbumTracks(albumID string) ([]playlist.Track, error) 
 
 	var tracks []playlist.Track
 	for _, s := range result.SubsonicResponse.Album.Song {
+		tracks = append(tracks, c.songToTrack(s))
+	}
+	return tracks, nil
+}
+
+// SearchTracks searches the Subsonic library for songs matching query
+// using the search3.view endpoint. Implements provider.Searcher.
+func (c *NavidromeClient) SearchTracks(_ context.Context, query string, limit int) ([]playlist.Track, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	params := url.Values{
+		"query":       {query},
+		"songCount":   {strconv.Itoa(limit)},
+		"albumCount":  {"0"},
+		"artistCount": {"0"},
+	}
+	var result struct {
+		SubsonicResponse struct {
+			SearchResult3 struct {
+				Song []subsonicSong `json:"song"`
+			} `json:"searchResult3"`
+		} `json:"subsonic-response"`
+	}
+	if err := c.subsonicGet("search3", params, &result); err != nil {
+		return nil, err
+	}
+	tracks := make([]playlist.Track, 0, len(result.SubsonicResponse.SearchResult3.Song))
+	for _, s := range result.SubsonicResponse.SearchResult3.Song {
 		tracks = append(tracks, c.songToTrack(s))
 	}
 	return tracks, nil

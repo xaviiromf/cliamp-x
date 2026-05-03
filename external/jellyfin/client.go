@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -356,6 +357,39 @@ func (c *Client) Tracks(albumID string) ([]Track, error) {
 		"includeItemTypes":       {"Audio"},
 		"sortBy":                 {"ParentIndexNumber,IndexNumber,SortName"},
 		"sortOrder":              {"Ascending"},
+		"fields":                 {"RunTimeTicks"},
+		"enableTotalRecordCount": {"false"},
+	}
+
+	var resp itemsResponseDTO
+	if err := c.get("/Items", params, &resp); err != nil {
+		return nil, err
+	}
+
+	out := make([]Track, 0, len(resp.Items))
+	for _, it := range resp.Items {
+		out = append(out, trackFromItem(it))
+	}
+	return out, nil
+}
+
+// Search searches the user's audio library for tracks matching query and
+// returns up to limit results.
+func (c *Client) Search(query string, limit int) ([]Track, error) {
+	userID, err := c.UserID()
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	params := url.Values{
+		"userId":                 {userID},
+		"searchTerm":             {query},
+		"includeItemTypes":       {"Audio"},
+		"recursive":              {"true"},
+		"limit":                  {strconv.Itoa(limit)},
 		"fields":                 {"RunTimeTicks"},
 		"enableTotalRecordCount": {"false"},
 	}

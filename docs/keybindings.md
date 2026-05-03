@@ -49,7 +49,7 @@ Press `Ctrl+K` in the player to see all keybindings.
 | Key | Action |
 |---|---|
 | `f` | Toggle bookmark ★ on selected track (or favorite radio station in radio browser) |
-| `Ctrl+F` | Search — active provider's native search (Spotify) or YouTube |
+| `Ctrl+F` | Search — active provider's native search (Spotify, Navidrome, Jellyfin, Plex, Local) or YouTube fallback. Available from playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
 | `Ctrl+S` | Save track to ~/Music |

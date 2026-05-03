@@ -14,12 +14,19 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	key := msg.String()
+
+	if !m.navBrowser.searching && key == "ctrl+f" {
+		m.openProviderSearchWith(m.navBrowser.prov)
+		return nil
+	}
+
 	// Search bar: active on any list/track screen (not the mode menu).
 	if m.navBrowser.mode != navBrowseModeMenu {
 		if m.navBrowser.searching {
 			return m.handleNavSearchKey(msg)
 		}
-		if msg.String() == "/" {
+		if key == "/" {
 			// Toggle: if already filtered, clear; otherwise open.
 			if m.navBrowser.search != "" {
 				m.navClearSearch()

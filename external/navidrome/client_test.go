@@ -107,6 +107,24 @@ func subsonicHandler(t *testing.T) http.HandlerFunc {
 					}
 				}
 			}`))
+		case strings.HasSuffix(path, "/rest/search3"):
+			w.Write([]byte(`{
+				"subsonic-response": {
+					"status": "ok",
+					"searchResult3": {
+						"song": [
+							{
+								"id":"song-1","title":"So What","artist":"Miles Davis",
+								"album":"Kind of Blue","year":1959,"track":1,"genre":"Jazz","duration":565
+							},
+							{
+								"id":"song-7","title":"What'd I Say","artist":"Ray Charles",
+								"album":"What'd I Say","year":1959,"track":1,"genre":"Soul","duration":380
+							}
+						]
+					}
+				}
+			}`))
 		case strings.HasSuffix(path, "/rest/scrobble"):
 			w.Write([]byte(`{"subsonic-response":{"status":"ok"}}`))
 		default:
@@ -317,6 +335,28 @@ func TestAlbumTracks(t *testing.T) {
 	}
 	if tracks[0].Title != "So What" || tracks[0].DurationSecs != 565 {
 		t.Errorf("tracks[0] = %+v", tracks[0])
+	}
+}
+
+func TestSearchTracks(t *testing.T) {
+	c, srv := newTestClient(t)
+	defer srv.Close()
+
+	tracks, err := c.SearchTracks(t.Context(), "what", 20)
+	if err != nil {
+		t.Fatalf("SearchTracks() error: %v", err)
+	}
+	if len(tracks) != 2 {
+		t.Fatalf("expected 2 tracks, got %d", len(tracks))
+	}
+	if tracks[0].Title != "So What" {
+		t.Errorf("tracks[0].Title = %q, want %q", tracks[0].Title, "So What")
+	}
+	if !tracks[0].Stream {
+		t.Error("tracks[0].Stream should be true")
+	}
+	if tracks[0].Meta(provider.MetaNavidromeID) != "song-1" {
+		t.Errorf("tracks[0] meta navidrome id = %q, want song-1", tracks[0].Meta(provider.MetaNavidromeID))
 	}
 }
 

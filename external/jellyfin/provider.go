@@ -1,6 +1,7 @@
 package jellyfin
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ var (
 	_ provider.AlbumBrowser     = (*Provider)(nil)
 	_ provider.AlbumTrackLoader = (*Provider)(nil)
 	_ provider.PlaybackReporter = (*Provider)(nil)
+	_ provider.Searcher         = (*Provider)(nil)
 )
 
 // Provider implements playlist.Provider for a Jellyfin server.
@@ -117,6 +119,16 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 	return out, nil
 }
 
+// SearchTracks searches the Jellyfin music library for tracks matching query.
+// Implements provider.Searcher.
+func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]playlist.Track, error) {
+	jfTracks, err := p.client.Search(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	return p.toPlaylistTracks(jfTracks), nil
+}
+
 // Tracks returns the tracks for one album item.
 // Results are cached per album id.
 func (p *Provider) Tracks(albumID string) ([]playlist.Track, error) {
@@ -134,6 +146,21 @@ func (p *Provider) Tracks(albumID string) ([]playlist.Track, error) {
 		return nil, err
 	}
 
+	out := p.toPlaylistTracks(jfTracks)
+
+	p.mu.Lock()
+	if p.trackCache == nil {
+		p.trackCache = make(map[string][]playlist.Track)
+	}
+	p.trackCache[albumID] = out
+	p.mu.Unlock()
+
+	return out, nil
+}
+
+// toPlaylistTracks converts Jellyfin Tracks to playlist.Tracks, attaching the
+// authenticated stream URL and Jellyfin item ID metadata.
+func (p *Provider) toPlaylistTracks(jfTracks []Track) []playlist.Track {
 	out := make([]playlist.Track, 0, len(jfTracks))
 	for _, t := range jfTracks {
 		out = append(out, playlist.Track{
@@ -148,13 +175,5 @@ func (p *Provider) Tracks(albumID string) ([]playlist.Track, error) {
 			ProviderMeta: map[string]string{provider.MetaJellyfinID: t.ID},
 		})
 	}
-
-	p.mu.Lock()
-	if p.trackCache == nil {
-		p.trackCache = make(map[string][]playlist.Track)
-	}
-	p.trackCache[albumID] = out
-	p.mu.Unlock()
-
-	return out, nil
+	return out
 }

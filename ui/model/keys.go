@@ -192,6 +192,12 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.handleDeviceKey(msg)
 	}
 
+	// Provider search overlay sits on top of the nav browser, so it must
+	// claim keys first when both are visible.
+	if m.spotSearch.visible {
+		return m.handleSpotSearchKey(msg)
+	}
+
 	// Navidrome explore browser overlay
 	if m.navBrowser.visible {
 		return m.handleNavBrowserKey(msg)
@@ -266,10 +272,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.handleNetSearchKey(msg)
 	}
 
-	if m.spotSearch.visible {
-		return m.handleSpotSearchKey(msg)
-	}
-
 	if m.provSearch.active {
 		return m.handleProvSearchKey(msg)
 	}
@@ -336,8 +338,16 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.openJumpMode()
 		case "J":
 			return m.switchToProvider("jellyfin")
+		case "S":
+			return m.switchToProvider("spotify")
+		case "L":
+			return m.switchToProvider("local")
+		case "R":
+			return m.switchToProvider("radio")
 		case "ctrl+x":
 			m.toggleExpandPlaylist()
+		case "ctrl+f":
+			m.openProviderSearch()
 		}
 		return nil
 	}
@@ -643,22 +653,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.focus = focusSearch
 
 	case "ctrl+f":
-		// Context-aware search: active provider's native search if it supports
-		// Searcher (e.g. Spotify); otherwise YouTube net search.
-		if _, ok := m.provider.(provider.Searcher); ok {
-			m.spotSearch = spotSearchState{
-				prov:    m.provider,
-				visible: true,
-				screen:  spotSearchInput,
-			}
-		} else {
-			m.netSearch = netSearchState{
-				active: true,
-				screen: netSearchInput,
-			}
-			m.prevFocus = m.focus
-			m.focus = focusNetSearch
-		}
+		m.openProviderSearch()
 
 	case "ctrl+j":
 		m.openJumpMode()
@@ -827,6 +822,32 @@ func (m *Model) resetJumpInput() {
 func (m *Model) openJumpMode() {
 	m.jumping = true
 	m.resetJumpInput()
+}
+
+// openProviderSearch opens the active provider's native search overlay if it
+// implements provider.Searcher; otherwise it falls back to the YouTube net
+// search overlay.
+func (m *Model) openProviderSearch() {
+	m.openProviderSearchWith(m.provider)
+}
+
+// openProviderSearchWith opens a search overlay against the given provider.
+// Falls back to YouTube net search when prov doesn't implement Searcher.
+func (m *Model) openProviderSearchWith(prov playlist.Provider) {
+	if _, ok := prov.(provider.Searcher); ok {
+		m.spotSearch = spotSearchState{
+			prov:    prov,
+			visible: true,
+			screen:  spotSearchInput,
+		}
+		return
+	}
+	m.netSearch = netSearchState{
+		active: true,
+		screen: netSearchInput,
+	}
+	m.prevFocus = m.focus
+	m.focus = focusNetSearch
 }
 
 func (m *Model) closeJumpMode() {

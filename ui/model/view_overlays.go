@@ -507,7 +507,7 @@ func (m Model) renderSpotSearch() string {
 
 func (m Model) renderSpotSearchInput() []string {
 	lines := []string{
-		titleStyle.Render("S P O T I F Y  S E A R C H"),
+		titleStyle.Render("S E A R C H"),
 		"",
 	}
 
@@ -545,7 +545,7 @@ func (m Model) renderSpotSearchResults() []string {
 
 	lines = padLines(lines, maxVisible, rendered)
 	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d results", len(m.spotSearch.results))))
-	lines = append(lines, "", helpKey("↓↑", "Scroll ")+helpKey("Enter", "Play ")+helpKey("a", "Append ")+helpKey("q", "Queue next ")+helpKey("p", "Spotify playlist ")+helpKey("Esc", "Back"))
+	lines = append(lines, "", helpKey("↓↑", "Scroll ")+helpKey("Enter", "Play ")+helpKey("a", "Append ")+helpKey("q", "Queue next ")+helpKey("p", "Add to playlist ")+helpKey("Esc", "Back"))
 	return lines
 }
 

@@ -24,6 +24,7 @@ import (
 var (
 	_ provider.PlaylistWriter  = (*Provider)(nil)
 	_ provider.PlaylistDeleter = (*Provider)(nil)
+	_ provider.Searcher        = (*Provider)(nil)
 )
 
 // Provider reads and writes TOML-based playlists stored on disk.
@@ -223,6 +224,63 @@ func (p *Provider) SavePlaylist(name string, tracks []playlist.Track) error {
 // Implements provider.PlaylistWriter.
 func (p *Provider) AddTrackToPlaylist(_ context.Context, playlistID string, track playlist.Track) error {
 	return p.AddTrack(playlistID, track)
+}
+
+// SearchTracks does a case-insensitive substring search across every saved
+// playlist for tracks whose title, artist, or album match query. Returns up to
+// limit results (limit <= 0 means no cap). Implements provider.Searcher.
+func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]playlist.Track, error) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return nil, nil
+	}
+
+	entries, err := os.ReadDir(p.dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var out []playlist.Track
+	seen := make(map[string]struct{})
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".toml") {
+			continue
+		}
+		tracks, err := p.loadTOML(filepath.Join(p.dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		for _, t := range tracks {
+			if _, dup := seen[t.Path]; dup {
+				continue
+			}
+			if !trackMatches(t, q) {
+				continue
+			}
+			seen[t.Path] = struct{}{}
+			out = append(out, t)
+			if limit > 0 && len(out) >= limit {
+				return out, nil
+			}
+		}
+	}
+	return out, nil
+}
+
+func trackMatches(t playlist.Track, lowerQuery string) bool {
+	if strings.Contains(strings.ToLower(t.Title), lowerQuery) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(t.Artist), lowerQuery) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(t.Album), lowerQuery) {
+		return true
+	}
+	return false
 }
 
 // DeletePlaylist removes the TOML file for the named playlist.

@@ -77,7 +77,7 @@ func ApplyThemeColors(t theme.Theme) {
 		ColorSeekBar = lipgloss.Color(t.Accent)
 		ColorVolume = lipgloss.Color(t.Green)
 		ColorError = lipgloss.Color(t.Red)
-		ColorKeyBG = lipgloss.Color(t.FG)
+		ColorKeyBG = lipgloss.Color(t.Accent)
 		ColorKeyFG = lipgloss.Color(t.BrightFG)
 		SpectrumLow = lipgloss.Color(t.Green)
 		SpectrumMid = lipgloss.Color(t.Yellow)
