@@ -83,12 +83,14 @@ func (d *terrainDriver) Tick(v *Visualizer, ctx VisTickContext) {
 	// Scroll left by 2 dot columns per frame for visible movement.
 	copy(d.buf, d.buf[2:])
 
-	// Compute new rightmost height from average spectrum energy.
+	// Compute new rightmost height from average smoothed spectrum energy
+	// so successive scrolled columns glide instead of stepping at the FFT rate.
+	bands := v.SmoothedBands()
 	var totalEnergy float64
-	for _, e := range v.bands {
+	for _, e := range bands {
 		totalEnergy += e
 	}
-	avg := totalEnergy / float64(len(v.bands))
+	avg := totalEnergy / float64(max(1, len(bands)))
 
 	// Two new columns with slight noise for organic ridge edges.
 	d.buf[dotCols-2] = min(1.0, avg+scatterHash(0, 0, 0, v.frame)*0.12)

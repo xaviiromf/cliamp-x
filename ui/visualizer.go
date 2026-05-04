@@ -14,6 +14,9 @@ const (
 	DefaultVisRows       = 5
 	minSpectrumHz        = 20.0
 	maxSpectrumHz        = 20000.0
+	// Cap on dt fed into smoothing easing — long gaps (sleep, paused, stalled
+	// frame) step like ~1 frame instead of integrating over a huge interval.
+	maxSmoothDtFrames = 10
 )
 
 var legacySpectrumEdges = [DefaultSpectrumBands + 1]float64{
@@ -274,7 +277,7 @@ func (d *renderOnlyDriver) AnalysisSpec(*Visualizer) VisAnalysisSpec {
 }
 
 func (d *renderOnlyDriver) Render(v *Visualizer) string {
-	return d.render(v, v.bands)
+	return d.render(v, v.SmoothedBands())
 }
 
 func (d *renderOnlyDriver) Tick(v *Visualizer, ctx VisTickContext) {
@@ -323,19 +326,40 @@ func newNoOpDriver() visModeDriver {
 }
 
 func defaultDriverTick(v *Visualizer, ctx VisTickContext, spec VisAnalysisSpec) {
-	if ctx.OverlayActive || ctx.Analyze == nil {
+	if ctx.OverlayActive {
+		// Reset both clocks so the first tick after dismissal analyzes
+		// immediately and smoothing dt resets to a single-frame step.
+		v.lastAnalyzeAt = time.Time{}
+		v.lastSmoothTick = time.Time{}
 		return
 	}
 	spec = NormalizeAnalysisSpec(spec)
-	bands := ctx.Analyze(spec)
+	if ctx.Analyze != nil {
+		// Decouple FFT cadence from animation cadence: skip Analyze if we ran
+		// it recently. Animation still advances every tick via advanceSmoothing.
+		due := v.lastAnalyzeAt.IsZero() || ctx.Now.IsZero() ||
+			ctx.Now.Sub(v.lastAnalyzeAt) >= TickAnalyze
+		if due {
+			bands := ctx.Analyze(spec)
+			if spec.BandCount > 0 {
+				v.bands = bands
+			}
+			if !ctx.Now.IsZero() {
+				v.lastAnalyzeAt = ctx.Now
+			}
+		}
+	}
+	// Always ease toward the most recent target — even when Analyze is nil
+	// or skipped — so animation stays smooth across analysis gaps.
 	if spec.BandCount > 0 {
-		v.bands = bands
+		v.advanceSmoothing(ctx.Now)
 	}
 }
 
-// defaultDriverTickInterval uses fast ticks only when audio is actively playing with a live
-// visualizer. Paused/stopped playback has no new audio samples, so slow ticks are sufficient
-// and save CPU/GPU repaints. Overlays use slow ticks as well.
+// defaultDriverTickInterval uses fast ticks only when audio is actively playing
+// with a live visualizer. Paused/stopped playback has no new audio samples, so
+// slow ticks are sufficient and save CPU/GPU repaints. Overlays use slow ticks
+// as well. Bar-style spectrum drivers opt into TickAnim via newFastRenderOnlyDriver.
 func defaultDriverTickInterval(ctx VisTickContext) time.Duration {
 	if ctx.OverlayActive {
 		return TickSlow
@@ -356,6 +380,9 @@ type Visualizer struct {
 	windowCache     map[int][]float64
 	resultBufCache  map[VisAnalysisSpec][]float64 // reusable output buffers for Analyze(), keyed by spec
 	bands           []float64
+	smoothedBands   []float64 // bands with sub-tick exponential easing toward v.bands
+	lastSmoothTick  time.Time // wall clock of the last advanceSmoothing call
+	lastAnalyzeAt   time.Time // wall clock of the last FFT analysis
 	sr              float64
 	Mode            VisMode
 	Rows            int       // display height in terminal rows (default 5)
@@ -404,12 +431,12 @@ func (v *Visualizer) CycleMode() {
 // visModes is the single source of truth for all visualizer modes.
 // To add a new mode: add a const, add one line here, create a vis_*.go file.
 var visModes = [VisCount]visEntry{
-	VisBars:        {"Bars", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBars)},
-	VisBarsDot:     {"BarsDot", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBarsDot)},
+	VisBars:        {"Bars", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderBars)},
+	VisBarsDot:     {"BarsDot", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderBarsDot)},
 	VisRain:        {"Rain", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderRain)},
-	VisBarsOutline: {"BarsOutline", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBarsOutline)},
-	VisBricks:      {"Bricks", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderBricks)},
-	VisColumns:     {"Columns", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderColumns)},
+	VisBarsOutline: {"BarsOutline", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderBarsOutline)},
+	VisBricks:      {"Bricks", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderBricks)},
+	VisColumns:     {"Columns", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderColumns)},
 	VisClassicPeak: {"ClassicPeak", newClassicPeakDriver},
 	VisWave:        {"Wave", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderWave() })},
 	VisScatter:     {"Scatter", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderScatter)},
@@ -426,7 +453,7 @@ var visModes = [VisCount]visEntry{
 	VisScope:       {"Scope", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderScope() })},
 	VisHeartbeat:   {"Heartbeat", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderHeartbeat() })},
 	VisButterfly:   {"Butterfly", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderButterfly)},
-	VisAscii:       {"Ascii", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderAscii)},
+	VisAscii:       {"Ascii", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderAscii)},
 	VisNone:        {"None", newNoOpDriver},
 }
 
@@ -719,6 +746,47 @@ func (v *Visualizer) SampleBuf() []float64 { return v.sampleBuf }
 
 // Bands returns the current spectrum band values.
 func (v *Visualizer) Bands() []float64 { return v.bands }
+
+// SmoothedBands returns the eased per-frame band values used by spectrum
+// renderers. Falls back to the raw bands until smoothing has run at least
+// once.
+func (v *Visualizer) SmoothedBands() []float64 {
+	if v == nil {
+		return nil
+	}
+	if len(v.smoothedBands) == len(v.bands) && len(v.smoothedBands) > 0 {
+		return v.smoothedBands
+	}
+	return v.bands
+}
+
+// advanceSmoothing eases v.smoothedBands toward v.bands using the same
+// fast-attack / slow-decay shape as classicPeak's per-bar smoothing
+// (classicPeakStep), so every spectrum visualizer glides between FFT samples
+// instead of snapping at the analysis rate.
+func (v *Visualizer) advanceSmoothing(now time.Time) {
+	if v == nil || len(v.bands) == 0 {
+		return
+	}
+	if len(v.smoothedBands) != len(v.bands) {
+		// First frame after a spec change snaps to the current analysis output
+		// so existing levels appear immediately instead of fading in from zero.
+		v.smoothedBands = append(v.smoothedBands[:0], v.bands...)
+		v.lastSmoothTick = now
+		return
+	}
+	dt := TickAnim.Seconds()
+	if !now.IsZero() && !v.lastSmoothTick.IsZero() {
+		dt = now.Sub(v.lastSmoothTick).Seconds()
+	}
+	if dt <= 0 || dt > maxSmoothDtFrames*TickAnim.Seconds() {
+		dt = TickAnim.Seconds()
+	}
+	v.lastSmoothTick = now
+	for i, target := range v.bands {
+		v.smoothedBands[i] = classicPeakStep(v.smoothedBands[i], target, dt)
+	}
+}
 
 // Frame returns the current animation frame counter.
 func (v *Visualizer) Frame() uint64 { return v.frame }

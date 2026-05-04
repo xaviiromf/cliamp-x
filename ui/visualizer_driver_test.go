@@ -73,7 +73,9 @@ func TestAverageSpectrumRangeLinearDistinguishesSubBinLowBands(t *testing.T) {
 
 func TestRenderOnlyDriverUsesDefaultTickInterval(t *testing.T) {
 	v := NewVisualizer(44100)
-	activateMode(t, v, VisBars)
+	// Pulse is a per-frame-animated spectrum mode and stays on the default
+	// (TickFast) cadence — VisBars/Bricks/Columns/etc. opt into TickAnim.
+	activateMode(t, v, VisPulse)
 
 	if got := v.TickInterval(VisTickContext{Playing: true}); got != TickFast {
 		t.Fatalf("TickInterval(playing) = %v, want %v", got, TickFast)
@@ -83,6 +85,81 @@ func TestRenderOnlyDriverUsesDefaultTickInterval(t *testing.T) {
 	}
 	if got := v.TickInterval(VisTickContext{}); got != TickSlow {
 		t.Fatalf("TickInterval(idle) = %v, want %v", got, TickSlow)
+	}
+}
+
+func TestSmoothBarsDriverUsesAnimTick(t *testing.T) {
+	v := NewVisualizer(44100)
+	activateMode(t, v, VisBars)
+
+	if got := v.TickInterval(VisTickContext{Playing: true}); got != TickAnim {
+		t.Fatalf("Bars TickInterval(playing) = %v, want %v", got, TickAnim)
+	}
+}
+
+func TestAdvanceSmoothingEasesTowardBands(t *testing.T) {
+	v := NewVisualizer(44100)
+	v.bands = []float64{1.0, 0.0}
+	v.smoothedBands = []float64{0.0, 1.0}
+
+	t0 := time.Unix(0, 0)
+	v.lastSmoothTick = t0
+	v.advanceSmoothing(t0.Add(TickAnim))
+
+	// Expectations derive from the same easing call the implementation uses,
+	// so changes to the rate constants don't silently invalidate the test.
+	dt := TickAnim.Seconds()
+	wantRise := classicPeakStep(0, 1, dt)
+	wantFall := classicPeakStep(1, 0, dt)
+	if got := v.smoothedBands[0]; math.Abs(got-wantRise) > 1e-9 {
+		t.Fatalf("rise step = %v, want %v", got, wantRise)
+	}
+	if got := v.smoothedBands[1]; math.Abs(got-wantFall) > 1e-9 {
+		t.Fatalf("fall step = %v, want %v", got, wantFall)
+	}
+	if (1 - wantFall) >= wantRise {
+		t.Fatalf("expected decay slower than attack: rise %v, fall %v", wantRise, wantFall)
+	}
+}
+
+func TestAdvanceSmoothingResizesOnBandCountChange(t *testing.T) {
+	v := NewVisualizer(44100)
+	v.smoothedBands = []float64{0.5, 0.5}
+	v.bands = []float64{0.1, 0.2, 0.3}
+	v.advanceSmoothing(time.Time{})
+
+	if len(v.smoothedBands) != len(v.bands) {
+		t.Fatalf("smoothedBands len = %d, want %d", len(v.smoothedBands), len(v.bands))
+	}
+	for i, got := range v.smoothedBands {
+		if got != v.bands[i] {
+			t.Fatalf("smoothedBands[%d] = %v, want %v after resync", i, got, v.bands[i])
+		}
+	}
+}
+
+func TestDefaultDriverTickGatesAnalyzeAtAnalyzeCadence(t *testing.T) {
+	v := NewVisualizer(44100)
+	activateMode(t, v, VisBars)
+
+	calls := 0
+	analyze := func(spec VisAnalysisSpec) []float64 {
+		calls++
+		return uniformBandsN(spec.BandCount, 0.4)
+	}
+
+	t0 := time.Unix(0, 0)
+	// First tick analyzes (no prior timestamp).
+	v.Tick(VisTickContext{Now: t0, Playing: true, Analyze: analyze})
+	// A tick well within TickAnalyze should NOT analyze again.
+	v.Tick(VisTickContext{Now: t0.Add(TickAnim), Playing: true, Analyze: analyze})
+	if calls != 1 {
+		t.Fatalf("Analyze() calls within analyze window = %d, want 1", calls)
+	}
+	// Past TickAnalyze, it should analyze again.
+	v.Tick(VisTickContext{Now: t0.Add(TickAnalyze + time.Millisecond), Playing: true, Analyze: analyze})
+	if calls != 2 {
+		t.Fatalf("Analyze() calls after analyze window = %d, want 2", calls)
 	}
 }
 
