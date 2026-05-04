@@ -298,6 +298,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			if len(m.providerLists) > 0 && !m.provLoading {
 				m.provLoading = true
+				m.activeProviderPlaylistID = m.providerLists[m.provCursor].ID
 				return fetchTracksCmd(m.provider, m.providerLists[m.provCursor].ID)
 			}
 		case "tab":
@@ -316,6 +317,14 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.provSearch.query = ""
 			m.provSearch.results = nil
 			m.provSearch.cursor = 0
+		case "ctrl+r":
+			if m.provider != nil && !m.provLoading {
+				m.providerLists = nil
+				m.provLoading = true
+				m.activeProviderPlaylistID = ""
+				m.status.Showf(statusTTLShort, "Refreshing %s…", m.provider.Name())
+				return fetchPlaylistsCmd(m.provider)
+			}
 		case "f":
 			return m.toggleProviderFavorite()
 		case "o":
@@ -913,6 +922,7 @@ func (m *Model) handleProvSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.providerMaybeAdjustScroll()
 			m.provLoading = true
 			m.provSearch.active = false
+			m.activeProviderPlaylistID = m.providerLists[idx].ID
 			return fetchTracksCmd(m.provider, m.providerLists[idx].ID)
 		}
 	case tea.KeyUp:
@@ -1265,6 +1275,13 @@ func (m *Model) handleURLInputKey(msg tea.KeyPressMsg) tea.Cmd {
 
 // handlePlaylistManagerKey dispatches keys to the active manager screen.
 func (m *Model) handlePlaylistManagerKey(msg tea.KeyPressMsg) tea.Cmd {
+	// Quick-switch (Shift+letter) jumps to another provider. Only honored when
+	// the manager isn't currently capturing text input (filter, new-name).
+	if m.plManager.screen != plMgrScreenNewName && !m.plManager.filtering {
+		if cmd := m.quickSwitchProvider(msg.String()); cmd != nil {
+			return cmd
+		}
+	}
 	switch m.plManager.screen {
 	case plMgrScreenList:
 		return m.handlePlMgrListKey(msg)

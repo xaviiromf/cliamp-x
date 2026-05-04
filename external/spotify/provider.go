@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -265,6 +266,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		ID:         "YOUR MUSIC",
 		Name:       "Your Music",
 		TrackCount: result.Total,
+		Section:    "Library",
 	})
 	p.mu.Unlock()
 
@@ -298,10 +300,15 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 			if item.Items != nil {
 				count = item.Items.Total
 			}
+			section := "Followed playlists"
+			if userID != "" && item.Owner.ID == userID {
+				section = "Your playlists"
+			}
 			all = append(all, playlist.PlaylistInfo{
 				ID:         item.ID,
 				Name:       item.Name,
 				TrackCount: count,
+				Section:    section,
 			})
 			// Update snapshot_id in cache; if it changed, invalidate cached tracks.
 			if cached, ok := p.trackCache[item.ID]; ok {
@@ -321,6 +328,17 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		}
 		offset += limit
 	}
+
+	// Group playlists by section so the UI can emit one header per group.
+	// Library first, then owned, then followed; preserve API order within.
+	sectionOrder := map[string]int{
+		"Library":            0,
+		"Your playlists":     1,
+		"Followed playlists": 2,
+	}
+	sort.SliceStable(all, func(i, j int) bool {
+		return sectionOrder[all[i].Section] < sectionOrder[all[j].Section]
+	})
 
 	p.mu.Lock()
 	p.listCache = all

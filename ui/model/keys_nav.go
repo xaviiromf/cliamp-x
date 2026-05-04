@@ -21,6 +21,14 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	// Shift+letter quick-switch to another provider — only when not typing
+	// into the filter, so users can still type capital letters in queries.
+	if !m.navBrowser.searching {
+		if cmd := m.quickSwitchProvider(key); cmd != nil {
+			return cmd
+		}
+	}
+
 	// Search bar: active on any list/track screen (not the mode menu).
 	if m.navBrowser.mode != navBrowseModeMenu {
 		if m.navBrowser.searching {
@@ -59,10 +67,14 @@ func (m *Model) handleNavMenuKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "up", "k":
 		if m.navBrowser.cursor > 0 {
 			m.navBrowser.cursor--
+		} else {
+			m.navBrowser.cursor = menuItems - 1
 		}
 	case "down", "j":
 		if m.navBrowser.cursor < menuItems-1 {
 			m.navBrowser.cursor++
+		} else {
+			m.navBrowser.cursor = 0
 		}
 	case "enter", "l", "right":
 		switch m.navBrowser.cursor {
@@ -158,13 +170,17 @@ func (m *Model) handleNavArtistListKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "up", "k":
 		if m.navBrowser.cursor > 0 {
 			m.navBrowser.cursor--
-			m.navMaybeAdjustScroll()
+		} else if listLen > 0 {
+			m.navBrowser.cursor = listLen - 1
 		}
+		m.navMaybeAdjustScroll()
 	case "down", "j":
 		if m.navBrowser.cursor < listLen-1 {
 			m.navBrowser.cursor++
-			m.navMaybeAdjustScroll()
+		} else if listLen > 0 {
+			m.navBrowser.cursor = 0
 		}
+		m.navMaybeAdjustScroll()
 	case "enter", "l", "right":
 		if m.navBrowser.loading || len(m.navBrowser.artists) == 0 {
 			return nil
@@ -218,8 +234,10 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 	case "up", "k":
 		if m.navBrowser.cursor > 0 {
 			m.navBrowser.cursor--
-			m.navMaybeAdjustScroll()
+		} else if listLen > 0 {
+			m.navBrowser.cursor = listLen - 1
 		}
+		m.navMaybeAdjustScroll()
 	case "down", "j":
 		if m.navBrowser.cursor < listLen-1 {
 			m.navBrowser.cursor++
@@ -231,6 +249,9 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 					return fetchNavAlbumListCmd(ab, m.navBrowser.sortType, len(m.navBrowser.albums))
 				}
 			}
+		} else if listLen > 0 {
+			m.navBrowser.cursor = 0
+			m.navMaybeAdjustScroll()
 		}
 	case "enter", "l", "right":
 		if (m.navBrowser.loading && !artistAlbums) || len(m.navBrowser.albums) == 0 {
@@ -299,16 +320,20 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "up", "k":
 		if m.navBrowser.cursor > 0 {
 			m.navBrowser.cursor--
-			m.navMaybeAdjustScroll()
+		} else if listLen > 0 {
+			m.navBrowser.cursor = listLen - 1
 		}
+		m.navMaybeAdjustScroll()
 	case "down", "j":
 		if m.navBrowser.cursor < listLen-1 {
 			m.navBrowser.cursor++
-			m.navMaybeAdjustScroll()
+		} else if listLen > 0 {
+			m.navBrowser.cursor = 0
 		}
+		m.navMaybeAdjustScroll()
 	case "enter":
-		// Play the selected track immediately, then enqueue everything from that
-		// position to the end of the list (capped at 500 total tracks added).
+		// Play the highlighted track immediately, then enqueue everything from
+		// that position to the end of the list (capped at 500 total tracks).
 		if len(m.navBrowser.tracks) == 0 {
 			return nil
 		}
@@ -321,10 +346,8 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.player.Stop()
 			m.player.ClearPreload()
 
-			// Build the slice of tracks to add: from rawIdx to end (or 500 max).
 			var toAdd []playlist.Track
 			if len(m.navBrowser.searchIdx) > 0 {
-				// Filtered: use positions from navCursor onward in the filtered list.
 				for j := m.navBrowser.cursor; j < len(m.navBrowser.searchIdx) && len(toAdd) < maxAdd; j++ {
 					toAdd = append(toAdd, m.navBrowser.tracks[m.navBrowser.searchIdx[j]])
 				}
@@ -352,7 +375,6 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		// Replace playlist with all displayed tracks and close browser.
 		tracks := m.navBrowser.tracks
 		if len(m.navBrowser.searchIdx) > 0 {
-			// Replace with only the filtered subset.
 			filtered := make([]playlist.Track, 0, len(m.navBrowser.searchIdx))
 			for _, i := range m.navBrowser.searchIdx {
 				filtered = append(filtered, m.navBrowser.tracks[i])
@@ -395,7 +417,7 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 		}
 	case "q":
-		// Add selected track to playlist and queue it to play next.
+		// Add the highlighted track and queue it to play next.
 		if len(m.navBrowser.tracks) == 0 {
 			return nil
 		}

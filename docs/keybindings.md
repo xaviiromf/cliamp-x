@@ -84,6 +84,42 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `←` `Backspace` `h` | Tracks screen: go back to the list |
 | `p` `Esc` | Close the playlist manager |
 
+## Provider browser (`N` key)
+
+When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Spotify, YouTube Music), the album/artist/track screens use:
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k` | Move cursor (wraps top↔bottom) |
+| `←` `→` / `h` `l` | Back / drill in |
+| `/` | Filter the visible list (search bar appears under the title) |
+| `Enter` | Open (artists/albums) · play the highlighted track and queue the rest of the visible list |
+| `R` | Replace the queue with all visible tracks (start from the top) |
+| `a` | Append all visible tracks to the queue |
+| `q` | Queue the highlighted track to play next |
+| `s` | Cycle album sort (album list only) |
+| `S` `N` `P` `J` `Y` `L` `R` | Quick-switch to that provider without going back through the main pane |
+| `Esc` `b` | Walk back one level / close the browser |
+
+The track screen shows a `N tracks · 47:22` subtitle and right-aligned per-track durations when the provider returns them.
+
+## Provider playlist list
+
+The playlists pane (visible when focus is on a provider — Spotify, Navidrome, Local Playlists, etc.):
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k` | Move cursor (wraps) |
+| `Enter` | Load the highlighted playlist's tracks into the queue |
+| `/` | Filter the playlist list |
+| `Ctrl+F` | Online/server search (Spotify/Navidrome/etc.'s own search) |
+| `Ctrl+R` | Refresh — re-pull the playlist list from the provider |
+| `S` `N` `P` `J` `Y` `L` `R` | Switch to that provider |
+| `Tab` | Switch focus to EQ |
+| `Esc` `b` | Back to the playlist pane |
+
+Playlist rows show `Name · N tracks · 1h 23m` when the provider returns track counts and total duration. The currently loaded playlist is marked with a `▶` prefix. Spotify groups its playlists under section headers (`── library ──`, `── your playlists ──`, `── followed playlists ──`).
+
 ## Search results overlays
 
 When `Ctrl+F` opens the Spotify search or YouTube/SoundCloud net search and you're viewing the results list:

@@ -214,6 +214,11 @@ type Model struct {
 
 	loadedPlaylist string // name of the currently loaded local playlist (for resume)
 
+	// activeProviderPlaylistID is the ID of the most recently loaded playlist
+	// from a non-local provider (Spotify, Navidrome, …). Used to highlight that
+	// row in the provider browser. Empty when no provider playlist is active.
+	activeProviderPlaylistID string
+
 	// exitResume holds the playback state captured just before player.Close()
 	// so ResumeState() can read it after the player is shut down.
 	exitResume struct {

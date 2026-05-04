@@ -28,6 +28,87 @@ var (
 	activeToggle  = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 )
 
+// renderProviderEmptyState explains why the playlists pane is empty for the
+// current provider and offers a remediation hint. Always pads to budget so the
+// pane height stays stable.
+func (m Model) renderProviderEmptyState(budget int) string {
+	name := "this provider"
+	if m.provider != nil {
+		name = m.provider.Name()
+	}
+	lines := []string{
+		dimStyle.Render(fmt.Sprintf("  No playlists in %s.", name)),
+		"",
+		dimStyle.Render("  Press ") + helpKeyStyle.Render(" Ctrl+R ") + dimStyle.Render(" to refresh."),
+	}
+	for _, hint := range providerEmptyStateHints(m.provider) {
+		lines = append(lines, dimStyle.Render("  "+hint))
+	}
+	for len(lines) < budget {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// providerEmptyStateHints returns provider-specific guidance shown beneath the
+// generic empty state, e.g. "Add files to ~/.config/cliamp/playlists/".
+func providerEmptyStateHints(p playlist.Provider) []string {
+	if p == nil {
+		return nil
+	}
+	switch strings.ToLower(p.Name()) {
+	case "local playlists", "local":
+		return []string{"Add .toml playlists to ~/.config/cliamp/playlists/."}
+	case "spotify":
+		return []string{"Sign in via Spotify, or check SPOTIFY_REFRESH_TOKEN."}
+	case "navidrome":
+		return []string{"Verify [navidrome] url/username/password in config.toml."}
+	case "jellyfin":
+		return []string{"Verify [jellyfin] url and token in config.toml."}
+	case "plex":
+		return []string{"Verify [plex] server URL and token in config.toml."}
+	case "youtube music", "ytmusic":
+		return []string{"Run `cliamp ytmusic-login` to authorize, then refresh."}
+	}
+	return nil
+}
+
+// providerListHasSections reports whether any row carries a non-empty Section
+// label, in which case renderProviderList emits per-section dividers.
+func providerListHasSections(list []playlist.PlaylistInfo) bool {
+	for _, p := range list {
+		if p.Section != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// providerRowStyle picks the prefix and style for a provider-list row.
+// Cursor takes precedence; "currently loaded" gets the active-track style and
+// the ▶ prefix so users can see at a glance which playlist is in the queue.
+func (m Model) providerRowStyle(p playlist.PlaylistInfo, isCursor bool) (string, lipgloss.Style) {
+	if isCursor {
+		return "> ", playlistSelectedStyle
+	}
+	if m.isProviderRowActive(p) {
+		return "▶ ", playlistActiveStyle
+	}
+	return "  ", playlistItemStyle
+}
+
+// isProviderRowActive reports whether the given playlist is the one whose
+// tracks are currently loaded into the player.
+func (m Model) isProviderRowActive(p playlist.PlaylistInfo) bool {
+	if m.activeProviderPlaylistID != "" && m.activeProviderPlaylistID == p.ID {
+		return true
+	}
+	if m.loadedPlaylist != "" && m.loadedPlaylist == p.Name {
+		return true
+	}
+	return false
+}
+
 // playlistLabel formats a playlist entry, omitting fields the provider didn't
 // supply. Track count and total duration are appended when available.
 func playlistLabel(prefix string, p playlist.PlaylistInfo) string {
@@ -499,10 +580,14 @@ func (m Model) renderProviderList() string {
 		return dimStyle.Render(fmt.Sprintf("  Sign in to %s. Press Enter to continue.", m.provider.Name()))
 	}
 	if m.provLoading {
-		return dimStyle.Render(fmt.Sprintf("  Loading %s...", m.provider.Name()))
+		lines := []string{loadingLine(fmt.Sprintf("Loading %s…", m.provider.Name()))}
+		for len(lines) < visibleBudget {
+			lines = append(lines, "")
+		}
+		return strings.Join(lines, "\n")
 	}
 	if len(m.providerLists) == 0 {
-		return dimStyle.Render("  No playlists found.\n  Add playlists to ~/.config/cliamp/playlists/")
+		return m.renderProviderEmptyState(visibleBudget)
 	}
 
 	sl, isRadio := m.provider.(provider.SectionedList)
@@ -528,11 +613,7 @@ func (m Model) renderProviderList() string {
 				for j := scroll; j < scroll+visible && j < len(m.provSearch.results); j++ {
 					idx := m.provSearch.results[j]
 					p := m.providerLists[idx]
-					prefix, style := "  ", playlistItemStyle
-					if j == m.provSearch.cursor {
-						style = playlistSelectedStyle
-						prefix = "> "
-					}
+					prefix, style := m.providerRowStyle(p, j == m.provSearch.cursor)
 					lines = append(lines, style.Render(playlistLabel(prefix, p)))
 				}
 				lines = append(lines, dimStyle.Render(fmt.Sprintf("  %d/%d playlists", len(m.provSearch.results), len(m.providerLists))))
@@ -547,6 +628,8 @@ func (m Model) renderProviderList() string {
 			scroll = m.provCursor
 		}
 
+		hasSections := !isRadio && providerListHasSections(m.providerLists)
+
 		if isRadio {
 			for scroll < len(m.providerLists)-1 && m.providerRowsFromScroll(sl, scroll, m.provCursor) > visibleBudget {
 				scroll++
@@ -558,6 +641,10 @@ func (m Model) renderProviderList() string {
 		prevPrefix := ""
 		if isRadio && scroll > 0 {
 			prevPrefix = sl.IDPrefix(m.providerLists[scroll-1].ID)
+		}
+		prevSection := ""
+		if hasSections && scroll > 0 {
+			prevSection = m.providerLists[scroll-1].Section
 		}
 
 		for j := scroll; j < len(m.providerLists) && len(lines) < visibleBudget; j++ {
@@ -580,24 +667,26 @@ func (m Model) renderProviderList() string {
 					}
 					prevPrefix = pfx
 				}
+			} else if hasSections && p.Section != prevSection {
+				header := "  ── " + strings.ToLower(p.Section) + " ──"
+				if len(lines) < visibleBudget {
+					lines = append(lines, dimStyle.Render(header))
+				}
+				prevSection = p.Section
 			}
 
 			if len(lines) >= visibleBudget {
 				break
 			}
 
-			prefix, style := "  ", playlistItemStyle
-			if j == m.provCursor {
-				style = playlistSelectedStyle
-				prefix = "> "
-			}
+			prefix, style := m.providerRowStyle(p, j == m.provCursor)
 			lines = append(lines, style.Render(playlistLabel(prefix, p)))
 		}
 	}
 
 	// Loading indicator for catalog batch (never displace selected row if full).
 	if isRadio && m.catalogBatch.loading && len(lines) < visibleBudget {
-		lines = append(lines, dimStyle.Render("  Loading more stations..."))
+		lines = append(lines, loadingLine("Loading more stations…"))
 	}
 
 	// Clamp exactly to visible budget so footer/help remain visible.
@@ -622,7 +711,7 @@ func (m Model) renderPlaylist() string {
 	tracks := m.playlist.Tracks()
 	if len(tracks) == 0 {
 		if m.feedLoading {
-			return dimStyle.Render("  Loading feed...")
+			return loadingLine("Loading feed…")
 		}
 		return dimStyle.Render("  No tracks loaded")
 	}

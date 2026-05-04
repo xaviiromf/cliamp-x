@@ -11,11 +11,17 @@ var ErrNeedsAuth = errors.New("sign-in required")
 // DurationSecs is optional: providers that can compute it cheaply should
 // populate it so the UI can render a total runtime. A zero value means
 // "unknown" and the UI will hide the duration column.
+//
+// Section is optional: providers may set it to group their playlists in the UI.
+// Adjacent rows that share a Section are rendered under one header; a change of
+// Section emits a "── header ──" divider. The legacy radio provider drives
+// sections via SectionedList.IDPrefix instead and leaves Section empty.
 type PlaylistInfo struct {
 	ID           string
 	Name         string
 	TrackCount   int
 	DurationSecs int
+	Section      string
 }
 
 // Provider is the interface for playlist sources (radio, Navidrome, Spotify, etc.).

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"cliamp/playlist"
@@ -120,6 +121,23 @@ func scrollStart(cursor, maxVisible int) int {
 	return 0
 }
 
+// spinnerFrames is the braille-dot animation used to indicate loading. The
+// view re-renders on the model tick so the spinner advances on its own.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// spinnerFrame returns the current animation frame, time-driven so the caller
+// doesn't need to track an animation index.
+func spinnerFrame() string {
+	idx := (time.Now().UnixMilli() / 100) % int64(len(spinnerFrames))
+	return spinnerFrames[idx]
+}
+
+// loadingLine renders a single styled "<spinner> <label>" line for use as a
+// loading indicator inside a list pane.
+func loadingLine(label string) string {
+	return activeToggle.Render("  "+spinnerFrame()) + dimStyle.Render(" "+label)
+}
+
 // padLines appends empty strings so that rendered items fill maxVisible rows.
 func padLines(lines []string, maxVisible, rendered int) []string {
 	for range maxVisible - rendered {
@@ -213,13 +231,28 @@ func (m Model) navCountLine(noun string, total int) string {
 	return dimStyle.Render(fmt.Sprintf("  %d/%d %s", m.navBrowser.cursor+1, total, noun))
 }
 
-// navSearchBar renders the search input or a help-key hint as footer lines.
+// navSearchBar renders a footer help line plus, when a filter is active or
+// being typed, an inline reminder. The active filter input is rendered at the
+// top of the screen by navSearchHeader; this helper now only owns the footer.
 func (m Model) navSearchBar(defaultHelp string) []string {
+	return []string{"", defaultHelp}
+}
+
+// navSearchHeader renders the filter input below the title (when typing) or a
+// dim recap when a filter is set but the input bar is closed. Returns nil when
+// no filter is active so callers can append unconditionally.
+func (m Model) navSearchHeader() []string {
 	if m.navBrowser.searching {
-		return []string{"", playlistSelectedStyle.Render("  / " + m.navBrowser.search + "_")}
+		return []string{
+			playlistSelectedStyle.Render("  / " + m.navBrowser.search + "_"),
+			"",
+		}
 	}
 	if m.navBrowser.search != "" {
-		return []string{"", dimStyle.Render("  / "+m.navBrowser.search) + " " + helpKey("/", "Clear")}
+		return []string{
+			dimStyle.Render("  / "+m.navBrowser.search) + " " + helpKey("/", "Clear"),
+			"",
+		}
 	}
-	return []string{"", defaultHelp}
+	return nil
 }

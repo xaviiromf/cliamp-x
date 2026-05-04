@@ -103,6 +103,7 @@ var coreReservedKeys = []string{
 	"ctrl+j", "J", "p", "t", "i", "y", "o", "u",
 	"N", "L", "R", "P", "Y",
 	"v", "V", "ctrl+x", "d", "ctrl+k",
+	"ctrl+r",
 }
 
 // ReservedKeys returns a fresh copy of the core-reserved key set. Handed to

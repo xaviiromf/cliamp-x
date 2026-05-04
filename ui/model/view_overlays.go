@@ -18,7 +18,7 @@ func (m Model) renderDeviceOverlay() string {
 	}
 
 	if m.devicePicker.loading {
-		lines = append(lines, dimStyle.Render("  Loading devices..."))
+		lines = append(lines, loadingLine("Loading devices…"))
 		lines = append(lines, "", helpKey("Esc", "Cancel"))
 		return m.centerOverlay(strings.Join(lines, "\n"))
 	}
@@ -677,7 +677,7 @@ func (m Model) renderSpotSearchPlaylist() []string {
 	}
 
 	if m.spotSearch.loading {
-		lines = append(lines, dimStyle.Render("  Loading playlists..."))
+		lines = append(lines, loadingLine("Loading playlists…"))
 		return lines
 	}
 
