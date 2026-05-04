@@ -14,8 +14,8 @@ var ErrNeedsAuth = errors.New("sign-in required")
 //
 // Section is optional: providers may set it to group their playlists in the UI.
 // Adjacent rows that share a Section are rendered under one header; a change of
-// Section emits a "── header ──" divider. The legacy radio provider drives
-// sections via SectionedList.IDPrefix instead and leaves Section empty.
+// Section emits a "── header ──" divider. The radio provider uses
+// SectionedList.IDPrefix instead and leaves Section empty.
 type PlaylistInfo struct {
 	ID           string
 	Name         string

@@ -53,12 +53,15 @@ func formatPlaylistDuration(secs int) string {
 // the cursor prefix the caller adds). The title column is truncated as
 // needed; the duration is hidden when secs is 0.
 func formatTrackRow(num int, name string, secs int) string {
-	const prefixOverhead = 4 // "  " or "> " + room
+	const prefixOverhead = 4 // leaves room for "  " / "> " caller prefix
 	dur := formatTrackTime(secs)
 	numStr := fmt.Sprintf("%d. ", num)
-	titleBudget := ui.PanelWidth - prefixOverhead - utf8.RuneCountInString(numStr)
+	numLen := utf8.RuneCountInString(numStr)
+	durLen := utf8.RuneCountInString(dur)
+
+	titleBudget := ui.PanelWidth - prefixOverhead - numLen
 	if dur != "" {
-		titleBudget -= utf8.RuneCountInString(dur) + 1 // +1 for spacing gap
+		titleBudget -= durLen + 1 // +1 for spacing gap
 	}
 	if titleBudget < 4 {
 		titleBudget = 4
@@ -67,24 +70,25 @@ func formatTrackRow(num int, name string, secs int) string {
 	if dur == "" {
 		return numStr + title
 	}
-	used := utf8.RuneCountInString(numStr) + utf8.RuneCountInString(title)
-	target := ui.PanelWidth - prefixOverhead - utf8.RuneCountInString(dur)
-	pad := target - used
+
+	pad := ui.PanelWidth - prefixOverhead - durLen - numLen - utf8.RuneCountInString(title)
 	if pad < 1 {
 		pad = 1
 	}
 	return numStr + title + strings.Repeat(" ", pad) + dur
 }
 
-// totalTrackSecs sums DurationSecs across a slice, skipping unknown entries.
-func totalTrackSecs(tracks []playlist.Track) int {
-	total := 0
-	for _, t := range tracks {
-		if t.DurationSecs > 0 {
-			total += t.DurationSecs
-		}
+// tracksSubtitle renders a "N tracks · Hh Mm" headline shown under track-list
+// titles. Returns "" when the slice is empty so callers can suppress the line.
+func tracksSubtitle(tracks []playlist.Track) string {
+	if len(tracks) == 0 {
+		return ""
 	}
-	return total
+	out := fmt.Sprintf("%d tracks", len(tracks))
+	if d := formatPlaylistDuration(playlist.TotalDurationSecs(tracks)); d != "" {
+		out += " · " + d
+	}
+	return out
 }
 
 // truncate shortens s to maxW runes, appending "…" if truncated.
@@ -231,28 +235,20 @@ func (m Model) navCountLine(noun string, total int) string {
 	return dimStyle.Render(fmt.Sprintf("  %d/%d %s", m.navBrowser.cursor+1, total, noun))
 }
 
-// navSearchBar renders a footer help line plus, when a filter is active or
-// being typed, an inline reminder. The active filter input is rendered at the
-// top of the screen by navSearchHeader; this helper now only owns the footer.
-func (m Model) navSearchBar(defaultHelp string) []string {
-	return []string{"", defaultHelp}
-}
-
-// navSearchHeader renders the filter input below the title (when typing) or a
-// dim recap when a filter is set but the input bar is closed. Returns nil when
-// no filter is active so callers can append unconditionally.
-func (m Model) navSearchHeader() []string {
-	if m.navBrowser.searching {
-		return []string{
-			playlistSelectedStyle.Render("  / " + m.navBrowser.search + "_"),
-			"",
-		}
+// filterHeader renders the `/` filter input line under a list title. While
+// the user is typing it shows an editable bar with a trailing cursor; once
+// the input bar is closed but a query is still active, it renders a dim recap
+// with an optional "Clear" hint. Returns nil when there's nothing to show.
+func filterHeader(searching bool, query, clearHint string) []string {
+	if searching {
+		return []string{playlistSelectedStyle.Render("  / " + query + "_"), ""}
 	}
-	if m.navBrowser.search != "" {
-		return []string{
-			dimStyle.Render("  / "+m.navBrowser.search) + " " + helpKey("/", "Clear"),
-			"",
+	if query != "" {
+		line := dimStyle.Render("  / " + query)
+		if clearHint != "" {
+			line += " " + clearHint
 		}
+		return []string{line, ""}
 	}
 	return nil
 }

@@ -599,3 +599,17 @@ func TestActivateSelectedFailureKeepsQueuedCurrentTrack(t *testing.T) {
 		t.Fatalf("QueuePosition(2) = %d, want 1", p.QueuePosition(2))
 	}
 }
+
+func TestTotalDurationSecs(t *testing.T) {
+	tracks := []Track{
+		{DurationSecs: 100},
+		{DurationSecs: 0}, // unknown — skipped
+		{DurationSecs: 200},
+	}
+	if got := TotalDurationSecs(tracks); got != 300 {
+		t.Errorf("TotalDurationSecs = %d, want 300", got)
+	}
+	if got := TotalDurationSecs(nil); got != 0 {
+		t.Errorf("TotalDurationSecs(nil) = %d, want 0", got)
+	}
+}

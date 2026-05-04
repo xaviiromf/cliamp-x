@@ -78,17 +78,11 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		if err != nil {
 			continue
 		}
-		var totalSecs int
-		for _, t := range tracks {
-			if t.DurationSecs > 0 {
-				totalSecs += t.DurationSecs
-			}
-		}
 		lists = append(lists, playlist.PlaylistInfo{
 			ID:           name,
 			Name:         name,
 			TrackCount:   len(tracks),
-			DurationSecs: totalSecs,
+			DurationSecs: playlist.TotalDurationSecs(tracks),
 		})
 	}
 	return lists, nil

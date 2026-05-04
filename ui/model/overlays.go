@@ -3,7 +3,6 @@ package model
 import (
 	"strings"
 
-	"cliamp/playlist"
 	"cliamp/theme"
 )
 
@@ -106,58 +105,29 @@ func (m *Model) plMgrRecomputeFilter() {
 	}
 }
 
-// plMgrVisiblePlaylists returns the playlists currently visible (after filter).
-func (m Model) plMgrVisiblePlaylists() []playlist.PlaylistInfo {
+// plMgrRealIndex maps a view-index to the real index in the underlying slice
+// (playlists on the list screen, tracks on the track screen). Returns -1 if
+// out of range or pointing at the "+ New Playlist" pseudo-entry on the list
+// screen. unfilteredLen is the length of the unfiltered slice.
+func (m Model) plMgrRealIndex(view, unfilteredLen int) int {
 	if m.plManager.filter == "" {
-		return m.plManager.playlists
+		if view < 0 || view >= unfilteredLen {
+			return -1
+		}
+		return view
 	}
-	out := make([]playlist.PlaylistInfo, 0, len(m.plManager.filtered))
-	for _, i := range m.plManager.filtered {
-		out = append(out, m.plManager.playlists[i])
+	if view < 0 || view >= len(m.plManager.filtered) {
+		return -1
 	}
-	return out
+	return m.plManager.filtered[view]
 }
 
-// plMgrVisibleTracks returns the tracks currently visible (after filter).
-func (m Model) plMgrVisibleTracks() []playlist.Track {
-	if m.plManager.filter == "" {
-		return m.plManager.tracks
-	}
-	out := make([]playlist.Track, 0, len(m.plManager.filtered))
-	for _, i := range m.plManager.filtered {
-		out = append(out, m.plManager.tracks[i])
-	}
-	return out
-}
-
-// plMgrPlaylistRealIndex maps a view-index on the list screen to the real index
-// in m.plManager.playlists, or -1 if the view points at the "+ New" entry.
 func (m Model) plMgrPlaylistRealIndex(view int) int {
-	if m.plManager.filter == "" {
-		if view < 0 || view >= len(m.plManager.playlists) {
-			return -1
-		}
-		return view
-	}
-	if view < 0 || view >= len(m.plManager.filtered) {
-		return -1
-	}
-	return m.plManager.filtered[view]
+	return m.plMgrRealIndex(view, len(m.plManager.playlists))
 }
 
-// plMgrTrackRealIndex maps a view-index on the tracks screen to the real index
-// in m.plManager.tracks, or -1 if out of range.
 func (m Model) plMgrTrackRealIndex(view int) int {
-	if m.plManager.filter == "" {
-		if view < 0 || view >= len(m.plManager.tracks) {
-			return -1
-		}
-		return view
-	}
-	if view < 0 || view >= len(m.plManager.filtered) {
-		return -1
-	}
-	return m.plManager.filtered[view]
+	return m.plMgrRealIndex(view, len(m.plManager.tracks))
 }
 
 // plMgrRefreshList reloads playlist names and counts from disk and clamps the cursor.
@@ -173,7 +143,6 @@ func (m *Model) plMgrRefreshList() {
 	if m.plManager.filter != "" {
 		m.plMgrRecomputeFilter()
 	}
-	// +1 for the "+ New Playlist..." entry
 	total := m.plMgrListViewCount()
 	if m.plManager.cursor >= total {
 		m.plManager.cursor = total - 1

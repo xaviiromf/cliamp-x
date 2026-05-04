@@ -111,20 +111,6 @@ func TestFormatTrackRow(t *testing.T) {
 	}
 }
 
-func TestProviderListHasSections(t *testing.T) {
-	if providerListHasSections(nil) {
-		t.Error("nil should not have sections")
-	}
-	flat := []playlist.PlaylistInfo{{Name: "a"}, {Name: "b"}}
-	if providerListHasSections(flat) {
-		t.Error("flat list should not have sections")
-	}
-	mixed := []playlist.PlaylistInfo{{Name: "a"}, {Name: "b", Section: "Library"}}
-	if !providerListHasSections(mixed) {
-		t.Error("any non-empty Section should trigger section rendering")
-	}
-}
-
 func TestProviderKeyForShortcut(t *testing.T) {
 	tests := map[string]string{
 		"S": "spotify",
@@ -141,19 +127,5 @@ func TestProviderKeyForShortcut(t *testing.T) {
 		if got := providerKeyForShortcut(in); got != want {
 			t.Errorf("providerKeyForShortcut(%q) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-func TestTotalTrackSecs(t *testing.T) {
-	tracks := []playlist.Track{
-		{DurationSecs: 100},
-		{DurationSecs: 0}, // skipped
-		{DurationSecs: 200},
-	}
-	if got := totalTrackSecs(tracks); got != 300 {
-		t.Errorf("totalTrackSecs = %d, want 300", got)
-	}
-	if got := totalTrackSecs(nil); got != 0 {
-		t.Errorf("totalTrackSecs(nil) = %d, want 0", got)
 	}
 }

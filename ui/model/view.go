@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -28,6 +29,19 @@ var (
 	activeToggle  = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 )
 
+// providerEmptyStateHint, keyed by lowercase provider Name(), returns the
+// remediation hint shown under the generic "No playlists in X" message.
+var providerEmptyStateHint = map[string]string{
+	"local playlists": "Add .toml playlists to ~/.config/cliamp/playlists/.",
+	"local":           "Add .toml playlists to ~/.config/cliamp/playlists/.",
+	"spotify":         "Sign in via Spotify, or check SPOTIFY_REFRESH_TOKEN.",
+	"navidrome":       "Verify [navidrome] url/username/password in config.toml.",
+	"jellyfin":        "Verify [jellyfin] url and token in config.toml.",
+	"plex":            "Verify [plex] server URL and token in config.toml.",
+	"youtube music":   "Run `cliamp ytmusic-login` to authorize, then refresh.",
+	"ytmusic":         "Run `cliamp ytmusic-login` to authorize, then refresh.",
+}
+
 // renderProviderEmptyState explains why the playlists pane is empty for the
 // current provider and offers a remediation hint. Always pads to budget so the
 // pane height stays stable.
@@ -41,47 +55,15 @@ func (m Model) renderProviderEmptyState(budget int) string {
 		"",
 		dimStyle.Render("  Press ") + helpKeyStyle.Render(" Ctrl+R ") + dimStyle.Render(" to refresh."),
 	}
-	for _, hint := range providerEmptyStateHints(m.provider) {
-		lines = append(lines, dimStyle.Render("  "+hint))
+	if m.provider != nil {
+		if hint, ok := providerEmptyStateHint[strings.ToLower(m.provider.Name())]; ok {
+			lines = append(lines, dimStyle.Render("  "+hint))
+		}
 	}
 	for len(lines) < budget {
 		lines = append(lines, "")
 	}
 	return strings.Join(lines, "\n")
-}
-
-// providerEmptyStateHints returns provider-specific guidance shown beneath the
-// generic empty state, e.g. "Add files to ~/.config/cliamp/playlists/".
-func providerEmptyStateHints(p playlist.Provider) []string {
-	if p == nil {
-		return nil
-	}
-	switch strings.ToLower(p.Name()) {
-	case "local playlists", "local":
-		return []string{"Add .toml playlists to ~/.config/cliamp/playlists/."}
-	case "spotify":
-		return []string{"Sign in via Spotify, or check SPOTIFY_REFRESH_TOKEN."}
-	case "navidrome":
-		return []string{"Verify [navidrome] url/username/password in config.toml."}
-	case "jellyfin":
-		return []string{"Verify [jellyfin] url and token in config.toml."}
-	case "plex":
-		return []string{"Verify [plex] server URL and token in config.toml."}
-	case "youtube music", "ytmusic":
-		return []string{"Run `cliamp ytmusic-login` to authorize, then refresh."}
-	}
-	return nil
-}
-
-// providerListHasSections reports whether any row carries a non-empty Section
-// label, in which case renderProviderList emits per-section dividers.
-func providerListHasSections(list []playlist.PlaylistInfo) bool {
-	for _, p := range list {
-		if p.Section != "" {
-			return true
-		}
-	}
-	return false
 }
 
 // providerRowStyle picks the prefix and style for a provider-list row.
@@ -628,7 +610,9 @@ func (m Model) renderProviderList() string {
 			scroll = m.provCursor
 		}
 
-		hasSections := !isRadio && providerListHasSections(m.providerLists)
+		hasSections := !isRadio && slices.ContainsFunc(m.providerLists, func(p playlist.PlaylistInfo) bool {
+			return p.Section != ""
+		})
 
 		if isRadio {
 			for scroll < len(m.providerLists)-1 && m.providerRowsFromScroll(sl, scroll, m.provCursor) > visibleBudget {

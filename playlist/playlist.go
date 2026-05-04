@@ -59,6 +59,18 @@ func (t Track) Meta(key string) string {
 	return t.ProviderMeta[key]
 }
 
+// TotalDurationSecs sums DurationSecs across a slice of tracks, skipping
+// entries with unknown duration (zero).
+func TotalDurationSecs(tracks []Track) int {
+	total := 0
+	for _, t := range tracks {
+		if t.DurationSecs > 0 {
+			total += t.DurationSecs
+		}
+	}
+	return total
+}
+
 // IsURL reports whether path is an HTTP or HTTPS URL, or a yt-dlp search protocol string.
 func IsURL(path string) bool {
 	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") ||

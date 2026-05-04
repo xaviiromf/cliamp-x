@@ -67,7 +67,7 @@ func (m Model) renderNavMenu() []string {
 
 func (m Model) renderNavArtistList() []string {
 	lines := []string{titleStyle.Render("A R T I S T S"), ""}
-	lines = append(lines, m.navSearchHeader()...)
+	lines = append(lines, filterHeader(m.navBrowser.searching, m.navBrowser.search, helpKey("/", "Clear"))...)
 
 	if m.navBrowser.loading && len(m.navBrowser.artists) == 0 {
 		lines = append(lines, loadingLine("Loading artists…"), "", helpKey("Esc", "Back"))
@@ -85,9 +85,8 @@ func (m Model) renderNavArtistList() []string {
 	})
 	lines = append(lines, items...)
 
-	lines = append(lines, "", m.navCountLine("artists", len(m.navBrowser.artists)))
-	lines = append(lines, m.navSearchBar(
-		helpKey("←↓↑→", "Navigate ")+helpKey("Enter", "Open ")+helpKey("/", "Search"))...)
+	lines = append(lines, "", m.navCountLine("artists", len(m.navBrowser.artists)),
+		"", helpKey("←↓↑→", "Navigate ")+helpKey("Enter", "Open ")+helpKey("/", "Search"))
 
 	return lines
 }
@@ -101,7 +100,7 @@ func (m Model) renderNavAlbumList(artistAlbums bool) []string {
 	}
 
 	lines := []string{titleStr, ""}
-	lines = append(lines, m.navSearchHeader()...)
+	lines = append(lines, filterHeader(m.navBrowser.searching, m.navBrowser.search, helpKey("/", "Clear"))...)
 
 	if !artistAlbums {
 		sortLabel := m.navSortLabel(m.navBrowser.sortType)
@@ -146,12 +145,12 @@ func (m Model) renderNavAlbumList(artistAlbums bool) []string {
 		lines = append(lines, m.navCountLine("albums", len(m.navBrowser.albums)))
 	}
 
-	defaultHelp := helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Open ")
+	help := helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Open ")
 	if !artistAlbums {
-		defaultHelp += helpKey("s", "Sort ")
+		help += helpKey("s", "Sort ")
 	}
-	defaultHelp += helpKey("/", "Search")
-	lines = append(lines, m.navSearchBar(defaultHelp)...)
+	help += helpKey("/", "Search")
+	lines = append(lines, "", help)
 
 	return lines
 }
@@ -168,7 +167,7 @@ func (m Model) renderNavTrackList() []string {
 	}
 
 	lines := []string{titleStyle.Render(breadcrumb), ""}
-	lines = append(lines, m.navSearchHeader()...)
+	lines = append(lines, filterHeader(m.navBrowser.searching, m.navBrowser.search, helpKey("/", "Clear"))...)
 
 	if m.navBrowser.loading && len(m.navBrowser.tracks) == 0 {
 		lines = append(lines, loadingLine("Loading tracks…"), "", helpKey("Esc", "Back"))
@@ -180,7 +179,7 @@ func (m Model) renderNavTrackList() []string {
 		return lines
 	}
 
-	if subtitle := m.navTrackSubtitle(); subtitle != "" {
+	if subtitle := tracksSubtitle(m.navBrowser.tracks); subtitle != "" {
 		lines = append(lines, dimStyle.Render("  "+subtitle), "")
 	}
 
@@ -221,29 +220,14 @@ func (m Model) renderNavTrackList() []string {
 		lines = padLines(lines, maxVisible, rendered)
 	}
 
-	lines = append(lines, "", m.navCountLine("tracks", len(m.navBrowser.tracks)))
-	lines = append(lines, m.navSearchBar(
-		helpKey("←↓↑→", "Navigate ")+
+	lines = append(lines, "", m.navCountLine("tracks", len(m.navBrowser.tracks)),
+		"", helpKey("←↓↑→", "Navigate ")+
 			helpKey("Enter", "Play from here ")+
 			helpKey("q", "Queue this ")+
 			helpKey("R", "Replace queue ")+
 			helpKey("a", "Append all ")+
-			helpKey("/", "Search"))...)
+			helpKey("/", "Search"))
 	return lines
-}
-
-// navTrackSubtitle renders "N tracks · 47:22" under the breadcrumb so the
-// album/artist screen tells the user how big it is at a glance.
-func (m Model) navTrackSubtitle() string {
-	count := len(m.navBrowser.tracks)
-	if count == 0 {
-		return ""
-	}
-	parts := []string{fmt.Sprintf("%d tracks", count)}
-	if d := formatPlaylistDuration(totalTrackSecs(m.navBrowser.tracks)); d != "" {
-		parts = append(parts, d)
-	}
-	return strings.Join(parts, " · ")
 }
 
 func (m Model) navSortLabel(sortID string) string {
