@@ -38,6 +38,14 @@ cliamp --log-level debug                     # raise log verbosity for one sessi
 
 Logs are written to `~/.config/cliamp/cliamp.log`. Levels: `debug`, `info` (default), `warn`, `error`.
 
+## Low-power mode
+
+```sh
+cliamp --low-power track.mp3                 # minimize CPU: visualizer off
+```
+
+Forces the visualizer to `none` so the TUI ticks at 5 FPS for the time/seek display only. Useful on battery, slow terminals, or SSH sessions. Press `v` in the player to cycle visualizers back on at any time.
+
 ## Search
 
 Search and play a track directly from the command line (requires [yt-dlp](https://github.com/yt-dlp/yt-dlp)):
@@ -84,6 +92,7 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--bit-depth` | int | 16 | 16, 32 |
 | `--playlist` | string | | local TOML playlist name |
 | `--log-level` | string | info | debug, info, warn, error |
+| `--low-power` | bool | false | disables visualizer; cuts redraw + FFT cost |
 
 CLI flags override config file values for the current session only. They are not persisted.
 

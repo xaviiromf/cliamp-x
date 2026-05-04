@@ -19,6 +19,7 @@ type Overrides struct {
 	AudioDevice     *string
 	Playlist        *string
 	LogLevel        *string
+	LowPower        *bool
 }
 
 // Apply merges non-nil overrides into cfg and clamps the result.
@@ -73,6 +74,12 @@ func (o Overrides) Apply(cfg *Config) {
 	}
 	if o.LogLevel != nil {
 		cfg.LogLevel = *o.LogLevel
+	}
+	if o.LowPower != nil && *o.LowPower {
+		// Low-power mode disables the visualizer entirely. With Mode = None,
+		// the tick loop falls back to TickSlow (5 FPS) for time/seek display
+		// only — the dominant CPU sink for the TUI.
+		cfg.Visualizer = "none"
 	}
 	cfg.clamp()
 }

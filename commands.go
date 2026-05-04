@@ -43,6 +43,7 @@ func buildApp() *cli.Command {
 		&cli.StringFlag{Name: "audio-device", Usage: "audio output device (use 'list' to show)"},
 		&cli.StringFlag{Name: "playlist", Usage: "load a local TOML playlist by name and start playing"},
 		&cli.StringFlag{Name: "log-level", Usage: "log level: debug, info, warn, error"},
+		&cli.BoolFlag{Name: "low-power", Usage: "low-power mode: disable visualizer to minimize CPU"},
 	}
 
 	return &cli.Command{
@@ -194,6 +195,10 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 			return ov, fmt.Errorf("--log-level: %w", err)
 		}
 		ov.LogLevel = &v
+	}
+	if c.IsSet("low-power") {
+		v := c.Bool("low-power")
+		ov.LowPower = &v
 	}
 	return ov, nil
 }
