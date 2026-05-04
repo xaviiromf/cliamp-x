@@ -175,14 +175,6 @@ sudo pacman -S pulseaudio-alsa
 sudo apt install pipewire-alsa
 ```
 
-## Omarchy
-
-Add this keybind to launch cliamp with `Super+Shift+M`:
-
-```
-bindd = SUPER SHIFT, M, Music, exec, omarchy-launch-tui cliamp
-```
-
 ## Author
 
 [x.com/iamdothash](https://x.com/iamdothash)
