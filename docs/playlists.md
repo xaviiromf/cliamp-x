@@ -134,14 +134,16 @@ cliamp song.mp3                    # starts playing, Esc opens browser
 Press `p` from any view to open the playlist manager:
 
 1. **Browse**: see all playlists with track counts
-2. **Open**: press `Enter` or `→` to view tracks inside a playlist
-3. **Add track**: press `a` to add the currently playing track
-4. **Delete playlist**: press `d` then `y` to confirm deletion
-5. **Remove track**: open a playlist, highlight a track, press `d` to remove it
-6. **Play all**: press `Enter` on the track list to load all tracks into the player
-7. **New playlist**: select "+ New Playlist...", type a name, and press Enter
+2. **Filter**: press `/` to incrementally filter the list (works on both the playlists screen and the track screen). `Esc` clears the filter.
+3. **Open**: press `Enter` or `→` to view tracks inside a playlist
+4. **Add now-playing**: press `a` to add the currently playing track (the footer shows the track name so you know what gets added)
+5. **Delete playlist**: press `d` then `y` to confirm deletion
+6. **Remove track**: open a playlist, highlight a track, press `d` to remove it
+7. **Play this**: press `Enter` on the track list to start playback at the highlighted track. The rest of the playlist follows.
+8. **Play all**: press `P` (capital) to start from the top, regardless of cursor position
+9. **New playlist**: select "+ New Playlist...", type a name, and press Enter. If you create a playlist while a `/` filter is active, the filter text is pre-filled as the new playlist name.
 
-Tracks with an `album` field are grouped by album with visual separator headers in both the playlist manager and the main player view.
+Tracks with an `album` field are grouped by album with visual separator headers in the playlist manager (album grouping is hidden while a filter is active) and the main player view.
 
 The directory `~/.config/cliamp/playlists/` is created automatically on first use. Removing the last track from a playlist auto-deletes the file.
 
@@ -181,10 +183,12 @@ title = "My Radio"
 
 | Key | Action |
 |-----|--------|
-| `p` | Open/close playlist manager |
+| `p` / `Esc` | Open/close playlist manager (Esc on tracks screen goes back) |
 | `Up` `Down` / `j` `k` | Navigate |
-| `Enter` / `→` | Open playlist / Play all tracks |
+| `/` | Filter playlists or tracks; `Esc` clears |
+| `Enter` / `→` | Open playlist (list screen) / Play **highlighted** track (tracks screen) |
+| `P` | Play all tracks from the top (tracks screen) |
 | `a` | Add currently playing track |
 | `d` | Delete playlist (confirms) / Remove track |
-| `Esc` / `←` | Close / Go back |
+| `←` / `Backspace` | Go back from tracks screen to list |
 

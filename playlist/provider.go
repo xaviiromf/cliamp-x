@@ -7,10 +7,15 @@ import "errors"
 var ErrNeedsAuth = errors.New("sign-in required")
 
 // PlaylistInfo describes a playlist with its name and track count.
+//
+// DurationSecs is optional: providers that can compute it cheaply should
+// populate it so the UI can render a total runtime. A zero value means
+// "unknown" and the UI will hide the duration column.
 type PlaylistInfo struct {
-	ID         string
-	Name       string
-	TrackCount int
+	ID           string
+	Name         string
+	TrackCount   int
+	DurationSecs int
 }
 
 // Provider is the interface for playlist sources (radio, Navidrome, Spotify, etc.).

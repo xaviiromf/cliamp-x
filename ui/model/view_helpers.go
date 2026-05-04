@@ -9,6 +9,83 @@ import (
 	"cliamp/ui"
 )
 
+// formatTrackTime formats a duration in seconds as M:SS or H:MM:SS for tracks.
+// Returns "" when secs is non-positive so callers can skip rendering entirely.
+func formatTrackTime(secs int) string {
+	if secs <= 0 {
+		return ""
+	}
+	h := secs / 3600
+	m := (secs % 3600) / 60
+	s := secs % 60
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%d:%02d", m, s)
+}
+
+// formatPlaylistDuration formats a total runtime for a playlist as "1h 23m"
+// or "12m" or "45s". Returns "" when secs is non-positive.
+func formatPlaylistDuration(secs int) string {
+	if secs <= 0 {
+		return ""
+	}
+	h := secs / 3600
+	m := (secs % 3600) / 60
+	if h > 0 {
+		if m == 0 {
+			return fmt.Sprintf("%dh", h)
+		}
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%ds", secs)
+}
+
+// formatTrackRow renders a track list row of the form
+//
+//	"01. Title · Album         3:42"
+//
+// with the duration right-aligned at ui.PanelWidth - 4 (to leave space for
+// the cursor prefix the caller adds). The title column is truncated as
+// needed; the duration is hidden when secs is 0.
+func formatTrackRow(num int, name string, secs int) string {
+	const prefixOverhead = 4 // "  " or "> " + room
+	dur := formatTrackTime(secs)
+	numStr := fmt.Sprintf("%d. ", num)
+	titleBudget := ui.PanelWidth - prefixOverhead - utf8.RuneCountInString(numStr)
+	if dur != "" {
+		titleBudget -= utf8.RuneCountInString(dur) + 1 // +1 for spacing gap
+	}
+	if titleBudget < 4 {
+		titleBudget = 4
+	}
+	title := truncate(name, titleBudget)
+	if dur == "" {
+		return numStr + title
+	}
+	used := utf8.RuneCountInString(numStr) + utf8.RuneCountInString(title)
+	target := ui.PanelWidth - prefixOverhead - utf8.RuneCountInString(dur)
+	pad := target - used
+	if pad < 1 {
+		pad = 1
+	}
+	return numStr + title + strings.Repeat(" ", pad) + dur
+}
+
+// totalTrackSecs sums DurationSecs across a slice, skipping unknown entries.
+func totalTrackSecs(tracks []playlist.Track) int {
+	total := 0
+	for _, t := range tracks {
+		if t.DurationSecs > 0 {
+			total += t.DurationSecs
+		}
+	}
+	return total
+}
+
 // truncate shortens s to maxW runes, appending "…" if truncated.
 // Uses RuneCountInString first to avoid rune slice allocation in the common
 // case where the string is already short enough.

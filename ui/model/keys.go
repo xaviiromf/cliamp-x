@@ -1032,6 +1032,14 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 		return nil
 	}
 
+	// Playlist manager `/` filter
+	if m.plManager.visible && m.plManager.filtering {
+		m.plManager.filter += content
+		m.plManager.cursor = 0
+		m.plMgrRecomputeFilter()
+		return nil
+	}
+
 	if m.jumping {
 		m.jumpInput += content
 		return nil
@@ -1270,12 +1278,18 @@ func (m *Model) handlePlaylistManagerKey(msg tea.KeyPressMsg) tea.Cmd {
 
 // handlePlMgrListKey handles keys on screen 0 (playlist list).
 func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
+	// Filter input mode swallows most keys.
+	if m.plManager.filtering {
+		return m.handlePlMgrFilterKey(msg)
+	}
+
 	// If waiting for delete confirmation, only accept y/n.
 	if m.plManager.confirmDel {
 		switch msg.String() {
 		case "y", "Y":
-			if m.plManager.cursor < len(m.plManager.playlists) {
-				name := m.plManager.playlists[m.plManager.cursor].Name
+			realIdx := m.plMgrPlaylistRealIndex(m.plManager.cursor)
+			if realIdx >= 0 {
+				name := m.plManager.playlists[realIdx].Name
 				if d, ok := m.localProvider.(provider.PlaylistDeleter); ok {
 					if err := d.DeletePlaylist(name); err != nil {
 						m.status.Showf(statusTTLDefault, "Delete failed: %s", err)
@@ -1292,11 +1306,18 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	count := len(m.plManager.playlists) + 1 // +1 for "+ New Playlist..."
+	count := m.plMgrListViewCount()
 	switch msg.String() {
 	case "ctrl+c":
 		m.plManager.visible = false
 		return m.quit()
+	case "/":
+		m.plManager.filtering = true
+		m.plManager.savedCursor = m.plManager.cursor
+		m.plManager.filter = ""
+		m.plManager.filtered = nil
+		m.plManager.cursor = 0
+		return nil
 	case "up", "k":
 		if m.plManager.cursor > 0 {
 			m.plManager.cursor--
@@ -1310,73 +1331,146 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.plManager.cursor = 0
 		}
 	case "enter", "l", "right":
-		if m.plManager.cursor < len(m.plManager.playlists) {
-			m.plMgrEnterTrackList(m.plManager.playlists[m.plManager.cursor].Name)
+		realIdx := m.plMgrPlaylistRealIndex(m.plManager.cursor)
+		if realIdx >= 0 {
+			m.plMgrEnterTrackList(m.plManager.playlists[realIdx].Name)
 		} else {
-			// "+ New Playlist..." selected
+			// "+ New Playlist..." selected. Pre-fill the input with the
+			// active filter so a no-match search doubles as "create this".
 			m.plManager.screen = plMgrScreenNewName
-			m.plManager.newName = ""
+			m.plManager.newName = m.plManager.filter
 		}
 	case "a":
 		// Quick-add current track to the highlighted playlist.
-		if m.plManager.cursor < len(m.plManager.playlists) {
-			m.addToPlaylist(m.plManager.playlists[m.plManager.cursor].Name)
+		realIdx := m.plMgrPlaylistRealIndex(m.plManager.cursor)
+		if realIdx >= 0 {
+			m.addToPlaylist(m.plManager.playlists[realIdx].Name)
 			m.plMgrRefreshList()
 		}
 	case "d":
-		if m.plManager.cursor < len(m.plManager.playlists) {
+		if m.plMgrPlaylistRealIndex(m.plManager.cursor) >= 0 {
 			m.plManager.confirmDel = true
 		}
 	case "esc", "p":
+		if m.plManager.filter != "" {
+			// First Esc clears an active filter rather than closing.
+			m.plMgrResetFilter()
+			return nil
+		}
 		m.plManager.visible = false
+	}
+	return nil
+}
+
+// handlePlMgrFilterKey handles keys while typing into the `/` filter on either
+// the list or tracks screen.
+func (m *Model) handlePlMgrFilterKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		m.plManager.visible = false
+		return m.quit()
+	case "esc":
+		// Cancel filter, restore cursor.
+		m.plMgrResetFilter()
+		m.plManager.cursor = m.plManager.savedCursor
+		clampCount := m.plMgrListViewCount()
+		if m.plManager.screen == plMgrScreenTracks {
+			clampCount = m.plMgrTracksViewCount()
+		}
+		if clampCount > 0 && m.plManager.cursor >= clampCount {
+			m.plManager.cursor = clampCount - 1
+		}
+		return nil
+	case "enter":
+		// Commit filter; leave query in place but stop intercepting keys.
+		m.plManager.filtering = false
+		return nil
+	case "down":
+		// Drop into result navigation immediately.
+		m.plManager.filtering = false
+		return nil
+	case "backspace":
+		if m.plManager.filter != "" {
+			m.plManager.filter = removeLastRune(m.plManager.filter)
+			m.plManager.cursor = 0
+			m.plMgrRecomputeFilter()
+		} else {
+			m.plManager.filtering = false
+			m.plManager.cursor = m.plManager.savedCursor
+		}
+		return nil
+	case "space":
+		m.plManager.filter += " "
+		m.plManager.cursor = 0
+		m.plMgrRecomputeFilter()
+		return nil
+	}
+
+	if len(msg.Text) > 0 {
+		m.plManager.filter += msg.Text
+		m.plManager.cursor = 0
+		m.plMgrRecomputeFilter()
 	}
 	return nil
 }
 
 // handlePlMgrTracksKey handles keys on screen 1 (track list inside a playlist).
 func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.plManager.filtering {
+		return m.handlePlMgrFilterKey(msg)
+	}
+
+	count := m.plMgrTracksViewCount()
 	switch msg.String() {
 	case "ctrl+c":
 		m.plManager.visible = false
 		return m.quit()
+	case "/":
+		m.plManager.filtering = true
+		m.plManager.savedCursor = m.plManager.cursor
+		m.plManager.filter = ""
+		m.plManager.filtered = nil
+		m.plManager.cursor = 0
+		return nil
 	case "up", "k":
 		if m.plManager.cursor > 0 {
 			m.plManager.cursor--
-		} else if len(m.plManager.tracks) > 0 {
-			m.plManager.cursor = len(m.plManager.tracks) - 1
+		} else if count > 0 {
+			m.plManager.cursor = count - 1
 		}
 	case "down", "j":
-		if m.plManager.cursor < len(m.plManager.tracks)-1 {
+		if m.plManager.cursor < count-1 {
 			m.plManager.cursor++
-		} else if len(m.plManager.tracks) > 0 {
+		} else if count > 0 {
 			m.plManager.cursor = 0
 		}
 	case "enter":
-		// Replace playlist and start playback.
+		// Play the highlighted track; the rest of the playlist follows.
 		if len(m.plManager.tracks) > 0 {
-			m.player.Stop()
-			m.player.ClearPreload()
-			m.resetYTDLBatch()
-			m.playlist.Replace(m.plManager.tracks)
-			m.loadedPlaylist = m.plManager.selPlaylist
-			m.plCursor = 0
-			m.playlist.SetIndex(0)
-			m.adjustScroll()
-			m.plManager.visible = false
-			m.focus = focusPlaylist
-			cmd := m.playCurrentTrack()
-			m.notifyPlayback()
-			return cmd
+			startIdx := m.plMgrTrackRealIndex(m.plManager.cursor)
+			if startIdx < 0 {
+				startIdx = 0
+			}
+			return m.plMgrLoadAndPlay(startIdx)
+		}
+	case "P":
+		// Play all from the top, regardless of cursor.
+		if len(m.plManager.tracks) > 0 {
+			return m.plMgrLoadAndPlay(0)
 		}
 	case "a":
 		m.addToPlaylist(m.plManager.selPlaylist)
 		if tracks, err := m.localProvider.Tracks(m.plManager.selPlaylist); err == nil {
 			m.plManager.tracks = tracks
+			if m.plManager.filter != "" {
+				m.plMgrRecomputeFilter()
+			}
 		}
 	case "d":
-		// Remove highlighted track.
-		if len(m.plManager.tracks) > 0 && m.plManager.cursor < len(m.plManager.tracks) {
-			err := m.localDeleter().RemoveTrack(m.plManager.selPlaylist, m.plManager.cursor)
+		// Remove highlighted track (translate view index to real index).
+		realIdx := m.plMgrTrackRealIndex(m.plManager.cursor)
+		if realIdx >= 0 {
+			err := m.localDeleter().RemoveTrack(m.plManager.selPlaylist, realIdx)
 			if err != nil {
 				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
 			} else {
@@ -1386,20 +1480,33 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 			tracks, err := m.localProvider.Tracks(m.plManager.selPlaylist)
 			if err != nil || len(tracks) == 0 {
 				// Playlist was auto-deleted (empty). Return to list.
+				m.plMgrResetFilter()
 				m.plMgrRefreshList()
 				m.plManager.screen = plMgrScreenList
 				m.plManager.cursor = 0
 				return nil
 			}
 			m.plManager.tracks = tracks
-			if m.plManager.cursor >= len(m.plManager.tracks) {
-				m.plManager.cursor = len(m.plManager.tracks) - 1
+			if m.plManager.filter != "" {
+				m.plMgrRecomputeFilter()
+			}
+			newCount := m.plMgrTracksViewCount()
+			if m.plManager.cursor >= newCount {
+				m.plManager.cursor = newCount - 1
+			}
+			if m.plManager.cursor < 0 {
+				m.plManager.cursor = 0
 			}
 		}
 	case "esc", "backspace", "h", "left":
+		if m.plManager.filter != "" {
+			m.plMgrResetFilter()
+			return nil
+		}
 		// Go back to playlist list.
 		m.plMgrRefreshList()
 		m.plManager.screen = plMgrScreenList
+		m.plMgrResetFilter()
 		// Try to position cursor on the playlist we just left.
 		for i, pl := range m.plManager.playlists {
 			if pl.Name == m.plManager.selPlaylist {
@@ -1410,6 +1517,28 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.plManager.confirmDel = false
 	}
 	return nil
+}
+
+// plMgrLoadAndPlay replaces the live playlist with the manager's tracks and
+// starts playback at startIdx.
+func (m *Model) plMgrLoadAndPlay(startIdx int) tea.Cmd {
+	m.player.Stop()
+	m.player.ClearPreload()
+	m.resetYTDLBatch()
+	m.playlist.Replace(m.plManager.tracks)
+	m.loadedPlaylist = m.plManager.selPlaylist
+	if startIdx < 0 || startIdx >= m.playlist.Len() {
+		startIdx = 0
+	}
+	m.plCursor = startIdx
+	m.playlist.SetIndex(startIdx)
+	m.adjustScroll()
+	m.plManager.visible = false
+	m.plMgrResetFilter()
+	m.focus = focusPlaylist
+	cmd := m.playCurrentTrack()
+	m.notifyPlayback()
+	return cmd
 }
 
 // handlePlMgrNewNameKey handles keys on screen 2 (new playlist name input).

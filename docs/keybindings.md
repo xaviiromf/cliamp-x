@@ -71,6 +71,19 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `r` | Cycle repeat (Off / All / One) |
 | `z` | Toggle shuffle |
 
+### Inside the playlist manager
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k` | Move cursor |
+| `/` | Filter (incremental); `Esc` clears |
+| `Enter` / `→` | List screen: open the highlighted playlist · Tracks screen: play the **highlighted** track |
+| `P` | Tracks screen: play all from the top |
+| `a` | Add the now-playing track (footer shows which track) |
+| `d` | List: delete playlist (confirms) · Tracks: remove the highlighted track |
+| `←` `Backspace` `h` | Tracks screen: go back to the list |
+| `p` `Esc` | Close the playlist manager |
+
 ## Search results overlays
 
 When `Ctrl+F` opens the Spotify search or YouTube/SoundCloud net search and you're viewing the results list:

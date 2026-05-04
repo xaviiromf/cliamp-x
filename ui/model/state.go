@@ -101,12 +101,19 @@ type queueOverlay struct {
 type plManagerState struct {
 	visible     bool
 	screen      plMgrScreenType
-	cursor      int
+	cursor      int // view-index: offset into filtered when filter != "", else direct index
 	playlists   []playlist.PlaylistInfo
 	selPlaylist string           // playlist name open in screen 1
 	tracks      []playlist.Track // tracks in the selected playlist
 	newName     string
 	confirmDel  bool
+
+	// Filter (`/`) state. Reset on screen change. `filtered` indexes into
+	// `playlists` (list screen) or `tracks` (tracks screen).
+	filtering   bool
+	filter      string
+	filtered    []int
+	savedCursor int // cursor before `/` was pressed, restored on Esc
 }
 
 // fileBrowserState holds state for the file browser overlay.

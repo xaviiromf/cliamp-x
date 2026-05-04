@@ -28,14 +28,21 @@ var (
 	activeToggle  = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 )
 
-// playlistLabel formats a playlist entry, omitting the track count when it is
-// unknown (zero). This avoids showing "(0 tracks)" for providers such as Plex
-// that do not return a track count in their album list responses.
+// playlistLabel formats a playlist entry, omitting fields the provider didn't
+// supply. Track count and total duration are appended when available.
 func playlistLabel(prefix string, p playlist.PlaylistInfo) string {
+	out := prefix + p.Name
+	parts := make([]string, 0, 2)
 	if p.TrackCount > 0 {
-		return fmt.Sprintf("%s%s (%d tracks)", prefix, p.Name, p.TrackCount)
+		parts = append(parts, fmt.Sprintf("%d tracks", p.TrackCount))
 	}
-	return prefix + p.Name
+	if d := formatPlaylistDuration(p.DurationSecs); d != "" {
+		parts = append(parts, d)
+	}
+	if len(parts) > 0 {
+		out += " · " + strings.Join(parts, " · ")
+	}
+	return out
 }
 
 // View renders the full TUI frame.
