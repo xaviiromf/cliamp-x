@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"cliamp/applog"
 	"cliamp/internal/playback"
 )
 
@@ -324,7 +325,9 @@ func writeResponse(conn net.Conn, resp Response) {
 		return
 	}
 	data = append(data, '\n')
-	conn.Write(data)
+	if _, err := conn.Write(data); err != nil {
+		applog.Warn("ipc: write response: %v", err)
+	}
 }
 
 // cleanStaleSocket removes a leftover socket and PID file from a dead process.

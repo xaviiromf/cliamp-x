@@ -179,12 +179,9 @@ func (m Model) renderPlMgrList() []string {
 // plMgrListFooter assembles the help footer for the list screen, showing the
 // resolved now-playing track when known so `a` is no longer a guess.
 func (m Model) plMgrListFooter() string {
-	addLabel := "Add now-playing"
+	addLabel := "Add (nothing playing)"
 	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
-		name := truncate(track.DisplayName(), 32)
-		addLabel = "Add: " + name
-	} else {
-		addLabel = "Add (nothing playing)"
+		addLabel = "Add: " + truncate(track.DisplayName(), 32)
 	}
 	return helpKey("↓↑", "Scroll ") +
 		helpKey("Enter/→", "Open ") +

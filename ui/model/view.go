@@ -307,13 +307,10 @@ func (m Model) renderTrackInfo() string {
 		sep := " · "
 		sepLen := len([]rune(sep))
 		remaining := maxW - len(nameRunes) - sepLen
-		if remaining >= 4 { // enough room for at least a few album chars
+		if remaining >= 4 {
 			name += sep + truncate(album, remaining)
-		} else if remaining >= 0 { // very tight — skip album entirely
-			// name stays as-is
-		} else {
-			// name itself is longer than maxW, album won't help
 		}
+		// remaining < 4: drop album, name alone fits or scrolls below.
 	}
 
 	runes := []rune(name)

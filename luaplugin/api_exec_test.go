@@ -32,11 +32,17 @@ func newExecTestState(t *testing.T, perms []string) (*lua.LState, *Plugin, *exec
 	return L, p, em, func() { em.stopAll(); L.Close() }
 }
 
-func waitExec(t *testing.T, L *lua.LState, name string, timeout time.Duration) {
+// waitExec polls for a Lua global to be set. The plugin mutex must be held
+// while touching LState — exec goroutines also take it before calling into
+// Lua, so reading without the lock would race on LState itself.
+func waitExec(t *testing.T, p *Plugin, L *lua.LState, name string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if L.GetGlobal(name) != lua.LNil {
+		p.mu.Lock()
+		v := L.GetGlobal(name)
+		p.mu.Unlock()
+		if v != lua.LNil {
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -66,7 +72,7 @@ func TestExecRunsAllowedBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitExec(t, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 2*time.Second)
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -135,7 +141,7 @@ func TestExecPropagatesExitCode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitExec(t, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 2*time.Second)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if code := L.GetGlobal("exit_code").(lua.LNumber); code != 1 {
@@ -167,7 +173,7 @@ func TestExecCancel(t *testing.T) {
 	_ = L.CallByParam(lua.P{Fn: cancelFn, NRet: 0, Protect: true}, handle)
 	p.mu.Unlock()
 
-	waitExec(t, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 2*time.Second)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if code := L.GetGlobal("exit_code").(lua.LNumber); code >= 0 {
