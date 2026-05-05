@@ -573,15 +573,10 @@ func (p *SpotifyProvider) webAPI(ctx context.Context, method, path string, query
 }
 
 // webAPIWithBody is like webAPI but accepts an optional request body, content type,
-// and a set of acceptable HTTP status codes (e.g. 200, 201).
-//
-// 429 handling depends on whether the session has a real OAuth2 Web API token:
-//   - With a token source: full exponential backoff (real rate limits are transient).
-//   - With the spclient fallback: one quick retry, then ErrNeedsAuth — Spotify rate-limits
-//     the spclient token aggressively on Web API endpoints, and waiting won't help.
+// and a set of acceptable HTTP status codes (e.g. 200, 201). Retries 429 with
+// exponential backoff (honoring Retry-After when present).
 func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string, acceptStatus ...int) (*http.Response, error) {
 	const maxRetries = 8
-	const fallbackMaxAttempts = 2 // initial + one quick retry, then auth failure
 
 	// Buffer the body so it can be replayed on retry.
 	var bodyBytes []byte
@@ -593,13 +588,7 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 	}
 
-	maxAttempts := maxRetries
-	fallback := p.session.usingFallbackToken()
-	if fallback {
-		maxAttempts = fallbackMaxAttempts
-	}
-
-	for attempt := range maxAttempts {
+	for attempt := range maxRetries {
 		var reqBody io.Reader
 		if bodyBytes != nil {
 			reqBody = bytes.NewReader(bodyBytes)
@@ -611,25 +600,13 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
-			if fallback {
-				if attempt+1 >= maxAttempts {
-					return nil, fmt.Errorf("spotify: stored auth no longer valid (run 'cliamp spotify reset' or sign in again): %w", playlist.ErrNeedsAuth)
-				}
-				applog.UserWarn("spotify: %s rate-limited (auth state may be stale), retrying once", path)
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(time.Second):
-					continue
-				}
-			}
 			wait := time.Duration(1<<uint(attempt)) * time.Second
 			if ra := resp.Header.Get("Retry-After"); ra != "" {
 				if secs, err := strconv.Atoi(ra); err == nil && secs > 0 {
 					wait = time.Duration(secs) * time.Second
 				}
 			}
-			applog.UserWarn("spotify: web api rate-limited on %s, retrying in %v (attempt %d/%d)", path, wait, attempt+1, maxAttempts)
+			applog.UserWarn("spotify: web api rate-limited on %s, retrying in %v (attempt %d/%d)", path, wait, attempt+1, maxRetries)
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -649,13 +626,20 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		return resp, nil
 	}
-	return nil, fmt.Errorf("spotify: web api rate-limited on %s after %d retries (try re-authenticating)", path, maxAttempts)
+	return nil, fmt.Errorf("spotify: web api rate-limited on %s after %d retries (try re-authenticating)", path, maxRetries)
 }
 
 // SearchTracks searches for tracks on Spotify and returns up to limit results.
+// limit is clamped to Spotify's accepted range of 1..50.
 func (p *SpotifyProvider) SearchTracks(ctx context.Context, query string, limit int) ([]playlist.Track, error) {
 	if err := p.ensureSession(); err != nil {
 		return nil, err
+	}
+
+	if limit < 1 {
+		limit = 1
+	} else if limit > 50 {
+		limit = 50
 	}
 
 	q := url.Values{

@@ -36,23 +36,6 @@ func TestIsInvalidGrant(t *testing.T) {
 	}
 }
 
-func TestUsingFallbackToken(t *testing.T) {
-	t.Run("no token source", func(t *testing.T) {
-		s := &Session{}
-		if !s.usingFallbackToken() {
-			t.Error("usingFallbackToken() = false, want true with nil tokenSource")
-		}
-	})
-
-	t.Run("with token source", func(t *testing.T) {
-		conf := spotifyOAuthConfig("test-client-id")
-		s := &Session{tokenSource: conf.TokenSource(t.Context(), &oauth2.Token{})}
-		if s.usingFallbackToken() {
-			t.Error("usingFallbackToken() = true, want false with non-nil tokenSource")
-		}
-	})
-}
-
 func TestDeleteCreds(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

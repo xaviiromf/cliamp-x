@@ -123,10 +123,8 @@ func newSessionFromStored(ctx context.Context, clientID string, creds *storedCre
 	}
 	if oauthToken == nil {
 		if silentOnly {
-			// Web API token refresh failed, but the spclient session is valid.
-			// Continue without a token source — webApiWithBody falls back to spclient token.
-			// Spotify rate-limits the spclient token on Web API endpoints, so calls will
-			// likely return 429 until the user re-authenticates.
+			// Continue without a token source — already-loaded tracks still stream
+			// via spclient; new Web API calls will return ErrNeedsAuth.
 			applog.UserError("spotify: stored auth no longer valid; run 'cliamp spotify reset' or sign in again to fix")
 			s := &Session{sess: sess, devID: devID, clientID: clientID}
 			if err := saveCreds(&storedCreds{
@@ -375,40 +373,26 @@ func (s *Session) NewStream(ctx context.Context, spotID librespot.SpotifyId, bit
 	return s.player.NewStream(ctx, http.DefaultClient, spotID, bitrate, 0)
 }
 
-// usingFallbackToken reports whether the session has no OAuth2 token source
-// and is falling back to the spclient token for Web API calls. The spclient
-// token is not a real Web API token — Spotify rate-limits it aggressively,
-// so callers should treat 429s in this mode as an auth failure rather than
-// a transient rate limit.
-func (s *Session) usingFallbackToken() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.tokenSource == nil
-}
-
 // webApiWithBody calls the Spotify Web API using the OAuth2 access token.
+//
+// The spclient/login5 token from librespot is NOT accepted by the Web API
+// for endpoints like /v1/search and /v1/me/playlists — Spotify returns
+// misleading errors ("Invalid limit", 429) instead of a clear auth failure.
+// So if there is no OAuth2 token source, fail loudly with ErrNeedsAuth
+// rather than attempting the call with the wrong token.
 func (s *Session) webApiWithBody(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string) (*http.Response, error) {
 	s.mu.Lock()
 	ts := s.tokenSource
 	s.mu.Unlock()
 
-	var token string
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, fmt.Errorf("refresh access token: %w", err)
-		}
-		token = tok.AccessToken
-	} else {
-		// Fall back to spclient token if no OAuth2 token source.
-		s.mu.Lock()
-		var err error
-		token, err = s.sess.Spclient().GetAccessToken(ctx, false)
-		s.mu.Unlock()
-		if err != nil {
-			return nil, fmt.Errorf("get access token: %w", err)
-		}
+	if ts == nil {
+		return nil, fmt.Errorf("spotify: web api token unavailable, run 'cliamp spotify reset' and sign in again: %w", playlist.ErrNeedsAuth)
 	}
+	tok, err := ts.Token()
+	if err != nil {
+		return nil, fmt.Errorf("refresh access token: %w", err)
+	}
+	token := tok.AccessToken
 
 	u, _ := url.Parse("https://api.spotify.com")
 	u = u.JoinPath(path)
