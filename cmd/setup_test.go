@@ -97,6 +97,64 @@ func TestPickerSelectionFiltersFields(t *testing.T) {
 	}
 }
 
+// TestEmbyPickerSelectionFiltersFields mirrors TestPickerSelectionFiltersFields
+// for the Emby provider, which uses the same token/password picker shape.
+func TestEmbyPickerSelectionFiltersFields(t *testing.T) {
+	m := newSetupModel()
+
+	embyIdx := -1
+	for i, p := range m.provs {
+		if p.section == "emby" {
+			embyIdx = i
+			break
+		}
+	}
+	if embyIdx < 0 {
+		t.Fatal("emby spec missing")
+	}
+
+	tests := []struct {
+		name         string
+		pickerCursor int
+		wantVisible  []string
+		wantHidden   []string
+	}{
+		{"API key", 0, []string{"url", "token", "user"}, []string{"password"}},
+		{"password", 1, []string{"url", "user", "password"}, []string{"token"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m.menuCursor = embyIdx
+			m.stage = stageMenu
+			m.values = map[string]string{}
+			m.handleKey(keyPress(tea.KeyEnter, "")) // open picker
+			if m.stage != stagePicker {
+				t.Fatalf("stage = %v, want stagePicker", m.stage)
+			}
+			m.pickerCursor = tc.pickerCursor
+			m.handleKey(keyPress(tea.KeyEnter, "")) // select picker option
+			if m.stage != stageForm {
+				t.Fatalf("stage = %v, want stageForm", m.stage)
+			}
+			visible := map[string]bool{}
+			for _, idx := range m.visible {
+				visible[m.provs[embyIdx].fields[idx].key] = true
+			}
+			for _, k := range tc.wantVisible {
+				if !visible[k] {
+					t.Errorf("field %q not visible; got %v", k, visible)
+				}
+			}
+			for _, k := range tc.wantHidden {
+				if visible[k] {
+					t.Errorf("field %q should be hidden; got %v", k, visible)
+				}
+			}
+		})
+	}
+}
+
 // TestRequiredFieldBlocksSubmit ensures pressing Enter on the last field
 // without filling required values produces an error result rather than
 // silently saving.
