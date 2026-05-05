@@ -60,6 +60,7 @@ Press `Ctrl+K` in the player to see all keybindings.
 | `P` | Open Plex provider |
 | `J` | Open Jellyfin provider |
 | `Y` | Open YouTube provider |
+| `C` | Open SoundCloud provider |
 
 ## Playlist and Queue
 
