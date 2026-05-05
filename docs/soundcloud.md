@@ -1,12 +1,19 @@
 # SoundCloud Integration
 
-cliamp ships with [SoundCloud](https://soundcloud.com) as a first-class provider. Search, paste-to-play, browse a profile, and (with a browser cookie hookup) stream subscriber-gated tracks. Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp), so it requires `yt-dlp` on `PATH`.
+cliamp supports [SoundCloud](https://soundcloud.com) as an opt-in provider. Search, paste-to-play, browse a profile, and (with a browser cookie hookup) stream subscriber-gated tracks. Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp), so it requires `yt-dlp` on `PATH`.
 
 > SoundCloud closed its OAuth program to new applications in 2014, so the bring-your-own-`client_id` pattern Spotify uses isn't available. cliamp signs you in by reusing your browser's existing SoundCloud session — see [Sign in via browser cookies](#sign-in-via-browser-cookies) below.
 
-## What works out of the box
+## Enable
 
-No configuration needed:
+SoundCloud is **off by default**. To turn it on, add to `~/.config/cliamp/config.toml`:
+
+```toml
+[soundcloud]
+enabled = true
+```
+
+Once enabled:
 
 - **Search** with `Ctrl+F` while SoundCloud is the active provider — runs `scsearch:` against SoundCloud's public index.
 - **Paste a URL** (`u`) — any `soundcloud.com/<artist>/<track>` URL plays.
@@ -18,6 +25,7 @@ Set a username to expose that profile's content in the browse pane:
 
 ```toml
 [soundcloud]
+enabled = true
 user = "yourname"
 ```
 
@@ -35,6 +43,7 @@ For private likes, hidden uploads, or SoundCloud Go+ subscriber-gated tracks, po
 
 ```toml
 [soundcloud]
+enabled = true
 user = "yourname"
 cookies_from = "firefox"   # also: chrome, chromium, brave, edge, opera, safari, vivaldi
 ```
@@ -53,14 +62,7 @@ cliamp --provider soundcloud                      # start with SoundCloud as the
 cliamp search-sc "lofi beats"                     # legacy: SoundCloud search from the shell
 ```
 
-## Disable
-
-```toml
-[soundcloud]
-enabled = false
-```
-
-The provider won't be registered and won't appear in the provider list.
+URL playback works regardless of the `[soundcloud]` toggle — yt-dlp resolves any SoundCloud link cliamp hands it. The `enabled` flag gates only the in-app provider entry.
 
 ## When playback fails
 

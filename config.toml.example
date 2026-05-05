@@ -75,15 +75,15 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # browse_sort = alphabeticalByName
 
 # ---
-# SoundCloud (optional)
-# Search, URL playback, and a curated browse list work out of the box
-# (requires yt-dlp). Set `user` to expose your profile's Tracks, Likes,
-# and Reposts. Set `cookies_from` to use your browser's signed-in session
-# for Go+ / subscriber-gated tracks and private content.
+# SoundCloud (optional, opt-in)
+# Off by default. Set `enabled = true` to register the provider; then search,
+# URL playback, and a curated browse list work via yt-dlp. Set `user` to
+# expose your profile's Tracks, Likes, and Reposts. Set `cookies_from` to use
+# your browser's signed-in session for Go+ / subscriber-gated tracks.
 # [soundcloud]
+# enabled = true
 # user = "yourname"
 # cookies_from = "firefox"   # chrome, brave, edge, opera, safari, vivaldi…
-# enabled = false   # set explicitly to hide the provider entirely
 
 # ---
 # Jellyfin server (optional)

@@ -94,7 +94,7 @@ func run(overrides config.Overrides, positional []string) error {
 	}
 
 	if scProv := soundcloud.NewFromConfig(soundcloud.Config{
-		Disabled:    cfg.SoundCloud.Disabled,
+		Enabled:     cfg.SoundCloud.Enabled,
 		User:        cfg.SoundCloud.User,
 		CookiesFrom: cfg.SoundCloud.CookiesFrom,
 	}); scProv != nil {

@@ -1,10 +1,11 @@
 // Package soundcloud implements a playlist.Provider backed by yt-dlp.
 //
-// Search uses yt-dlp's "scsearch:" protocol and works without any
-// configuration. When [soundcloud] user is set, browse exposes that
-// profile's Tracks, Likes, and Reposts — public for most accounts. With
-// cookies_from set, yt-dlp picks up the user's browser session for
-// subscriber-gated content.
+// SoundCloud is opt-in: it only registers when [soundcloud] enabled = true
+// is set in config. Once enabled, search uses yt-dlp's "scsearch:" protocol
+// and works without further configuration. When [soundcloud] user is set,
+// browse exposes that profile's Tracks, Likes, and Reposts — public for most
+// accounts. With cookies_from set, yt-dlp picks up the user's browser session
+// for subscriber-gated content.
 package soundcloud
 
 import (
@@ -27,15 +28,14 @@ var (
 
 // Config holds settings for the SoundCloud provider.
 type Config struct {
-	Disabled    bool   // true only when user explicitly sets enabled = false
+	Enabled     bool   // true only when user explicitly sets enabled = true
 	User        string // SoundCloud username (the path segment, e.g. "yourname"). Optional.
 	CookiesFrom string // browser name for yt-dlp --cookies-from-browser (e.g. "firefox"). Optional.
 }
 
 // IsSet reports whether the SoundCloud provider should be exposed.
-// SoundCloud is enabled by default (search works without config); only an
-// explicit enabled = false in config disables it.
-func (c Config) IsSet() bool { return !c.Disabled }
+// SoundCloud is opt-in: requires enabled = true in [soundcloud].
+func (c Config) IsSet() bool { return c.Enabled }
 
 // Provider implements playlist.Provider and provider.Searcher for SoundCloud
 // via yt-dlp.
@@ -57,12 +57,12 @@ var defaultBrowse = []playlist.PlaylistInfo{
 	{ID: "scsearch50:pop", Name: "Pop", Section: "Browse"},
 }
 
-// NewFromConfig returns a provider, or nil when SoundCloud is explicitly
-// disabled. Sets resolve's yt-dlp cookies as a side effect when CookiesFrom
-// is non-empty so any yt-dlp invocation (search, browse, playback) uses the
-// user's signed-in session.
+// NewFromConfig returns a provider, or nil when SoundCloud is not enabled.
+// Sets resolve's yt-dlp cookies as a side effect when CookiesFrom is non-empty
+// so any yt-dlp invocation (search, browse, playback) uses the user's
+// signed-in session.
 func NewFromConfig(cfg Config) *Provider {
-	if cfg.Disabled {
+	if !cfg.Enabled {
 		return nil
 	}
 	if cfg.CookiesFrom != "" {
