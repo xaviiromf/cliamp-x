@@ -60,6 +60,9 @@ const (
 	VisHeartbeat                  // ECG pulse monitor trace
 	VisButterfly                  // mirrored Rorschach spectrum
 	VisAscii                      // dense shade-block columns (website style)
+	VisFirefly                    // firefly meadow at dusk
+	VisMosaic                     // static heatmap of flickering tiles
+	VisSand                       // falling-sand cellular automaton
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -440,7 +443,7 @@ var visModes = [VisCount]visEntry{
 	VisClassicPeak: {"ClassicPeak", newClassicPeakDriver},
 	VisWave:        {"Wave", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderWave() })},
 	VisScatter:     {"Scatter", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderScatter)},
-	VisFlame:       {"Flame", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderFlame)},
+	VisFlame:       {"Flame", newFlameDriver},
 	VisRetro:       {"Retro", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderRetro)},
 	VisPulse:       {"Pulse", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderPulse)},
 	VisMatrix:      {"Matrix", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderMatrix)},
@@ -454,6 +457,9 @@ var visModes = [VisCount]visEntry{
 	VisHeartbeat:   {"Heartbeat", newFastRenderOnlyDriver(spectrumAnalysisSpec(0), TickWave, func(v *Visualizer, _ []float64) string { return v.renderHeartbeat() })},
 	VisButterfly:   {"Butterfly", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderButterfly)},
 	VisAscii:       {"Ascii", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderAscii)},
+	VisFirefly:     {"Firefly", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderFirefly)},
+	VisMosaic:      {"Mosaic", newMosaicDriver},
+	VisSand:        {"Sand", newSandDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 
