@@ -724,6 +724,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "C":
 		return m.switchToProvider("soundcloud")
 
+	case "ctrl+h":
+		m.showAlbumHeaders = !m.showAlbumHeaders
+		m.adjustScroll()
+
 	case "v":
 		m.vis.CycleMode()
 		m.applyHeightMode()
@@ -1452,6 +1456,9 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	count := m.plMgrTracksViewCount()
 	switch msg.String() {
+	case "ctrl+h":
+		m.showAlbumHeaders = !m.showAlbumHeaders
+		return nil
 	case "ctrl+c":
 		m.plManager.visible = false
 		return m.quit()
@@ -1556,6 +1563,7 @@ func (m *Model) plMgrLoadAndPlay(startIdx int) tea.Cmd {
 	m.player.ClearPreload()
 	m.resetYTDLBatch()
 	m.playlist.Replace(m.plManager.tracks)
+	m.setInitialHeaderState(m.plManager.tracks)
 	m.loadedPlaylist = m.plManager.selPlaylist
 	if startIdx < 0 || startIdx >= m.playlist.Len() {
 		startIdx = 0

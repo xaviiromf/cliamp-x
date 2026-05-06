@@ -226,42 +226,53 @@ func (m Model) renderPlMgrTracks() []string {
 	}
 
 	maxVisible := 12
-	useAlbumSep := m.plManager.filter == ""
+	useAlbumSep := m.plManager.filter == "" && m.showAlbumHeaders
 
 	scroll := scrollStart(m.plManager.cursor, maxVisible)
-	if useAlbumSep {
-		for scroll < m.plManager.cursor && albumSeparatorRows(m.plManager.tracks, scroll, m.plManager.cursor) > maxVisible {
-			scroll++
-		}
-	}
-
 	rendered := 0
-	prevAlbum := ""
-	if useAlbumSep && scroll > 0 {
-		prevAlbum = m.plManager.tracks[scroll-1].Album
-	}
 
-	for i := scroll; i < visibleN && rendered < maxVisible; i++ {
-		realIdx := m.plMgrTrackRealIndex(i)
-		t := m.plManager.tracks[realIdx]
-
+	if m.plManager.filter != "" {
+		for i := scroll; i < visibleN && rendered < maxVisible; i++ {
+			realIdx := m.plMgrTrackRealIndex(i)
+			t := m.plManager.tracks[realIdx]
+			name := t.DisplayName()
+			if !m.showAlbumHeaders && t.Album != "" {
+				name += " · " + t.Album
+			}
+			label := formatTrackRow(realIdx+1, name, t.DurationSecs)
+			lines = append(lines, cursorLine(label, i == m.plManager.cursor))
+			rendered++
+		}
+	} else {
 		if useAlbumSep {
-			if album := t.Album; album != "" && album != prevAlbum && !isStreamingPlaylistTrack(t.Path) {
+			for scroll < m.plManager.cursor && m.albumSeparatorRows(m.plManager.tracks, scroll, m.plManager.cursor, true) > maxVisible {
+				scroll++
+			}
+		}
+
+		for row := range m.playlistRows(m.plManager.tracks, scroll, useAlbumSep) {
+			if row.Index < 0 {
 				if rendered+1 >= maxVisible {
 					break
 				}
-				lines = append(lines, m.albumSeparator(album, t.Year))
+				lines = append(lines, m.albumSeparator(row.Album, row.Year))
 				rendered++
+				continue
 			}
-			prevAlbum = t.Album
+
 			if rendered >= maxVisible {
 				break
 			}
-		}
 
-		label := formatTrackRow(realIdx+1, t.DisplayName(), t.DurationSecs)
-		lines = append(lines, cursorLine(label, i == m.plManager.cursor))
-		rendered++
+			i, t := row.Index, row.Track
+			name := t.DisplayName()
+			if !m.showAlbumHeaders && t.Album != "" {
+				name += " · " + t.Album
+			}
+			label := formatTrackRow(i+1, name, t.DurationSecs)
+			lines = append(lines, cursorLine(label, i == m.plManager.cursor))
+			rendered++
+		}
 	}
 
 	if visibleN > maxVisible {

@@ -707,29 +707,28 @@ func (m Model) renderPlaylist() string {
 
 	lines := make([]string, 0, budget)
 	numWidth := len(fmt.Sprintf("%d", len(tracks)))
-	prevAlbum := ""
-	if scroll > 0 {
-		prevAlbum = tracks[scroll-1].Album
-	}
-	for i := scroll; i < len(tracks) && len(lines) < budget; i++ {
-		if album := tracks[i].Album; album != "" && album != prevAlbum && !isStreamingPlaylistTrack(tracks[i].Path) {
+
+	for row := range m.playlistRows(tracks, scroll, m.showAlbumHeaders) {
+		if row.Index < 0 {
 			if len(lines)+1 >= budget {
 				break
 			}
-			lines = append(lines, m.albumSeparator(album, tracks[i].Year))
+			lines = append(lines, m.albumSeparator(row.Album, row.Year))
+			continue
 		}
-		prevAlbum = tracks[i].Album
+
 		if len(lines) >= budget {
 			break
 		}
 
+		i, t := row.Index, row.Track
 		prefix := "  "
 		style := playlistItemStyle
 
 		if i == currentIdx && m.player.IsPlaying() {
 			prefix = "▶ "
 			style = playlistActiveStyle
-		} else if strings.HasPrefix(tracks[i].Path, "ssh://") {
+		} else if strings.HasPrefix(t.Path, "ssh://") {
 			prefix = "↗ "
 		}
 
@@ -737,7 +736,7 @@ func (m Model) renderPlaylist() string {
 			style = playlistSelectedStyle
 		}
 
-		if tracks[i].Unplayable {
+		if t.Unplayable {
 			if m.focus == focusPlaylist && i == m.plCursor {
 				style = dimStyle
 			} else {
@@ -745,8 +744,8 @@ func (m Model) renderPlaylist() string {
 			}
 		}
 
-		name := tracks[i].DisplayName()
-		isBookmark := tracks[i].Bookmark
+		name := t.DisplayName()
+		isBookmark := t.Bookmark
 		bookmarkBudget := 0
 		if isBookmark {
 			bookmarkBudget = 2 // "★ "
@@ -764,12 +763,12 @@ func (m Model) renderPlaylist() string {
 		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
 		nameLen := utf8.RuneCountInString(name)
-		if tracks[i].Unplayable {
+		if t.Unplayable {
 			remaining := ui.PanelWidth - linePrefixWidth - bookmarkBudget - nameLen - queueLen
 			if remaining >= 4 {
 				albumSuffix = truncate(" (unavailable)", remaining)
 			}
-		} else if album := tracks[i].Album; album != "" {
+		} else if album := t.Album; album != "" && !m.showAlbumHeaders {
 			remaining := ui.PanelWidth - linePrefixWidth - bookmarkBudget - nameLen - queueLen - 3 // 3 = " · "
 			if remaining >= 4 {
 				albumSuffix = " · " + truncate(album, remaining)

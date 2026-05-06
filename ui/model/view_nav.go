@@ -190,29 +190,37 @@ func (m Model) renderNavTrackList() []string {
 	if useFilter {
 		items := m.navScrollItems(len(m.navBrowser.tracks), func(i int) string {
 			t := m.navBrowser.tracks[i]
-			return formatTrackRow(i+1, t.DisplayName(), t.DurationSecs)
+			name := t.DisplayName()
+			if !m.showAlbumHeaders && t.Album != "" {
+				name += " · " + t.Album
+			}
+			return formatTrackRow(i+1, name, t.DurationSecs)
 		})
 		lines = append(lines, items...)
 	} else {
 		scroll := m.navBrowser.scroll
 		rendered := 0
-		prevAlbum := ""
-		if scroll > 0 {
-			prevAlbum = m.navBrowser.tracks[scroll-1].Album
-		}
 
-		for i := scroll; i < len(m.navBrowser.tracks) && rendered < maxVisible; i++ {
-			t := m.navBrowser.tracks[i]
-
-			if album := t.Album; album != "" && album != prevAlbum && !isStreamingPlaylistTrack(t.Path) {
-				lines = append(lines, m.albumSeparator(album, t.Year))
-				if rendered >= maxVisible {
+		for row := range m.playlistRows(m.navBrowser.tracks, scroll, m.showAlbumHeaders) {
+			if row.Index < 0 {
+				if rendered+1 >= maxVisible {
 					break
 				}
+				lines = append(lines, m.albumSeparator(row.Album, row.Year))
+				rendered++
+				continue
 			}
-			prevAlbum = t.Album
 
-			label := formatTrackRow(i+1, t.DisplayName(), t.DurationSecs)
+			if rendered >= maxVisible {
+				break
+			}
+
+			i, t := row.Index, row.Track
+			name := t.DisplayName()
+			if !m.showAlbumHeaders && t.Album != "" {
+				name += " · " + t.Album
+			}
+			label := formatTrackRow(i+1, name, t.DurationSecs)
 			lines = append(lines, cursorLine(label, i == m.navBrowser.cursor))
 			rendered++
 		}

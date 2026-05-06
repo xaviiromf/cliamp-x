@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"iter"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -155,38 +156,121 @@ func helpKey(key, label string) string {
 	return helpKeyStyle.Render(" "+key+" ") + helpStyle.Render(" "+label)
 }
 
-// isStreamingPlaylistTrack reports whether path is a streaming-provider URI
-// whose Album metadata may not represent a real album grouping (so separators
-// would be misleading).
-func isStreamingPlaylistTrack(path string) bool {
-	return strings.HasPrefix(path, "spotify:track:")
+// isListCohesive returns true if the track list appears to be organized into
+// distinct albums (e.g. an artist's discography or a full album) rather than
+// a fragmented mixtape. It uses a threshold of average tracks per album.
+func isListCohesive(tracks []playlist.Track) bool {
+	headers := 0
+	prev := ""
+	first := true
+	for _, t := range tracks {
+		if first || t.Album != prev {
+			headers++
+			prev = t.Album
+			first = false
+		}
+	}
+
+	if headers == 0 {
+		return false
+	}
+
+	// If average tracks per album is < 3.0, the list is considered fragmented.
+	ratio := float64(len(tracks)) / float64(headers)
+	return ratio >= 3.0
+}
+
+// setInitialHeaderState evaluates the track list's cohesion to decide whether
+// to show album headers by default.
+func (m *Model) setInitialHeaderState(tracks []playlist.Track) {
+	m.showAlbumHeaders = isListCohesive(tracks)
+}
+
+// playlistRow represents a single line in a track list, which can be either
+// an album separator header or an actual track.
+type playlistRow struct {
+	Index int            // index into the original track list; -1 for headers
+	Track playlist.Track // only populated if Index >= 0
+	Album string         // only populated for headers (Index == -1)
+	Year  int            // only populated for headers (Index == -1)
+}
+
+// playlistRows returns an iterator over tracks and their injected album headers,
+// starting from the given scroll position. It accounts for "sticky" headers
+// (showing the header for an album even if we scrolled into the middle of it).
+func (m Model) playlistRows(tracks []playlist.Track, scroll int, showHeaders bool) iter.Seq[playlistRow] {
+	return func(yield func(playlistRow) bool) {
+		if len(tracks) == 0 || scroll < 0 || scroll >= len(tracks) {
+			return
+		}
+
+		// Initialize the album context from the track just above the scroll window.
+		prevAlbum := ""
+		if scroll > 0 {
+			prevAlbum = tracks[scroll-1].Album
+		}
+
+		for i := scroll; i < len(tracks); i++ {
+			t := tracks[i]
+
+			if showHeaders {
+				// Sticky Header: we scrolled into the middle of a named album.
+				if i == scroll && t.Album != "" && t.Album == prevAlbum {
+					if !yield(playlistRow{Index: -1, Album: t.Album, Year: t.Year}) {
+						return
+					}
+				}
+
+				// Transition Header: the album changed.
+				if t.Album != prevAlbum {
+					// Suppress blank headers (separators) if they would be the first row of the view.
+					// Named headers are always allowed.
+					if t.Album != "" || i > scroll {
+						if !yield(playlistRow{Index: -1, Album: t.Album, Year: t.Year}) {
+							return
+						}
+					}
+				}
+			}
+
+			// The Track itself.
+			if !yield(playlistRow{Index: i, Track: t}) {
+				return
+			}
+
+			// Update context for the next iteration.
+			prevAlbum = t.Album
+		}
+	}
 }
 
 // albumSeparatorRows counts rendered rows between scroll and cursor (inclusive)
 // in a playlist view that emits an album-separator row whenever the album
 // changes. Streaming tracks are treated as not contributing a separator,
 // matching the renderer.
-func albumSeparatorRows(tracks []playlist.Track, scroll, cursor int) int {
+func (m Model) albumSeparatorRows(tracks []playlist.Track, scroll, cursor int, showHeaders bool) int {
 	if len(tracks) == 0 || scroll < 0 || cursor < scroll || cursor >= len(tracks) {
 		return 0
 	}
-	rows := 0
-	prevAlbum := ""
-	if scroll > 0 {
-		prevAlbum = tracks[scroll-1].Album
+	if !showHeaders {
+		return cursor - scroll + 1
 	}
-	for i := scroll; i <= cursor; i++ {
-		if album := tracks[i].Album; album != "" && album != prevAlbum && !isStreamingPlaylistTrack(tracks[i].Path) {
-			rows++
-		}
-		prevAlbum = tracks[i].Album
+
+	rows := 0
+	for row := range m.playlistRows(tracks, scroll, showHeaders) {
 		rows++
+		if row.Index == cursor {
+			break
+		}
 	}
 	return rows
 }
 
 // albumSeparator builds a full-width album divider line.
 func (m Model) albumSeparator(album string, year int) string {
+	if album == "" {
+		return dimStyle.Render(strings.Repeat("─", ui.PanelWidth))
+	}
 	prefix := "── "
 	suffix := " "
 	label := prefix + album
