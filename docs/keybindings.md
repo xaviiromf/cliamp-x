@@ -1,6 +1,6 @@
 # Keybindings
 
-Press `Ctrl+K` in the player to see all keybindings.
+Press `?` or `Ctrl+K` in the player to see all keybindings.
 
 ## Playback
 
@@ -139,5 +139,5 @@ When `Ctrl+F` opens the Spotify search or YouTube/SoundCloud net search and you'
 
 | Key | Action |
 |---|---|
-| `Ctrl+K` | Show keymap |
+| `?` / `Ctrl+K` | Show keymap |
 | `q` | Quit |

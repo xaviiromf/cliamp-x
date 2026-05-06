@@ -761,7 +761,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "[":
 		m.changeSpeed(-0.25)
 
-	case "ctrl+k":
+	case "ctrl+k", "?":
 		m.openKeymap()
 
 	default:
@@ -1651,7 +1651,7 @@ func (m *Model) handleQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+c":
 		m.queue.visible = false
 		return m.quit()
-	case "ctrl+k":
+	case "ctrl+k", "?":
 		m.openKeymap()
 	case "up", "k":
 		if m.queue.cursor > 0 {

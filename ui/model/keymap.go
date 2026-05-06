@@ -67,7 +67,7 @@ var keymapEntries = []keymapEntry{
 	{key: "y", action: "Show lyrics"},
 	{key: "Tab", action: "Toggle focus"},
 	{key: "Esc", action: "Back to provider"},
-	{key: "Ctrl+K", action: "This keymap"},
+	{key: "? Ctrl+K", action: "This keymap"},
 	{key: "q", action: "Quit"},
 }
 
@@ -104,7 +104,7 @@ var coreReservedKeys = []string{
 	"ctrl+s", "S", "/", "ctrl+f",
 	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
 	"N", "L", "R", "P", "Y", "C",
-	"v", "V", "ctrl+x", "d", "ctrl+k",
+	"v", "V", "ctrl+x", "d", "ctrl+k", "?",
 	"ctrl+r",
 }
 
@@ -294,7 +294,7 @@ func (m *Model) handleKeymapKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.keymap.visible = false
 		return m.quit()
 
-	case "esc", "ctrl+k", "q":
+	case "esc", "ctrl+k", "?", "q":
 		m.keymap.visible = false
 		m.keymap.searching = false
 		m.keymap.search = ""
