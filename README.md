@@ -148,6 +148,7 @@ Or without Make: `go build -o cliamp .`
 - [Themes](docs/themes.md)
 - [SSH Streaming](docs/ssh-streaming.md)
 - [Remote Control (IPC)](docs/remote-control.md)
+- [Headless Daemon Mode](docs/headless.md)
 - [Audio Quality](docs/audio-quality.md)
 - [Media Controls](docs/mediactl.md)
 - [Lua Plugins](docs/plugins.md)

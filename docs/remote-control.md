@@ -97,6 +97,15 @@ cliamp pause
 cliamp load "Blade Runner" && cliamp play
 ```
 
+## Headless Daemon Mode
+
+Run cliamp without a TUI and drive it entirely over this IPC interface — useful for status bars, hotkey scripts, cron jobs, and embedded boxes. See [Headless Daemon Mode](headless.md) for setup, use cases, and example configs (Waybar, Hyprland, systemd, cron).
+
+```sh
+cliamp --daemon                              # no TUI, IPC only
+cliamp --daemon --auto-play --playlist Lofi  # start playing on launch
+```
+
 ## Error Handling
 
 If cliamp is not running:

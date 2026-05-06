@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 const eqBandCount = 10
 
 // EQPreset is a named 10-band EQ curve.
@@ -27,4 +29,14 @@ var eqPresets = []EQPreset{
 	{"Late Night", [eqBandCount]float64{5, 3, 1, 0, -2, -1, 0, 2, 3, 3}},
 	{"Podcast", [eqBandCount]float64{-3, -1, 2, 4, 4, 3, 1, -1, -2, -3}},
 	{"Small Speakers", [eqBandCount]float64{7, 5, 4, 2, 1, 0, -1, 0, 1, 2}},
+}
+
+// EQPresetByName looks up a built-in preset by case-insensitive name.
+func EQPresetByName(name string) (EQPreset, bool) {
+	for _, p := range eqPresets {
+		if strings.EqualFold(p.Name, name) {
+			return p, true
+		}
+	}
+	return EQPreset{}, false
 }

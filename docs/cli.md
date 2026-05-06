@@ -46,6 +46,16 @@ cliamp --low-power track.mp3                 # minimize CPU: visualizer off
 
 Forces the visualizer to `none` so the TUI ticks at 5 FPS for the time/seek display only. Useful on battery, slow terminals, or SSH sessions. Press `v` in the player to cycle visualizers back on at any time.
 
+## Headless daemon mode
+
+```sh
+cliamp --daemon                              # no TUI, IPC only
+cliamp --daemon --auto-play --playlist Lofi  # start playing on launch
+cliamp -d ~/Music --auto-play                # short flag form
+```
+
+Runs cliamp without rendering a UI, listening on the same Unix socket the TUI uses. All `cliamp <subcommand>` IPC clients keep working. UI-specific commands (`theme`, `vis`) return an error in this mode. See [Headless Daemon Mode](headless.md) for use cases and example configs (Waybar, Hyprland, systemd, cron).
+
 ## Search
 
 Search and play a track directly from the command line (requires [yt-dlp](https://github.com/yt-dlp/yt-dlp)):
@@ -93,6 +103,7 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--playlist` | string | | local TOML playlist name |
 | `--log-level` | string | info | debug, info, warn, error |
 | `--low-power` | bool | false | disables visualizer; cuts redraw + FFT cost |
+| `--daemon` / `-d` | bool | false | run headless; IPC only, no TUI |
 
 CLI flags override config file values for the current session only. They are not persisted.
 

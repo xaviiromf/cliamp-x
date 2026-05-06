@@ -44,6 +44,7 @@ func buildApp() *cli.Command {
 		&cli.StringFlag{Name: "playlist", Usage: "load a local TOML playlist by name and start playing"},
 		&cli.StringFlag{Name: "log-level", Usage: "log level: debug, info, warn, error"},
 		&cli.BoolFlag{Name: "low-power", Usage: "low-power mode: disable visualizer to minimize CPU"},
+		&cli.BoolFlag{Name: "daemon", Aliases: []string{"d"}, Usage: "run headless (no TUI), serving IPC for scripts/Waybar"},
 	}
 
 	return &cli.Command{
@@ -59,7 +60,7 @@ func buildApp() *cli.Command {
 			if err != nil {
 				return err
 			}
-			return run(ov, c.Args().Slice())
+			return run(ov, c.Args().Slice(), c.Bool("daemon"))
 		},
 		Commands: []*cli.Command{
 			upgradeCommand(),

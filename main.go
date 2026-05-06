@@ -39,7 +39,7 @@ import (
 // version is set at build time via -ldflags "-X main.version=vX.Y.Z".
 var version string
 
-func run(overrides config.Overrides, positional []string) error {
+func run(overrides config.Overrides, positional []string, daemon bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
@@ -231,6 +231,10 @@ func run(overrides config.Overrides, positional []string) error {
 	cfg.ApplyPlayer(p)
 	cfg.ApplyPlaylist(pl)
 	ui.SetPadding(cfg.PaddingH, cfg.PaddingV)
+
+	if daemon {
+		return runDaemon(p, pl, localProv, cfg.AutoPlay)
+	}
 
 	themes := theme.LoadAll()
 
