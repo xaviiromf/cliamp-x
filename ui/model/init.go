@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"cliamp/history"
 	"cliamp/luaplugin"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -38,6 +39,7 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 		providers:        providers,
 		navBrowser:       navBrowserState{},
 		luaMgr:           luaMgr,
+		historyStore:     history.New(),
 		showAlbumHeaders: true,
 	}
 	m.termTitle = initialTerminalTitleState()

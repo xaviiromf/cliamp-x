@@ -4,6 +4,7 @@ package model
 import (
 	"time"
 
+	"cliamp/history"
 	"cliamp/internal/playback"
 	"cliamp/luaplugin"
 	"cliamp/player"
@@ -237,6 +238,9 @@ type Model struct {
 
 	// Lua plugin manager (nil if no plugins loaded)
 	luaMgr *luaplugin.Manager
+
+	// History recorder (nil if config dir unavailable; safe to call when nil)
+	historyStore *history.Store
 
 	// Theme state: -1 = Default (ANSI), 0+ = index into themes
 	themes   []theme.Theme

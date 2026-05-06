@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"cliamp/history"
 	"cliamp/playlist"
 )
 
@@ -400,5 +402,106 @@ title = "Live Radio"
 	}
 	if !tracks[0].Stream {
 		t.Fatal("URL path should set Stream=true")
+	}
+}
+
+// --- Virtual "Recently Played" history playlist ---
+
+func newTestProviderWithHistory(t *testing.T) *Provider {
+	t.Helper()
+	dir := t.TempDir()
+	historyPath := filepath.Join(dir, "history.toml")
+	return &Provider{dir: filepath.Join(dir, "playlists"), history: history.NewAt(historyPath)}
+}
+
+func TestPlaylistsIncludesHistoryWhenNonEmpty(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	if err := p.history.Record(playlist.Track{Path: "/a.mp3", Title: "A"}, time.Now()); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	lists, err := p.Playlists()
+	if err != nil {
+		t.Fatalf("Playlists: %v", err)
+	}
+	if len(lists) == 0 || lists[0].Name != history.PlaylistName {
+		t.Fatalf("expected first playlist to be %q, got %+v", history.PlaylistName, lists)
+	}
+	if lists[0].TrackCount != 1 {
+		t.Errorf("history TrackCount = %d, want 1", lists[0].TrackCount)
+	}
+}
+
+func TestPlaylistsOmitsHistoryWhenEmpty(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	lists, err := p.Playlists()
+	if err != nil {
+		t.Fatalf("Playlists: %v", err)
+	}
+	for _, pl := range lists {
+		if pl.Name == history.PlaylistName {
+			t.Fatalf("history entry should not appear when empty")
+		}
+	}
+}
+
+func TestTracksReadsFromHistory(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	p.history.Record(playlist.Track{Path: "/a.mp3", Title: "A"}, base)
+	p.history.Record(playlist.Track{Path: "/b.mp3", Title: "B"}, base.Add(time.Hour))
+
+	tracks, err := p.Tracks(history.PlaylistName)
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 2 || tracks[0].Title != "B" || tracks[1].Title != "A" {
+		t.Fatalf("history tracks order wrong: %+v", tracks)
+	}
+}
+
+func TestWritesRejectedForHistoryName(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	track := playlist.Track{Path: "/a.mp3", Title: "A"}
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{"AddTrack", func() error { return p.AddTrack(history.PlaylistName, track) }},
+		{"AddTracks", func() error { return p.AddTracks(history.PlaylistName, []playlist.Track{track}) }},
+		{"SavePlaylist", func() error { return p.SavePlaylist(history.PlaylistName, []playlist.Track{track}) }},
+		{"DeletePlaylist", func() error { return p.DeletePlaylist(history.PlaylistName) }},
+		{"RemoveTrack", func() error { return p.RemoveTrack(history.PlaylistName, 0) }},
+		{"SetBookmark", func() error { return p.SetBookmark(history.PlaylistName, 0) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); err == nil {
+				t.Errorf("%s should reject history name", tt.name)
+			}
+		})
+	}
+}
+
+func TestExistsForHistoryName(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	if p.Exists(history.PlaylistName) {
+		t.Error("Exists should be false when history is empty")
+	}
+	p.history.Record(playlist.Track{Path: "/a.mp3"}, time.Now())
+	if !p.Exists(history.PlaylistName) {
+		t.Error("Exists should be true once a play is recorded")
+	}
+}
+
+func TestClearHistoryRemovesEntries(t *testing.T) {
+	p := newTestProviderWithHistory(t)
+	p.history.Record(playlist.Track{Path: "/a.mp3"}, time.Now())
+	if err := p.ClearHistory(); err != nil {
+		t.Fatalf("ClearHistory: %v", err)
+	}
+	if got, _ := p.history.Recent(0); len(got) != 0 {
+		t.Errorf("history not cleared: %d entries remain", len(got))
 	}
 }

@@ -123,6 +123,19 @@ cliamp playlist delete "Name"                 # delete entire playlist
 
 See [playlists.md](playlists.md) for the TOML format and [ssh-streaming.md](ssh-streaming.md) for remote playback.
 
+## Recently Played
+
+```sh
+cliamp history                                # show the 50 most recent plays
+cliamp history --limit 200                    # change the cap
+cliamp history --json                         # machine-readable output
+cliamp history clear                          # wipe ~/.config/cliamp/history.toml
+```
+
+A play is recorded once you've listened to a track for at least 50% of its
+duration. Inside the TUI, the same data appears as the virtual "Recently
+Played" entry in the Local Playlists provider. See [history.md](history.md).
+
 ## Spotify
 
 ```sh

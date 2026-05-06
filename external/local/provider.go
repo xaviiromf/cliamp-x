@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cliamp/history"
 	"cliamp/internal/appdir"
 	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
@@ -29,7 +30,8 @@ var (
 
 // Provider reads and writes TOML-based playlists stored on disk.
 type Provider struct {
-	dir string // e.g. ~/.config/cliamp/playlists/
+	dir     string // e.g. ~/.config/cliamp/playlists/
+	history *history.Store
 }
 
 // New creates a Provider using ~/.config/cliamp/playlists/ as the base directory.
@@ -38,7 +40,10 @@ func New() *Provider {
 	if err != nil {
 		return nil
 	}
-	return &Provider{dir: filepath.Join(dir, "playlists")}
+	return &Provider{
+		dir:     filepath.Join(dir, "playlists"),
+		history: history.New(),
+	}
 }
 
 func (p *Provider) Name() string { return "Local Playlists" }
@@ -57,18 +62,27 @@ func (p *Provider) safePath(name string) (string, error) {
 	return resolved, nil
 }
 
-// Playlists scans the directory for .toml files and returns their metadata.
-// Returns an empty list (not error) when the directory doesn't exist.
+func isHistoryName(name string) bool {
+	return name == history.PlaylistName
+}
+
+// Playlists scans the directory for .toml files and returns their metadata,
+// prepending the virtual "Recently Played" entry when the user has any
+// recorded plays. Returns an empty list (not error) when neither exists.
 func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
+	var lists []playlist.PlaylistInfo
+	if info, ok := p.historyInfo(); ok {
+		lists = append(lists, info)
+	}
+
 	entries, err := os.ReadDir(p.dir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return lists, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	var lists []playlist.PlaylistInfo
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".toml") {
 			continue
@@ -88,8 +102,33 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 	return lists, nil
 }
 
+// historyInfo returns the synthetic PlaylistInfo entry for "Recently Played",
+// or ok=false when the history store is unavailable or empty.
+func (p *Provider) historyInfo() (playlist.PlaylistInfo, bool) {
+	if p.history == nil {
+		return playlist.PlaylistInfo{}, false
+	}
+	tracks, err := p.history.Tracks(0)
+	if err != nil || len(tracks) == 0 {
+		return playlist.PlaylistInfo{}, false
+	}
+	return playlist.PlaylistInfo{
+		ID:           history.PlaylistName,
+		Name:         history.PlaylistName,
+		TrackCount:   len(tracks),
+		DurationSecs: playlist.TotalDurationSecs(tracks),
+	}, true
+}
+
 // Tracks parses the TOML file for the given playlist name and returns its tracks.
+// The reserved "Recently Played" name is served from the history store.
 func (p *Provider) Tracks(playlistID string) ([]playlist.Track, error) {
+	if isHistoryName(playlistID) {
+		if p.history == nil {
+			return nil, nil
+		}
+		return p.history.Tracks(0)
+	}
 	path, err := p.safePath(playlistID)
 	if err != nil {
 		return nil, err
@@ -100,6 +139,9 @@ func (p *Provider) Tracks(playlistID string) ([]playlist.Track, error) {
 // AddTrack appends a track to the named playlist, creating the directory and
 // file if needed.
 func (p *Provider) AddTrack(playlistName string, track playlist.Track) error {
+	if isHistoryName(playlistName) {
+		return errReservedHistoryName
+	}
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		return err
 	}
@@ -125,6 +167,9 @@ func (p *Provider) AddTrack(playlistName string, track playlist.Track) error {
 
 // AddTracks appends multiple tracks in a single file open/close cycle.
 func (p *Provider) AddTracks(playlistName string, tracks []playlist.Track) error {
+	if isHistoryName(playlistName) {
+		return errReservedHistoryName
+	}
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		return err
 	}
@@ -153,8 +198,14 @@ func (p *Provider) AddTracks(playlistName string, tracks []playlist.Track) error
 	return nil
 }
 
-// Exists reports whether a playlist with the given name exists on disk.
+// Exists reports whether a playlist with the given name exists on disk, or
+// whether it refers to the virtual "Recently Played" history with at least
+// one entry recorded.
 func (p *Provider) Exists(name string) bool {
+	if isHistoryName(name) {
+		_, ok := p.historyInfo()
+		return ok
+	}
 	path, err := p.safePath(name)
 	if err != nil {
 		return false
@@ -194,8 +245,15 @@ func (p *Provider) savePlaylist(name string, tracks []playlist.Track) error {
 	return os.Rename(tmp, path)
 }
 
+// errReservedHistoryName is returned when a caller tries to write to or
+// otherwise mutate the synthetic history playlist.
+var errReservedHistoryName = errors.New(`"Recently Played" is a virtual history playlist and cannot be modified`)
+
 // SetBookmark toggles the bookmark flag on a track and rewrites the playlist.
 func (p *Provider) SetBookmark(playlistName string, idx int) error {
+	if isHistoryName(playlistName) {
+		return errReservedHistoryName
+	}
 	tracks, err := p.loadTOMLByName(playlistName)
 	if err != nil {
 		return err
@@ -218,6 +276,9 @@ func (p *Provider) loadTOMLByName(name string) ([]playlist.Track, error) {
 
 // SavePlaylist overwrites a playlist with the given tracks.
 func (p *Provider) SavePlaylist(name string, tracks []playlist.Track) error {
+	if isHistoryName(name) {
+		return errReservedHistoryName
+	}
 	return p.savePlaylist(name, tracks)
 }
 
@@ -285,7 +346,11 @@ func trackMatches(t playlist.Track, lowerQuery string) bool {
 }
 
 // DeletePlaylist removes the TOML file for the named playlist.
+// "Recently Played" cannot be deleted via this method — use ClearHistory.
 func (p *Provider) DeletePlaylist(name string) error {
+	if isHistoryName(name) {
+		return errReservedHistoryName
+	}
 	path, err := p.safePath(name)
 	if err != nil {
 		return err
@@ -293,9 +358,21 @@ func (p *Provider) DeletePlaylist(name string) error {
 	return os.Remove(path)
 }
 
+// ClearHistory wipes the recorded play history. Returns nil if no history
+// exists yet.
+func (p *Provider) ClearHistory() error {
+	if p.history == nil {
+		return nil
+	}
+	return p.history.Clear()
+}
+
 // RemoveTrack removes a track by index from the named playlist.
 // If the playlist becomes empty after removal, the file is deleted.
 func (p *Provider) RemoveTrack(name string, index int) error {
+	if isHistoryName(name) {
+		return errReservedHistoryName
+	}
 	tracks, err := p.Tracks(name)
 	if err != nil {
 		return err

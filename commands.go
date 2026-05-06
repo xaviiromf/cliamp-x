@@ -65,6 +65,7 @@ func buildApp() *cli.Command {
 			upgradeCommand(),
 			pluginsCommand(),
 			playlistCommand(),
+			historyCommand(),
 			setupCommand(),
 			spotifyCommand(),
 			ipcSimpleCommand("play", "resume playback"),
@@ -447,6 +448,32 @@ func playlistCommand() *cli.Command {
 						return fmt.Errorf("usage: cliamp playlist enrich \"Name\"")
 					}
 					return cmd.PlaylistEnrich(c.Args().First())
+				},
+			},
+		},
+	}
+}
+
+func historyCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "history",
+		Usage: "show recently played tracks",
+		Description: "Lists tracks that have been played past the scrobble threshold.\n" +
+			"Browse the same data inside the TUI under Local Playlists →\n" +
+			"\"Recently Played\".",
+		Flags: []cli.Flag{
+			&cli.IntFlag{Name: "limit", Usage: "max entries to show (0 = all)", Value: 50},
+			&cli.BoolFlag{Name: "json", Usage: "machine-readable JSON output"},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			return cmd.HistoryShow(int(c.Int("limit")), c.Bool("json"))
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "clear",
+				Usage: "delete the history file",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					return cmd.HistoryClear()
 				},
 			},
 		},
