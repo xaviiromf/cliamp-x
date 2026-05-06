@@ -27,12 +27,14 @@ Add a `[plex]` section to `~/.config/cliamp/config.toml`:
 [plex]
 url   = "http://192.168.1.10:32400"
 token = "xxxxxxxxxxxxxxxxxxxx"
+libraries = ["Music", "Jazz"]
 ```
 
 | Key | Description |
 |-----|-------------|
 | `url` | Base URL of your Plex Media Server, including port (default `32400`) |
 | `token` | Your `X-Plex-Token` for authentication |
+| `libraries` | Optional comma-separated list of music library names to load. When omitted, all music libraries are loaded. Names are matched case-insensitively. |
 
 If you access Plex remotely via `app.plex.tv`, you can still use a direct server URL if your server has remote access enabled, or use your server's `plex.direct` URL from the Plex Web address bar.
 

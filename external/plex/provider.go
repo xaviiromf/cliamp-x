@@ -36,7 +36,7 @@ func NewFromConfig(cfg config.PlexConfig) *Provider {
 	if !cfg.IsSet() {
 		return nil
 	}
-	return newProvider(NewClient(cfg.URL, cfg.Token))
+	return newProvider(NewClient(cfg.URL, cfg.Token, cfg.Libraries...))
 }
 
 // Name returns the display name used in the provider selector.
@@ -59,7 +59,7 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		return nil, err
 	}
 	if len(sections) == 0 {
-		return nil, fmt.Errorf("plex: no music libraries found on this server")
+		return nil, fmt.Errorf("plex: no matching music libraries found on this server")
 	}
 
 	var lists []playlist.PlaylistInfo

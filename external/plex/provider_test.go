@@ -135,7 +135,7 @@ func TestProvider_Playlists_NoMusicSections(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for no music sections, got nil")
 	}
-	if !strings.Contains(err.Error(), "no music libraries") {
+	if !strings.Contains(err.Error(), "no matching music libraries") {
 		t.Errorf("unexpected error message: %q", err.Error())
 	}
 }
@@ -270,5 +270,68 @@ func TestNewFromConfig_OK(t *testing.T) {
 	cfg := config.PlexConfig{URL: "http://localhost:32400", Token: "mytoken"}
 	if p := NewFromConfig(cfg); p == nil {
 		t.Error("NewFromConfig() returned nil for valid config")
+	}
+}
+
+func TestNewFromConfig_LibrariesWired(t *testing.T) {
+	tests := []struct {
+		name      string
+		libraries []string
+		wantLen   int
+	}{
+		{"no filter returns all", nil, 2},
+		{"filter to Jazz", []string{"Jazz"}, 1},
+		{"filter to jazz case-insensitive", []string{"jazz"}, 1},
+		{"filter to both", []string{"Music", "Jazz"}, 2},
+		{"no match returns error", []string{"Classical"}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/library/sections"):
+					w.Write([]byte(`{"MediaContainer":{"Directory":[
+						{"key":"1","type":"artist","title":"Music"},
+						{"key":"2","type":"artist","title":"Jazz"}
+					]}}`))
+				case strings.HasSuffix(r.URL.Path, "/library/sections/1/all"):
+					w.Write([]byte(`{"MediaContainer":{"totalSize":1,"Metadata":[
+						{"ratingKey":"11","title":"Bitches Brew","parentTitle":"Miles Davis","year":1970,"leafCount":4}
+					]}}`))
+				case strings.HasSuffix(r.URL.Path, "/library/sections/2/all"):
+					w.Write([]byte(`{"MediaContainer":{"totalSize":1,"Metadata":[
+						{"ratingKey":"10","title":"Kind of Blue","parentTitle":"Miles Davis","year":1959,"leafCount":5}
+					]}}`))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+
+			cfg := config.PlexConfig{
+				URL:       srv.URL,
+				Token:     "tok",
+				Libraries: tt.libraries,
+			}
+			p := NewFromConfig(cfg)
+			if p == nil {
+				t.Fatal("NewFromConfig() returned nil for valid config")
+			}
+
+			lists, err := p.Playlists()
+			if tt.wantLen == 0 {
+				if err == nil {
+					t.Errorf("expected error for no matching libraries, got %d playlists", len(lists))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Playlists() error: %v", err)
+			}
+			if len(lists) != tt.wantLen {
+				t.Fatalf("got %d playlists, want %d", len(lists), tt.wantLen)
+			}
+		})
 	}
 }

@@ -38,7 +38,7 @@ var providerEmptyStateHint = map[string]string{
 	"navidrome":       "Verify [navidrome] url/username/password in config.toml.",
 	"jellyfin":        "Verify [jellyfin] url and token in config.toml.",
 	"emby":            "Verify [emby] url and token or username/password in config.toml.",
-	"plex":            "Verify [plex] server URL and token in config.toml.",
+	"plex":            "Verify [plex] server URL and token or library filter in config.toml.",
 	"youtube music":   "Run `cliamp ytmusic-login` to authorize, then refresh.",
 	"ytmusic":         "Run `cliamp ytmusic-login` to authorize, then refresh.",
 	"soundcloud":      "Set [soundcloud] user in config.toml to browse a profile.",

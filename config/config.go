@@ -150,8 +150,9 @@ func (s SoundCloudConfig) IsSet() bool { return s.Enabled }
 // PlexConfig holds credentials for a Plex Media Server.
 // Both URL and Token must be non-empty for a client to be constructed.
 type PlexConfig struct {
-	URL   string // e.g. "http://192.168.1.10:32400"
-	Token string // X-Plex-Token
+	URL       string   // e.g. "http://192.168.1.10:32400"
+	Token     string   // X-Plex-Token
+	Libraries []string // optional: restrict to these music library names
 }
 
 // IsSet reports whether both Plex credentials are present.
@@ -349,6 +350,8 @@ func Load() (Config, error) {
 				cfg.Plex.URL = parseString(val)
 			case "token":
 				cfg.Plex.Token = parseString(val)
+			case "libraries":
+				cfg.Plex.Libraries = parseStringSlice(val)
 			}
 		case "soundcloud":
 			switch key {
@@ -720,6 +723,23 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// parseStringSlice parses a comma-separated list of strings, optionally
+// wrapped in square brackets (e.g. `["Music", "Jazz"]` or `Music, Jazz`).
+// Leading/trailing whitespace and surrounding quotes are stripped from each element.
+func parseStringSlice(val string) []string {
+	val = strings.Trim(val, "[]")
+	parts := strings.Split(val, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		p = strings.Trim(p, `"'`)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 // parseEQ parses a TOML-style array like [0, 1.5, -2, ...] into 10 bands.

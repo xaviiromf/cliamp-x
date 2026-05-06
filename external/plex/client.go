@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -19,13 +20,16 @@ var apiClient = &http.Client{Timeout: 30 * time.Second}
 
 // Client speaks to a Plex Media Server over its HTTP API.
 type Client struct {
-	baseURL string // e.g. "http://192.168.1.10:32400"
-	token   string // X-Plex-Token
+	baseURL   string   // e.g. "http://192.168.1.10:32400"
+	token     string   // X-Plex-Token
+	libraries []string // if non-empty, MusicSections filters to these titles (case-insensitive)
 }
 
 // NewClient returns a Client for the given server URL and authentication token.
-func NewClient(baseURL, token string) *Client {
-	return &Client{baseURL: baseURL, token: token}
+// libraries is an optional list of music library names to restrict MusicSections to.
+// When not provided, all music libraries will be loaded
+func NewClient(baseURL, token string, libraries ...string) *Client {
+	return &Client{baseURL: baseURL, token: token, libraries: libraries}
 }
 
 // Section represents a Plex library section (e.g. a music library).
@@ -104,7 +108,9 @@ func (c *Client) Ping() error {
 	return c.get("/", nil, &result)
 }
 
-// MusicSections returns all library sections of type "artist" (music libraries).
+// MusicSections returns library sections of type "artist" (music libraries).
+// When the client was constructed with a library filter, only sections whose
+// title matches one of the allowed names (case-insensitive) are returned.
 func (c *Client) MusicSections() ([]Section, error) {
 	var result struct {
 		MediaContainer struct {
@@ -121,7 +127,7 @@ func (c *Client) MusicSections() ([]Section, error) {
 
 	var sections []Section
 	for _, d := range result.MediaContainer.Directory {
-		if d.Type == "artist" {
+		if d.Type == "artist" && c.includeLibrary(d.Title) {
 			sections = append(sections, Section{
 				Key:   d.Key,
 				Title: d.Title,
@@ -130,6 +136,20 @@ func (c *Client) MusicSections() ([]Section, error) {
 		}
 	}
 	return sections, nil
+}
+
+// includeLibrary reports whether the library with the given title should be
+// included. When no filter is configured (libraries is empty) all libraries pass.
+func (c *Client) includeLibrary(title string) bool {
+	if len(c.libraries) == 0 {
+		return true
+	}
+	for _, lib := range c.libraries {
+		if strings.EqualFold(lib, title) {
+			return true
+		}
+	}
+	return false
 }
 
 // pageSize is the number of albums requested per API call.

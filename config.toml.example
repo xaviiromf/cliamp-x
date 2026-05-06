@@ -86,6 +86,16 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # cookies_from = "firefox"   # chrome, brave, edge, opera, safari, vivaldi…
 
 # ---
+# Plex Media Server (optional)
+# [plex]
+# url   = "http://192.168.1.10:32400"
+# token = "xxxxxxxxxxxxxxxxxxxx"
+#
+# Restrict to specific music libraries (comma-separated, case-insensitive).
+# When omitted or empty, all music libraries are loaded.
+# libraries = ["Music", "Jazz"]
+
+# ---
 # Jellyfin server (optional)
 # Authenticate either with a long-lived API token or with your username/password.
 # user_id is optional and is discovered automatically when omitted.

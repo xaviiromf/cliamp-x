@@ -101,6 +101,68 @@ func TestMusicSections_Empty(t *testing.T) {
 	}
 }
 
+func TestMusicSections_LibraryFilter(t *testing.T) {
+	serverJSON := `{"MediaContainer":{"Directory":[
+		{"key":"1","type":"artist","title":"Music"},
+		{"key":"2","type":"artist","title":"Jazz"},
+		{"key":"3","type":"artist","title":"Classical"}
+	]}}`
+
+	tests := []struct {
+		name       string
+		libraries  []string
+		wantLen    int
+		wantTitles []string
+		wantKeys   []string
+	}{
+		{
+			name:       "filter to subset",
+			libraries:  []string{"Jazz", "Classical"},
+			wantLen:    2,
+			wantTitles: []string{"Jazz", "Classical"},
+		},
+		{
+			name:      "case-insensitive match",
+			libraries: []string{"MUSIC"},
+			wantLen:   1,
+			wantKeys:  []string{"1"},
+		},
+		{
+			name:      "no match returns empty",
+			libraries: []string{"DoesNotExist"},
+			wantLen:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(serverJSON))
+			}))
+			defer srv.Close()
+
+			sections, err := NewClient(srv.URL, "test-token", tt.libraries...).MusicSections()
+			if err != nil {
+				t.Fatalf("MusicSections() error: %v", err)
+			}
+			if len(sections) != tt.wantLen {
+				t.Fatalf("got %d sections, want %d: %v", len(sections), tt.wantLen, sections)
+			}
+			for i, title := range tt.wantTitles {
+				if sections[i].Title != title {
+					t.Errorf("sections[%d].Title = %q, want %q", i, sections[i].Title, title)
+				}
+			}
+			for i, key := range tt.wantKeys {
+				if sections[i].Key != key {
+					t.Errorf("sections[%d].Key = %q, want %q", i, sections[i].Key, key)
+				}
+			}
+		})
+	}
+}
+
 func TestAlbums_RequestsType9(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("type") != "9" {
