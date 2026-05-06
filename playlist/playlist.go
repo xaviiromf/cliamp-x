@@ -722,6 +722,63 @@ func (p *Playlist) Move(from, to int) bool {
 	return true
 }
 
+// Remove deletes the track at index idx, updating order, queue, and position
+// references so playback state is preserved when possible. Returns true if a
+// track was removed. If the removed track was the active one, the position
+// stays at the same order slot so playback advances naturally on next.
+func (p *Playlist) Remove(idx int) bool {
+	if idx < 0 || idx >= len(p.tracks) {
+		return false
+	}
+
+	p.tracks = slices.Delete(p.tracks, idx, idx+1)
+
+	removedOrderPos := -1
+	newOrder := p.order[:0]
+	for i, ord := range p.order {
+		if ord == idx {
+			removedOrderPos = i
+			continue
+		}
+		if ord > idx {
+			ord--
+		}
+		newOrder = append(newOrder, ord)
+	}
+	p.order = newOrder
+
+	if removedOrderPos >= 0 && removedOrderPos < p.pos {
+		p.pos--
+	}
+	if p.pos >= len(p.order) {
+		p.pos = len(p.order) - 1
+	}
+	if p.pos < 0 {
+		p.pos = 0
+	}
+
+	newQueue := p.queue[:0]
+	for _, q := range p.queue {
+		if q == idx {
+			continue
+		}
+		if q > idx {
+			q--
+		}
+		newQueue = append(newQueue, q)
+	}
+	p.queue = newQueue
+
+	switch {
+	case p.queuedIdx == idx:
+		p.queuedIdx = -1
+	case p.queuedIdx > idx:
+		p.queuedIdx--
+	}
+
+	return true
+}
+
 // SetTrack replaces the track at index i.
 func (p *Playlist) SetTrack(i int, t Track) {
 	if i >= 0 && i < len(p.tracks) {

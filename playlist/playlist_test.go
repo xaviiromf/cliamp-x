@@ -297,6 +297,83 @@ func TestMoveQueue(t *testing.T) {
 	}
 }
 
+func TestRemoveShiftsHigherIndices(t *testing.T) {
+	p := makePlaylist(5, false) // A B C D E
+	p.SetIndex(3)               // playing D
+	p.Queue(4)                  // queue E
+
+	if !p.Remove(1) { // remove B
+		t.Fatal("Remove returned false")
+	}
+
+	got := titles(p)
+	want := []string{"A", "C", "D", "E"}
+	if !sliceEq(got, want) {
+		t.Errorf("tracks = %v, want %v", got, want)
+	}
+
+	cur, idx := p.Current()
+	if cur.Title != "D" || idx != 2 {
+		t.Errorf("current = (%s, %d), want (D, 2)", cur.Title, idx)
+	}
+
+	qt := p.QueueTracks()
+	if len(qt) != 1 || qt[0].Title != "E" {
+		t.Errorf("queue = %v, want [E]", qt)
+	}
+}
+
+func TestRemoveCurrentTrack(t *testing.T) {
+	p := makePlaylist(4, false) // A B C D
+	p.SetIndex(1)               // playing B
+
+	if !p.Remove(1) {
+		t.Fatal("Remove returned false")
+	}
+
+	got := titles(p)
+	want := []string{"A", "C", "D"}
+	if !sliceEq(got, want) {
+		t.Errorf("tracks = %v, want %v", got, want)
+	}
+
+	// Position stays at order slot 1 so Next/PeekNext sees the next track.
+	cur, idx := p.Current()
+	if cur.Title != "C" || idx != 1 {
+		t.Errorf("current = (%s, %d), want (C, 1)", cur.Title, idx)
+	}
+}
+
+func TestRemoveLastTrack(t *testing.T) {
+	p := makePlaylist(2, false) // A B
+	p.SetIndex(1)               // playing B
+
+	if !p.Remove(1) {
+		t.Fatal("Remove returned false")
+	}
+
+	if p.Len() != 1 {
+		t.Fatalf("len = %d, want 1", p.Len())
+	}
+	cur, idx := p.Current()
+	if cur.Title != "A" || idx != 0 {
+		t.Errorf("current = (%s, %d), want (A, 0)", cur.Title, idx)
+	}
+}
+
+func TestRemoveOutOfBounds(t *testing.T) {
+	p := makePlaylist(3, false)
+	if p.Remove(-1) {
+		t.Error("Remove(-1) should return false")
+	}
+	if p.Remove(3) {
+		t.Error("Remove(3) should return false")
+	}
+	if p.Len() != 3 {
+		t.Errorf("len changed to %d", p.Len())
+	}
+}
+
 func TestMoveQueueBoundary(t *testing.T) {
 	p := makePlaylist(3, false)
 	p.Queue(0)

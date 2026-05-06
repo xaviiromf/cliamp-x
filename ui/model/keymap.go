@@ -44,6 +44,7 @@ var keymapEntries = []keymapEntry{
 	{key: "Enter", action: "Play selected track"},
 	{key: "a", action: "Toggle queue (play next)"},
 	{key: "A", action: "Queue manager"},
+	{key: "x", action: "Remove selected track from playlist"},
 	{key: "o", action: "Open file browser"},
 	{key: "N", action: "Navidrome browser"},
 	{key: "L", action: "Browse local playlists"},
@@ -104,7 +105,7 @@ var coreReservedKeys = []string{
 	"ctrl+s", "S", "/", "ctrl+f",
 	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
 	"N", "L", "R", "P", "Y", "C",
-	"v", "V", "ctrl+x", "d", "ctrl+k", "?",
+	"v", "V", "ctrl+x", "x", "d", "ctrl+k", "?",
 	"ctrl+r",
 }
 

@@ -69,6 +69,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 |---|---|
 | `a` | Toggle queue (play next) |
 | `A` | Queue manager |
+| `x` | Remove the highlighted track from the current playlist |
 | `p` | Playlist manager |
 | `r` | Cycle repeat (Off / All / One) |
 | `z` | Toggle shuffle |

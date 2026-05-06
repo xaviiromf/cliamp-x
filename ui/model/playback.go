@@ -140,6 +140,33 @@ func (m *Model) queueTrackNext(track playlist.Track) tea.Cmd {
 	return nil
 }
 
+// removeSelectedFromPlaylist removes the track at the current playlist cursor.
+// If the active track is removed, playback is stopped; the cursor is clamped
+// to the new playlist length.
+func (m *Model) removeSelectedFromPlaylist() {
+	idx := m.plCursor
+	if idx < 0 || idx >= m.playlist.Len() {
+		return
+	}
+	track := m.playlist.Tracks()[idx]
+	wasActive := idx == m.playlist.Index()
+	if !m.playlist.Remove(idx) {
+		return
+	}
+	if wasActive {
+		m.player.Stop()
+		m.player.ClearPreload()
+	}
+	if newLen := m.playlist.Len(); newLen == 0 {
+		m.plCursor = 0
+	} else if m.plCursor >= newLen {
+		m.plCursor = newLen - 1
+	}
+	m.adjustScroll()
+	m.status.Showf(statusTTLDefault, "Removed: %s", track.DisplayName())
+	m.notifyPlayback()
+}
+
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.
 // yt-dlp URLs are streamed via a piped yt-dlp | ffmpeg chain for instant playback.
 func (m *Model) playTrack(track playlist.Track) tea.Cmd {

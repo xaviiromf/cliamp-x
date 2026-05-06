@@ -747,6 +747,11 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.toggleExpandPlaylist()
 		}
 
+	case "x":
+		if m.focus == focusPlaylist {
+			m.removeSelectedFromPlaylist()
+		}
+
 	case "d":
 		m.devicePicker.visible = true
 		m.devicePicker.cursor = 0

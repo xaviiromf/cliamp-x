@@ -490,11 +490,15 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 // fbConfirm collects selected paths, closes the overlay, and returns an async
-// command that resolves the paths into tracks.
+// command that resolves the paths into tracks. Paths are emitted in the
+// directory listing's natural (alphabetical) order so albums play in track
+// order rather than the random map iteration order.
 func (m *Model) fbConfirm(replace bool) tea.Cmd {
 	paths := make([]string, 0, len(m.fileBrowser.selected))
-	for p := range m.fileBrowser.selected {
-		paths = append(paths, p)
+	for _, e := range m.fileBrowser.entries {
+		if m.fileBrowser.selected[e.path] {
+			paths = append(paths, e.path)
+		}
 	}
 	m.fileBrowser.visible = false
 
