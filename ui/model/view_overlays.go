@@ -235,11 +235,7 @@ func (m Model) renderPlMgrTracks() []string {
 		for i := scroll; i < visibleN && rendered < maxVisible; i++ {
 			realIdx := m.plMgrTrackRealIndex(i)
 			t := m.plManager.tracks[realIdx]
-			name := t.DisplayName()
-			if !m.showAlbumHeaders && t.Album != "" {
-				name += " · " + t.Album
-			}
-			label := formatTrackRow(realIdx+1, name, t.DurationSecs)
+			label := formatTrackRow(realIdx+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
 			lines = append(lines, cursorLine(label, i == m.plManager.cursor))
 			rendered++
 		}
@@ -265,11 +261,7 @@ func (m Model) renderPlMgrTracks() []string {
 			}
 
 			i, t := row.Index, row.Track
-			name := t.DisplayName()
-			if !m.showAlbumHeaders && t.Album != "" {
-				name += " · " + t.Album
-			}
-			label := formatTrackRow(i+1, name, t.DurationSecs)
+			label := formatTrackRow(i+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
 			lines = append(lines, cursorLine(label, i == m.plManager.cursor))
 			rendered++
 		}

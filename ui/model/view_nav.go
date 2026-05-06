@@ -190,11 +190,7 @@ func (m Model) renderNavTrackList() []string {
 	if useFilter {
 		items := m.navScrollItems(len(m.navBrowser.tracks), func(i int) string {
 			t := m.navBrowser.tracks[i]
-			name := t.DisplayName()
-			if !m.showAlbumHeaders && t.Album != "" {
-				name += " · " + t.Album
-			}
-			return formatTrackRow(i+1, name, t.DurationSecs)
+			return formatTrackRow(i+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
 		})
 		lines = append(lines, items...)
 	} else {
@@ -216,11 +212,7 @@ func (m Model) renderNavTrackList() []string {
 			}
 
 			i, t := row.Index, row.Track
-			name := t.DisplayName()
-			if !m.showAlbumHeaders && t.Album != "" {
-				name += " · " + t.Album
-			}
-			label := formatTrackRow(i+1, name, t.DurationSecs)
+			label := formatTrackRow(i+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
 			lines = append(lines, cursorLine(label, i == m.navBrowser.cursor))
 			rendered++
 		}

@@ -86,7 +86,6 @@ func (m *Model) playTrackImmediate(track playlist.Track) tea.Cmd {
 	m.player.Stop()
 	m.player.ClearPreload()
 	m.playlist.Add(track)
-	m.setInitialHeaderState(m.playlist.Tracks())
 	idx := m.playlist.Len() - 1
 	m.playlist.SetIndex(idx)
 	m.plCursor = idx
@@ -101,7 +100,6 @@ func (m *Model) playTrackImmediate(track playlist.Track) tea.Cmd {
 func (m *Model) appendTrack(track playlist.Track) tea.Cmd {
 	wasEmpty := m.playlist.Len() == 0
 	m.playlist.Add(track)
-	m.setInitialHeaderState(m.playlist.Tracks())
 	idx := m.playlist.Len() - 1
 	m.status.Showf(statusTTLMedium, "Added: %s", track.DisplayName())
 	if wasEmpty || !m.player.IsPlaying() {
@@ -131,7 +129,6 @@ func (m *Model) closeSpotSearch() {
 // queueTrackNext adds a track to the playlist and queues it to play next.
 func (m *Model) queueTrackNext(track playlist.Track) tea.Cmd {
 	m.playlist.Add(track)
-	m.setInitialHeaderState(m.playlist.Tracks())
 	idx := m.playlist.Len() - 1
 	m.playlist.Queue(idx)
 	m.status.Showf(statusTTLMedium, "Queued: %s", track.DisplayName())

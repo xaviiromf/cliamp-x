@@ -156,9 +156,14 @@ func helpKey(key, label string) string {
 	return helpKeyStyle.Render(" "+key+" ") + helpStyle.Render(" "+label)
 }
 
+// minTracksPerAlbum is the threshold at which a list is considered cohesive
+// enough to default to showing album headers; below this average tracks/album,
+// the list looks like a fragmented mixtape and headers add noise.
+const minTracksPerAlbum = 3.0
+
 // isListCohesive returns true if the track list appears to be organized into
 // distinct albums (e.g. an artist's discography or a full album) rather than
-// a fragmented mixtape. It uses a threshold of average tracks per album.
+// a fragmented mixtape.
 func isListCohesive(tracks []playlist.Track) bool {
 	headers := 0
 	prev := ""
@@ -174,16 +179,24 @@ func isListCohesive(tracks []playlist.Track) bool {
 	if headers == 0 {
 		return false
 	}
-
-	// If average tracks per album is < 3.0, the list is considered fragmented.
-	ratio := float64(len(tracks)) / float64(headers)
-	return ratio >= 3.0
+	return float64(len(tracks))/float64(headers) >= minTracksPerAlbum
 }
 
-// setInitialHeaderState evaluates the track list's cohesion to decide whether
-// to show album headers by default.
+// setInitialHeaderState picks a sensible header default for a freshly loaded
+// list. Only call this when the playlist is replaced or first populated —
+// calling it after every Add re-runs the heuristic over the whole list (O(N²)
+// during incremental loads) and silently overrides the user's Ctrl+H toggle.
 func (m *Model) setInitialHeaderState(tracks []playlist.Track) {
 	m.showAlbumHeaders = isListCohesive(tracks)
+}
+
+// trackAlbumSuffix returns the " · Album" suffix shown after track names when
+// album headers are hidden. Empty when headers are on or the track has no album.
+func trackAlbumSuffix(t playlist.Track, showHeaders bool) string {
+	if showHeaders || t.Album == "" {
+		return ""
+	}
+	return " · " + t.Album
 }
 
 // playlistRow represents a single line in a track list, which can be either
@@ -204,7 +217,6 @@ func (m Model) playlistRows(tracks []playlist.Track, scroll int, showHeaders boo
 			return
 		}
 
-		// Initialize the album context from the track just above the scroll window.
 		prevAlbum := ""
 		if scroll > 0 {
 			prevAlbum = tracks[scroll-1].Album
@@ -214,31 +226,24 @@ func (m Model) playlistRows(tracks []playlist.Track, scroll int, showHeaders boo
 			t := tracks[i]
 
 			if showHeaders {
-				// Sticky Header: we scrolled into the middle of a named album.
+				// Sticky header when the viewport opens mid-album.
 				if i == scroll && t.Album != "" && t.Album == prevAlbum {
 					if !yield(playlistRow{Index: -1, Album: t.Album, Year: t.Year}) {
 						return
 					}
 				}
 
-				// Transition Header: the album changed.
-				if t.Album != prevAlbum {
-					// Suppress blank headers (separators) if they would be the first row of the view.
-					// Named headers are always allowed.
-					if t.Album != "" || i > scroll {
-						if !yield(playlistRow{Index: -1, Album: t.Album, Year: t.Year}) {
-							return
-						}
+				// Suppress a blank closing separator at the very top of the view.
+				if t.Album != prevAlbum && (t.Album != "" || i > scroll) {
+					if !yield(playlistRow{Index: -1, Album: t.Album, Year: t.Year}) {
+						return
 					}
 				}
 			}
 
-			// The Track itself.
 			if !yield(playlistRow{Index: i, Track: t}) {
 				return
 			}
-
-			// Update context for the next iteration.
 			prevAlbum = t.Album
 		}
 	}
