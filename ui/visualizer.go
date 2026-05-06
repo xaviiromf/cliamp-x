@@ -63,6 +63,7 @@ const (
 	VisFirefly                    // firefly meadow at dusk
 	VisMosaic                     // static heatmap of flickering tiles
 	VisSand                       // falling-sand cellular automaton
+	VisGeyser                     // bass-driven particle fountain
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -460,6 +461,7 @@ var visModes = [VisCount]visEntry{
 	VisFirefly:     {"Firefly", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderFirefly)},
 	VisMosaic:      {"Mosaic", newMosaicDriver},
 	VisSand:        {"Sand", newSandDriver},
+	VisGeyser:      {"Geyser", newGeyserDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 

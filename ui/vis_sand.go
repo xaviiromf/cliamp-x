@@ -142,14 +142,14 @@ func (d *sandDriver) Tick(v *Visualizer, ctx VisTickContext) {
 
 	// 0. Explosion check: fires before the normal bump branches so the
 	// grid is cleared *instead* of being merely shaken when overfilled.
-	if delta > 0.10 && bass > 0.25 {
+	if delta > 0.06 && bass > 0.15 {
 		fill := 0
 		for _, g := range d.grid {
 			if g != 0 {
 				fill++
 			}
 		}
-		if float64(fill)/float64(len(d.grid)) > 0.40 {
+		if float64(fill)/float64(len(d.grid)) > 0.30 {
 			// Convert every grain into a ballistic particle and enter the
 			// explosion phase. The simulation will animate the burst over
 			// the next few dozen frames, then resume.
@@ -159,8 +159,8 @@ func (d *sandDriver) Tick(v *Visualizer, ctx VisTickContext) {
 	}
 
 	// 1. Transient bump.
-	if delta > 0.10 && bass > 0.25 {
-		strength := delta*2.5 + bass*0.6
+	if delta > 0.06 && bass > 0.15 {
+		strength := delta*3.5 + bass*0.8
 		if strength > 1.4 {
 			strength = 1.4
 		}
@@ -211,9 +211,9 @@ func (d *sandDriver) Tick(v *Visualizer, ctx VisTickContext) {
 	// 2. Sustained rumble — applies whenever bass is high, regardless of
 	// transient. Smaller per-grain motion but applied every frame, so the bed
 	// keeps churning during a held kick.
-	if bass > 0.45 {
+	if bass > 0.30 {
 		// Strength climbs with how far above the threshold we are.
-		rumble := (bass - 0.45) * 1.6
+		rumble := (bass - 0.30) * 1.8
 		if rumble > 0.6 {
 			rumble = 0.6
 		}
