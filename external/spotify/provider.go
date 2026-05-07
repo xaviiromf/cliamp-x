@@ -644,10 +644,15 @@ func (p *SpotifyProvider) SearchTracks(ctx context.Context, query string, limit 
 		limit = 50
 	}
 
+	// market=from_token scopes results to the token's home market. Without it,
+	// Spotify returns misleading 400 "Invalid limit" errors for accounts in
+	// some regions (Pakistan, Bangladesh, …) where /v1/search refuses to run
+	// without an explicit market.
 	q := url.Values{
-		"q":     {query},
-		"type":  {"track"},
-		"limit": {fmt.Sprintf("%d", limit)},
+		"q":      {query},
+		"type":   {"track"},
+		"limit":  {fmt.Sprintf("%d", limit)},
+		"market": {"from_token"},
 	}
 
 	resp, err := p.webAPI(ctx, "GET", "/v1/search", q)
