@@ -8,7 +8,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"cliamp/player"
 	"cliamp/playlist"
@@ -88,57 +87,26 @@ func (m Model) fbHelpLine() string {
 // fbVisible returns the current file-browser list height accounting for
 // frame padding and all fixed (non-list) sections.
 func (m *Model) fbVisible() int {
-	probeSections := append([]string{}, m.fbHeaderLines()...)
+	probe := append([]string{}, m.fbHeaderLines()...)
 	if m.fileBrowser.err != "" {
-		probeSections = append(probeSections, errorStyle.Render("  "+m.fileBrowser.err))
+		probe = append(probe, errorStyle.Render("  "+m.fileBrowser.err))
 	}
-
-	// 1-line list placeholder.
-	probeSections = append(probeSections, "x")
-
-	// Footer area must mirror renderFileBrowser().
+	probe = append(probe, "x")
 	if len(m.fileBrowser.selected) > 0 {
-		probeSections = append(probeSections, "", statusStyle.Render("  1 selected"))
+		probe = append(probe, "", statusStyle.Render("  1 selected"))
 	} else {
-		probeSections = append(probeSections, "")
+		probe = append(probe, "")
 		if m.fileBrowser.err == "" {
-			probeSections = append(probeSections, "")
+			probe = append(probe, "")
 		}
 	}
-	probeSections = append(probeSections, "", m.fbHelpLine())
-
-	probeFrame := ui.FrameStyle.Render(strings.Join(probeSections, "\n"))
-	fixedHeight := lipgloss.Height(probeFrame) - 1
-
-	limit := fbMaxVisible
-	if m.heightExpanded {
-		limit = m.height
-	}
-	return max(3, min(limit, m.height-fixedHeight))
+	probe = append(probe, "", m.fbHelpLine())
+	return m.measureOverlayVisible(probe, fbMaxVisible)
 }
 
 // fbMaybeAdjustScroll keeps the cursor visible in the current file-browser window.
 func (m *Model) fbMaybeAdjustScroll(visible int) {
-	if visible <= 0 {
-		return
-	}
-	count := m.fbCount()
-	if m.fileBrowser.cursor < 0 {
-		m.fileBrowser.cursor = 0
-	}
-	if m.fileBrowser.cursor >= count && count > 0 {
-		m.fileBrowser.cursor = count - 1
-	}
-
-	if m.fileBrowser.cursor < m.fileBrowser.scroll {
-		m.fileBrowser.scroll = m.fileBrowser.cursor
-	} else if m.fileBrowser.cursor >= m.fileBrowser.scroll+visible {
-		m.fileBrowser.scroll = m.fileBrowser.cursor - visible + 1
-	}
-
-	if m.fileBrowser.scroll+visible > count {
-		m.fileBrowser.scroll = max(0, count-visible)
-	}
+	clampScroll(&m.fileBrowser.cursor, &m.fileBrowser.scroll, m.fbCount(), visible)
 }
 
 // openFileBrowser initialises and shows the file browser overlay.

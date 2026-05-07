@@ -6,9 +6,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-
-	"cliamp/ui"
 )
 
 // keymapEntry is a row in the Ctrl+K overlay. Rows with `divider = true` are
@@ -178,50 +175,19 @@ func (m *Model) keymapHeaderLines() []string {
 }
 
 func (m *Model) keymapVisible() int {
-	probeSections := append([]string{}, m.keymapHeaderLines()...)
-
-	// 1-line list placeholder.
-	probeSections = append(probeSections, "x", "")
-
-	// Footer area must mirror renderKeymapOverlay().
-	probeSections = append(probeSections,
+	probe := append([]string{}, m.keymapHeaderLines()...)
+	probe = append(probe,
+		"x", "",
 		dimStyle.Render("  0/0 keys"),
 		"",
 		m.keymapHelpLine(),
 	)
-
-	probeFrame := ui.FrameStyle.Render(strings.Join(probeSections, "\n"))
-	fixedHeight := lipgloss.Height(probeFrame) - 1
-
-	limit := maxPlVisible
-	if m.heightExpanded {
-		limit = m.height
-	}
-	return max(3, min(limit, m.height-fixedHeight))
+	return m.measureOverlayVisible(probe, maxPlVisible)
 }
 
 // keymapMaybeAdjustScroll keeps the cursor visible in the current keymap window.
 func (m *Model) keymapMaybeAdjustScroll(visible int) {
-	if visible <= 0 {
-		return
-	}
-	count := m.keymapCount()
-	if m.keymap.cursor < 0 {
-		m.keymap.cursor = 0
-	}
-	if m.keymap.cursor >= count && count > 0 {
-		m.keymap.cursor = count - 1
-	}
-
-	if m.keymap.cursor < m.keymap.scroll {
-		m.keymap.scroll = m.keymap.cursor
-	} else if m.keymap.cursor >= m.keymap.scroll+visible {
-		m.keymap.scroll = m.keymap.cursor - visible + 1
-	}
-
-	if m.keymap.scroll+visible > count && count > 0 {
-		m.keymap.scroll = max(0, count-visible)
-	}
+	clampScroll(&m.keymap.cursor, &m.keymap.scroll, m.keymapCount(), visible)
 }
 
 // openKeymap resets the keymap state and shows it. Snapshots plugin bindings

@@ -151,6 +151,14 @@ func padLines(lines []string, maxVisible, rendered int) []string {
 	return lines
 }
 
+// fitLines truncates lines to budget then pads with empty strings to exactly budget rows.
+func fitLines(lines []string, budget int) []string {
+	if len(lines) > budget {
+		lines = lines[:budget]
+	}
+	return padLines(lines, budget, len(lines))
+}
+
 // helpKey renders a key as a pill (background-highlighted) followed by a dim label.
 func helpKey(key, label string) string {
 	return helpKeyStyle.Render(" "+key+" ") + helpStyle.Render(" "+label)

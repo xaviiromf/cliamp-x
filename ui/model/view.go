@@ -65,11 +65,7 @@ func (m Model) renderProviderEmptyState(budget int) string {
 			lines = append(lines, dimStyle.Render("  "+hint))
 		}
 	}
-	lines = lines[:min(len(lines), budget)]
-	for len(lines) < budget {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines, "\n")
+	return strings.Join(fitLines(lines, budget), "\n")
 }
 
 // providerRowStyle picks the prefix and style for a provider-list row.
@@ -676,13 +672,7 @@ func (m Model) renderProviderList() string {
 		lines = append(lines, loadingLine("Loading more stations…"))
 	}
 
-	// Clamp exactly to visible budget so footer/help remain visible.
-	lines = lines[:min(len(lines), visibleBudget)]
-	for len(lines) < visibleBudget {
-		lines = append(lines, "")
-	}
-
-	return strings.Join(lines, "\n")
+	return strings.Join(fitLines(lines, visibleBudget), "\n")
 }
 
 func (m Model) renderPlaylist() string {
@@ -703,11 +693,7 @@ func (m Model) renderPlaylist() string {
 		} else {
 			lines = append(lines, dimStyle.Render("  No tracks loaded"))
 		}
-		lines = lines[:min(len(lines), budget)]
-		for len(lines) < budget {
-			lines = append(lines, "")
-		}
-		return strings.Join(lines, "\n")
+		return strings.Join(fitLines(lines, budget), "\n")
 	}
 
 	currentIdx := m.playlist.Index()
@@ -798,10 +784,7 @@ func (m Model) renderPlaylist() string {
 		lines = append(lines, line)
 	}
 
-	for len(lines) < budget {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines, "\n")
+	return strings.Join(padLines(lines, budget, len(lines)), "\n")
 }
 
 func (m Model) renderJumpOverlay() string {
