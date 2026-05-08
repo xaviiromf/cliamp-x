@@ -83,13 +83,15 @@ type playlistCache struct {
 }
 
 type SpotifyProvider struct {
-	session    *Session
-	clientID   string
-	bitrate    int
-	userID     string // Spotify user ID, fetched lazily on first Playlists() call
-	mu         sync.Mutex
-	trackCache map[string]*playlistCache // playlist ID → cache entry
-	authCancel context.CancelFunc        // cancels any in-progress OAuth flow
+	session     *Session
+	clientID    string
+	bitrate     int
+	userID      string // Spotify user ID, fetched lazily on first Playlists() call
+	userCountry string // ISO 3166-1 alpha-2 country from /v1/me, used as search market
+	meFetched   bool   // /v1/me has been attempted this session; suppresses retry on failure
+	mu          sync.Mutex
+	trackCache  map[string]*playlistCache // playlist ID → cache entry
+	authCancel  context.CancelFunc        // cancels any in-progress OAuth flow
 
 	// Playlist list cache to avoid redundant API calls on provider switch.
 	listCache   []playlist.PlaylistInfo
@@ -131,6 +133,8 @@ func (p *SpotifyProvider) ensureSession() error {
 	p.mu.Lock()
 	p.session = sess
 	p.userID = ""
+	p.userCountry = ""
+	p.meFetched = false
 	p.mu.Unlock()
 	return nil
 }
@@ -172,6 +176,8 @@ func (p *SpotifyProvider) Authenticate() error {
 	p.mu.Lock()
 	p.session = sess
 	p.userID = ""
+	p.userCountry = ""
+	p.meFetched = false
 	p.mu.Unlock()
 	return nil
 }
@@ -188,33 +194,51 @@ func (p *SpotifyProvider) Close() {
 		p.session.Close()
 		p.session = nil
 		p.userID = ""
+		p.userCountry = ""
+		p.meFetched = false
 	}
 }
 
 func (p *SpotifyProvider) Name() string { return "Spotify" }
 
-// currentUserID fetches and caches the authenticated user's Spotify ID.
-func (p *SpotifyProvider) currentUserID(ctx context.Context) string {
+// fetchMe populates userID and userCountry from /v1/me at most once per session.
+// Failures are remembered too — callers should treat empty fields as "unknown"
+// rather than re-issuing the request on every search keystroke.
+func (p *SpotifyProvider) fetchMe(ctx context.Context) {
 	p.mu.Lock()
-	id := p.userID
+	if p.meFetched {
+		p.mu.Unlock()
+		return
+	}
 	p.mu.Unlock()
-	if id != "" {
-		return id
-	}
-	resp, err := p.webAPI(ctx, "GET", "/v1/me", nil)
-	if err != nil {
-		return ""
-	}
+
 	var me struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
+		Country string `json:"country"`
 	}
-	if err := decodeBody(resp, &me); err != nil || me.ID == "" {
-		return ""
+	if resp, err := p.webAPI(ctx, "GET", "/v1/me", nil); err == nil {
+		_ = decodeBody(resp, &me)
 	}
+
 	p.mu.Lock()
 	p.userID = me.ID
+	p.userCountry = me.Country
+	p.meFetched = true
 	p.mu.Unlock()
-	return me.ID
+}
+
+func (p *SpotifyProvider) currentUserID(ctx context.Context) string {
+	p.fetchMe(ctx)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.userID
+}
+
+func (p *SpotifyProvider) currentUserCountry(ctx context.Context) string {
+	p.fetchMe(ctx)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.userCountry
 }
 
 // Playlists returns the authenticated user's Spotify playlists.
@@ -644,15 +668,17 @@ func (p *SpotifyProvider) SearchTracks(ctx context.Context, query string, limit 
 		limit = 50
 	}
 
-	// market=from_token scopes results to the token's home market. Without it,
-	// Spotify returns misleading 400 "Invalid limit" errors for accounts in
-	// some regions (Pakistan, Bangladesh, …) where /v1/search refuses to run
-	// without an explicit market.
+	// /v1/search refuses to run without an explicit ISO 3166-1 alpha-2 market
+	// for accounts in some regions and returns a misleading 400 "Invalid limit"
+	// otherwise. The legacy "from_token" magic value is no longer accepted, so
+	// resolve the user's country from /v1/me (cached) and pass it as market.
 	q := url.Values{
-		"q":      {query},
-		"type":   {"track"},
-		"limit":  {fmt.Sprintf("%d", limit)},
-		"market": {"from_token"},
+		"q":     {query},
+		"type":  {"track"},
+		"limit": {fmt.Sprintf("%d", limit)},
+	}
+	if country := p.currentUserCountry(ctx); country != "" {
+		q.Set("market", country)
 	}
 
 	resp, err := p.webAPI(ctx, "GET", "/v1/search", q)
