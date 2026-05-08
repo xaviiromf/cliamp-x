@@ -40,3 +40,10 @@ type Provider interface {
 type Authenticator interface {
 	Authenticate() error
 }
+
+// Refresher is optionally implemented by providers that cache playlist or
+// track data and support invalidating that cache so the next Playlists() /
+// Tracks() call re-fetches from the source.
+type Refresher interface {
+	Refresh()
+}

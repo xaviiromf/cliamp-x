@@ -321,6 +321,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.provSearch.cursor = 0
 		case "ctrl+r":
 			if m.provider != nil && !m.provLoading {
+				if r, ok := m.provider.(playlist.Refresher); ok {
+					r.Refresh()
+				}
 				m.providerLists = nil
 				m.provLoading = true
 				m.activeProviderPlaylistID = ""

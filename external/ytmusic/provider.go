@@ -116,6 +116,22 @@ func (b *baseProvider) initSession(interactive bool) error {
 func (b *baseProvider) ensureSession() error { return b.initSession(false) }
 func (b *baseProvider) authenticate() error  { return b.initSession(true) }
 
+// refresh clears playlist/track caches so the next call re-fetches from the
+// API. Classification is preserved — it's on disk in a separate file, rarely
+// changes, and re-classifying costs API quota.
+func (b *baseProvider) refresh() {
+	b.mu.Lock()
+	b.allPlaylists = nil
+	b.classified = nil
+	clear(b.trackCache)
+	dc := b.ensureDiskCache()
+	dc.clear()
+	snap := dc.snapshot()
+	b.mu.Unlock()
+
+	saveSnapshot(snap)
+}
+
 func (b *baseProvider) close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -445,6 +461,7 @@ type YouTubeMusicProvider struct {
 func (p *YouTubeMusicProvider) Name() string        { return "YouTube Music" }
 func (p *YouTubeMusicProvider) Authenticate() error { return p.base.authenticate() }
 func (p *YouTubeMusicProvider) Close()              { p.base.close() }
+func (p *YouTubeMusicProvider) Refresh()            { p.base.refresh() }
 func (p *YouTubeMusicProvider) Tracks(id string) ([]playlist.Track, error) {
 	return p.base.tracks(id)
 }
@@ -474,6 +491,7 @@ type YouTubeProvider struct {
 func (p *YouTubeProvider) Name() string        { return "YouTube" }
 func (p *YouTubeProvider) Authenticate() error { return p.base.authenticate() }
 func (p *YouTubeProvider) Close()              { /* shared base; closed via music provider */ }
+func (p *YouTubeProvider) Refresh()            { p.base.refresh() }
 func (p *YouTubeProvider) Tracks(id string) ([]playlist.Track, error) {
 	return p.base.tracks(id)
 }
@@ -503,6 +521,7 @@ type YouTubeAllProvider struct {
 func (p *YouTubeAllProvider) Name() string        { return "YouTube (All)" }
 func (p *YouTubeAllProvider) Authenticate() error { return p.base.authenticate() }
 func (p *YouTubeAllProvider) Close()              { /* shared base; closed via music provider */ }
+func (p *YouTubeAllProvider) Refresh()            { p.base.refresh() }
 func (p *YouTubeAllProvider) Tracks(id string) ([]playlist.Track, error) {
 	return p.base.tracks(id)
 }

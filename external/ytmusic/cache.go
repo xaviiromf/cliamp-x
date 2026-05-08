@@ -103,3 +103,9 @@ func (c *ytCache) setTracks(playlistID string, tracks []playlist.Track) {
 		FetchedAt: time.Now(),
 	}
 }
+
+func (c *ytCache) clear() {
+	c.Playlists = nil
+	c.PlaylistsAt = time.Time{}
+	c.Tracks = make(map[string]cachedTrackList)
+}
