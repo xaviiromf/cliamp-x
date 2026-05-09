@@ -16,6 +16,7 @@ import (
 	"cliamp/external/jellyfin"
 	"cliamp/external/local"
 	"cliamp/external/navidrome"
+	"cliamp/external/netease"
 	"cliamp/external/plex"
 	"cliamp/external/radio"
 	"cliamp/external/soundcloud"
@@ -99,13 +100,24 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 		User:        cfg.SoundCloud.User,
 		CookiesFrom: cfg.SoundCloud.CookiesFrom,
 	}); scProv != nil {
-		// Mirror the cookies_from setting onto the player so streaming yt-dlp
-		// invocations use the same browser session as resolve. Last write wins
-		// if [ytmusic] cookies_from also set this earlier in run().
+		// Provider constructors configure resolve-side yt-dlp cookies. Mirror
+		// cookies_from onto the player so streaming yt-dlp invocations use the
+		// same browser session. Last write wins when multiple providers set it.
 		if cfg.SoundCloud.CookiesFrom != "" {
 			player.SetYTDLCookiesFrom(cfg.SoundCloud.CookiesFrom)
 		}
 		providers = append(providers, model.ProviderEntry{Key: "soundcloud", Name: "SoundCloud", Provider: scProv})
+	}
+
+	if neProv := netease.NewFromConfig(netease.Config{
+		Enabled:     cfg.NetEase.Enabled,
+		CookiesFrom: cfg.NetEase.CookiesFrom,
+		UserID:      cfg.NetEase.UserID,
+	}); neProv != nil {
+		if cfg.NetEase.CookiesFrom != "" {
+			player.SetYTDLCookiesFrom(cfg.NetEase.CookiesFrom)
+		}
+		providers = append(providers, model.ProviderEntry{Key: "netease", Name: "NetEase", Provider: neProv})
 	}
 
 	var ytProviders ytmusic.Providers
