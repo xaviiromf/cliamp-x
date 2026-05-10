@@ -611,6 +611,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case provAuthDoneMsg:
+		m.provAuthURL = ""
 		if msg.err != nil {
 			m.err = msg.err
 			m.provLoading = false
@@ -620,6 +621,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.provSignIn = false
 		m.provLoading = true
 		return m, fetchPlaylistsCmd(m.provider)
+
+	case ProvAuthURLMsg:
+		m.provAuthURL = msg.URL
+		return m, nil
 
 	case devicesListedMsg:
 		m.devicePicker.loading = false

@@ -563,6 +563,13 @@ func (m Model) renderProviderList() string {
 	}
 	if m.provLoading {
 		lines := []string{loadingLine(fmt.Sprintf("Loading %s…", m.provider.Name()))}
+		if m.provAuthURL != "" {
+			lines = append(lines,
+				"",
+				dimStyle.Render("  If your browser didn't open, visit this URL to sign in:"),
+				"  "+m.provAuthURL,
+			)
+		}
 		for len(lines) < visibleBudget {
 			lines = append(lines, "")
 		}

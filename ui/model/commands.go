@@ -119,6 +119,11 @@ type navTracksLoadedMsg []playlist.Track
 // provAuthDoneMsg signals that interactive provider authentication completed.
 type provAuthDoneMsg struct{ err error }
 
+// ProvAuthURLMsg carries the OAuth URL produced by a provider's interactive
+// auth flow so the TUI can display it. Used as a fallback when the launched
+// browser doesn't reach the user (e.g. inside containers or headless envs).
+type ProvAuthURLMsg struct{ URL string }
+
 // — Command constructors —
 
 func AttachNotifier(notifier playback.Notifier) tea.Msg {

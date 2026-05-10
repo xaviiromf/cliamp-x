@@ -331,6 +331,13 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 
 	prog := tea.NewProgram(m)
 
+	if spotifyProv != nil {
+		spotify.SetAuthURLObserver(func(u string) {
+			prog.Send(model.ProvAuthURLMsg{URL: u})
+		})
+		defer spotify.SetAuthURLObserver(nil)
+	}
+
 	svc, svcErr := wireMediaCtl(prog)
 	if svcErr == nil && svc != nil {
 		defer svc.Close()

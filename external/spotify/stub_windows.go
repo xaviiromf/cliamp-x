@@ -66,3 +66,6 @@ func (p *SpotifyProvider) AddTrackToPlaylist(_ context.Context, _ string, _ play
 func (p *SpotifyProvider) CreatePlaylist(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
+
+// SetAuthURLObserver is a no-op on Windows.
+func SetAuthURLObserver(_ func(string)) {}

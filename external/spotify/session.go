@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"cliamp/applog"
 	"cliamp/internal/browser"
@@ -40,6 +41,28 @@ type storedCreds struct {
 // CallbackPort is the fixed port for the OAuth2 callback server.
 // Must match the redirect URI registered in the Spotify Developer app.
 const CallbackPort = 19872
+
+// authURLObserver is invoked with the OAuth URL when interactive auth begins.
+// Set via SetAuthURLObserver. Used by the TUI to show the URL when the
+// launched browser doesn't reach the user (containers, headless envs).
+var authURLObserver atomic.Pointer[func(string)]
+
+// SetAuthURLObserver registers a callback invoked once with the OAuth URL at
+// the start of an interactive sign-in. Pass nil to remove.
+func SetAuthURLObserver(fn func(string)) {
+	if fn == nil {
+		authURLObserver.Store(nil)
+		return
+	}
+	authURLObserver.Store(&fn)
+}
+
+func notifyAuthURL(u string) {
+	applog.Info("spotify: sign-in URL: %s", u)
+	if p := authURLObserver.Load(); p != nil {
+		(*p)(u)
+	}
+}
 
 // Session manages a go-librespot session and player for Spotify integration.
 type Session struct {
@@ -252,6 +275,8 @@ func performOAuth2PKCE(ctx context.Context, clientID string) (*oauth2.Token, err
 
 	verifier := oauth2.GenerateVerifier()
 	authURL := oauthConf.AuthCodeURL("", oauth2.S256ChallengeOption(verifier))
+
+	notifyAuthURL(authURL)
 
 	codeCh := make(chan string, 1)
 	go func() {

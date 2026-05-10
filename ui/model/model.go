@@ -162,6 +162,7 @@ type Model struct {
 	provScroll    int
 	provLoading   bool
 	provSignIn    bool            // true when provider needs interactive sign-in
+	provAuthURL   string          // OAuth URL to display while interactive auth is in flight
 	providers     []ProviderEntry // all available providers
 	provPillIdx   int             // selected pill index
 	eqPresetIdx   int             // -1 = custom, 0+ = index into eqPresets
