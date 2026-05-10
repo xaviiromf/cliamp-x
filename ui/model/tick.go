@@ -103,10 +103,19 @@ func (m *Model) tickInterval() time.Duration {
 	if m.termTitle.introActive {
 		return ui.TickFast
 	}
-	if m.vis == nil {
-		return ui.TickSlow
+	d := ui.TickSlow
+	if m.vis != nil {
+		d = m.vis.TickInterval(m.visualizerTickContext(time.Time{}))
 	}
-	return m.vis.TickInterval(m.visualizerTickContext(time.Time{}))
+	// Keep the seek bar / time counter smooth while audio is playing, even
+	// when the visualizer driver wants a slow cadence (VisNone, classic peak
+	// idle, etc.). Overlays, paused, and stopped playback keep the slower
+	// cadence to save CPU.
+	if !m.isOverlayActive() && !m.buffering && m.player != nil &&
+		m.player.IsPlaying() && !m.player.IsPaused() && d > ui.TickFast {
+		d = ui.TickFast
+	}
+	return d
 }
 
 func (m *Model) tickVisualizer(now time.Time) {

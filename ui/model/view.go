@@ -420,11 +420,23 @@ func (m Model) renderSeekBar() string {
 	}
 	progress = max(0, min(1, progress))
 
-	filled := int(progress * float64(max(1, ui.PanelWidth-1)))
+	// Half-cell resolution: each cell is two sub-units, so a 4-minute track on
+	// an 80-wide bar advances the tip every ~1.5s instead of ~3s. The
+	// transition cell uses ╸ (heavy left-half) as a half-step stub.
+	w := ui.PanelWidth
+	subPos := int(progress * 2 * float64(w))
+	fullCells := subPos / 2
+	hasHalf := subPos%2 == 1 && fullCells < w
 
-	return seekFillStyle.Render(strings.Repeat("━", filled)) +
-		seekFillStyle.Render("●") +
-		seekDimStyle.Render(strings.Repeat("━", max(0, ui.PanelWidth-filled-1)))
+	var b strings.Builder
+	b.WriteString(seekFillStyle.Render(strings.Repeat("━", fullCells)))
+	if hasHalf {
+		b.WriteString(seekFillStyle.Render("╸"))
+		b.WriteString(seekDimStyle.Render(strings.Repeat("━", w-fullCells-1)))
+	} else {
+		b.WriteString(seekDimStyle.Render(strings.Repeat("━", w-fullCells)))
+	}
+	return b.String()
 }
 
 func (m Model) renderControls() string {
