@@ -87,11 +87,11 @@ type pickerOption struct {
 // Picker keys are stored in the values map alongside real field keys; the
 // leading underscore distinguishes them from TOML field names.
 const (
-	keyJellyfinAuth = "_auth"
-	keyEmbyAuth     = "_emby_auth"
-  keyNetEaseBrowser = "_netease_browser"
-	keyYTMusicMode  = "_mode"
-	keySpotifyMode  = "_spotify_mode"
+	keyJellyfinAuth   = "_auth"
+	keyEmbyAuth       = "_emby_auth"
+	keyNetEaseBrowser = "_netease_browser"
+	keyYTMusicMode    = "_mode"
+	keySpotifyMode    = "_spotify_mode"
 )
 
 func providers() []providerSpec {
