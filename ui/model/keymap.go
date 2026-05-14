@@ -177,12 +177,8 @@ func (m *Model) keymapHeaderLines() []string {
 
 func (m *Model) keymapVisible() int {
 	probe := append([]string{}, m.keymapHeaderLines()...)
-	probe = append(probe,
-		"x", "",
-		dimStyle.Render("  0/0 keys"),
-		"",
-		m.keymapHelpLine(),
-	)
+	probe = append(probe, "x", "", dimStyle.Render("  0/0 keys"), "", m.keymapHelpLine())
+	probe = m.appendFooterMessages(probe)
 	return m.measureOverlayVisible(probe, maxPlVisible)
 }
 
@@ -408,8 +404,13 @@ func (m Model) renderKeymapOverlay() string {
 	}
 
 	lines = padLines(lines, maxVisible, rendered)
-	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d keys", len(visible), len(entries))))
+
+	footerCount := fmt.Sprintf("%d/%d", rendered, len(entries))
+	if m.keymap.search != "" {
+		footerCount = fmt.Sprintf("%d/%d", len(visible), len(entries))
+	}
+	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %s keys", footerCount)))
 	lines = append(lines, "", m.keymapHelpLine())
 
-	return m.centerOverlay(strings.Join(lines, "\n"))
+	return m.centerOverlay(strings.Join(m.appendFooterMessages(lines), "\n"))
 }

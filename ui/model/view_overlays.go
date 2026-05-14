@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"cliamp/history"
 	"cliamp/lyrics"
 	"cliamp/theme"
 	"cliamp/ui"
@@ -102,18 +103,30 @@ func (m Model) renderPlaylistManager() string {
 	return m.centerOverlay(strings.Join(m.appendFooterMessages(lines), "\n"))
 }
 
-func (m Model) renderPlMgrList() []string {
-	lines := []string{
+func (m Model) plMgrListShell() (before, after []string) {
+	before = []string{
 		titleStyle.Render("P L A Y L I S T S"),
 		"",
 	}
-	lines = append(lines, filterHeader(m.plManager.filtering, m.plManager.filter, "")...)
+	before = append(before, filterHeader(m.plManager.filtering, m.plManager.filter, "")...)
+
+	after = []string{
+		"",
+		dimStyle.Render("  0/0 playlists"),
+		"",
+		m.plMgrListFooter(),
+	}
+	return before, after
+}
+
+func (m Model) renderPlMgrList() []string {
+	before, after := m.plMgrListShell()
+	lines := append([]string{}, before...)
 
 	visibleN := len(m.plManager.playlists)
 	if m.plManager.filter != "" {
 		visibleN = len(m.plManager.filtered)
 	}
-	count := visibleN + 1 // +1 for "+ New Playlist..."
 
 	// Empty state: no playlists at all.
 	if len(m.plManager.playlists) == 0 {
@@ -124,55 +137,125 @@ func (m Model) renderPlMgrList() []string {
 			"",
 			playlistSelectedStyle.Render("> + New Playlist..."),
 		)
-		lines = append(lines, "", m.plMgrListFooter())
+		lines = append(lines, after...)
 		return lines
 	}
 
-	// Filtered with no matches: still allow "+ New Playlist..." (will pre-fill name from filter).
+	// Filtered with no matches: still allow "+ New Playlist..."
 	if m.plManager.filter != "" && visibleN == 0 {
 		lines = append(lines, dimStyle.Render(fmt.Sprintf("  No playlists match %q", m.plManager.filter)))
 		newLabel := "+ New Playlist \"" + m.plManager.filter + "\"..."
-		if m.plManager.cursor == 0 {
-			lines = append(lines, playlistSelectedStyle.Render("> "+newLabel))
-		} else {
-			lines = append(lines, dimStyle.Render("  "+newLabel))
-		}
-		lines = append(lines, "", m.plMgrListFooter())
+		lines = append(lines, cursorLine(newLabel, m.plManager.cursor == 0))
+		lines = append(lines, after...)
 		return lines
 	}
 
-	maxVisible := 12
-	scroll := scrollStart(m.plManager.cursor, maxVisible)
+	type plRow struct {
+		label   string
+		realIdx int // -1 for "New" or spacer
+		viewIdx int // logical index for cursor comparison
+		spacer  bool
+	}
 
-	for i := scroll; i < count && i < scroll+maxVisible; i++ {
-		var label string
-		realIdx := -1
-		if i < visibleN {
-			realIdx = m.plMgrPlaylistRealIndex(i)
-			label = playlistLabel("", m.plManager.playlists[realIdx])
-		} else {
-			label = "+ New Playlist..."
-			if m.plManager.filter != "" {
-				label = "+ New Playlist \"" + m.plManager.filter + "\"..."
+	var rows []plRow
+	foundUser := false
+	for i := 0; i < visibleN; i++ {
+		idx := m.plMgrPlaylistRealIndex(i)
+		p := m.plManager.playlists[idx]
+
+		if p.Name != history.PlaylistName {
+			// Spacer above the first user item?
+			if !foundUser && i > 0 {
+				rows = append(rows, plRow{spacer: true, viewIdx: -1})
 			}
+			foundUser = true
 		}
 
-		if i == m.plManager.cursor {
-			if m.plManager.confirmDel && realIdx >= 0 {
-				lines = append(lines, playlistSelectedStyle.Render("> Delete \""+m.plManager.playlists[realIdx].Name+"\"? [y/n]"))
+		rows = append(rows, plRow{
+			label:   playlistLabel("", p),
+			realIdx: idx,
+			viewIdx: i,
+		})
+	}
+
+	// Spacer before "+ New Playlist"?
+	if visibleN > 0 {
+		rows = append(rows, plRow{spacer: true, viewIdx: -1})
+	}
+
+	// New Playlist pseudo-item.
+	newLabel := "+ New Playlist..."
+	if m.plManager.filter != "" {
+		newLabel = "+ New Playlist \"" + m.plManager.filter + "\"..."
+	}
+	rows = append(rows, plRow{label: newLabel, realIdx: -1, viewIdx: visibleN})
+
+	// 2. Map logical scroll position to our row index.
+	startIndex := 0
+	for i, r := range rows {
+		if r.viewIdx == m.plManager.scroll {
+			startIndex = i
+			break
+		}
+	}
+
+	maxVisible := m.plMgrListVisible()
+	rendered := 0
+	renderedUser := 0
+
+	// 3. Render the rows within the viewport budget.
+	for i := startIndex; i < len(rows) && rendered < maxVisible; i++ {
+		r := rows[i]
+		if r.spacer {
+			lines = append(lines, "")
+			rendered++
+			continue
+		}
+
+		if r.viewIdx < visibleN && m.plManager.playlists[r.realIdx].Name != history.PlaylistName {
+			renderedUser++
+		}
+
+		if r.viewIdx == m.plManager.cursor {
+			if m.plManager.confirmDel && r.realIdx >= 0 {
+				lines = append(lines, playlistSelectedStyle.Render("> Delete \""+m.plManager.playlists[r.realIdx].Name+"\"? [y/n]"))
 			} else {
-				lines = append(lines, playlistSelectedStyle.Render("> "+label))
+				lines = append(lines, playlistSelectedStyle.Render("> "+r.label))
 			}
 		} else {
-			lines = append(lines, dimStyle.Render("  "+label))
+			lines = append(lines, dimStyle.Render("  "+r.label))
+		}
+		rendered++
+	}
+
+	lines = padLines(lines, maxVisible, rendered)
+
+	totalUser := 0
+	for _, p := range m.plManager.playlists {
+		if p.Name != history.PlaylistName {
+			totalUser++
 		}
 	}
 
-	if count > maxVisible {
-		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d playlists", m.plManager.cursor+1, count)))
+	visibleUser := 0
+	if m.plManager.filter != "" {
+		for _, idx := range m.plManager.filtered {
+			if m.plManager.playlists[idx].Name != history.PlaylistName {
+				visibleUser++
+			}
+		}
+	} else {
+		visibleUser = totalUser
 	}
 
-	lines = append(lines, "", m.plMgrListFooter())
+	footerCount := fmt.Sprintf("%d/%d", renderedUser, totalUser)
+	if m.plManager.filter != "" {
+		footerCount = fmt.Sprintf("%d/%d", visibleUser, totalUser)
+	}
+	// Use the shell's footer but update the counter line.
+	after[1] = dimStyle.Render(fmt.Sprintf("  %s playlists", footerCount))
+	lines = append(lines, after...)
+
 	return lines
 }
 
@@ -183,35 +266,44 @@ func (m Model) plMgrListFooter() string {
 	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
 		addLabel = "Add: " + truncate(track.DisplayName(), 32)
 	}
-	return helpKey("↓↑", "Scroll ") +
-		helpKey("Enter/→", "Open ") +
-		helpKey("/", "Filter ") +
+	return helpKey("↓↑→", "Navigate ") +
+		helpKey("Enter", "Open ") +
 		helpKey("a", addLabel+" ") +
 		helpKey("d", "Delete ") +
-		helpKey("Esc/p", "Close")
+		helpKey("/", "Filter ") +
+		helpKey("Esc", "Close")
 }
 
-func (m Model) renderPlMgrTracks() []string {
+func (m Model) plMgrTracksShell() (before, after []string) {
 	title := fmt.Sprintf("P L A Y L I S T : %s", m.plManager.selPlaylist)
-	lines := []string{
+	before = []string{
 		titleStyle.Render(title),
 		"",
 	}
-
 	if subtitle := tracksSubtitle(m.plManager.tracks); subtitle != "" {
-		lines = append(lines, dimStyle.Render("  "+subtitle), "")
+		before = append(before, dimStyle.Render("  "+subtitle), "")
 	}
+	before = append(before, filterHeader(m.plManager.filtering, m.plManager.filter, "")...)
 
-	lines = append(lines, filterHeader(m.plManager.filtering, m.plManager.filter, "")...)
+	after = []string{
+		"",
+		dimStyle.Render("  0/0 tracks"),
+		"",
+		m.plMgrTracksFooter(),
+	}
+	return before, after
+}
 
-	footer := m.plMgrTracksFooter()
+func (m Model) renderPlMgrTracks() []string {
+	before, after := m.plMgrTracksShell()
+	lines := append([]string{}, before...)
 
 	if len(m.plManager.tracks) == 0 {
 		lines = append(lines,
 			dimStyle.Render("  This playlist is empty."),
 			dimStyle.Render("  Press `a` to add the now-playing track."),
 		)
-		lines = append(lines, "", footer)
+		lines = append(lines, after...)
 		return lines
 	}
 
@@ -220,15 +312,15 @@ func (m Model) renderPlMgrTracks() []string {
 		visibleN = len(m.plManager.filtered)
 		if visibleN == 0 {
 			lines = append(lines, dimStyle.Render(fmt.Sprintf("  No tracks match %q", m.plManager.filter)))
-			lines = append(lines, "", footer)
+			lines = append(lines, after...)
 			return lines
 		}
 	}
 
-	maxVisible := 12
+	maxVisible := m.plMgrTracksVisible()
 	useAlbumSep := m.plManager.filter == "" && m.showAlbumHeaders
 
-	scroll := scrollStart(m.plManager.cursor, maxVisible)
+	scroll := m.plManager.scroll
 	rendered := 0
 
 	if m.plManager.filter != "" {
@@ -240,12 +332,6 @@ func (m Model) renderPlMgrTracks() []string {
 			rendered++
 		}
 	} else {
-		if useAlbumSep {
-			for scroll < m.plManager.cursor && m.albumSeparatorRows(m.plManager.tracks, scroll, m.plManager.cursor, true) > maxVisible {
-				scroll++
-			}
-		}
-
 		for row := range m.playlistRows(m.plManager.tracks, scroll, useAlbumSep) {
 			if row.Index < 0 {
 				if rendered+1 >= maxVisible {
@@ -267,36 +353,49 @@ func (m Model) renderPlMgrTracks() []string {
 		}
 	}
 
-	if visibleN > maxVisible {
-		lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %d/%d tracks", m.plManager.cursor+1, visibleN)))
-	}
+	lines = padLines(lines, maxVisible, rendered)
 
-	lines = append(lines, "", footer)
+	footerCount := fmt.Sprintf("%d/%d", rendered, len(m.plManager.tracks))
+	if m.plManager.filter != "" {
+		footerCount = fmt.Sprintf("%d/%d", visibleN, len(m.plManager.tracks))
+	}
+	// Use the shell's footer but update the counter line.
+	after[1] = dimStyle.Render(fmt.Sprintf("  %s tracks", footerCount))
+	lines = append(lines, after...)
+
 	return lines
 }
 
 // plMgrTracksFooter renders the help footer for the track list, showing the
 // distinct verbs for "play this" vs "play all from top".
 func (m Model) plMgrTracksFooter() string {
-	return helpKey("↓↑", "Scroll ") +
+	addLabel := "Add (nothing playing)"
+	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+		addLabel = "Add: " + truncate(track.DisplayName(), 32)
+	}
+	return helpKey("←↓↑", "Navigate ") +
 		helpKey("Enter", "Play this ") +
 		helpKey("P", "Play all ") +
-		helpKey("/", "Filter ") +
-		helpKey("a", "Add now-playing ") +
+		helpKey("a", addLabel+" ") +
 		helpKey("d", "Remove ") +
+		helpKey("/", "Filter ") +
 		helpKey("Esc", "Back")
 }
 
 func (m Model) renderPlMgrNewName() []string {
-	lines := []string{
+	createAndAddLabel := "Create & add (nothing playing)"
+	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+		createAndAddLabel = "Create & add: " + truncate(track.DisplayName(), 32)
+	}
+	return []string{
 		titleStyle.Render("N E W  P L A Y L I S T"),
 		"",
 		dimStyle.Render("  Playlist name:"),
 		playlistSelectedStyle.Render("  " + m.plManager.newName + "_"),
 		"",
-		helpKey("Enter", "Create & add track ") + helpKey("Esc", "Cancel"),
+		helpKey("Enter", createAndAddLabel + " ") +
+		helpKey("Esc", "Cancel"),
 	}
-	return lines
 }
 
 func (m Model) renderQueueOverlay() string {

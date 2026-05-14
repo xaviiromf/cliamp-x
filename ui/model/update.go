@@ -44,6 +44,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.quitting {
 			return m, tea.Quit
 		}
+		m.applyHeightMode()
+		m.adjustScroll()
 		return m, cmd
 
 	case autoPlayMsg:
@@ -78,6 +80,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.keymap.visible {
 			m.keymapMaybeAdjustScroll(m.keymapVisible())
+		}
+		if m.plManager.visible {
+			if m.plManager.screen == plMgrScreenList {
+				m.plMgrListMaybeAdjustScroll(m.plMgrListVisible())
+			} else if m.plManager.screen == plMgrScreenTracks {
+				m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+			}
 		}
 		return m, nil
 
