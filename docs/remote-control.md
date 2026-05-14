@@ -38,9 +38,20 @@ JSON output:
   "volume": -3,
   "playlist": "Star Wars OT",
   "index": 12,
-  "total": 59
+  "total": 59,
+  "visualizer": "ClassicPeak",
+  "theme": {
+    "name": "Kanagawa Dragon",
+    "accent": "#658594",
+    "fg": "#c5c9c5",
+    "green": "#8a9a7b",
+    "yellow": "#c4b28a",
+    "red": "#c4746e"
+  }
 }
 ```
+
+The `theme` block carries the active cliamp theme's resolved hex colors. Empty hex fields mean the default ANSI fallback theme is active.
 
 ## Volume and Seek
 
@@ -54,6 +65,33 @@ cliamp seek 30               # seek to position in seconds
 ```sh
 cliamp load "Playlist Name"  # load a playlist into the player
 cliamp queue /path/to.mp3    # queue a single track
+```
+
+## Spectrum Streaming
+
+```sh
+cliamp visstream             # NDJSON spectrum frames at 30 fps (default)
+cliamp visstream --fps 60    # up to 60 fps; clamped to [1, 60]
+```
+
+`visstream` holds a single IPC connection open and emits one JSON line per frame containing the 10-band spectrum and the active visualizer mode name:
+
+```json
+{"ok":true,"visualizer":"Bars","bands":[0.93,0.81,0.62,0.48,0.31,0.22,0.14,0.09,0.04,0.01]}
+```
+
+Band values are normalized to [0, 1], in the same shape cliamp uses internally for spectrum visualizers. This is what powers the [Quickshell now-playing widget](quickshell.md). Consumers can pipe stdout directly into another process (`cliamp visstream | jq`) or use it from a long-lived subprocess in a UI toolkit.
+
+Under the hood it issues a `{"cmd":"bands"}` request per tick over the existing IPC socket; you can also issue this command directly from your own client if you want frame-pulled access:
+
+```json
+{"cmd": "bands"}
+```
+
+Response:
+
+```json
+{"ok": true, "visualizer": "Bars", "bands": [0.93, 0.81, ...]}
 ```
 
 ## Protocol

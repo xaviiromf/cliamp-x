@@ -152,6 +152,7 @@ Or without Make: `go build -o cliamp .`
 - [Headless Daemon Mode](docs/headless.md)
 - [Audio Quality](docs/audio-quality.md)
 - [Media Controls](docs/mediactl.md)
+- [Quickshell Now-Playing Widget (Omarchy)](docs/quickshell.md)
 - [Lua Plugins](docs/plugins.md)
   - [Community Plugins](docs/community-plugins.md)
   - [Soap Bubbles Visualizer](https://github.com/bjarneo/cliamp-plugin-soap-bubbles)
