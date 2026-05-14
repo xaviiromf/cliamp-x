@@ -82,6 +82,7 @@ func buildApp() *cli.Command {
 			queueCommand(),
 			themeCommand(),
 			visCommand(),
+			visStreamCommand(),
 			shuffleCommand(),
 			repeatCommand(),
 			monoCommand(),
@@ -643,6 +644,26 @@ func themeCommand() *cli.Command {
 			}
 			fmt.Printf("Theme: %s\n", c.Args().First())
 			return nil
+		},
+	}
+}
+
+func visStreamCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "visstream",
+		Usage: "stream visualizer bands as NDJSON (one frame per line)",
+		Flags: []cli.Flag{
+			&cli.IntFlag{Name: "fps", Value: 30, Usage: "frames per second (1-60)"},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			fps := c.Int("fps")
+			if fps < 1 {
+				fps = 1
+			}
+			if fps > 60 {
+				fps = 60
+			}
+			return ipc.StreamBands(ctx, ipc.DefaultSocketPath(), time.Second/time.Duration(fps), os.Stdout)
 		},
 	}
 }

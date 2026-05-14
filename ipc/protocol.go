@@ -40,6 +40,20 @@ type Response struct {
 	Device     string     `json:"device,omitempty"`
 	Output     string     `json:"output,omitempty"`
 	Items      []string   `json:"items,omitempty"`
+	Theme      *ThemeInfo `json:"theme,omitempty"`
+	Bands      []float64  `json:"bands,omitempty"`
+}
+
+// ThemeInfo carries the active theme name and its resolved hex colors.
+// Empty hex fields mean the default (ANSI fallback) theme is active.
+type ThemeInfo struct {
+	Name     string `json:"name"`
+	Accent   string `json:"accent,omitempty"`
+	Fg       string `json:"fg,omitempty"`
+	BrightFg string `json:"bright_fg,omitempty"`
+	Green    string `json:"green,omitempty"`
+	Yellow   string `json:"yellow,omitempty"`
+	Red      string `json:"red,omitempty"`
 }
 
 // PluginDispatcher is the hook the IPC server calls to forward plugin.call and
@@ -149,5 +163,12 @@ type DeviceMsg struct {
 // StatusRequestMsg asks the TUI for current state.
 // The TUI writes the response to Reply and closes the channel.
 type StatusRequestMsg struct {
+	Reply chan Response
+}
+
+// BandsRequestMsg asks the TUI for the current visualizer band values
+// (smoothed) and the active visualizer mode name. Lightweight compared to
+// StatusRequestMsg — intended for high-rate polling from external widgets.
+type BandsRequestMsg struct {
 	Reply chan Response
 }

@@ -118,12 +118,16 @@ func (s *Server) handleConn(conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
 
-	// Set a deadline to prevent slow clients from tying up goroutines.
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
-
 	scanner := bufio.NewScanner(conn)
 
-	for scanner.Scan() {
+	for {
+		// Per-request deadline so long-lived streaming clients (e.g. vis bands
+		// polling) aren't killed at a fixed wall clock, but idle clients still
+		// time out.
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		if !scanner.Scan() {
+			return
+		}
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
@@ -136,6 +140,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		resp := s.dispatch(req)
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		writeResponse(conn, resp)
 	}
 }
@@ -265,6 +270,18 @@ func (s *Server) dispatch(req Request) Response {
 
 	case "status":
 		return s.handleStatus()
+
+	case "bands":
+		reply := make(chan Response, 1)
+		s.disp.Send(BandsRequestMsg{Reply: reply})
+		select {
+		case resp := <-reply:
+			return resp
+		case <-time.After(1 * time.Second):
+			return Response{OK: false, Error: "bands timeout"}
+		case <-s.done:
+			return Response{OK: false, Error: "server shutting down"}
+		}
 
 	case "plugin.call":
 		if s.plugins == nil {

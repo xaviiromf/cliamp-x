@@ -978,6 +978,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		resp.Mono = &mono
 		resp.Speed = m.player.Speed()
 		resp.EQPreset = m.EQPresetName()
+		if m.themeIdx >= 0 && m.themeIdx < len(m.themes) {
+			t := m.themes[m.themeIdx]
+			resp.Theme = &ipc.ThemeInfo{
+				Name:     t.Name,
+				Accent:   t.Accent,
+				Fg:       t.FG,
+				BrightFg: t.BrightFG,
+				Green:    t.Green,
+				Yellow:   t.Yellow,
+				Red:      t.Red,
+			}
+		} else {
+			resp.Theme = &ipc.ThemeInfo{Name: theme.DefaultName}
+		}
+		if msg.Reply != nil {
+			msg.Reply <- resp
+		}
+		return m, nil
+
+	case ipc.BandsRequestMsg:
+		resp := ipc.Response{OK: true}
+		if m.vis != nil {
+			resp.Visualizer = m.vis.ModeName()
+			b := m.vis.SmoothedBands()
+			if len(b) > 0 {
+				out := make([]float64, len(b))
+				copy(out, b)
+				resp.Bands = out
+			}
+		}
 		if msg.Reply != nil {
 			msg.Reply <- resp
 		}
