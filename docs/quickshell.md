@@ -8,7 +8,7 @@ It pulls live spectrum data from a running cliamp over the IPC socket, draws a W
 
 ## What you get
 
-- 320 x 140 card centered along the bottom of every screen
+- 260 x 62 card centered along the bottom of every screen
 - Full-width Winamp 2-style LED spectrum analyzer with falling peak caps
 - Track title + artist, click-to-seek progress bar, time readout
 - Pristine vector transport icons (prev / play-pause / next), no font dependency
