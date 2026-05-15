@@ -11,6 +11,45 @@ import (
 	"cliamp/ui"
 )
 
+// formatListRangeCount returns a human-readable viewport counter.
+// It emits "start-end of total" when partially visible, and collapses to
+// "total" when the full list is visible.
+func (m Model) formatListRangeCount(startIndex, visibleCount, total int) string {
+	if total <= 0 || visibleCount <= 0 {
+		return "0"
+	}
+	if startIndex >= total {
+		startIndex = max(0, total-1)
+	}
+	start := startIndex + 1
+	if start < 1 {
+		start = 1
+	}
+	end := startIndex + visibleCount
+	if end > total {
+		end = total
+	}
+	if end < start {
+		end = start
+	}
+	if start == 1 && end == total {
+		return fmt.Sprintf("%d", total)
+	}
+	return fmt.Sprintf("%d-%d of %d", start, end, total)
+}
+
+// formatListMatchCount returns a human-readable "matches of total" summary
+// for filtered lists.
+func (m Model) formatListMatchCount(matches, total int) string {
+	if matches < 0 {
+		matches = 0
+	}
+	if total < 0 {
+		total = 0
+	}
+	return fmt.Sprintf("%d matches of %d total", matches, total)
+}
+
 // formatTrackTime formats a duration in seconds as M:SS or H:MM:SS for tracks.
 // Returns "" when secs is non-positive so callers can skip rendering entirely.
 func formatTrackTime(secs int) string {

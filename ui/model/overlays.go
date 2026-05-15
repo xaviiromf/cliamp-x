@@ -6,6 +6,14 @@ import (
 	"cliamp/theme"
 )
 
+func (m *Model) measureChrome(before, after []string) int {
+	probe := append([]string{}, before...)
+	probe = append(probe, "x")
+	probe = append(probe, after...)
+	probe = m.appendFooterMessages(probe)
+	return m.measureOverlayVisible(probe, maxPlVisible)
+}
+
 // openThemePicker re-loads themes from disk (picking up new user files)
 // and opens the theme selector overlay.
 func (m *Model) openThemePicker() {
@@ -52,39 +60,115 @@ func (m *Model) themePickerHelpLine() string {
 }
 
 func (m *Model) themePickerVisible() int {
-	return m.measureOverlayVisible([]string{
-		titleStyle.Render("T H E M E S"),
-		"",
-		"x",
-		"",
-		dimStyle.Render("  0/0 themes"),
-		"",
-		m.themePickerHelpLine(),
-	}, maxPlVisible)
+	return m.measureChrome(m.themePickerChrome())
 }
 
 func (m *Model) themePickerMaybeAdjustScroll(visible int) {
 	clampScroll(&m.themePicker.cursor, &m.themePicker.scroll, len(m.themes)+1, visible)
 }
 
+func (m *Model) devicePickerHelpLine() string {
+	return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Cancel")
+}
+
+func (m *Model) devicePickerVisible() int {
+	return m.measureChrome(m.devicePickerChrome())
+}
+
+func (m *Model) queueHelpLine() string {
+	return helpKey("↓↑", "Scroll ") +
+		helpKey("Shift+↓↑", "Reorder ") +
+		helpKey("d", "Remove ") +
+		helpKey("c", "Clear ") +
+		helpKey("Esc", "Close")
+}
+
+func (m *Model) queueVisible() int {
+	return m.measureChrome(m.queueChrome())
+}
+
+func (m *Model) searchHelpLine() string {
+	return helpKey("↓↑", "Scroll ") +
+		helpKey("Enter", "Play ") +
+		helpKey("Tab", "Queue ") +
+		helpKey("Ctrl+K", "Keymap ") +
+		helpKey("Esc", "Close")
+}
+
+func (m *Model) searchVisible() int {
+	return m.measureChrome(m.searchChrome())
+}
+
+func (m *Model) netSearchResultsHelpLine() string {
+	return helpKey("↓↑", "Scroll ") +
+		helpKey("Enter", "Play ") +
+		helpKey("a", "Append ") +
+		helpKey("q", "Queue next ") +
+		helpKey("Esc", "Back")
+}
+
+func (m *Model) netSearchResultsVisible() int {
+	return m.measureChrome(m.netSearchResultsChrome())
+}
+
+func (m *Model) spotSearchResultsHelpLine() string {
+	return helpKey("↓↑", "Scroll ") +
+		helpKey("Enter", "Play ") +
+		helpKey("a", "Append ") +
+		helpKey("q", "Queue next ") +
+		helpKey("p", "Add to playlist ") +
+		helpKey("Esc", "Back")
+}
+
+func (m *Model) spotSearchResultsVisible() int {
+	return m.measureChrome(m.spotSearchResultsChrome())
+}
+
+func (m *Model) spotSearchPlaylistHelpLine() string {
+	return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Close")
+}
+
+func (m *Model) spotSearchPlaylistVisible() int {
+	return m.measureChrome(m.spotSearchPlaylistChrome())
+}
+
+func (m *Model) plMgrListHelpLine() string {
+	addLabel := "Add (nothing playing)"
+	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+		addLabel = "Add: " + truncate(track.DisplayName(), 32)
+	}
+	return helpKey("↓↑→", "Navigate ") +
+		helpKey("Enter", "Open ") +
+		helpKey("a", addLabel+" ") +
+		helpKey("d", "Delete ") +
+		helpKey("/", "Filter ") +
+		helpKey("Esc", "Close")
+}
+
 func (m *Model) plMgrListVisible() int {
-	before, after := m.plMgrListShell()
-	probe := append(before, "x")
-	probe = append(probe, after...)
-	probe = m.appendFooterMessages(probe)
-	return m.measureOverlayVisible(probe, maxPlVisible)
+	return m.measureChrome(m.plMgrListChrome())
 }
 
 func (m *Model) plMgrListMaybeAdjustScroll(visible int) {
 	clampScroll(&m.plManager.cursor, &m.plManager.scroll, m.plMgrListViewCount(), visible)
 }
 
+func (m *Model) plMgrTracksHelpLine() string {
+	addLabel := "Add (nothing playing)"
+	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+		addLabel = "Add: " + truncate(track.DisplayName(), 32)
+	}
+	return helpKey("←↓↑", "Navigate ") +
+		helpKey("Enter", "Play this ") +
+		helpKey("P", "Play all ") +
+		helpKey("a", addLabel+" ") +
+		helpKey("d", "Remove ") +
+		helpKey("/", "Filter ") +
+		helpKey("Esc", "Back")
+}
+
 func (m *Model) plMgrTracksVisible() int {
-	before, after := m.plMgrTracksShell()
-	probe := append(before, "x")
-	probe = append(probe, after...)
-	probe = m.appendFooterMessages(probe)
-	return m.measureOverlayVisible(probe, maxPlVisible)
+	return m.measureChrome(m.plMgrTracksChrome())
 }
 
 func (m *Model) plMgrTracksMaybeAdjustScroll(visible int) {
