@@ -208,6 +208,18 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	}
 	pl.Add(resolved.Tracks...)
 
+	// Daemon mode has no UI loop to drain pending URLs (feeds, M3U, yt-dlp),
+	// so resolve them synchronously here. The TUI path does this in the
+	// background via m.SetPendingURLs.
+	if daemon && len(resolved.Pending) > 0 {
+		fmt.Fprintf(os.Stderr, "cliamp: resolving %d remote URL(s)...\n", len(resolved.Pending))
+		remote, err := resolve.Remote(resolved.Pending)
+		if err != nil {
+			return fmt.Errorf("resolve remote: %w", err)
+		}
+		pl.Add(remote...)
+	}
+
 	if cfg.AudioDevice != "" {
 		cleanup := player.PrepareAudioDevice(cfg.AudioDevice)
 		defer cleanup()
