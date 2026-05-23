@@ -302,8 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tracksLoadedMsg:
-		wasPlaying := m.player.IsPlaying()
-		if !wasPlaying {
+		if !m.player.IsPlaying() {
 			m.player.Stop()
 			m.player.ClearPreload()
 		}
@@ -316,11 +315,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyHeightMode()
 		m.adjustScroll()
 		m.provLoading = false
-		if m.playlist.Len() > 0 && !wasPlaying {
-			cmd := m.playCurrentTrack()
-			m.notifyAll()
-			return m, cmd
-		}
+		m.notifyAll()
 		return m, nil
 
 	case navArtistsLoadedMsg:

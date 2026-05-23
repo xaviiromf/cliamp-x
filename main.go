@@ -198,7 +198,6 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 			return fmt.Errorf("playlist %q: %w", cfg.Playlist, err)
 		}
 		pl.Add(tracks...)
-		cfg.AutoPlay = true
 	} else if defaultRadio {
 		pl.Add(
 			playlist.Track{Path: "http://radio.cliamp.stream/lofi/stream", Title: "Lofi Stream", Stream: true},

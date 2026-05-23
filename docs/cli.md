@@ -11,7 +11,7 @@ cliamp --repeat all ~/Music           # repeat mode: off, all, one
 cliamp --mono track.mp3               # downmix to mono
 cliamp --no-mono track.mp3            # force stereo
 cliamp --auto-play ~/Music            # start playback immediately
-cliamp --playlist "Blade Runner"      # load a local TOML playlist and start playing
+cliamp --playlist "Blade Runner"      # load a local TOML playlist (add --auto-play to start playback)
 ```
 
 ## Audio engine
