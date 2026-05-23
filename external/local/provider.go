@@ -25,6 +25,7 @@ import (
 var (
 	_ provider.PlaylistWriter  = (*Provider)(nil)
 	_ provider.PlaylistDeleter = (*Provider)(nil)
+	_ provider.PlaylistRenamer = (*Provider)(nil)
 	_ provider.Searcher        = (*Provider)(nil)
 )
 
@@ -343,6 +344,31 @@ func trackMatches(t playlist.Track, lowerQuery string) bool {
 		return true
 	}
 	return false
+}
+
+// RenamePlaylist renames a playlist by renaming its TOML file.
+// The reserved "Recently Played" history playlist cannot be renamed.
+func (p *Provider) RenamePlaylist(oldName, newName string) error {
+	if isHistoryName(oldName) || isHistoryName(newName) {
+		return errReservedHistoryName
+	}
+	oldPath, err := p.safePath(oldName)
+	if err != nil {
+		return fmt.Errorf("invalid playlist name %q: %w", oldName, err)
+	}
+	newPath, err := p.safePath(newName)
+	if err != nil {
+		return fmt.Errorf("invalid playlist name %q: %w", newName, err)
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("playlist %q already exists", newName)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat destination playlist %q: %w", newName, err)
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("rename playlist %q to %q: %w", oldName, newName, err)
+	}
+	return nil
 }
 
 // DeletePlaylist removes the TOML file for the named playlist.
