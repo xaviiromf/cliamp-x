@@ -51,7 +51,7 @@ eq_preset = "Flat"
 eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # Visualizer mode (leave empty for default Bars)
-# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, None
+# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, None
 visualizer = "Bars"
 
 # Visualizer volume linking (default: true)

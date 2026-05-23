@@ -64,6 +64,7 @@ const (
 	VisMosaic                     // static heatmap of flickering tiles
 	VisSand                       // falling-sand cellular automaton
 	VisGeyser                     // bass-driven particle fountain
+	VisClassicLED                 // Winamp 2.9 LED matrix with falling peak caps
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -462,6 +463,7 @@ var visModes = [VisCount]visEntry{
 	VisMosaic:      {"Mosaic", newMosaicDriver},
 	VisSand:        {"Sand", newSandDriver},
 	VisGeyser:      {"Geyser", newGeyserDriver},
+	VisClassicLED:  {"ClassicLED", newClassicLEDDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 
