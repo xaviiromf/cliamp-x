@@ -273,6 +273,7 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	}
 
 	m := model.New(p, pl, providers, defaultProvider, localProv, themes, luaMgr, config.SaveFunc{})
+	m.SetVisVolumeLinked(cfg.VisVolumeLinked)
 
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaplugin.StateProvider{

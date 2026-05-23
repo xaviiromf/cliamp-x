@@ -18,8 +18,12 @@ cp config.toml.example ~/.config/cliamp/config.toml
 ## Options
 
 ```toml
-# Default volume in dB (range: -30 to 6)
+# Default volume in dB (range: volume_min to 6)
 volume = 0
+
+# Minimum volume floor in dB (range: -90 to 0, default: -50)
+# Controls how low the volume control can go.
+volume_min = -50
 
 # Repeat mode: "off", "all", or "one"
 repeat = "off"
@@ -49,6 +53,12 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Visualizer mode (leave empty for default Bars)
 # Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, None
 visualizer = "Bars"
+
+# Visualizer volume linking (default: true)
+# When true, bar height follows the current volume level (classic behavior).
+# Set to false to decouple the visualizer from volume — bars stay visible
+# even at very low volume levels.
+vis_volume_linked = true
 
 # Compact mode: cap UI width at 80 columns (default: fluid/full-width)
 compact = false

@@ -38,7 +38,8 @@ type Player struct {
 	nextPipeline    *trackPipeline // preloaded track's resources
 	started         bool           // true after first speaker.Play()
 	ctrl            *beep.Ctrl
-	volume          atomic.Uint64     // dB stored as Float64bits, range [-30, +6]
+	volMin          atomic.Uint64     // dB floor stored as Float64bits, range [-90, 0]
+	volume          atomic.Uint64     // dB stored as Float64bits, range [volMin, +6]
 	speed           atomic.Uint64     // playback speed ratio as Float64bits; 1.0 = normal
 	eqBands         [10]atomic.Uint64 // dB stored as math.Float64bits
 	tap             *tap
@@ -71,6 +72,7 @@ func New(q Quality) (*Player, error) {
 		bitDepth = 16
 	}
 	p := &Player{sr: sr, resampleQuality: q.ResampleQuality, bitDepth: bitDepth}
+	p.volMin.Store(math.Float64bits(-50))
 	p.speed.Store(math.Float64bits(1.0))
 	p.gapless = &gaplessStreamer{}
 	p.gapless.onSwap = func() {
@@ -171,9 +173,9 @@ func (p *Player) playPipeline(tp *trackPipeline) error {
 			s = newBiquad(s, eqFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
 		}
 
-		s = &volumeStreamer{s: s, vol: &p.volume, mono: &p.mono, cachedDB: math.NaN()}
 		p.tap = newTap(s, 4096)
-		p.ctrl = &beep.Ctrl{Streamer: p.tap}
+		s = &volumeStreamer{s: p.tap, vol: &p.volume, mono: &p.mono, cachedDB: math.NaN()}
+		p.ctrl = &beep.Ctrl{Streamer: s}
 		p.started = true
 		p.playing.Store(true)
 		p.paused.Store(false)
@@ -563,9 +565,31 @@ func (p *Player) PositionAndDuration() (time.Duration, time.Duration) {
 	return pos, dur
 }
 
-// SetVolume sets the volume in dB, clamped to [-30, +6].
+// SetVolumeMin sets the minimum volume floor in dB, clamped to [-90, 0].
+// If the current volume is below the new floor it is immediately raised to match.
+func (p *Player) SetVolumeMin(db float64) {
+	newMin := max(min(db, 0), -90)
+	p.volMin.Store(math.Float64bits(newMin))
+	for {
+		cur := p.volume.Load()
+		curDB := math.Float64frombits(cur)
+		if curDB >= newMin {
+			break
+		}
+		if p.volume.CompareAndSwap(cur, math.Float64bits(newMin)) {
+			break
+		}
+	}
+}
+
+// VolumeMin returns the current minimum volume floor in dB.
+func (p *Player) VolumeMin() float64 {
+	return math.Float64frombits(p.volMin.Load())
+}
+
+// SetVolume sets the volume in dB, clamped to [VolumeMin, +6].
 func (p *Player) SetVolume(db float64) {
-	p.volume.Store(math.Float64bits(max(min(db, 6), -30)))
+	p.volume.Store(math.Float64bits(max(min(db, 6), p.VolumeMin())))
 }
 
 // Volume returns the current volume in dB.

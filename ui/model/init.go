@@ -59,6 +59,12 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 	return m
 }
 
+// SetVisVolumeLinked controls whether the visualizer scales samples by the
+// current volume before FFT analysis, making bar height follow volume.
+func (m *Model) SetVisVolumeLinked(linked bool) {
+	m.visVolumeLinked = linked
+}
+
 // findProviderWith returns the first registered provider that satisfies the
 // given capability check. This is used for cross-provider shortcuts like "N"
 // (browse) and "F" (search) which should work regardless of the active provider.

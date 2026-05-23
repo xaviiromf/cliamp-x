@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -55,6 +56,12 @@ func (m *Model) visualizerTickContext(now time.Time) ui.VisTickContext {
 			buf := m.vis.EnsureSampleBuf(spec.FFTSize)
 			if !sampled || spec.FFTSize > sampledSize {
 				samplesRead = m.player.SamplesInto(buf)
+				if m.visVolumeLinked {
+					gain := math.Pow(10, m.player.Volume()/20)
+					for i := range samplesRead {
+						buf[i] *= gain
+					}
+				}
 				sampled = true
 				sampledSize = spec.FFTSize
 			}

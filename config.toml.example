@@ -1,8 +1,15 @@
 # CLIAMP configuration
 # Copy to ~/.config/cliamp/config.toml
 
-# Default volume in dB (range: -30 to 6)
+# Default volume in dB (range: volume_min to +6)
 volume = 0
+
+# Minimum volume floor in dB (range: -90 to 0, default: -50)
+# volume_min = -50
+
+# Whether the visualizer bar height follows the current volume (default: true).
+# Set to false to keep bars visible at low volumes.
+# vis_volume_linked = true
 
 # Repeat mode: "off", "all", or "one"
 repeat = "off"

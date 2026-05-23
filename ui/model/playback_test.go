@@ -42,6 +42,8 @@ func (f *playbackFakeEngine) Duration() time.Duration                 { return 0
 func (f *playbackFakeEngine) PositionAndDuration() (time.Duration, time.Duration) {
 	return 0, 0
 }
+func (f *playbackFakeEngine) SetVolumeMin(float64)                   {}
+func (f *playbackFakeEngine) VolumeMin() float64                     { return -50 }
 func (f *playbackFakeEngine) SetVolume(float64)                      {}
 func (f *playbackFakeEngine) Volume() float64                        { return 0 }
 func (f *playbackFakeEngine) SetSpeed(float64)                       {}

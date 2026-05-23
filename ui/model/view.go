@@ -465,7 +465,8 @@ func (m Model) renderControls() string {
 	left := eqLabel + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
 
 	vol := m.player.Volume()
-	frac := max(0, min(1, (vol+30)/36))
+	volMin := m.player.VolumeMin()
+	frac := max(0, min(1, (vol-volMin)/(6-volMin)))
 	dbStr := fmt.Sprintf(" %+.0fdB", vol)
 	monoStr := ""
 	if m.player.Mono() {
