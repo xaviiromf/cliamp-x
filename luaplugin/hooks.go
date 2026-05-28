@@ -34,6 +34,17 @@ type luaHook struct {
 	fn     *lua.LFunction
 }
 
+// callBounded runs fn on the plugin's LState under hookTimeout so a runaway
+// callback cannot hold the plugin mutex forever. The caller must already hold
+// p.mu. Results (if nret > 0) are left on the stack for the caller to read.
+func (p *Plugin) callBounded(nret int, fn *lua.LFunction, args ...lua.LValue) error {
+	ctx, cancel := context.WithTimeout(context.Background(), hookTimeout)
+	defer cancel()
+	p.L.SetContext(ctx)
+	defer p.L.RemoveContext()
+	return p.L.CallByParam(lua.P{Fn: fn, NRet: nret, Protect: true}, args...)
+}
+
 // invokeHook calls a plugin's Lua callback under the plugin's mutex with a
 // bounded context. Logs any error to the plugin log. Used by every dispatch
 // site that fires Lua from Go (events, key binds, command handlers).
@@ -79,12 +90,21 @@ func filterOutPlugin(hooks []*luaHook, p *Plugin) []*luaHook {
 // mutex serializes all LState access so concurrent events are safe.
 func (m *Manager) Emit(event string, data map[string]any) {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closing {
+		return
+	}
 	hooks := m.hooks[event]
-	m.mu.RUnlock()
-
 	label := event + " handler"
 	for _, h := range hooks {
-		go m.invokeHookWithData(h, label, data)
+		// Add under RLock so Close (which sets closing under Lock, then Wait)
+		// can never miss an in-flight goroutine: either we register it before
+		// closing is set, or we observe closing and skip.
+		m.wg.Add(1)
+		go func(h *luaHook) {
+			defer m.wg.Done()
+			m.invokeHookWithData(h, label, data)
+		}(h)
 	}
 }
 

@@ -240,7 +240,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 
 	p.mu.Lock()
 	if p.listCache != nil && time.Since(p.listCacheAt) < playlistListCacheTTL {
-		cached := p.listCache
+		cached := slices.Clone(p.listCache)
 		p.mu.Unlock()
 		return cached, nil
 	}
@@ -273,14 +273,12 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	// i.e. 'Liked Songs' or 'Lieblingssongs' etc.
 	// For the moment, "Your Music" must sufficice without adding a localization
 	// map.
-	p.mu.Lock()
 	all = append(all, playlist.PlaylistInfo{
 		ID:         "YOUR MUSIC",
 		Name:       "Your Music",
 		TrackCount: result.Total,
 		Section:    "Library",
 	})
-	p.mu.Unlock()
 
 	for {
 		query := url.Values{
@@ -357,7 +355,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	p.listCacheAt = time.Now()
 	p.mu.Unlock()
 
-	return all, nil
+	return slices.Clone(all), nil
 }
 
 // Tracks returns all tracks for the given Spotify playlist ID.
@@ -370,7 +368,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	// Check cache — if we have tracks and the snapshot_id hasn't changed, return cached.
 	p.mu.Lock()
 	if cached, ok := p.trackCache[playlistID]; ok && cached.tracks != nil {
-		tracks := cached.tracks
+		tracks := slices.Clone(cached.tracks)
 		p.mu.Unlock()
 		return tracks, nil
 	}
@@ -490,7 +488,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	}
 	p.mu.Unlock()
 
-	return all, nil
+	return slices.Clone(all), nil
 }
 
 // isAuthError returns true if the error is an authentication/session-related
@@ -614,6 +612,11 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
+			// On the last attempt there's no retry after the wait, so don't
+			// sleep (up to 128s) just to give up; fail now.
+			if attempt == maxRetries-1 {
+				break
+			}
 			wait := time.Duration(1<<uint(attempt)) * time.Second
 			if ra := resp.Header.Get("Retry-After"); ra != "" {
 				if secs, err := strconv.Atoi(ra); err == nil && secs > 0 {
