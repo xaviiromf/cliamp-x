@@ -357,6 +357,7 @@ func (m *Manager) registerCliampAPI(L *lua.LState, p *Plugin) {
 	cliamp := L.NewTable()
 	registerLogAPI(L, cliamp, m.logger, p.Name)
 	registerJSONAPI(L, cliamp)
+	registerStoreAPI(L, cliamp, p.Name)
 	registerCryptoAPI(L, cliamp)
 	registerFSAPI(L, cliamp)
 	registerHTTPAPI(L, cliamp)
