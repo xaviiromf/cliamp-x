@@ -459,3 +459,12 @@ func (m *Manager) HasHooks() bool {
 	}
 	return false
 }
+
+// HasHook reports whether any plugin registered for a specific event. Callers
+// use this to skip building event payloads (and any locks they require) when no
+// plugin is listening for that particular event.
+func (m *Manager) HasHook(event string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.hooks[event]) > 0
+}

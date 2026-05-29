@@ -243,6 +243,11 @@ type Model struct {
 	// Lua plugin manager (nil if no plugins loaded)
 	luaMgr *luaplugin.Manager
 
+	// pluginEmit tracks last-emitted player/queue state so Update can fire
+	// delta events to plugins from one place. Held behind a pointer so the
+	// snapshot survives Update's value-receiver copy.
+	pluginEmit *pluginEmitState
+
 	// History recorder (nil if config dir unavailable; safe to call when nil)
 	historyStore *history.Store
 

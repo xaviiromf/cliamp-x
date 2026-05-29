@@ -42,6 +42,9 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 		historyStore:     history.New(),
 		showAlbumHeaders: false,
 	}
+	if luaMgr != nil {
+		m.pluginEmit = &pluginEmitState{}
+	}
 	m.termTitle = initialTerminalTitleState()
 	// Select the default provider pill.
 	for i, pe := range providers {

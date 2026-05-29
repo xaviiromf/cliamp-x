@@ -18,6 +18,11 @@ const (
 	EventPlaybackState = "playback.state"
 	EventTrackChange   = "track.change"
 	EventTrackScrobble = "track.scrobble"
+	EventPlayerSeek    = "player.seek"   // data: position, duration (seconds)
+	EventPlayerVolume  = "player.volume" // data: db
+	EventPlayerEQ      = "player.eq"     // data: bands (10-array), preset
+	EventPlayerMode    = "player.mode"   // data: shuffle (bool), repeat ("off"/"all"/"one")
+	EventQueueChange   = "queue.change"  // data: count, index, queued
 )
 
 // Permission strings declared via plugin.register({ permissions = {...} }).

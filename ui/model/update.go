@@ -32,6 +32,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	defer func() {
 		m.maybeRequestVisualizerRefresh(msg, wasScreen, wasMode, wasPlaying, wasPaused)
+		m.emitPluginEvents()
 	}()
 
 	switch msg := msg.(type) {
