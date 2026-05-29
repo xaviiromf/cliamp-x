@@ -19,6 +19,7 @@ import (
 	"cliamp/external/netease"
 	"cliamp/external/plex"
 	"cliamp/external/radio"
+	"cliamp/external/radiometa"
 	"cliamp/external/soundcloud"
 	"cliamp/external/spotify"
 	"cliamp/external/ytmusic"
@@ -256,6 +257,9 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	p.RegisterBufferedURLMatcher(func(u string) bool {
 		return navidrome.IsSubsonicStreamURL(u) || jellyfin.IsStreamURL(u) || emby.IsStreamURL(u) || plex.IsStreamURL(u)
 	})
+
+	// Pull now-playing for stations that carry no inline ICY metadata (NTS, FIP).
+	p.RegisterStreamMetadataResolver(radiometa.Resolver)
 
 	cfg.ApplyPlayer(p)
 	cfg.ApplyPlaylist(pl)

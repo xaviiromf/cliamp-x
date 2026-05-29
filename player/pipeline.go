@@ -217,6 +217,7 @@ func (p *Player) buildPipelineAt(path string, byteOffset int64, timeOffset time.
 			decoder:       decoder,
 			stream:        decoder,
 			format:        format,
+			path:          path,
 			bytesRead:     byteCounter,
 			contentLength: src.contentLength,
 		}, nil
