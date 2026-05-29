@@ -203,17 +203,22 @@ func (p *Player) buildPipelineAt(path string, byteOffset int64, timeOffset time.
 
 	// For HTTP streams that need ffmpeg (e.g. AAC+), use the streaming
 	// pipe decoder so playback starts immediately instead of buffering
-	// the entire (potentially infinite) stream.
+	// the entire (potentially infinite) stream. Feed ffmpeg from the existing
+	// reader chain via stdin rather than handing it the URL: this keeps the
+	// ICY metadata reader attached so live radio StreamTitle parsing works for
+	// ffmpeg-only codecs (AAC, AAC+, Opus, ...).
 	if isURL(path) && needsFFmpeg(ext) {
-		rc.Close()
-		decoder, format, err := decodeFFmpegStream(path, p.sr, p.bitDepth)
+		decoder, format, err := decodeFFmpegPipeStream(rc, p.sr, p.bitDepth)
 		if err != nil {
+			rc.Close()
 			return nil, fmt.Errorf("decode: %w", err)
 		}
 		return &trackPipeline{
-			decoder: decoder,
-			stream:  decoder,
-			format:  format,
+			decoder:       decoder,
+			stream:        decoder,
+			format:        format,
+			bytesRead:     byteCounter,
+			contentLength: src.contentLength,
 		}, nil
 	}
 
