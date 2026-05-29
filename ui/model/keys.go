@@ -681,6 +681,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.search.scroll = 0
 		m.prevFocus = m.focus
 		m.focus = focusSearch
+		// Search now renders in the playlist region; recompute chrome so the
+		// search header/help are reflected in the visible-row budget.
+		m.refreshChrome()
+		m.applyHeightMode()
 
 	case "ctrl+f":
 		m.openProviderSearch()
@@ -1180,6 +1184,7 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEscape:
 		m.search.active = false
 		m.focus = m.prevFocus
+		m.closeSearchLayout()
 
 	case tea.KeyEnter:
 		var cmd tea.Cmd
@@ -1187,12 +1192,12 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			idx := m.search.results[m.search.cursor]
 			m.playlist.SetIndex(idx)
 			m.plCursor = idx
-			m.adjustScroll()
 			cmd = m.playCurrentTrack()
 			m.notifyPlayback()
 		}
 		m.search.active = false
 		m.focus = focusPlaylist
+		m.closeSearchLayout()
 		return cmd
 
 	case tea.KeyTab:

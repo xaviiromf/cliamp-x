@@ -1,22 +1,16 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/resolve"
-	"cliamp/ui"
 )
-
-// fbMaxVisible is a number of visible entries in file browser.
-const fbMaxVisible = 12
 
 // fbEntry is a single item in the file browser listing.
 type fbEntry struct {
@@ -48,25 +42,6 @@ func (m *Model) fbEntry(idx int) fbEntry {
 	return m.fileBrowser.entries[idx]
 }
 
-func (m Model) fbHeaderLines() []string {
-	header := []string{
-		titleStyle.Render("O P E N  F I L E S"),
-		dimStyle.Render("  " + m.fileBrowser.dir),
-		"",
-	}
-
-	if m.fileBrowser.searching {
-		cursor := "_"
-		if (time.Now().UnixNano()/500000000)%2 != 0 {
-			cursor = " "
-		}
-		header = append(header, playlistSelectedStyle.Render("  / "+m.fileBrowser.search+cursor), "")
-	} else if m.fileBrowser.search != "" {
-		header = append(header, dimStyle.Render("  / "+m.fileBrowser.search), "")
-	}
-	return header
-}
-
 func (m Model) fbHelpLine() string {
 	if m.fileBrowser.searching {
 		return helpKey("Enter", "Confirm ") + helpKey("Esc", "Cancel ") + helpKey("Type", "Filter")
@@ -84,24 +59,10 @@ func (m Model) fbHelpLine() string {
 	return help
 }
 
-// fbVisible returns the current file-browser list height accounting for
-// frame padding and all fixed (non-list) sections.
+// fbVisible returns the file-browser list height. The browser renders inline in
+// the playlist region, so it shares the playlist's row budget.
 func (m *Model) fbVisible() int {
-	probe := append([]string{}, m.fbHeaderLines()...)
-	if m.fileBrowser.err != "" {
-		probe = append(probe, errorStyle.Render("  "+m.fileBrowser.err))
-	}
-	probe = append(probe, "x")
-	if len(m.fileBrowser.selected) > 0 {
-		probe = append(probe, "", statusStyle.Render("  1 selected"))
-	} else {
-		probe = append(probe, "")
-		if m.fileBrowser.err == "" {
-			probe = append(probe, "")
-		}
-	}
-	probe = append(probe, "", m.fbHelpLine())
-	return m.measureOverlayVisible(probe, fbMaxVisible)
+	return m.effectivePlaylistVisible()
 }
 
 // fbMaybeAdjustScroll keeps the cursor visible in the current file-browser window.
@@ -490,84 +451,4 @@ func (m *Model) fbConfirm(replace bool) tea.Cmd {
 		}
 		return fbTracksResolvedMsg{tracks: r.Tracks, replace: replace}
 	}
-}
-
-// renderFileBrowser renders the file browser overlay.
-func (m Model) renderFileBrowser() string {
-	maxVisible := m.fbVisible()
-	lines := append(make([]string, 0, 3+maxVisible+4), m.fbHeaderLines()...)
-
-	if m.fileBrowser.err != "" {
-		lines = append(lines, errorStyle.Render("  "+m.fileBrowser.err))
-	}
-
-	rendered := 0
-
-	count := m.fbCount()
-
-	if count == 0 {
-		if m.fileBrowser.search != "" {
-			lines = append(lines, dimStyle.Render("  No matches"))
-		} else {
-			lines = append(lines, dimStyle.Render("  (empty)"))
-		}
-		rendered = 1
-	} else {
-		scroll := max(m.fileBrowser.scroll, 0)
-		if scroll > count-1 {
-			scroll = max(0, count-1)
-		}
-
-		for i := scroll; i < count && i < scroll+maxVisible; i++ {
-			e := m.fbEntry(i)
-
-			// Selection check mark.
-			check := "  "
-			if m.fileBrowser.selected[e.path] {
-				check = "✓ "
-			}
-
-			// Type indicator suffix.
-			suffix := ""
-			if e.isAudio {
-				suffix = " ♫"
-			}
-
-			label := check + e.name + suffix
-			label = truncate(label, max(1, ui.PanelWidth-2))
-
-			if m.fileBrowser.searching {
-				lines = append(lines, dimStyle.Render("  "+label))
-			} else if i == m.fileBrowser.cursor {
-				lines = append(lines, playlistSelectedStyle.Render("> "+label))
-			} else if e.isDir {
-				lines = append(lines, trackStyle.Render("  "+label))
-			} else if e.isAudio {
-				lines = append(lines, playlistItemStyle.Render("  "+label))
-			} else {
-				lines = append(lines, dimStyle.Render("  "+label))
-			}
-			rendered++
-		}
-	}
-
-	// Pad to fixed height.
-	for i := 0; i < maxVisible-rendered; i++ {
-		lines = append(lines, "")
-	}
-
-	// Selection count.
-	if len(m.fileBrowser.selected) > 0 {
-		lines = append(lines, "", statusStyle.Render(fmt.Sprintf("  %d selected", len(m.fileBrowser.selected))))
-	} else {
-		lines = append(lines, "")
-		// Keep footer alignment consistent when no error/status line is present.
-		if m.fileBrowser.err == "" {
-			lines = append(lines, "")
-		}
-	}
-
-	lines = append(lines, "", m.fbHelpLine())
-
-	return m.centerOverlay(strings.Join(lines, "\n"))
 }

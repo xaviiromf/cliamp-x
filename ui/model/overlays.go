@@ -8,14 +8,6 @@ import (
 	"cliamp/ui"
 )
 
-func (m *Model) measureChrome(before, after []string) int {
-	probe := append([]string{}, before...)
-	probe = append(probe, "x")
-	probe = append(probe, after...)
-	probe = m.appendFooterMessages(probe)
-	return m.measureOverlayVisible(probe, maxPlVisible)
-}
-
 // openThemePicker re-loads themes from disk (picking up new user files)
 // and opens the theme selector overlay.
 func (m *Model) openThemePicker() {
@@ -62,7 +54,7 @@ func (m *Model) themePickerHelpLine() string {
 }
 
 func (m *Model) themePickerVisible() int {
-	return m.measureChrome(m.themePickerChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) themePickerMaybeAdjustScroll(visible int) {
@@ -141,7 +133,7 @@ func (m *Model) devicePickerHelpLine() string {
 }
 
 func (m *Model) devicePickerVisible() int {
-	return m.measureChrome(m.devicePickerChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) queueHelpLine() string {
@@ -153,7 +145,7 @@ func (m *Model) queueHelpLine() string {
 }
 
 func (m *Model) queueVisible() int {
-	return m.measureChrome(m.queueChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) searchHelpLine() string {
@@ -164,7 +156,15 @@ func (m *Model) searchHelpLine() string {
 }
 
 func (m *Model) searchVisible() int {
-	return m.measureChrome(m.searchChrome())
+	return m.effectivePlaylistVisible()
+}
+
+// closeSearchLayout restores playlist sizing after the inline search header and
+// help line are dismissed, then refits the playlist cursor into view.
+func (m *Model) closeSearchLayout() {
+	m.refreshChrome()
+	m.applyHeightMode()
+	m.adjustScroll()
 }
 
 func (m *Model) netSearchResultsHelpLine() string {
@@ -176,7 +176,7 @@ func (m *Model) netSearchResultsHelpLine() string {
 }
 
 func (m *Model) netSearchResultsVisible() int {
-	return m.measureChrome(m.netSearchResultsChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) spotSearchResultsHelpLine() string {
@@ -189,7 +189,7 @@ func (m *Model) spotSearchResultsHelpLine() string {
 }
 
 func (m *Model) spotSearchResultsVisible() int {
-	return m.measureChrome(m.spotSearchResultsChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) spotSearchPlaylistHelpLine() string {
@@ -197,7 +197,13 @@ func (m *Model) spotSearchPlaylistHelpLine() string {
 }
 
 func (m *Model) spotSearchPlaylistVisible() int {
-	return m.measureChrome(m.spotSearchPlaylistChrome())
+	return m.effectivePlaylistVisible()
+}
+
+// navVisible returns the nav-browser list height. The nav browser renders
+// inline in the playlist region, so it shares the playlist's row budget.
+func (m *Model) navVisible() int {
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) plMgrListHelpLine() string {
@@ -215,7 +221,7 @@ func (m *Model) plMgrListHelpLine() string {
 }
 
 func (m *Model) plMgrListVisible() int {
-	return m.measureChrome(m.plMgrListChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) plMgrListMaybeAdjustScroll(visible int) {
@@ -237,7 +243,7 @@ func (m *Model) plMgrTracksHelpLine() string {
 }
 
 func (m *Model) plMgrTracksVisible() int {
-	return m.measureChrome(m.plMgrTracksChrome())
+	return m.effectivePlaylistVisible()
 }
 
 func (m *Model) plMgrTracksMaybeAdjustScroll(visible int) {

@@ -75,9 +75,10 @@ const (
 )
 
 func (s topLevelScreen) hidesVisualizer() bool {
-	// screenVisPicker keeps the visualizer live so the mode under the cursor is
-	// previewed in place while the list is open.
-	return s != screenMain && s != screenFullVisualizer && s != screenVisPicker
+	// Every overlay now renders inline in the playlist region while the
+	// now-playing, visualizer, and controls chrome stays visible above it, so
+	// the visualizer is never fully hidden.
+	return false
 }
 
 // maxPlVisible caps the playlist at a readable height even on tall terminals.
@@ -337,8 +338,11 @@ func (m Model) activeScreen() topLevelScreen {
 	}
 }
 
+// isOverlayActive reports whether an overlay suppresses the live main view.
+// Overlays now render inline over the live view (see hidesVisualizer), so this
+// is always false; it is kept as the single seam the tick loop gates on.
 func (m Model) isOverlayActive() bool {
-	return m.activeScreen().hidesVisualizer()
+	return false
 }
 
 func (m Model) isPlaying() bool {
