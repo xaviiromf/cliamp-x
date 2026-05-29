@@ -32,6 +32,7 @@ var keymapEntries = []keymapEntry{
 	{key: "e", action: "Cycle EQ preset"},
 	{key: "t", action: "Choose theme"},
 	{key: "v", action: "Cycle visualizer"},
+	{key: "Ctrl+V", action: "Choose visualizer"},
 	{key: "V", action: "Full-screen visualizer"},
 	{key: "↑ ↓", action: "Playlist scroll / EQ adjust (wraps around)"},
 	{key: "PgUp PgDn / Ctrl+U D", action: "Scroll playlist/browser by page"},
@@ -104,7 +105,7 @@ var coreReservedKeys = []string{
 	"ctrl+s", "S", "/", "ctrl+f",
 	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
 	"N", "L", "R", "P", "Y", "C", "M",
-	"v", "V", "ctrl+x", "x", "d", "ctrl+k", "?",
+	"v", "V", "ctrl+v", "ctrl+x", "x", "d", "ctrl+k", "?",
 	"ctrl+r",
 }
 

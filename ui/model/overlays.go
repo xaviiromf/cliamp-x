@@ -1,9 +1,11 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 
 	"cliamp/theme"
+	"cliamp/ui"
 )
 
 func (m *Model) measureChrome(before, after []string) int {
@@ -65,6 +67,73 @@ func (m *Model) themePickerVisible() int {
 
 func (m *Model) themePickerMaybeAdjustScroll(visible int) {
 	clampScroll(&m.themePicker.cursor, &m.themePicker.scroll, len(m.themes)+1, visible)
+}
+
+// openVisPicker opens the visualizer picker, which renders the mode list in the
+// playlist region while keeping the visualizer live above it for preview. The
+// cursor starts on the currently active mode.
+func (m *Model) openVisPicker() {
+	m.visPicker.visible = true
+	m.visPicker.savedMode = int(m.vis.Mode)
+	m.visPicker.cursor = int(m.vis.Mode)
+	m.visPicker.scroll = 0
+	// Capture the mode list once; it is stable while the picker is open (Lua
+	// visualizers are registered at startup), so callers avoid re-allocating it.
+	m.visPicker.modes = m.vis.AllModeNames()
+	// Recompute chrome/height for the picker layout (its header + help differ
+	// from the playlist), then fit the cursor into the visible window.
+	m.refreshChrome()
+	m.applyHeightMode()
+	m.visPickerMaybeAdjustScroll(m.visPickerVisible())
+}
+
+// visPickerApply switches to the visualizer mode under the cursor. Run on every
+// cursor move so the live preview updates as the user scrolls. Only recompute
+// the layout when crossing the VisNone boundary, since that is the sole mode
+// change that adds/removes the spectrum block (all other modes share a height).
+func (m *Model) visPickerApply() {
+	wasNone := m.vis.Mode == ui.VisNone
+	m.vis.SetMode(ui.VisMode(m.visPicker.cursor))
+	if wasNone != (m.vis.Mode == ui.VisNone) {
+		m.refreshChrome()
+		m.applyHeightMode()
+	}
+}
+
+// visPickerClose restores playlist sizing after the picker layout is dismissed.
+func (m *Model) visPickerClose() {
+	m.visPicker.visible = false
+	m.visPicker.modes = nil
+	m.refreshChrome()
+	m.applyHeightMode()
+	m.adjustScroll()
+}
+
+// visPickerSelect confirms the current selection, persists it, and closes.
+func (m *Model) visPickerSelect() {
+	m.visPickerApply()
+	if err := m.configSaver.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
+		m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
+	}
+	m.visPickerClose()
+}
+
+// visPickerCancel restores the mode from before the picker was opened.
+func (m *Model) visPickerCancel() {
+	m.vis.SetMode(ui.VisMode(m.visPicker.savedMode))
+	m.visPickerClose()
+}
+
+func (m *Model) visPickerHelpLine() string {
+	return helpKey("↓↑", "Preview ") + helpKey("Enter", "Select ") + helpKey("Esc", "Cancel ") + helpKey("Ctrl+K", "Keys")
+}
+
+func (m *Model) visPickerVisible() int {
+	return m.effectivePlaylistVisible()
+}
+
+func (m *Model) visPickerMaybeAdjustScroll(visible int) {
+	clampScroll(&m.visPicker.cursor, &m.visPicker.scroll, len(m.visPicker.modes), visible)
 }
 
 func (m *Model) devicePickerHelpLine() string {

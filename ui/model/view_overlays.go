@@ -132,6 +132,24 @@ func (m Model) renderThemePicker() string {
 	return m.centerOverlay(strings.Join(lines, "\n"))
 }
 
+// renderVisPickerList renders the visualizer mode list for the playlist region
+// while the picker is open. The header and help line are supplied by the main
+// layout (renderPlaylistHeader / renderHelp).
+func (m Model) renderVisPickerList() string {
+	budget := m.effectivePlaylistVisible()
+	if budget <= 0 {
+		return ""
+	}
+	items := m.visPicker.modes
+	scroll := m.visPicker.scroll
+
+	lines := make([]string, 0, budget)
+	for i := scroll; i < len(items) && len(lines) < budget; i++ {
+		lines = append(lines, cursorLine(items[i], i == m.visPicker.cursor))
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (m Model) renderPlaylistManager() string {
 	var lines []string
 	switch m.plManager.screen {

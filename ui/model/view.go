@@ -154,12 +154,16 @@ func (m Model) View() tea.View {
 		content = m.renderJumpOverlay()
 	case screenFullVisualizer:
 		content = m.renderFullVisualizer()
+	case screenVisPicker:
+		// Render the normal main layout with the mode list in place of the
+		// playlist, so the live visualizer stays visible above it for preview.
+		content = strings.Join(m.mainSections(m.renderVisPickerList(), true), "\n")
 	default:
 		content = strings.Join(m.mainSections(m.renderPlaylist(), true), "\n")
 	}
 
 	rendered := content
-	if screen == screenMain || screen == screenFullVisualizer {
+	if screen == screenMain || screen == screenFullVisualizer || screen == screenVisPicker {
 		rendered = m.centerFrame(ui.FrameStyle.Render(content))
 	}
 
@@ -516,6 +520,10 @@ func (m Model) renderProviderPill() string {
 }
 
 func (m Model) renderPlaylistHeader() string {
+	if m.visPicker.visible {
+		label := fmt.Sprintf("Visualizers [%d/%d]", m.visPicker.cursor+1, len(m.visPicker.modes))
+		return dimStyle.Render(labeledSeparator("", label))
+	}
 	if m.focus == focusProvider {
 		return dimStyle.Render(labeledSeparator("", fmt.Sprintf("%s Playlists", m.provider.Name())))
 	}
@@ -830,6 +838,9 @@ func (m Model) renderJumpOverlay() string {
 }
 
 func (m Model) renderHelp() string {
+	if m.visPicker.visible {
+		return m.visPickerHelpLine()
+	}
 	if m.focus == focusProvider {
 		help := helpKey("↓↑", "Scroll ") + helpKey("Enter", "Load ") + helpKey("/", "Search ")
 		if _, ok := m.provider.(provider.FavoriteToggler); ok {

@@ -42,6 +42,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | `e` | Cycle EQ preset |
 | `t` | Choose theme |
 | `v` | Cycle visualizer |
+| `Ctrl+V` | Pick visualizer from a list (live preview) |
 | `V` | Full screen visualizer |
 | `Ctrl+H` | Toggle album headers |
 

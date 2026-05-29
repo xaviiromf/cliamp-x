@@ -58,6 +58,7 @@ const (
 	screenMain topLevelScreen = iota
 	screenKeymap
 	screenThemePicker
+	screenVisPicker
 	screenDevicePicker
 	screenFileBrowser
 	screenNavBrowser
@@ -74,7 +75,9 @@ const (
 )
 
 func (s topLevelScreen) hidesVisualizer() bool {
-	return s != screenMain && s != screenFullVisualizer
+	// screenVisPicker keeps the visualizer live so the mode under the cursor is
+	// previewed in place while the list is open.
+	return s != screenMain && s != screenFullVisualizer && s != screenVisPicker
 }
 
 // maxPlVisible caps the playlist at a readable height even on tall terminals.
@@ -175,6 +178,7 @@ type Model struct {
 	provSearch     provSearchState
 	seek           seekState
 	themePicker    themePickerState
+	visPicker      visPickerState
 	lyrics         lyricsState
 	keymap         keymapOverlay
 	queue          queueOverlay
@@ -300,6 +304,8 @@ func (m Model) activeScreen() topLevelScreen {
 		return screenKeymap
 	case m.themePicker.visible:
 		return screenThemePicker
+	case m.visPicker.visible:
+		return screenVisPicker
 	case m.devicePicker.visible:
 		return screenDevicePicker
 	case m.fileBrowser.visible:
