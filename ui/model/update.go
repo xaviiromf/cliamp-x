@@ -735,6 +735,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.SetEQPreset(msg.Name, msg.Bands)
 		return m, nil
 
+	case PluginQueueMsg:
+		return m, m.handlePluginQueue(msg)
+
+	case pluginQueueAddedMsg:
+		if len(msg.tracks) > 0 {
+			m.playlist.Add(msg.tracks...)
+			m.notifyPlayback()
+		}
+		return m, nil
+
 	case ShowStatusMsg:
 		ttl := statusTTLDefault
 		if msg.Duration > 0 {

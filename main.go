@@ -309,6 +309,21 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 			TrackDuration: func() int { t, _ := pl.Current(); return t.DurationSecs },
 			PlaylistCount: func() int { return pl.Len() },
 			CurrentIndex:  func() int { return pl.Index() },
+			QueueList: func() []luaplugin.QueueEntry {
+				tracks := pl.Tracks()
+				out := make([]luaplugin.QueueEntry, len(tracks))
+				for i, t := range tracks {
+					out[i] = luaplugin.QueueEntry{
+						Title:  t.Title,
+						Artist: t.Artist,
+						Album:  t.Album,
+						Path:   t.Path,
+						Index:  i,
+						Queued: pl.QueuePosition(i) >= 0,
+					}
+				}
+				return out
+			},
 		})
 	}
 
@@ -385,6 +400,18 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 			},
 			Next: func() { prog.Send(playback.NextMsg{}) },
 			Prev: func() { prog.Send(playback.PrevMsg{}) },
+			QueueAdd: func(path string) {
+				prog.Send(model.PluginQueueMsg{Op: "add", Path: path})
+			},
+			QueueJump: func(index int) {
+				prog.Send(model.PluginQueueMsg{Op: "jump", Index: index})
+			},
+			QueueRemove: func(index int) {
+				prog.Send(model.PluginQueueMsg{Op: "remove", Index: index})
+			},
+			QueueMove: func(from, to int) {
+				prog.Send(model.PluginQueueMsg{Op: "move", Index: from, To: to})
+			},
 		})
 		luaMgr.SetUIProvider(luaplugin.UIProvider{
 			ShowMessage: func(text string, duration time.Duration) {

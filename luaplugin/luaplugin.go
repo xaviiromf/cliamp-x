@@ -52,7 +52,20 @@ type StateProvider struct {
 	TrackIsStream func() bool
 	TrackDuration func() int // seconds
 	PlaylistCount func() int
-	CurrentIndex  func() int // 0-based
+	CurrentIndex  func() int          // 0-based
+	QueueList     func() []QueueEntry // full playlist in play order
+}
+
+// QueueEntry is one track in the playlist as exposed to plugins via
+// cliamp.queue.list(). Index is 0-based and matches CurrentIndex; Queued is
+// true when the track sits in the explicit play-next queue.
+type QueueEntry struct {
+	Title  string
+	Artist string
+	Album  string
+	Path   string
+	Index  int
+	Queued bool
 }
 
 // ControlProvider supplies write access to player controls.
@@ -68,6 +81,12 @@ type ControlProvider struct {
 	SetEQPreset func(name string, bands *[10]float64) // injected via prog.Send
 	Next        func()                                // injected via prog.Send
 	Prev        func()                                // injected via prog.Send
+	// Queue mutators, all injected via prog.Send so the model's Update loop
+	// applies them and keeps derived state (cursor, current index) consistent.
+	QueueAdd    func(path string)  // resolve path/URL and append
+	QueueJump   func(index int)    // make index current and play it
+	QueueRemove func(index int)    // remove track at index
+	QueueMove   func(from, to int) // reorder
 }
 
 // UIProvider supplies callbacks that surface plugin output in the TUI.
@@ -364,6 +383,7 @@ func (m *Manager) registerCliampAPI(L *lua.LState, p *Plugin) {
 	registerPlayerAPI(L, cliamp, &m.state)
 	registerTrackAPI(L, cliamp, &m.state)
 	registerTimerAPI(L, cliamp, m.timers, p)
+	registerQueueAPI(L, cliamp, &m.state, &m.control, p, m.logger)
 	registerNotifyAPI(L, cliamp, m.logger, p.Name)
 	registerControlAPI(L, cliamp, &m.control, p, m.logger)
 	registerMessageAPI(L, cliamp, &m.ui)
