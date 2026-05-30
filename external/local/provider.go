@@ -11,11 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
 	"cliamp/history"
 	"cliamp/internal/appdir"
+	"cliamp/internal/fuzzy"
 	"cliamp/internal/tomlutil"
 	"cliamp/playlist"
 	"cliamp/provider"
@@ -289,11 +291,12 @@ func (p *Provider) AddTrackToPlaylist(_ context.Context, playlistID string, trac
 	return p.AddTrack(playlistID, track)
 }
 
-// SearchTracks does a case-insensitive substring search across every saved
-// playlist for tracks whose title, artist, or album match query. Returns up to
-// limit results (limit <= 0 means no cap). Implements provider.Searcher.
+// SearchTracks does a case-insensitive fuzzy search across every saved playlist
+// for tracks whose title, artist, or album match query, ranked by relevance
+// (best match first). Returns up to limit results (limit <= 0 means no cap).
+// Implements provider.Searcher.
 func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]playlist.Track, error) {
-	q := strings.ToLower(strings.TrimSpace(query))
+	q := strings.TrimSpace(query)
 	if q == "" {
 		return nil, nil
 	}
@@ -306,7 +309,11 @@ func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]p
 		return nil, err
 	}
 
-	var out []playlist.Track
+	type scored struct {
+		track playlist.Track
+		score int
+	}
+	var matches []scored
 	seen := make(map[string]struct{})
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".toml") {
@@ -320,30 +327,42 @@ func (p *Provider) SearchTracks(_ context.Context, query string, limit int) ([]p
 			if _, dup := seen[t.Path]; dup {
 				continue
 			}
-			if !trackMatches(t, q) {
+			score, ok := trackMatchScore(t, q)
+			if !ok {
 				continue
 			}
 			seen[t.Path] = struct{}{}
-			out = append(out, t)
-			if limit > 0 && len(out) >= limit {
-				return out, nil
-			}
+			matches = append(matches, scored{t, score})
 		}
+	}
+
+	sort.SliceStable(matches, func(a, b int) bool {
+		return matches[a].score > matches[b].score
+	})
+	if limit > 0 && len(matches) > limit {
+		matches = matches[:limit]
+	}
+
+	out := make([]playlist.Track, len(matches))
+	for i, m := range matches {
+		out[i] = m.track
 	}
 	return out, nil
 }
 
-func trackMatches(t playlist.Track, lowerQuery string) bool {
-	if strings.Contains(strings.ToLower(t.Title), lowerQuery) {
-		return true
+// trackMatchScore returns the best fuzzy score for query across the track's
+// title, artist, and album, and whether any of them matched.
+func trackMatchScore(t playlist.Track, query string) (int, bool) {
+	best, ok := 0, false
+	for _, field := range [...]string{t.Title, t.Artist, t.Album} {
+		if field == "" {
+			continue
+		}
+		if s, matched := fuzzy.Match(query, field); matched && (!ok || s > best) {
+			best, ok = s, true
+		}
 	}
-	if strings.Contains(strings.ToLower(t.Artist), lowerQuery) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(t.Album), lowerQuery) {
-		return true
-	}
-	return false
+	return best, ok
 }
 
 // RenamePlaylist renames a playlist by renaming its TOML file.

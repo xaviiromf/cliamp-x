@@ -3,10 +3,12 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
+	"cliamp/internal/fuzzy"
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/resolve"
@@ -15,7 +17,6 @@ import (
 // fbEntry is a single item in the file browser listing.
 type fbEntry struct {
 	name     string
-	nameLow  string // pre-computed strings.ToLower(name) for search filtering
 	path     string
 	isDir    bool
 	isAudio  bool
@@ -121,7 +122,6 @@ func (m *Model) loadFBDir() {
 
 	m.fileBrowser.entries = append(m.fileBrowser.entries, fbEntry{
 		name:     "..",
-		nameLow:  "..",
 		path:     filepath.Dir(m.fileBrowser.dir),
 		isDir:    true,
 		isParent: true,
@@ -161,10 +161,9 @@ func (m *Model) loadFBDir() {
 		if dirType != "" {
 			full := name + dirType
 			m.fileBrowser.entries = append(m.fileBrowser.entries, fbEntry{
-				name:    full,
-				nameLow: strings.ToLower(full),
-				path:    filepath.Join(m.fileBrowser.dir, name),
-				isDir:   true,
+				name:  full,
+				path:  filepath.Join(m.fileBrowser.dir, name),
+				isDir: true,
 			})
 		} else {
 			if files == nil {
@@ -172,7 +171,6 @@ func (m *Model) loadFBDir() {
 			}
 			files = append(files, fbEntry{
 				name:    name,
-				nameLow: strings.ToLower(name),
 				path:    filepath.Join(m.fileBrowser.dir, name),
 				isAudio: player.SupportedExts[strings.ToLower(filepath.Ext(name))],
 			})
@@ -181,18 +179,37 @@ func (m *Model) loadFBDir() {
 	m.fileBrowser.entries = append(m.fileBrowser.entries, files...)
 }
 
+// fbUpdateFilter rebuilds the filtered view from the current search query.
+// With no query, entries keep their natural directory order; otherwise matches
+// are ranked by fuzzy relevance (best match first). The parent ("..") entry is
+// never shown while filtering.
 func (m *Model) fbUpdateFilter() {
 	m.fileBrowser.filtered = nil
 	m.fileBrowser.cursor = 0
 	m.fileBrowser.scroll = 0
-	query := strings.ToLower(m.fileBrowser.search)
+	if m.fileBrowser.search == "" {
+		for i, e := range m.fileBrowser.entries {
+			if !e.isParent {
+				m.fileBrowser.filtered = append(m.fileBrowser.filtered, i)
+			}
+		}
+		return
+	}
+	type match struct{ idx, score int }
+	matches := make([]match, 0, len(m.fileBrowser.entries))
 	for i, e := range m.fileBrowser.entries {
 		if e.isParent {
 			continue
 		}
-		if query == "" || strings.Contains(e.nameLow, query) {
-			m.fileBrowser.filtered = append(m.fileBrowser.filtered, i)
+		if score, ok := fuzzy.Match(m.fileBrowser.search, e.name); ok {
+			matches = append(matches, match{i, score})
 		}
+	}
+	sort.SliceStable(matches, func(a, b int) bool {
+		return matches[a].score > matches[b].score
+	})
+	for _, mt := range matches {
+		m.fileBrowser.filtered = append(m.fileBrowser.filtered, mt.idx)
 	}
 }
 
