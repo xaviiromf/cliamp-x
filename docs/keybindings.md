@@ -65,6 +65,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | `Y` | Open YouTube provider |
 | `C` | Open SoundCloud provider |
 | `M` | Open NetEase provider |
+| `Q` | Open Qobuz provider |
 
 ## Playlist and Queue
 
