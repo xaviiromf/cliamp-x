@@ -1,7 +1,7 @@
 // Package cmd implements interactive subcommands invoked from the CLI.
 // setup.go contains the provider onboarding wizard reachable via
 // `cliamp setup`. It walks the user through configuring each remote
-// provider (Navidrome, Plex, Jellyfin, Spotify, NetEase, YouTube Music),
+// provider (Navidrome, Plex, Jellyfin, Spotify, Qobuz, NetEase, YouTube Music),
 // validates the connection where possible, and writes the resulting
 // TOML section to ~/.config/cliamp/config.toml.
 //
@@ -92,6 +92,7 @@ const (
 	keyNetEaseBrowser = "_netease_browser"
 	keyYTMusicMode    = "_mode"
 	keySpotifyMode    = "_spotify_mode"
+	keyQobuzQuality   = "_qobuz_quality"
 )
 
 func providers() []providerSpec {
@@ -285,6 +286,39 @@ func providers() []providerSpec {
 				}
 				lines = append(lines, fmt.Sprintf("bitrate   = %s", br))
 				return strings.Join(lines, "\n")
+			},
+		},
+		{
+			key:     "qobuz",
+			name:    "Qobuz",
+			section: "qobuz",
+			intro: []string{
+				"Lossless streaming. Requires an active Qobuz subscription.",
+				"",
+				"No API credentials needed — cliamp obtains them automatically.",
+				"After setup, launch cliamp, select Qobuz, and press Enter to",
+				"sign in via OAuth in your browser. Hi-Res tiers require a plan",
+				"that includes them.",
+			},
+			picker: &pickerSpec{
+				key:   keyQobuzQuality,
+				label: "Stream quality",
+				options: []pickerOption{
+					{value: "6", label: "FLAC 16-bit/44.1kHz (CD) — recommended"},
+					{value: "7", label: "FLAC 24-bit up to 96kHz (Hi-Res)"},
+					{value: "27", label: "FLAC 24-bit up to 192kHz (Hi-Res)"},
+					{value: "5", label: "MP3 320kbps"},
+				},
+			},
+			body: func(v map[string]string) string {
+				q := v[keyQobuzQuality]
+				if q == "" {
+					q = "6"
+				}
+				return strings.Join([]string{
+					"enabled = true",
+					fmt.Sprintf("quality = %s", q),
+				}, "\n")
 			},
 		},
 		{
