@@ -105,6 +105,22 @@ func (s SpotifyConfig) ResolveClientID(fallbackID string) string {
 	return fallbackID
 }
 
+// QobuzConfig holds settings for the Qobuz provider. Requires a paid Qobuz
+// subscription (Studio/Sublime). The app_id, signing secrets and OAuth private
+// key are scraped automatically from the Qobuz web player, so no developer
+// credentials are needed. Sign-in is an interactive OAuth browser flow.
+type QobuzConfig struct {
+	Disabled bool // true only when user explicitly sets enabled = false
+	Enabled  bool // true when [qobuz] section exists
+	Quality  int  // preferred stream format_id: 5 (MP3 320), 6 (FLAC CD), 7 (Hi-Res ≤96kHz), 27 (Hi-Res ≤192kHz)
+}
+
+// IsSet reports whether the Qobuz provider should be shown. Section presence
+// is enough; credentials are scraped from the Qobuz web player automatically.
+func (q QobuzConfig) IsSet() bool {
+	return !q.Disabled && q.Enabled
+}
+
 // YouTubeMusicConfig holds settings for the YouTube Music provider.
 // If no client_id/client_secret are set, built-in fallback credentials are
 // used automatically (same pattern as Spotify).
@@ -244,6 +260,7 @@ type Config struct {
 	InitialDirectory string                       // initial directory for the file browser
 	Navidrome        NavidromeConfig              // optional Navidrome/Subsonic server credentials
 	Spotify          SpotifyConfig                // optional Spotify provider (requires Premium)
+	Qobuz            QobuzConfig                  // optional Qobuz provider (requires subscription)
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	Plex             PlexConfig                   // optional Plex Media Server credentials
 	Jellyfin         JellyfinConfig               // optional Jellyfin server credentials
@@ -274,6 +291,7 @@ func defaultConfig() Config {
 		PaddingH:        3,
 		PaddingV:        1,
 		Spotify:         SpotifyConfig{Bitrate: 320},
+		Qobuz:           QobuzConfig{Quality: 6},
 		LogLevel:        "info",
 	}
 }
@@ -316,6 +334,8 @@ func Load() (Config, error) {
 				section = "ytmusic" // normalize for key parsing below
 			case "spotify":
 				cfg.Spotify.Enabled = true
+			case "qobuz":
+				cfg.Qobuz.Enabled = true
 			}
 			// Initialize plugin sub-maps for [plugins] and [plugins.*] sections.
 			if section == "plugins" || strings.HasPrefix(section, "plugins.") {
@@ -364,6 +384,15 @@ func Load() (Config, error) {
 			case "bitrate":
 				if v, err := strconv.Atoi(val); err == nil {
 					cfg.Spotify.Bitrate = v
+				}
+			}
+		case "qobuz":
+			switch key {
+			case "enabled":
+				cfg.Qobuz.Disabled = strings.ToLower(val) == "false"
+			case "quality":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.Qobuz.Quality = v
 				}
 			}
 		case "ytmusic":

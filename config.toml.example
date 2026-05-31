@@ -43,7 +43,7 @@ eq_preset = "Flat"
 # Only used when eq_preset is "Custom" or empty
 eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-# Default provider on startup: "radio", "navidrome", "spotify", "plex", "jellyfin", "emby", "soundcloud", "netease", or a YouTube provider
+# Default provider on startup: "radio", "navidrome", "spotify", "qobuz", "plex", "jellyfin", "emby", "soundcloud", "netease", or a YouTube provider
 # provider = "radio"
 
 # Compact mode: cap UI width at 80 columns (default: fluid/full-width)
@@ -82,6 +82,24 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # librespot keymaster client_id). It still has search access, but the
 # rate-limit quota is shared with every librespot-based client and you
 # may see occasional 429s.
+
+# ---
+# Qobuz (optional)
+# Requires an active Qobuz subscription.
+#
+# Enable the provider, then run cliamp, select Qobuz, and press Enter to
+# sign in. A browser window opens for Qobuz's OAuth login; credentials are
+# cached at ~/.config/cliamp/qobuz_credentials.json and refreshed silently
+# on later launches. Run "cliamp qobuz reset" to clear them.
+# [qobuz]
+# enabled = true
+#
+# Stream quality (format_id). Default 6.
+#   5  = MP3 320kbps
+#   6  = FLAC 16-bit/44.1kHz (CD)
+#   7  = FLAC 24-bit up to 96kHz
+#   27 = FLAC 24-bit up to 192kHz (Hi-Res)
+# quality = 6
 
 # ---
 # Navidrome / Subsonic server (optional)

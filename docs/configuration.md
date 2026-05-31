@@ -1,6 +1,6 @@
 # Configuration
 
-For remote providers (Navidrome, Plex, Jellyfin, Emby, Spotify, NetEase, YouTube Music), the fastest path is the interactive wizard:
+For remote providers (Navidrome, Plex, Jellyfin, Emby, Spotify, Qobuz, NetEase, YouTube Music), the fastest path is the interactive wizard:
 
 ```sh
 cliamp setup

@@ -440,6 +440,61 @@ func TestLoadSpotifyBitrate(t *testing.T) {
 	}
 }
 
+func TestQobuzIsSet(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  QobuzConfig
+		want bool
+	}{
+		{"section present", QobuzConfig{Enabled: true}, true},
+		{"explicitly disabled", QobuzConfig{Enabled: true, Disabled: true}, false},
+		{"absent", QobuzConfig{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.IsSet(); got != tt.want {
+				t.Errorf("IsSet() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadQobuz(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantIsSet   bool
+		wantQuality int
+	}{
+		{"section enables, default quality", "[qobuz]\n", true, 6},
+		{"explicit quality", "[qobuz]\nquality = 27\n", true, 27},
+		{"disabled", "[qobuz]\nenabled = false\n", false, 6},
+		{"absent", "", false, 6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp", "config.toml")
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatalf("MkdirAll: %v", err)
+			}
+			if err := os.WriteFile(path, []byte(tt.body), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if got := cfg.Qobuz.IsSet(); got != tt.wantIsSet {
+				t.Errorf("Qobuz.IsSet() = %v, want %v", got, tt.wantIsSet)
+			}
+			if cfg.Qobuz.Quality != tt.wantQuality {
+				t.Errorf("Qobuz.Quality = %d, want %d", cfg.Qobuz.Quality, tt.wantQuality)
+			}
+		})
+	}
+}
+
 func TestPlexIsSet(t *testing.T) {
 	tests := []struct {
 		name string
