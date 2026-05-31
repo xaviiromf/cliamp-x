@@ -14,6 +14,7 @@ import (
 	"cliamp/applog"
 	"cliamp/cmd"
 	"cliamp/config"
+	"cliamp/external/qobuz"
 	"cliamp/external/spotify"
 	"cliamp/ipc"
 	"cliamp/player"
@@ -32,7 +33,7 @@ func buildApp() *cli.Command {
 		&cli.BoolFlag{Name: "no-mono", Usage: "disable mono output"},
 		&cli.BoolFlag{Name: "auto-play", Usage: "start playback immediately"},
 		&cli.BoolFlag{Name: "compact", Usage: "compact mode (80 columns)"},
-		&cli.StringFlag{Name: "provider", Usage: "default provider: radio, navidrome, plex, jellyfin, emby, spotify, soundcloud, netease, yt, youtube, ytmusic"},
+		&cli.StringFlag{Name: "provider", Usage: "default provider: radio, navidrome, plex, jellyfin, emby, spotify, qobuz, soundcloud, netease, yt, youtube, ytmusic"},
 		&cli.StringFlag{Name: "start-theme", Usage: "UI theme name"},
 		&cli.StringFlag{Name: "visualizer", Usage: "visualizer mode"},
 		&cli.StringFlag{Name: "eq-preset", Usage: "EQ preset name"},
@@ -69,6 +70,7 @@ func buildApp() *cli.Command {
 			historyCommand(),
 			setupCommand(),
 			spotifyCommand(),
+			qobuzCommand(),
 			ipcSimpleCommand("play", "resume playback"),
 			ipcSimpleCommand("pause", "pause playback"),
 			ipcSimpleCommand("toggle", "play/pause toggle"),
@@ -150,10 +152,10 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 	if c.IsSet("provider") {
 		v := strings.ToLower(c.String("provider"))
 		switch v {
-		case "radio", "navidrome", "spotify", "plex", "jellyfin", "emby", "soundcloud", "netease", "yt", "youtube", "ytmusic":
+		case "radio", "navidrome", "spotify", "qobuz", "plex", "jellyfin", "emby", "soundcloud", "netease", "yt", "youtube", "ytmusic":
 			ov.Provider = &v
 		default:
-			return ov, fmt.Errorf("--provider must be radio, navidrome, spotify, plex, jellyfin, emby, soundcloud, netease, yt, youtube, or ytmusic (got %q)", v)
+			return ov, fmt.Errorf("--provider must be radio, navidrome, spotify, qobuz, plex, jellyfin, emby, soundcloud, netease, yt, youtube, or ytmusic (got %q)", v)
 		}
 	}
 	if c.IsSet("start-theme") {
@@ -301,7 +303,7 @@ func setupCommand() *cli.Command {
 		Name:  "setup",
 		Usage: "interactive wizard to configure remote providers",
 		Description: "Walks through configuring Navidrome, Plex, Jellyfin, Spotify,\n" +
-			"NetEase, and YouTube Music. Validates connections and writes\n" +
+			"Qobuz, NetEase, and YouTube Music. Validates connections and writes\n" +
 			"~/.config/cliamp/config.toml.",
 		Action: func(ctx context.Context, c *cli.Command) error {
 			return cmd.Setup()
@@ -332,6 +334,36 @@ func spotifyCommand() *cli.Command {
 					}
 					fmt.Printf("Removed %s\n", path)
 					fmt.Println("Restart cliamp and select Spotify to sign in again.")
+					return nil
+				},
+			},
+		},
+	}
+}
+
+func qobuzCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "qobuz",
+		Usage: "manage Qobuz integration",
+		Commands: []*cli.Command{
+			{
+				Name:  "reset",
+				Usage: "clear stored Qobuz credentials and force re-authentication",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					path, err := qobuz.CredsPath()
+					if err != nil {
+						return fmt.Errorf("locate credentials: %w", err)
+					}
+					removed, err := qobuz.DeleteCreds()
+					if err != nil {
+						return fmt.Errorf("remove credentials: %w", err)
+					}
+					if !removed {
+						fmt.Println("No stored Qobuz credentials to remove.")
+						return nil
+					}
+					fmt.Printf("Removed %s\n", path)
+					fmt.Println("Restart cliamp and select Qobuz to sign in again.")
 					return nil
 				},
 			},
