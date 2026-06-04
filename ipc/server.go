@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"cliamp/applog"
@@ -85,7 +84,7 @@ func NewServer(sockPath string, disp Dispatcher) (*Server, error) {
 		return nil, fmt.Errorf("ipc: mkdir: %w", err)
 	}
 
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := listenSocket(sockPath)
 	if err != nil {
 		return nil, fmt.Errorf("ipc: listen: %w", err)
 	}
@@ -382,16 +381,11 @@ func cleanStaleSocket(sockPath string) error {
 		return nil
 	}
 
-	proc, err := os.FindProcess(pid)
+	alive, err := processAlive(pid)
 	if err != nil {
-		// Can't find process — clean up.
-		os.Remove(pidPath)
-		os.Remove(sockPath)
-		return nil
+		return fmt.Errorf("checking process liveness for socket %s: %w", sockPath, err)
 	}
-
-	// Signal 0 checks if the process exists without actually sending a signal.
-	if err := proc.Signal(syscall.Signal(0)); err != nil {
+	if !alive {
 		// Process is dead — clean up stale files.
 		os.Remove(pidPath)
 		os.Remove(sockPath)
