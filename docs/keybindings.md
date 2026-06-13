@@ -106,7 +106,7 @@ When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Sp
 | `a` | Append all visible tracks to the queue |
 | `q` | Queue the highlighted track to play next |
 | `s` | Cycle album sort (album list only) |
-| `S` `N` `P` `J` `E` `Y` `C` `M` `L` `R` | Quick-switch to that provider without going back through the main pane |
+| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` `R` | Quick-switch to that provider without going back through the main pane |
 | `Esc` `b` | Walk back one level / close the browser |
 
 The track screen shows a `N tracks · 47:22` subtitle and right-aligned per-track durations when the provider returns them.
@@ -122,7 +122,7 @@ The playlists pane (visible when focus is on a provider — Spotify, Navidrome, 
 | `/` | Filter the playlist list |
 | `Ctrl+F` | Online/server search (Spotify/Navidrome/NetEase/etc.'s own search) |
 | `Ctrl+R` | Refresh — re-pull the playlist list from the provider |
-| `S` `N` `P` `J` `E` `Y` `C` `M` `L` `R` | Switch to that provider |
+| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` `R` | Switch to that provider |
 | `Tab` | Switch focus to EQ |
 | `Esc` `b` | Back to the playlist pane |
 
