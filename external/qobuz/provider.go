@@ -2,6 +2,7 @@ package qobuz
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -262,7 +263,7 @@ func (p *QobuzProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 func (p *QobuzProvider) randomTracks(ctx context.Context, c *client) ([]apiTrack, error) {
 	pls, err := c.userPlaylists(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: list playlists: %w", err)
 	}
 
 	// Fetch each playlist's tracks in parallel, then merge in playlist order so
@@ -285,7 +286,7 @@ func (p *QobuzProvider) randomTracks(ctx context.Context, c *client) ([]apiTrack
 	var all []apiTrack
 	for i := range pls {
 		if errs[i] != nil {
-			return nil, errs[i]
+			return nil, fmt.Errorf("qobuz: playlist %s: %w", pls[i].ID, errs[i])
 		}
 		all = append(all, lists[i]...)
 	}
