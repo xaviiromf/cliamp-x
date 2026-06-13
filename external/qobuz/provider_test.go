@@ -127,7 +127,7 @@ func TestSampleTracks(t *testing.T) {
 	// Over the cap: exactly n tracks, all from the input, no duplicates.
 	big := mk(1000)
 	all := idSet(big)
-	for trial := 0; trial < 20; trial++ {
+	for range 20 {
 		s := sampleTracks(big, 10, r.Shuffle)
 		if len(s) != 10 {
 			t.Fatalf("over cap: len = %d, want 10", len(s))
