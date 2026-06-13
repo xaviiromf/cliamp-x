@@ -48,6 +48,7 @@ Once authenticated, Qobuz appears as a provider alongside the others. Press `Q` 
 The provider surfaces your Qobuz library:
 
 - **Favorite Tracks** — your liked songs.
+- **Random Tracks** — a random sample of up to 500 tracks drawn from across all your playlists, with duplicates removed. Press `Ctrl+R` to reshuffle the sample.
 - **Your playlists** — playlists you created or subscribed to.
 - **Favorite albums** — browsable in the album view.
 - **Favorite artists** — browse an artist to see their albums.

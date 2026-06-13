@@ -2,6 +2,7 @@ package qobuz
 
 import (
 	"context"
+	"math/rand/v2"
 	"slices"
 	"strconv"
 	"sync"
@@ -27,12 +28,23 @@ var (
 // favoriteTracksID is the synthetic playlist ID for the user's favorite tracks.
 const favoriteTracksID = "favorites/tracks"
 
+// randomTracksID is the synthetic playlist ID for a random sample of tracks
+// drawn from across all of the user's playlists (deduplicated).
+const randomTracksID = "playlists/random"
+
 // resolveConcurrency bounds how many track/getFileUrl calls run in parallel
 // when resolving a playlist's streaming URLs.
 const resolveConcurrency = 8
 
 // favoritesPageSize is the page size for favorite album/artist browsing.
 const favoritesPageSize = 100
+
+// randomTracksLimit caps the synthetic Random Tracks list. Each track costs one
+// track/getFileUrl call to resolve a (short-lived) stream URL, so resolving an
+// unbounded library would be slow and wasteful. When the deduplicated library
+// exceeds this, a random sample is taken so it stays a fair cross-section.
+// Matches the favorite tracks cap.
+const randomTracksLimit = 500
 
 // albumSortTypes is the static sort list for Qobuz album browsing. Qobuz has no
 // global catalog listing, so browsing surfaces the user's favorite albums.
@@ -146,7 +158,8 @@ func (p *QobuzProvider) Refresh() {
 	p.mu.Unlock()
 }
 
-// Playlists returns the user's Qobuz playlists plus a Favorite Tracks entry.
+// Playlists returns the user's Qobuz playlists plus synthetic Favorite Tracks
+// and Random Tracks entries.
 func (p *QobuzProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	c, err := p.ensureClient()
 	if err != nil {
@@ -169,11 +182,18 @@ func (p *QobuzProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		return nil, err
 	}
 
-	lists := []playlist.PlaylistInfo{{
-		ID:      favoriteTracksID,
-		Name:    "Favorite Tracks",
-		Section: "Library",
-	}}
+	lists := []playlist.PlaylistInfo{
+		{
+			ID:      favoriteTracksID,
+			Name:    "Favorite Tracks",
+			Section: "Library",
+		},
+		{
+			ID:      randomTracksID,
+			Name:    "Random Tracks",
+			Section: "Library",
+		},
+	}
 	for _, pl := range pls {
 		lists = append(lists, playlist.PlaylistInfo{
 			ID:           pl.ID.String(),
@@ -190,8 +210,8 @@ func (p *QobuzProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	return slices.Clone(lists), nil
 }
 
-// Tracks returns the tracks of a playlist (or the favorite tracks), each with a
-// resolved streaming URL.
+// Tracks returns the tracks of a playlist (or the synthetic Favorite Tracks /
+// Random Tracks entries), each with a resolved streaming URL.
 func (p *QobuzProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	c, err := p.ensureClient()
 	if err != nil {
@@ -210,9 +230,12 @@ func (p *QobuzProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	defer cancel()
 
 	var apiTracks []apiTrack
-	if playlistID == favoriteTracksID {
+	switch playlistID {
+	case favoriteTracksID:
 		apiTracks, err = c.favoriteTracks(ctx, 0, 500)
-	} else {
+	case randomTracksID:
+		apiTracks, err = p.randomTracks(ctx, c)
+	default:
 		apiTracks, err = c.playlistTracks(ctx, playlistID)
 	}
 	if err != nil {
@@ -225,6 +248,60 @@ func (p *QobuzProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	p.trackCache[playlistID] = tracks
 	p.mu.Unlock()
 	return slices.Clone(tracks), nil
+}
+
+// randomTracks aggregates the tracks of every user playlist, drops tracks that
+// appear in more than one playlist, and returns a random sample of at most
+// randomTracksLimit. Sampling (rather than truncating) keeps the entry a fair
+// cross-section of the whole library; refreshing the provider picks a new
+// sample.
+func (p *QobuzProvider) randomTracks(ctx context.Context, c *client) ([]apiTrack, error) {
+	pls, err := c.userPlaylists(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var all []apiTrack
+	for _, pl := range pls {
+		tracks, err := c.playlistTracks(ctx, pl.ID.String())
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, tracks...)
+	}
+	return sampleTracks(dedupeTracksByID(all), randomTracksLimit, rand.Shuffle), nil
+}
+
+// sampleTracks shuffles a copy of in and returns up to n of the result. The
+// list is always randomized — that's the whole point of the Random Tracks
+// entry — and when the library is larger than n the shuffle makes it a fair
+// sample of the whole library rather than its first n. The shuffle func is
+// injected so tests stay deterministic; production passes rand.Shuffle, which
+// is safe for concurrent use.
+func sampleTracks(in []apiTrack, n int, shuffle func(n int, swap func(i, j int))) []apiTrack {
+	out := slices.Clone(in)
+	shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+// dedupeTracksByID returns tracks with duplicate Qobuz IDs removed, keeping the
+// first occurrence. Tracks with an empty ID are always kept.
+func dedupeTracksByID(in []apiTrack) []apiTrack {
+	seen := make(map[string]bool, len(in))
+	out := make([]apiTrack, 0, len(in))
+	for _, t := range in {
+		id := t.ID.String()
+		if id != "" {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // SearchTracks searches the Qobuz catalog. Implements provider.Searcher.
