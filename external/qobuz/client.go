@@ -285,6 +285,16 @@ type apiFileURL struct {
 	BitDepth     int     `json:"bit_depth"`
 }
 
+// trackFileURLSig computes the request_sig for track/getFileUrl. Qobuz signs
+// the concatenation of the endpoint path, the params in alphabetical order, the
+// request timestamp and the app secret. The exact layout matters: a change here
+// silently breaks streaming, so it's pinned by a test.
+func trackFileURLSig(trackID string, formatID int, ts, secret string) string {
+	raw := fmt.Sprintf("trackgetFileUrlformat_id%dintentstreamtrack_id%s%s%s",
+		formatID, trackID, ts, secret)
+	return md5hex(raw)
+}
+
 // trackFileURL returns a signed streaming URL for the given track. If
 // secretOverride is empty, the validated client secret is used.
 func (c *client) trackFileURL(ctx context.Context, trackID string, formatID int, secretOverride string) (apiFileURL, error) {
@@ -296,11 +306,9 @@ func (c *client) trackFileURL(ctx context.Context, trackID string, formatID int,
 		secret = c.secret
 	}
 	unix := strconv.FormatInt(time.Now().Unix(), 10)
-	rawSig := fmt.Sprintf("trackgetFileUrlformat_id%dintentstreamtrack_id%s%s%s",
-		formatID, trackID, unix, secret)
 	params := url.Values{
 		"request_ts":  {unix},
-		"request_sig": {md5hex(rawSig)},
+		"request_sig": {trackFileURLSig(trackID, formatID, unix, secret)},
 		"track_id":    {trackID},
 		"format_id":   {strconv.Itoa(formatID)},
 		"intent":      {"stream"},

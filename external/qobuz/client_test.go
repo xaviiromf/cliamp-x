@@ -1,8 +1,6 @@
 package qobuz
 
 import (
-	"crypto/md5"
-	"fmt"
 	"testing"
 )
 
@@ -21,20 +19,15 @@ func TestMD5Hex(t *testing.T) {
 	}
 }
 
-// TestTrackFileURLSignature verifies the request_sig is the md5 of the
-// documented raw string layout for track/getFileUrl.
-func TestTrackFileURLSignature(t *testing.T) {
-	const (
-		trackID  = "5966783"
-		formatID = 6
-		ts       = "1700000000"
-		secret   = "deadbeefsecret"
-	)
-	raw := fmt.Sprintf("trackgetFileUrlformat_id%dintentstreamtrack_id%s%s%s",
-		formatID, trackID, ts, secret)
-	want := fmt.Sprintf("%x", md5.Sum([]byte(raw)))
-	if got := md5hex(raw); got != want {
-		t.Fatalf("signature mismatch: got %q want %q", got, want)
+// TestTrackFileURLSig pins the request_sig layout for track/getFileUrl against
+// a precomputed md5. If the raw string format in trackFileURLSig changes,
+// streaming breaks and this test fails.
+func TestTrackFileURLSig(t *testing.T) {
+	// md5("trackgetFileUrlformat_id6intentstreamtrack_id59667831700000000deadbeefsecret")
+	const want = "bc7a09d686b3e5c1cd32f5268eff1030"
+	got := trackFileURLSig("5966783", 6, "1700000000", "deadbeefsecret")
+	if got != want {
+		t.Fatalf("trackFileURLSig = %q, want %q", got, want)
 	}
 }
 
