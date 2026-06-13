@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,5 +128,39 @@ func TestFFmpegPipeStreamCloseUnblocks(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close() hung: stdin-copy goroutine was not unblocked")
+	}
+}
+
+func TestFFmpegPipeStreamInitialAudioTimeoutCloses(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+
+	pr, pw := io.Pipe()
+	t.Cleanup(func() { pw.Close() })
+
+	dec, _, err := decodeFFmpegPipeStream(pr, beep.SampleRate(44100), 16)
+	if err != nil {
+		t.Fatalf("decodeFFmpegPipeStream: %v", err)
+	}
+
+	err = dec.waitForInitialAudio(100 * time.Millisecond)
+	if err == nil {
+		t.Fatal("waitForInitialAudio returned nil, want timeout")
+	}
+	if !strings.Contains(err.Error(), "timed out waiting for audio data") {
+		t.Fatalf("waitForInitialAudio error = %v, want timeout", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		dec.Close()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close() hung after initial audio timeout")
 	}
 }

@@ -12,3 +12,28 @@ func TestIsHLS(t *testing.T) {
 		}
 	}
 }
+
+func TestNeedsFFmpeg(t *testing.T) {
+	tests := []struct {
+		ext  string
+		want bool
+	}{
+		{ext: ".aac", want: true},
+		{ext: ".aacp", want: true},
+		{ext: ".opus", want: true},
+		{ext: ".mp3", want: false},
+		{ext: ".ogg", want: false},
+	}
+
+	for _, tt := range tests {
+		if got := needsFFmpeg(tt.ext); got != tt.want {
+			t.Errorf("needsFFmpeg(%q) = %v, want %v", tt.ext, got, tt.want)
+		}
+	}
+}
+
+func TestSupportedExtsIncludesAACP(t *testing.T) {
+	if !SupportedExts[".aacp"] {
+		t.Fatal("SupportedExts[.aacp] = false, want true")
+	}
+}

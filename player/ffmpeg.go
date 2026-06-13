@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gopxl/beep/v2"
 )
@@ -21,6 +22,9 @@ const pcmFrameSize16 = 4
 
 // pcmFrameSize32 is the byte size of one stereo f32le sample frame (2 channels × 4 bytes).
 const pcmFrameSize32 = 8
+
+// ffmpegPipeTimeout limits how long URL streams may take to produce initial PCM.
+const ffmpegPipeTimeout = 15 * time.Second
 
 // pcmFrameSize returns the byte size of one stereo sample frame for the given format.
 func pcmFrameSize(f32 bool) int {
@@ -231,15 +235,22 @@ func (f *ffmpegPipe) Position() int { return f.pos }
 // that goroutine is parked in src.Read, so src must be closed to unblock it
 // before Wait, otherwise stop hangs.
 func (f *ffmpegPipe) stop() {
-	if f.src != nil {
-		f.src.Close()
+	src := f.src
+	pipe := f.pipe
+	cmd := f.cmd
+	f.src = nil
+	f.pipe = nil
+	f.cmd = nil
+
+	if src != nil {
+		src.Close()
 	}
-	if f.pipe != nil {
-		f.pipe.Close()
+	if pipe != nil {
+		pipe.Close()
 	}
-	if f.cmd != nil && f.cmd.Process != nil {
-		f.cmd.Process.Kill()
-		f.cmd.Wait()
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
+		cmd.Wait()
 	}
 }
 
@@ -253,6 +264,33 @@ func (f *ffmpegPipe) bitDepth() int {
 		return 32
 	}
 	return 16
+}
+
+// waitForInitialAudio waits until ffmpeg has produced at least one PCM byte.
+// This runs before a URL stream is handed to the speaker, so an idle or broken
+// live stream cannot park the audio goroutine in Read and block future swaps.
+func (f *ffmpegPipe) waitForInitialAudio(timeout time.Duration) error {
+	peekErr := make(chan error, 1)
+	go func() {
+		_, err := f.reader.Peek(1)
+		peekErr <- err
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case err := <-peekErr:
+		if err != nil {
+			f.stop()
+			return fmt.Errorf("waiting for audio data: %w", err)
+		}
+		return nil
+	case <-timer.C:
+		f.stop()
+		<-peekErr // drain after stop unblocks the pipe reader
+		return fmt.Errorf("timed out waiting for audio data (%v)", timeout)
+	}
 }
 
 // ffmpegPipeStreamer reads PCM data incrementally from a running ffmpeg process.
