@@ -51,7 +51,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | Key | Action |
 |---|---|
 | `f` | Toggle bookmark ★ on selected track (or favorite radio station in radio browser) |
-| `Ctrl+F` | Search — active provider's native search (Spotify, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
+| `Ctrl+F` | Search — active provider's native search (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
 | `Ctrl+S` | Save track to ~/Music |
@@ -94,7 +94,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 
 ## Provider browser (`N` key)
 
-When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Spotify, YouTube Music), the album/artist/track screens use:
+When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Spotify, Qobuz, YouTube Music), the album/artist/track screens use:
 
 | Key | Action |
 |---|---|
@@ -151,7 +151,7 @@ This applies to:
 - `/` file browser filter
 - `Ctrl+F` when the active provider is Local (your saved playlists)
 
-Other `Ctrl+F` providers (Spotify, Navidrome, Jellyfin, Emby, Plex, NetEase, YouTube) send your query to their own search API, so matching there follows each service's rules.
+Other `Ctrl+F` providers (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, YouTube) send your query to their own search API, so matching there follows each service's rules.
 
 ## General
 
