@@ -61,7 +61,7 @@ func (c *client) doRequest(ctx context.Context, method, endpoint string, params 
 	}
 	req, err := http.NewRequestWithContext(ctx, method, apiBaseURL+endpoint, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: %s: build request: %w", endpoint, err)
 	}
 	req.Header.Set("User-Agent", apiUA)
 	req.Header.Set("X-App-Id", c.appID)
@@ -79,12 +79,12 @@ func (c *client) doRequest(ctx context.Context, method, endpoint string, params 
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: %s: request: %w", endpoint, err)
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: %s: read response: %w", endpoint, err)
 	}
 
 	if resp.StatusCode >= 400 {
