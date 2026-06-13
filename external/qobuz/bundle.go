@@ -56,16 +56,19 @@ func fetchBundle(ctx context.Context) (*bundle, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, bundleBaseURL+"/login", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: build login request: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("qobuz: get login page: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("qobuz: get login page: HTTP %s", resp.Status)
+	}
 	page, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: read login page: %w", err)
 	}
 
 	match := reBundleURL.FindSubmatch(page)
@@ -76,16 +79,19 @@ func fetchBundle(ctx context.Context) (*bundle, error) {
 
 	req2, err := http.NewRequestWithContext(ctx, http.MethodGet, bundleBaseURL+bundlePath, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: build bundle request: %w", err)
 	}
 	resp2, err := client.Do(req2)
 	if err != nil {
 		return nil, fmt.Errorf("qobuz: get bundle.js: %w", err)
 	}
 	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("qobuz: get bundle.js: HTTP %s", resp2.Status)
+	}
 	body, err := io.ReadAll(resp2.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: read bundle.js: %w", err)
 	}
 
 	return &bundle{content: string(body)}, nil
