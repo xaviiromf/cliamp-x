@@ -3,6 +3,7 @@ package qobuz
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -50,15 +51,15 @@ func DeleteCreds() (bool, error) {
 func loadCreds() (*storedCreds, error) {
 	path, err := CredsPath()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: credentials path: %w", err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: read credentials: %w", err)
 	}
 	var creds storedCreds
 	if err := json.Unmarshal(data, &creds); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("qobuz: parse credentials: %w", err)
 	}
 	return &creds, nil
 }
@@ -66,14 +67,17 @@ func loadCreds() (*storedCreds, error) {
 func saveCreds(creds *storedCreds) error {
 	path, err := CredsPath()
 	if err != nil {
-		return err
+		return fmt.Errorf("qobuz: credentials path: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
+		return fmt.Errorf("qobuz: create credentials dir: %w", err)
 	}
 	data, err := json.Marshal(creds)
 	if err != nil {
-		return err
+		return fmt.Errorf("qobuz: encode credentials: %w", err)
 	}
-	return os.WriteFile(path, data, 0o600)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("qobuz: write credentials: %w", err)
+	}
+	return nil
 }
