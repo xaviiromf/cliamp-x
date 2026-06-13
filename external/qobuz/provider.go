@@ -36,6 +36,10 @@ const randomTracksID = "playlists/random"
 // when resolving a playlist's streaming URLs.
 const resolveConcurrency = 8
 
+// playlistFetchConcurrency bounds how many playlist/get calls run in parallel
+// when gathering tracks for the Random Tracks entry.
+const playlistFetchConcurrency = 8
+
 // favoritesPageSize is the page size for favorite album/artist browsing.
 const favoritesPageSize = 100
 
@@ -250,23 +254,40 @@ func (p *QobuzProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	return slices.Clone(tracks), nil
 }
 
-// randomTracks aggregates the tracks of every user playlist, drops tracks that
-// appear in more than one playlist, and returns a random sample of at most
-// randomTracksLimit. Sampling (rather than truncating) keeps the entry a fair
-// cross-section of the whole library; refreshing the provider picks a new
-// sample.
+// randomTracks aggregates the tracks of every user playlist (fetched
+// concurrently), drops tracks that appear in more than one playlist, and
+// returns a random sample of at most randomTracksLimit. Sampling (rather than
+// truncating) keeps the entry a fair cross-section of the whole library;
+// refreshing the provider picks a new sample.
 func (p *QobuzProvider) randomTracks(ctx context.Context, c *client) ([]apiTrack, error) {
 	pls, err := c.userPlaylists(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// Fetch each playlist's tracks in parallel, then merge in playlist order so
+	// dedupe (first occurrence wins) stays deterministic.
+	lists := make([][]apiTrack, len(pls))
+	errs := make([]error, len(pls))
+	sem := make(chan struct{}, playlistFetchConcurrency)
+	var wg sync.WaitGroup
+	for i := range pls {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			lists[idx], errs[idx] = c.playlistTracks(ctx, pls[idx].ID.String())
+		}(i)
+	}
+	wg.Wait()
+
 	var all []apiTrack
-	for _, pl := range pls {
-		tracks, err := c.playlistTracks(ctx, pl.ID.String())
-		if err != nil {
-			return nil, err
+	for i := range pls {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
-		all = append(all, tracks...)
+		all = append(all, lists[i]...)
 	}
 	return sampleTracks(dedupeTracksByID(all), randomTracksLimit, rand.Shuffle), nil
 }
