@@ -66,7 +66,8 @@ func (c *client) doRequest(ctx context.Context, method, endpoint string, params 
 	req.Header.Set("User-Agent", apiUA)
 	req.Header.Set("X-App-Id", c.appID)
 	if body != "" {
-		req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+		// Request bodies are always form-encoded (user/login, oauth/callback).
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	} else {
 		req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 	}
