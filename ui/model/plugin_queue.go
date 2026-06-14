@@ -66,6 +66,7 @@ func (m *Model) removeIndex(idx int) {
 	if wasActive {
 		m.player.Stop()
 		m.player.ClearPreload()
+		m.clearPlaybackTrack()
 	}
 	if newLen := m.playlist.Len(); newLen == 0 {
 		m.plCursor = 0

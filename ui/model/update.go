@@ -119,13 +119,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cachedPos, m.cachedDur = m.player.PositionAndDuration()
 				// Piped SSH streams report 0 duration — use metadata fallback.
 				if m.cachedDur == 0 {
-					if track, _ := m.playlist.Current(); track.DurationSecs > 0 && strings.HasPrefix(track.Path, "ssh://") {
+					if track, _ := m.currentPlaybackTrack(); track.DurationSecs > 0 && strings.HasPrefix(track.Path, "ssh://") {
 						m.cachedDur = time.Duration(track.DurationSecs) * time.Second
 					}
 				}
 			}
 		} else {
-			track, _ := m.playlist.Current()
+			track, _ := m.currentPlaybackTrack()
 			m.cachedDur = time.Duration(track.DurationSecs) * time.Second
 			m.cachedPos = 0
 		}
@@ -154,7 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Suppress during yt-dlp seek and grace period — killing the old pipeline
 		// triggers a transient error that can persist for a few ticks.
 		if err := m.player.StreamErr(); err != nil && !m.seek.active && m.seek.grace == 0 {
-			track, idx := m.playlist.Current()
+			track, idx := m.currentPlaybackTrack()
 			isStream := idx >= 0 && (track.Stream || playlist.IsYouTubeURL(track.Path) || playlist.IsYTDL(track.Path))
 			if isStream && m.reconnect.attempts < 5 {
 				// Schedule reconnect with exponential backoff: 1s, 2s, 4s, 8s, 16s
@@ -215,8 +215,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Fire scheduled reconnect when the timer expires.
 		if !m.reconnect.at.IsZero() && now.After(m.reconnect.at) {
 			m.reconnect.at = time.Time{}
+			track, idx := m.currentPlaybackTrack()
 			m.player.Stop()
-			if track, idx := m.playlist.Current(); idx >= 0 {
+			if idx >= 0 {
 				// Preserve any seek/lyric commands already queued this tick
 				// rather than dropping them on the early return.
 				batch := []tea.Cmd{m.playTrack(track), tickCmdAt(ui.TickFast)}
@@ -240,13 +241,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.player.GaplessAdvanced() {
 			// Capture the track that just finished before advancing the playlist.
 			// For gapless, the track played fully (100% ≥ 50%), so elapsed = duration.
-			finishedTrack, _ := m.playlist.Current()
+			finishedTrack, _ := m.currentPlaybackTrack()
 			fullDur := time.Duration(finishedTrack.DurationSecs) * time.Second
 			m.maybeScrobble(finishedTrack, fullDur, fullDur)
 
-			newTrack, ok := m.playlist.Next()
+			var newTrack playlist.Track
+			var ok bool
+			if m.playbackDetached {
+				var idx int
+				newTrack, idx = m.playlist.Current()
+				ok = idx >= 0
+				m.playbackDetached = false
+			} else {
+				newTrack, ok = m.playlist.Next()
+			}
 			if !ok {
 				m.player.Stop()
+				m.clearPlaybackTrack()
 				m.notifyAll()
 				cmds = append(cmds, tickCmdAt(m.tickInterval()))
 				return m, tea.Batch(cmds...)
@@ -254,6 +265,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.plCursor = m.playlist.Index()
 			m.adjustScroll()
 			m.titleOff = 0
+			m.setPlaybackTrack(newTrack)
 			// The preload that just fired is consumed — clear the in-flight flag
 			// so the next track can be preloaded.
 			m.preloading = false
@@ -272,7 +284,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// the playlist on every tick while waiting for the resolve.
 		if m.player.IsPlaying() && !m.player.IsPaused() && m.player.Drained() && !m.buffering && m.reconnect.at.IsZero() {
 			// Track drained to end — always ≥ 50%.
-			finishedTrack, _ := m.playlist.Current()
+			finishedTrack, _ := m.currentPlaybackTrack()
 			drainDur := time.Duration(finishedTrack.DurationSecs) * time.Second
 			m.maybeScrobble(finishedTrack, drainDur, drainDur)
 
@@ -315,9 +327,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tracksLoadedMsg:
-		if !m.player.IsPlaying() {
+		if m.player.IsPlaying() || m.buffering {
+			m.detachPlaybackTrack()
+			m.player.ClearPreload()
+			m.preloading = false
+		} else {
 			m.player.Stop()
 			m.player.ClearPreload()
+			m.clearPlaybackTrack()
 		}
 		m.resetYTDLBatch()
 		m.playlist.Replace(msg)
@@ -536,7 +553,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.buffering = false
 		if msg.err != nil {
 			m.err = msg.err
-			if track, idx := m.playlist.Current(); idx >= 0 {
+			if track, idx := m.currentPlaybackTrack(); idx >= 0 {
 				m.status.Showf(statusTTLLong, "Couldn't play %s — track is gated, restricted, or unavailable.", track.DisplayName())
 			}
 		} else {
@@ -722,12 +739,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playback.StopMsg:
 		m.player.Stop()
+		m.clearPlaybackTrack()
 		m.notifyAll()
 		return m, nil
 
 	case playback.QuitMsg:
 		m.flushPendingSpeedSave()
 		m.player.Close()
+		m.clearPlaybackTrack()
 		m.quitting = true
 		return m, tea.Quit
 
@@ -987,7 +1006,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			resp.State = "stopped"
 		}
-		if cur, _ := m.playlist.Current(); cur.Path != "" {
+		if cur, _ := m.currentPlaybackTrack(); cur.Path != "" {
 			resp.Track = &ipc.TrackInfo{
 				Title:  cur.Title,
 				Artist: cur.Artist,

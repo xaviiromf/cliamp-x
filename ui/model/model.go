@@ -243,6 +243,13 @@ type Model struct {
 	// Live stream title from ICY metadata (e.g., "Artist - Song")
 	streamTitle string
 
+	// playingTrack is the track currently owned by the audio engine. It can differ
+	// from playlist.Current() after browsing loads a new provider playlist while
+	// the old track keeps playing.
+	playingTrack       playlist.Track
+	playingTrackActive bool
+	playbackDetached   bool
+
 	notifier playback.Notifier
 
 	// Lua plugin manager (nil if no plugins loaded)

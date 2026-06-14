@@ -235,7 +235,7 @@ func (m Model) renderTitle() string {
 }
 
 func (m Model) renderTrackInfo() string {
-	track, _ := m.playlist.Current()
+	track, _ := m.currentPlaybackTrack()
 	name := track.DisplayName()
 	if name == "" {
 		name = "No track loaded"
@@ -297,7 +297,7 @@ func (m Model) renderTimeStatus() string {
 
 	timeStr := fmt.Sprintf("%02d:%02d / %02d:%02d", posMin, posSec, durMin, durSec)
 
-	track, _ := m.playlist.Current()
+	track, _ := m.currentPlaybackTrack()
 
 	var status string
 	switch {
@@ -810,7 +810,7 @@ func (m Model) renderHelp() string {
 			helpHint{helpKey("Enter", "Play "), 100},
 			helpHint{helpKey("Spc", "▶❚❚ "), 90},
 		)
-		track, _ := m.playlist.Current()
+		track, _ := m.currentPlaybackTrack()
 		if !track.Stream || m.player.Seekable() {
 			hints = append(hints, helpHint{helpKey("←→", "Seek "), 80})
 		}

@@ -208,7 +208,7 @@ func (m *Model) navVisible() int {
 
 func (m *Model) plMgrListHelpLine() string {
 	addLabel := "Add (nothing playing)"
-	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+	if track, idx := m.currentPlaybackTrack(); idx >= 0 && track.Path != "" {
 		addLabel = "Add: " + truncate(track.DisplayName(), 32)
 	}
 	return helpKey("↓↑→", "Navigate ") +
@@ -230,7 +230,7 @@ func (m *Model) plMgrListMaybeAdjustScroll(visible int) {
 
 func (m *Model) plMgrTracksHelpLine() string {
 	addLabel := "Add (nothing playing)"
-	if track, idx := m.playlist.Current(); idx >= 0 && track.Path != "" {
+	if track, idx := m.currentPlaybackTrack(); idx >= 0 && track.Path != "" {
 		addLabel = "Add: " + truncate(track.DisplayName(), 32)
 	}
 	return helpKey("←↓↑", "Navigate ") +

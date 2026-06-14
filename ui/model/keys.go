@@ -23,7 +23,7 @@ func (m *Model) quit() tea.Cmd {
 	// - local files (not stream)
 	// - HTTP streams with known duration (podcast MP3s, seek-by-reconnect)
 	// Exclude YTDL (position unreliable) and real-time live streams.
-	if track, _ := m.playlist.Current(); track.Path != "" &&
+	if track, _ := m.currentPlaybackTrack(); track.Path != "" &&
 		!playlist.IsYTDL(track.Path) && !track.IsLive() &&
 		m.player.IsPlaying() {
 		if secs := int(m.player.Position().Seconds()); secs > 0 {
@@ -35,13 +35,14 @@ func (m *Model) quit() tea.Cmd {
 
 	m.flushPendingSpeedSave()
 	m.player.Close()
+	m.clearPlaybackTrack()
 	m.quitting = true
 	return tea.Quit
 }
 
 // scrobbleCurrent fires a scrobble for the currently playing track if applicable.
 func (m *Model) scrobbleCurrent() {
-	if track, idx := m.playlist.Current(); idx >= 0 {
+	if track, idx := m.currentPlaybackTrack(); idx >= 0 {
 		m.maybeScrobble(track, m.player.Position(), m.player.Duration())
 	}
 }
@@ -448,6 +449,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "s":
 		m.player.Stop()
+		m.clearPlaybackTrack()
 		m.notifyPlayback()
 
 	case ">", ".":
@@ -816,7 +818,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 // For yt-dlp tracks (piped streams), triggers an async download via yt-dlp.
 // For local temp files, copies synchronously.
 func (m *Model) saveTrack() tea.Cmd {
-	track, idx := m.playlist.Current()
+	track, idx := m.currentPlaybackTrack()
 	if idx < 0 {
 		m.status.Show("Nothing to save", statusTTLShort)
 		return nil
@@ -1820,7 +1822,7 @@ func (m *Model) localDeleter() provider.PlaylistDeleter {
 
 // addToPlaylist appends the current track to a local playlist and shows a status message.
 func (m *Model) addToPlaylist(name string) {
-	track, idx := m.playlist.Current()
+	track, idx := m.currentPlaybackTrack()
 	if idx < 0 {
 		m.status.Show("No track to add", statusTTLShort)
 		return
