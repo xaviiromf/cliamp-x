@@ -112,6 +112,24 @@ func Fetch(artist, title string) ([]Line, error) {
 	return nil, ErrNotFound
 }
 
+// ParseEmbedded converts lyrics read from local file tags into display lines.
+// Timestamped LRC data remains synced; plain text is returned as scrollable
+// lines at timestamp 0.
+func ParseEmbedded(data string) []Line {
+	data = strings.TrimSpace(data)
+	if data == "" {
+		return nil
+	}
+	lines := parseLRC(data)
+	if len(lines) > 0 {
+		return lines
+	}
+	for raw := range strings.SplitSeq(data, "\n") {
+		lines = append(lines, Line{Start: 0, Text: strings.TrimSpace(raw)})
+	}
+	return lines
+}
+
 func fetchLRCLIB(query string) ([]Line, error) {
 	searchURL := fmt.Sprintf("https://lrclib.net/api/search?q=%s", url.QueryEscape(query))
 

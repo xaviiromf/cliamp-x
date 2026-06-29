@@ -711,6 +711,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "y":
 		m.lyrics.visible = !m.lyrics.visible
 		if m.lyrics.visible && !m.lyrics.loading {
+			track, _ := m.currentPlaybackTrack()
 			artist, title := m.lyricsArtistTitle()
 			if artist != "" && title != "" {
 				q := artist + "\n" + title
@@ -719,7 +720,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 					m.lyrics.loading = true
 					m.lyrics.lines = nil
 					m.lyrics.err = nil
-					return fetchLyricsCmd(artist, title)
+					return fetchTrackLyricsCmd(track, artist, title)
 				}
 			}
 		}

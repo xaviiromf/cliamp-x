@@ -458,6 +458,12 @@ func writeTrack(w io.Writer, t playlist.Track) {
 	if t.DurationSecs != 0 {
 		fmt.Fprintf(w, "duration_secs = %d\n", t.DurationSecs)
 	}
+	if t.EmbeddedLyrics != "" {
+		fmt.Fprintf(w, "embedded_lyrics = %q\n", t.EmbeddedLyrics)
+	}
+	if t.AlbumArtURL != "" {
+		fmt.Fprintf(w, "album_art_url = %q\n", t.AlbumArtURL)
+	}
 	if t.Bookmark {
 		fmt.Fprintln(w, "bookmark = true")
 	}
@@ -481,6 +487,8 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 			Genre:  f["genre"],
 			Feed:   f["feed"] == "true",
 		}
+		t.EmbeddedLyrics = f["embedded_lyrics"]
+		t.AlbumArtURL = f["album_art_url"]
 		t.Stream = playlist.IsURL(t.Path)
 		// "favorite" is the pre-rename alias for "bookmark"; prefer bookmark.
 		bookmark, ok := f["bookmark"]

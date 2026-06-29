@@ -69,6 +69,7 @@ Track metadata is published under the standard MPRIS keys:
 | `xesam:artist` | Artist name (as a list with one entry) |
 | `xesam:album` | Album name, when available |
 | `xesam:url` | File path or stream URL |
+| `mpris:artUrl` | Embedded album artwork from local files, when available |
 | `mpris:length` | Duration in microseconds |
 
 Query metadata with:
@@ -113,6 +114,8 @@ On macOS, Cliamp publishes now-playing information to the system's MPNowPlayingI
 - Touch Bar playback buttons
 - Hardware media keys (play/pause, next, previous)
 - Bluetooth headphone buttons
+
+Local files with embedded cover art publish that artwork to Control Centre and Lock Screen media controls. Artwork is cached by content under `~/.local/share/cliamp/album-art/` and pruned opportunistically to stay around 100 MB.
 
 The macOS implementation requires the media-control runtime to pin the main goroutine to thread 0 (via `runtime.LockOSThread`) so that the Cocoa run loop can pump events. Bubbletea runs on a background goroutine instead.
 

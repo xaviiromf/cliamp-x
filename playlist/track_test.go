@@ -1,6 +1,15 @@
 package playlist
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/dhowden/tag"
+)
 
 func TestTrackMeta(t *testing.T) {
 	t.Run("nil map returns empty", func(t *testing.T) {
@@ -76,6 +85,59 @@ func TestTrackIsLive(t *testing.T) {
 			t.Error("IsLive() = true, want false")
 		}
 	})
+}
+
+func TestFileURL(t *testing.T) {
+	got := fileURL(filepath.Join("tmp", "cover art.jpg"))
+	if !strings.HasPrefix(got, "file:///") {
+		t.Fatalf("fileURL = %q, want file URL", got)
+	}
+	if runtime.GOOS != "windows" && !strings.Contains(got, "cover%20art.jpg") {
+		t.Fatalf("fileURL = %q, want escaped spaces", got)
+	}
+}
+
+func TestCacheAlbumArtUsesContentHash(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	first := cacheAlbumArt(&tag.Picture{Ext: "jpeg", Data: []byte("same cover")})
+	second := cacheAlbumArt(&tag.Picture{Ext: "jpg", Data: []byte("same cover")})
+	if first == "" || first != second {
+		t.Fatalf("cacheAlbumArt URLs = %q and %q, want same non-empty URL", first, second)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(home, ".local", "share", "cliamp", albumArtCacheDir, "*"))
+	if err != nil {
+		t.Fatalf("Glob: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("cached files = %d, want 1: %v", len(matches), matches)
+	}
+}
+
+func TestCleanupAlbumArtCacheKeepsCurrentFile(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old.jpg")
+	keepPath := filepath.Join(dir, "keep.jpg")
+	if err := os.WriteFile(oldPath, []byte(strings.Repeat("o", 80)), 0o644); err != nil {
+		t.Fatalf("WriteFile old: %v", err)
+	}
+	if err := os.WriteFile(keepPath, []byte(strings.Repeat("k", 80)), 0o644); err != nil {
+		t.Fatalf("WriteFile keep: %v", err)
+	}
+	oldTime := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(oldPath, oldTime, oldTime); err != nil {
+		t.Fatalf("Chtimes old: %v", err)
+	}
+
+	cleanupAlbumArtCache(dir, 100, keepPath)
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Fatalf("old cache file still exists or stat failed: %v", err)
+	}
+	if _, err := os.Stat(keepPath); err != nil {
+		t.Fatalf("current cache file was removed: %v", err)
+	}
 }
 
 func TestTrackFromURL(t *testing.T) {

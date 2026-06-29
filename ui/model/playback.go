@@ -190,26 +190,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		m.status.Show("Loading feed...", statusTTLLong)
 		return resolveFeedTrackCmd(track.Path)
 	}
-
-	m.setPlaybackTrack(track)
-	m.reconnect.attempts = 0
-	m.reconnect.at = time.Time{}
-	m.streamTitle = ""
-	m.lyrics.lines = nil
-	m.lyrics.err = nil
-	m.lyrics.query = ""
-	m.lyrics.scroll = 0
-	m.seek.active = false
-	m.seek.timer = 0
-	m.seek.timerFor = 0
-	m.seek.grace = 0
-	m.seek.graceFor = 0
-	var fetchCmd tea.Cmd
-	if m.lyrics.visible && track.Artist != "" && track.Title != "" {
-		m.lyrics.loading = true
-		m.lyrics.query = track.Artist + "\n" + track.Title
-		fetchCmd = fetchLyricsCmd(track.Artist, track.Title)
-	}
+	track, fetchCmd := m.beginPlaybackTrack(track)
 
 	// Stream yt-dlp URLs (YouTube, SoundCloud, Bandcamp, etc.) via pipe chain.
 	if playlist.IsYTDL(track.Path) {
@@ -250,6 +231,33 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		return tea.Batch(m.preloadNext(), fetchCmd)
 	}
 	return m.preloadNext()
+}
+
+// beginPlaybackTrack centralizes metadata refresh and model state reset for a
+// new active track. It is used both by explicit playback and by gapless
+// transitions, which advance audio without calling playTrack.
+func (m *Model) beginPlaybackTrack(track playlist.Track) (playlist.Track, tea.Cmd) {
+	track = playlist.RefreshEmbeddedMetadata(track)
+	m.setPlaybackTrack(track)
+	m.reconnect.attempts = 0
+	m.reconnect.at = time.Time{}
+	m.streamTitle = ""
+	m.lyrics.lines = nil
+	m.lyrics.err = nil
+	m.lyrics.query = ""
+	m.lyrics.scroll = 0
+	m.seek.active = false
+	m.seek.timer = 0
+	m.seek.timerFor = 0
+	m.seek.grace = 0
+	m.seek.graceFor = 0
+	if m.lyrics.visible && track.Artist != "" && track.Title != "" {
+		m.lyrics.loading = true
+		m.lyrics.query = track.Artist + "\n" + track.Title
+		return track, fetchTrackLyricsCmd(track, track.Artist, track.Title)
+	}
+	m.lyrics.loading = false
+	return track, nil
 }
 
 // togglePlayPause starts playback if stopped, or toggles pause if playing.

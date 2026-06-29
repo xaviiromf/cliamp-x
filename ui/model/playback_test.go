@@ -12,6 +12,7 @@ import (
 
 type playbackFakeEngine struct {
 	playing           bool
+	gaplessAdvanced   bool
 	playCalls         []string
 	preloadCalls      []string
 	clearPreloadCalls int
@@ -42,9 +43,15 @@ func (f *playbackFakeEngine) HasPreload() bool                        { return f
 func (f *playbackFakeEngine) Seekable() bool                          { return false }
 func (f *playbackFakeEngine) IsStreamSeek() bool                      { return false }
 func (f *playbackFakeEngine) IsYTDLSeek() bool                        { return false }
-func (f *playbackFakeEngine) GaplessAdvanced() bool                   { return false }
-func (f *playbackFakeEngine) Position() time.Duration                 { return 0 }
-func (f *playbackFakeEngine) Duration() time.Duration                 { return 0 }
+func (f *playbackFakeEngine) GaplessAdvanced() bool {
+	if !f.gaplessAdvanced {
+		return false
+	}
+	f.gaplessAdvanced = false
+	return true
+}
+func (f *playbackFakeEngine) Position() time.Duration { return 0 }
+func (f *playbackFakeEngine) Duration() time.Duration { return 0 }
 func (f *playbackFakeEngine) PositionAndDuration() (time.Duration, time.Duration) {
 	return 0, 0
 }
@@ -278,5 +285,47 @@ func TestPreloadAfterProviderPlaylistLoadUsesFirstNewTrack(t *testing.T) {
 
 	if len(player.preloadCalls) != 1 || player.preloadCalls[0] != "new1.mp3" {
 		t.Fatalf("preloadCalls = %v, want first new track", player.preloadCalls)
+	}
+}
+
+func TestGaplessAdvanceRefreshesLyricsAndArtwork(t *testing.T) {
+	player := &playbackFakeEngine{playing: true, gaplessAdvanced: true}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Old", Artist: "Artist", Path: "old.mp3", DurationSecs: 180, EmbeddedLyrics: "old lyric", AlbumArtURL: "file:///old.jpg"},
+		{Title: "New", Artist: "Artist", Path: "new.mp3", DurationSecs: 180, EmbeddedLyrics: "[00:01.00]new lyric", AlbumArtURL: "file:///new.jpg"},
+	})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		lyrics: lyricsState{
+			visible: true,
+			query:   "Artist\nOld",
+		},
+	}
+	m.setPlaybackTrack(p.Tracks()[0])
+	m.lyrics.lines = nil
+
+	next, cmd := m.Update(tickMsg(time.Now()))
+	m2 := next.(Model)
+	if cmd == nil {
+		t.Fatal("Update() command = nil, want lyric/preload/tick batch")
+	}
+
+	track, _ := m2.currentPlaybackTrack()
+	if track.Title != "New" {
+		t.Fatalf("current track = %q, want New", track.Title)
+	}
+	if track.AlbumArtURL != "file:///new.jpg" {
+		t.Fatalf("AlbumArtURL = %q, want new artwork", track.AlbumArtURL)
+	}
+	if m2.lyrics.query != "Artist\nNew" {
+		t.Fatalf("lyrics.query = %q, want new track query", m2.lyrics.query)
+	}
+	if !m2.lyrics.loading {
+		t.Fatal("lyrics.loading = false, want true for new track fetch")
 	}
 }

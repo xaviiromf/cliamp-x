@@ -156,6 +156,7 @@ func PlaylistShow(name string, jsonOutput bool) error {
 			Year         int    `json:"year,omitempty"`
 			TrackNumber  int    `json:"track_number,omitempty"`
 			DurationSecs int    `json:"duration_secs,omitempty"`
+			AlbumArtURL  string `json:"album_art_url,omitempty"`
 			Bookmark     bool   `json:"bookmark,omitempty"`
 		}
 		out := make([]jsonTrack, len(tracks))
@@ -169,6 +170,7 @@ func PlaylistShow(name string, jsonOutput bool) error {
 				Year:         t.Year,
 				TrackNumber:  t.TrackNumber,
 				DurationSecs: t.DurationSecs,
+				AlbumArtURL:  t.AlbumArtURL,
 				Bookmark:     t.Bookmark,
 			}
 		}
