@@ -2,6 +2,7 @@ package mediactl
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/godbus/dbus/v5"
 
@@ -16,6 +17,12 @@ func trackPath(seq int64) dbus.ObjectPath {
 }
 
 func makeMetadata(t playback.Track, trackID dbus.ObjectPath) map[string]dbus.Variant {
+	t.Title = dbusString(t.Title)
+	t.Artist = dbusString(t.Artist)
+	t.Album = dbusString(t.Album)
+	t.Genre = dbusString(t.Genre)
+	t.URL = dbusString(t.URL)
+
 	m := map[string]dbus.Variant{
 		"mpris:trackid": dbus.MakeVariant(trackID),
 	}
@@ -41,4 +48,8 @@ func makeMetadata(t playback.Track, trackID dbus.ObjectPath) map[string]dbus.Var
 		m["mpris:length"] = dbus.MakeVariant(t.Duration.Microseconds())
 	}
 	return m
+}
+
+func dbusString(s string) string {
+	return strings.ReplaceAll(strings.ToValidUTF8(s, "\uFFFD"), "\x00", "")
 }
