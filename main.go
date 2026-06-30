@@ -18,6 +18,7 @@ import (
 	"cliamp/external/navidrome"
 	"cliamp/external/netease"
 	"cliamp/external/plex"
+	"cliamp/external/qobuz"
 	"cliamp/external/radio"
 	"cliamp/external/radiometa"
 	"cliamp/external/soundcloud"
@@ -105,6 +106,12 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 		}
 	}
 
+	var qobuzProv *qobuz.QobuzProvider
+	if cfg.Qobuz.IsSet() {
+		qobuzProv = qobuz.New(cfg.Qobuz.Quality)
+		providers = append(providers, model.ProviderEntry{Key: "qobuz", Name: "Qobuz", Provider: qobuzProv})
+	}
+
 	if scProv := soundcloud.NewFromConfig(soundcloud.Config{
 		Enabled:     cfg.SoundCloud.Enabled,
 		User:        cfg.SoundCloud.User,
@@ -172,6 +179,9 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 
 	if spotifyProv != nil {
 		defer spotifyProv.Close()
+	}
+	if qobuzProv != nil {
+		defer qobuzProv.Close()
 	}
 	if ytProviders.Music != nil {
 		defer ytProviders.Music.Close()
@@ -259,7 +269,7 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	}
 
 	p.RegisterBufferedURLMatcher(func(u string) bool {
-		return navidrome.IsSubsonicStreamURL(u) || jellyfin.IsStreamURL(u) || emby.IsStreamURL(u) || plex.IsStreamURL(u)
+		return navidrome.IsSubsonicStreamURL(u) || jellyfin.IsStreamURL(u) || emby.IsStreamURL(u) || plex.IsStreamURL(u) || qobuz.IsStreamURL(u)
 	})
 
 	// Pull now-playing for stations that carry no inline ICY metadata (NTS, FIP).
@@ -383,6 +393,12 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 			prog.Send(model.ProvAuthURLMsg{URL: u})
 		})
 		defer spotify.SetAuthURLObserver(nil)
+	}
+	if qobuzProv != nil {
+		qobuz.SetAuthURLObserver(func(u string) {
+			prog.Send(model.ProvAuthURLMsg{URL: u})
+		})
+		defer qobuz.SetAuthURLObserver(nil)
 	}
 
 	svc, svcErr := wireMediaCtl(prog)

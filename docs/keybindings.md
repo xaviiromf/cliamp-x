@@ -51,7 +51,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | Key | Action |
 |---|---|
 | `f` | Toggle bookmark ★ on selected track (or favorite radio station in radio browser) |
-| `Ctrl+F` | Search — active provider's native search (Spotify, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
+| `Ctrl+F` | Search — active provider's native search (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
 | `Ctrl+S` | Save track to ~/Music |
@@ -65,6 +65,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | `Y` | Open YouTube provider |
 | `C` | Open SoundCloud provider |
 | `M` | Open NetEase provider |
+| `Q` | Open Qobuz provider |
 
 ## Playlist and Queue
 
@@ -93,7 +94,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 
 ## Provider browser (`N` key)
 
-When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Spotify, YouTube Music), the album/artist/track screens use:
+When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Spotify, Qobuz, YouTube Music), the album/artist/track screens use:
 
 | Key | Action |
 |---|---|
@@ -105,7 +106,7 @@ When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Sp
 | `a` | Append all visible tracks to the queue |
 | `q` | Queue the highlighted track to play next |
 | `s` | Cycle album sort (album list only) |
-| `S` `N` `P` `J` `E` `Y` `C` `M` `L` `R` | Quick-switch to that provider without going back through the main pane |
+| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` `R` | Quick-switch to that provider without going back through the main pane |
 | `Esc` `b` | Walk back one level / close the browser |
 
 The track screen shows a `N tracks · 47:22` subtitle and right-aligned per-track durations when the provider returns them.
@@ -122,7 +123,7 @@ The playlists pane (visible when focus is on a provider — Spotify, Navidrome, 
 | `/` | Filter the playlist list |
 | `Ctrl+F` | Online/server search (Spotify/Navidrome/NetEase/etc.'s own search) |
 | `Ctrl+R` | Refresh — re-pull the playlist list from the provider |
-| `S` `N` `P` `J` `E` `Y` `C` `M` `L` `R` | Switch to that provider |
+| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` `R` | Switch to that provider |
 | `Tab` | Switch focus to EQ |
 | `Esc` `b` | Back to the playlist pane |
 
@@ -152,7 +153,7 @@ This applies to:
 - `/` file browser filter
 - `Ctrl+F` when the active provider is Local (your saved playlists)
 
-Other `Ctrl+F` providers (Spotify, Navidrome, Jellyfin, Emby, Plex, NetEase, YouTube) send your query to their own search API, so matching there follows each service's rules.
+Other `Ctrl+F` providers (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, YouTube) send your query to their own search API, so matching there follows each service's rules.
 
 ## General
 
