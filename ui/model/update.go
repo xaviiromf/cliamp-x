@@ -104,6 +104,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.finishSeek()
 		return m, nil
 
+	case ytdlUnpauseReconnectMsg:
+		m.seek.active = false
+		m.seek.timer = 0
+		m.seek.timerFor = 0
+		m.seek.grace = 10
+		m.seek.graceFor = 0
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.err = nil
+			m.pausedAt = time.Time{}
+		}
+		m.notifyAll()
+		return m, nil
+
 	case tickMsg:
 		now := time.Time(msg)
 		dt := m.tickDelta(now)
@@ -709,7 +724,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playback.PauseMsg:
 		if m.player.IsPlaying() && !m.player.IsPaused() {
-			m.player.TogglePause()
+			m.togglePlayerPause()
 			m.notifyAll()
 		}
 		return m, nil

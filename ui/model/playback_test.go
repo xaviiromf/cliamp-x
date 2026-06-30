@@ -12,13 +12,18 @@ import (
 
 type playbackFakeEngine struct {
 	playing           bool
+	paused            bool
+	ytdlSeek          bool
+	position          time.Duration
 	playCalls         []string
+	seekYTDLCalls     []time.Duration
 	preloadCalls      []string
 	clearPreloadCalls int
 }
 
 func (f *playbackFakeEngine) Play(path string, _ time.Duration) error {
 	f.playing = true
+	f.paused = false
 	f.playCalls = append(f.playCalls, path)
 	return nil
 }
@@ -29,22 +34,25 @@ func (f *playbackFakeEngine) Preload(path string, _ time.Duration) error {
 }
 func (f *playbackFakeEngine) PreloadYTDL(string, time.Duration) error { return nil }
 func (f *playbackFakeEngine) ClearPreload()                           { f.clearPreloadCalls++ }
-func (f *playbackFakeEngine) Stop()                                   { f.playing = false }
+func (f *playbackFakeEngine) Stop()                                   { f.playing, f.paused = false, false }
 func (f *playbackFakeEngine) Close()                                  {}
-func (f *playbackFakeEngine) TogglePause()                            {}
+func (f *playbackFakeEngine) TogglePause()                            { f.paused = !f.paused }
 func (f *playbackFakeEngine) Seek(time.Duration) error                { return nil }
-func (f *playbackFakeEngine) SeekYTDL(time.Duration) error            { return nil }
-func (f *playbackFakeEngine) CancelSeekYTDL()                         {}
-func (f *playbackFakeEngine) IsPlaying() bool                         { return f.playing }
-func (f *playbackFakeEngine) IsPaused() bool                          { return false }
-func (f *playbackFakeEngine) Drained() bool                           { return false }
-func (f *playbackFakeEngine) HasPreload() bool                        { return false }
-func (f *playbackFakeEngine) Seekable() bool                          { return false }
-func (f *playbackFakeEngine) IsStreamSeek() bool                      { return false }
-func (f *playbackFakeEngine) IsYTDLSeek() bool                        { return false }
-func (f *playbackFakeEngine) GaplessAdvanced() bool                   { return false }
-func (f *playbackFakeEngine) Position() time.Duration                 { return 0 }
-func (f *playbackFakeEngine) Duration() time.Duration                 { return 0 }
+func (f *playbackFakeEngine) SeekYTDL(d time.Duration) error {
+	f.seekYTDLCalls = append(f.seekYTDLCalls, d)
+	return nil
+}
+func (f *playbackFakeEngine) CancelSeekYTDL()         {}
+func (f *playbackFakeEngine) IsPlaying() bool         { return f.playing }
+func (f *playbackFakeEngine) IsPaused() bool          { return f.paused }
+func (f *playbackFakeEngine) Drained() bool           { return false }
+func (f *playbackFakeEngine) HasPreload() bool        { return false }
+func (f *playbackFakeEngine) Seekable() bool          { return false }
+func (f *playbackFakeEngine) IsStreamSeek() bool      { return false }
+func (f *playbackFakeEngine) IsYTDLSeek() bool        { return f.ytdlSeek }
+func (f *playbackFakeEngine) GaplessAdvanced() bool   { return false }
+func (f *playbackFakeEngine) Position() time.Duration { return f.position }
+func (f *playbackFakeEngine) Duration() time.Duration { return 0 }
 func (f *playbackFakeEngine) PositionAndDuration() (time.Duration, time.Duration) {
 	return 0, 0
 }
@@ -130,6 +138,48 @@ func TestTogglePlayPauseRestartsQueuedCurrentTrack(t *testing.T) {
 	}
 	if current, idx := m.playlist.Current(); current.Title != "Queued" || idx != 1 {
 		t.Fatalf("current = (%q,%d), want (\"Queued\",1)", current.Title, idx)
+	}
+}
+
+func TestTogglePlayPauseReconnectsLongPausedYTDLAtCurrentPosition(t *testing.T) {
+	player := &playbackFakeEngine{
+		playing:  true,
+		paused:   true,
+		ytdlSeek: true,
+		position: 90 * time.Second,
+	}
+	p := playlist.New()
+	p.Replace([]playlist.Track{{
+		Title:        "YouTube Music",
+		Path:         "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+		Stream:       true,
+		DurationSecs: 180,
+	}})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		pausedAt: time.Now().Add(-ytdlReconnectPauseThreshold),
+	}
+
+	cmd := m.togglePlayPause()
+	if cmd == nil {
+		t.Fatal("togglePlayPause() = nil, want reconnect command")
+	}
+	msg := cmd()
+	if reconnect, ok := msg.(ytdlUnpauseReconnectMsg); !ok || reconnect.err != nil {
+		t.Fatalf("cmd() = %#v, want successful ytdlUnpauseReconnectMsg", msg)
+	}
+	if len(player.seekYTDLCalls) != 1 || player.seekYTDLCalls[0] != 0 {
+		t.Fatalf("seekYTDLCalls = %v, want [0]", player.seekYTDLCalls)
+	}
+	if player.paused {
+		t.Fatal("player stayed paused after reconnect command")
+	}
+	if !m.seek.active || m.seek.targetPos != 90*time.Second {
+		t.Fatalf("seek state = active:%v target:%s, want active target 1m30s", m.seek.active, m.seek.targetPos)
 	}
 }
 

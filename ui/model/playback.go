@@ -9,6 +9,8 @@ import (
 	"cliamp/playlist"
 )
 
+const ytdlReconnectPauseThreshold = 45 * time.Second
+
 // nextTrack advances to the next playlist track and starts playing it.
 // Unplayable tracks are skipped automatically.
 func (m *Model) nextTrack() tea.Cmd {
@@ -185,6 +187,7 @@ func (m *Model) removeSelectedFromPlaylist() {
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.
 // yt-dlp URLs are streamed via a piped yt-dlp | ffmpeg chain for instant playback.
 func (m *Model) playTrack(track playlist.Track) tea.Cmd {
+	m.pausedAt = time.Time{}
 	if track.Feed || playlist.IsFeed(track.Path) {
 		m.feedLoading = true
 		m.status.Show("Loading feed...", statusTTLLong)
@@ -253,8 +256,8 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 }
 
 // togglePlayPause starts playback if stopped, or toggles pause if playing.
-// For live streams, unpausing reconnects to get current audio instead of
-// playing stale data sitting in OS/decoder buffers from before the pause.
+// For live streams and long-paused yt-dlp streams, unpausing reconnects instead
+// of playing stale data sitting in OS/decoder buffers from before the pause.
 func (m *Model) togglePlayPause() tea.Cmd {
 	if m.buffering {
 		return nil
@@ -267,19 +270,62 @@ func (m *Model) togglePlayPause() tea.Cmd {
 	}
 	if m.player.IsPaused() {
 		track, idx := m.currentPlaybackTrack()
-		if shouldReconnectOnUnpause(track, idx) {
+		pausedFor := time.Duration(0)
+		if !m.pausedAt.IsZero() {
+			pausedFor = time.Since(m.pausedAt)
+		}
+		if shouldReconnectOnUnpause(track, idx, pausedFor) {
+			if playlist.IsYTDL(track.Path) && m.player.IsYTDLSeek() {
+				return m.reconnectYTDLOnUnpause()
+			}
+			m.pausedAt = time.Time{}
 			m.player.Stop()
 			return m.playTrack(track)
 		}
 	}
-	m.player.TogglePause()
+	m.togglePlayerPause()
 	return nil
+}
+
+func (m *Model) togglePlayerPause() {
+	m.player.TogglePause()
+	if m.player.IsPaused() {
+		m.pausedAt = time.Now()
+		return
+	}
+	m.pausedAt = time.Time{}
+}
+
+func (m *Model) reconnectYTDLOnUnpause() tea.Cmd {
+	m.seek.active = true
+	m.seek.targetPos = m.player.Position()
+	m.seek.timer = 0
+	m.seek.timerFor = 0
+	m.seek.grace = 0
+	m.seek.graceFor = 0
+	m.player.CancelSeekYTDL()
+	m.status.Show("Reconnecting stream...", statusTTLMedium)
+
+	p := m.player
+	return func() tea.Msg {
+		err := p.SeekYTDL(0)
+		if err == nil {
+			p.TogglePause()
+		}
+		return ytdlUnpauseReconnectMsg{err: err}
+	}
 }
 
 // shouldReconnectOnUnpause reports whether unpausing should reconnect and
 // restart instead of resuming buffered audio.
-func shouldReconnectOnUnpause(track playlist.Track, idx int) bool {
-	return idx >= 0 && track.IsLive()
+func shouldReconnectOnUnpause(track playlist.Track, idx int, pausedFor time.Duration) bool {
+	if idx < 0 {
+		return false
+	}
+	if track.IsLive() {
+		return true
+	}
+	return pausedFor >= ytdlReconnectPauseThreshold && playlist.IsYTDL(track.Path)
 }
 
 // applyResume seeks to the saved resume position if the current track matches.
