@@ -53,6 +53,7 @@ var keymapEntries = []keymapEntry{
 	{key: "M", action: "Open NetEase provider"},
 	{key: "J", action: "Open Jellyfin provider"},
 	{key: "E", action: "Open Emby provider"},
+	{key: "Q", action: "Open Qobuz provider"},
 	{key: "Ctrl+J", action: "Jump to time"},
 	{key: "p", action: "Playlist manager"},
 	{key: "Ctrl+H", action: "Toggle album headers"},
@@ -103,7 +104,7 @@ var coreReservedKeys = []string{
 	"r", "z", "m", "e", "a", "A", "ctrl+h",
 	"ctrl+s", "S", "/", "ctrl+f",
 	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
-	"N", "L", "R", "P", "Y", "C", "M",
+	"N", "L", "R", "P", "Y", "C", "M", "Q",
 	"v", "V", "ctrl+v", "ctrl+x", "x", "d", "ctrl+k", "?",
 	"ctrl+r",
 }
@@ -405,5 +406,5 @@ func (m Model) renderKeymapList() string {
 			lines = append(lines, cursorLine(line, i == m.keymap.cursor))
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(padLines(lines, budget, len(lines)), "\n")
 }

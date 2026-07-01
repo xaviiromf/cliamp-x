@@ -2,6 +2,7 @@ package model
 
 import (
 	"testing"
+	"time"
 
 	"cliamp/playlist"
 )
@@ -11,6 +12,7 @@ func TestShouldReconnectOnUnpause(t *testing.T) {
 		name  string
 		track playlist.Track
 		idx   int
+		pause time.Duration
 		want  bool
 	}{
 		{
@@ -24,13 +26,24 @@ func TestShouldReconnectOnUnpause(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "regular stream does not reconnect",
+			name: "short-paused yt-dlp stream does not reconnect",
 			track: playlist.Track{
 				Path:   "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				Stream: true,
 			},
-			idx:  0,
-			want: false,
+			idx:   0,
+			pause: ytdlReconnectPauseThreshold - time.Second,
+			want:  false,
+		},
+		{
+			name: "long-paused yt-dlp stream reconnects",
+			track: playlist.Track{
+				Path:   "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+				Stream: true,
+			},
+			idx:   0,
+			pause: ytdlReconnectPauseThreshold,
+			want:  true,
 		},
 		{
 			name: "invalid current index does not reconnect",
@@ -57,7 +70,7 @@ func TestShouldReconnectOnUnpause(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldReconnectOnUnpause(tt.track, tt.idx); got != tt.want {
+			if got := shouldReconnectOnUnpause(tt.track, tt.idx, tt.pause); got != tt.want {
 				t.Fatalf("shouldReconnectOnUnpause(...) = %v, want %v", got, tt.want)
 			}
 		})

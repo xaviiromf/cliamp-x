@@ -16,6 +16,8 @@ const seekDebounceTicks = 8 // ~800ms at 100ms tick interval
 // seekTickMsg fires when the async seek completes.
 type seekTickMsg struct{}
 
+type ytdlUnpauseReconnectMsg struct{ err error }
+
 // doSeek handles a seek keypress. For yt-dlp streams, accumulates into a
 // single target position and debounces. For HTTP seekable streams, dispatches
 // the seek asynchronously to avoid blocking the UI. For local files, seeks

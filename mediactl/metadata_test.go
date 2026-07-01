@@ -74,3 +74,30 @@ func TestMakeMetadataOmitsEmptyOptionalFields(t *testing.T) {
 		}
 	}
 }
+
+func TestMakeMetadataCoercesInvalidDBusStrings(t *testing.T) {
+	track := playback.Track{
+		Title:  "Suite N\xb01",
+		Artist: "Cello\xffArtist",
+		Album:  "Album\x00Name",
+		Genre:  "Classical\xfe",
+		URL:    "file:///tmp/Cello\xff.mp3",
+	}
+
+	got := makeMetadata(track, trackPath(1))
+
+	want := map[string]dbus.Variant{
+		"mpris:trackid": dbus.MakeVariant(dbus.ObjectPath("/org/mpris/MediaPlayer2/Track/1")),
+		"xesam:title":   dbus.MakeVariant("Suite N\uFFFD1"),
+		"xesam:artist":  dbus.MakeVariant([]string{"Cello\uFFFDArtist"}),
+		"xesam:album":   dbus.MakeVariant("AlbumName"),
+		"xesam:genre":   dbus.MakeVariant([]string{"Classical\uFFFD"}),
+		"xesam:url":     dbus.MakeVariant("file:///tmp/Cello\uFFFD.mp3"),
+	}
+
+	for key, wantValue := range want {
+		if !reflect.DeepEqual(got[key], wantValue) {
+			t.Fatalf("metadata[%q] = %#v, want %#v", key, got[key], wantValue)
+		}
+	}
+}

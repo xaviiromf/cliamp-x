@@ -140,6 +140,7 @@ type Model struct {
 	configSaver   ConfigSaver
 	vis           *ui.Visualizer
 	seekStepLarge time.Duration
+	pausedAt      time.Time
 
 	// Primed Nj seek: digit sets pct, next `j` completes.
 	pendingSeekActive bool
