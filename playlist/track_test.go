@@ -140,6 +140,45 @@ func TestCleanupAlbumArtCacheKeepsCurrentFile(t *testing.T) {
 	}
 }
 
+func TestRefreshEmbeddedMetadataPreservesSavedFieldsWhenUnreadable(t *testing.T) {
+	track := Track{
+		Path:           filepath.Join(t.TempDir(), "missing.mp3"),
+		Title:          "Saved title",
+		Artist:         "Saved artist",
+		EmbeddedLyrics: "old lyrics",
+		AlbumArtURL:    "file:///old.jpg",
+	}
+
+	got := RefreshEmbeddedMetadata(track)
+	if got.EmbeddedLyrics != track.EmbeddedLyrics || got.AlbumArtURL != track.AlbumArtURL {
+		t.Fatalf("embedded metadata changed: got %q, %q want %q, %q", got.EmbeddedLyrics, got.AlbumArtURL, track.EmbeddedLyrics, track.AlbumArtURL)
+	}
+	if got.Title != track.Title || got.Artist != track.Artist {
+		t.Fatalf("non-embedded fields changed: got %+v want title/artist from %+v", got, track)
+	}
+}
+
+func TestRefreshEmbeddedMetadataClearsSavedFieldsWhenTagsUnreadable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "empty.mp3")
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	track := Track{
+		Path:           path,
+		Title:          "Saved title",
+		EmbeddedLyrics: "old lyrics",
+		AlbumArtURL:    "file:///old.jpg",
+	}
+
+	got := RefreshEmbeddedMetadata(track)
+	if got.EmbeddedLyrics != "" || got.AlbumArtURL != "" {
+		t.Fatalf("embedded metadata = %q, %q; want empty refreshed fields", got.EmbeddedLyrics, got.AlbumArtURL)
+	}
+	if got.Title != track.Title {
+		t.Fatalf("title changed: got %q want %q", got.Title, track.Title)
+	}
+}
+
 func TestTrackFromURL(t *testing.T) {
 	tests := []struct {
 		name    string

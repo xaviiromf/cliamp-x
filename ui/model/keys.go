@@ -715,15 +715,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.lyrics.visible && !m.lyrics.loading {
 			track, _ := m.currentPlaybackTrack()
 			artist, title := m.lyricsArtistTitle()
-			if artist != "" && title != "" {
-				q := artist + "\n" + title
-				if q != m.lyrics.query {
-					m.lyrics.query = q
-					m.lyrics.loading = true
-					m.lyrics.lines = nil
-					m.lyrics.err = nil
-					return fetchTrackLyricsCmd(track, artist, title)
-				}
+			q := lyricsLookupKey(track, artist, title)
+			if q != "" && q != m.lyrics.query {
+				m.lyrics.query = q
+				m.lyrics.loading = true
+				m.lyrics.lines = nil
+				m.lyrics.err = nil
+				return fetchTrackLyricsCmd(track, artist, title)
 			}
 		}
 

@@ -254,9 +254,14 @@ func (m *Model) beginPlaybackTrack(track playlist.Track) (playlist.Track, tea.Cm
 	m.seek.timerFor = 0
 	m.seek.grace = 0
 	m.seek.graceFor = 0
-	if m.lyrics.visible && track.Artist != "" && track.Title != "" {
+	if m.lyrics.visible {
+		q := lyricsLookupKey(track, track.Artist, track.Title)
+		if q == "" {
+			m.lyrics.loading = false
+			return track, nil
+		}
 		m.lyrics.loading = true
-		m.lyrics.query = track.Artist + "\n" + track.Title
+		m.lyrics.query = q
 		return track, fetchTrackLyricsCmd(track, track.Artist, track.Title)
 	}
 	m.lyrics.loading = false

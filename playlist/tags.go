@@ -37,17 +37,13 @@ func RefreshEmbeddedMetadata(track Track) Track {
 	if track.Path == "" || track.Stream || IsURL(track.Path) || strings.HasPrefix(track.Path, "ssh://") {
 		return track
 	}
-	if track.EmbeddedLyrics != "" && track.AlbumArtURL != "" {
+
+	fresh, ok := readTagsWithOptions(track.Path, true)
+	if !ok {
 		return track
 	}
-
-	fresh := readTagsWithOptions(track.Path, track.AlbumArtURL == "")
-	if track.EmbeddedLyrics == "" {
-		track.EmbeddedLyrics = fresh.EmbeddedLyrics
-	}
-	if track.AlbumArtURL == "" {
-		track.AlbumArtURL = fresh.AlbumArtURL
-	}
+	track.EmbeddedLyrics = fresh.EmbeddedLyrics
+	track.AlbumArtURL = fresh.AlbumArtURL
 	return track
 }
 
@@ -55,19 +51,20 @@ func RefreshEmbeddedMetadata(track Track) Track {
 // a local audio file and returns a Track. Falls back to filename parsing if
 // tag reading fails or the tags contain no title.
 func readTags(path string) Track {
-	return readTagsWithOptions(path, false)
+	t, _ := readTagsWithOptions(path, false)
+	return t
 }
 
-func readTagsWithOptions(path string, cacheArt bool) Track {
+func readTagsWithOptions(path string, cacheArt bool) (Track, bool) {
 	f, err := os.Open(path)
 	if err != nil {
-		return TrackFromFilename(path)
+		return TrackFromFilename(path), false
 	}
 	defer f.Close()
 
 	m, err := tag.ReadFrom(f)
 	if err != nil || m == nil {
-		return TrackFromFilename(path)
+		return TrackFromFilename(path), true
 	}
 
 	t := Track{
@@ -81,7 +78,7 @@ func readTagsWithOptions(path string, cacheArt bool) Track {
 		fallback := TrackFromFilename(path)
 		fallback.EmbeddedLyrics = t.EmbeddedLyrics
 		fallback.AlbumArtURL = t.AlbumArtURL
-		return fallback
+		return fallback, true
 	}
 
 	t.Title = sanitizeTag(strings.TrimSpace(m.Title()))
@@ -91,7 +88,7 @@ func readTagsWithOptions(path string, cacheArt bool) Track {
 	t.Year = m.Year()
 	trackNum, _ := m.Track()
 	t.TrackNumber = trackNum
-	return t
+	return t, true
 }
 
 func cacheAlbumArt(picture *tag.Picture) string {
