@@ -3,7 +3,7 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // maybeLoadCatalogBatch triggers a catalog batch fetch when the cursor is near the

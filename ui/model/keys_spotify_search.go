@@ -3,7 +3,7 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // handleSpotSearchKey dispatches key presses to the active provider search screen.

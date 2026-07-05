@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"cliamp/internal/appdir"
-	"cliamp/internal/tomlutil"
+	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/tomlutil"
 )
 
 const favoritesFile = "radio_favorites.toml"

@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cliamp/external/local"
-	"cliamp/internal/sshurl"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/resolve"
+	"github.com/bjarneo/cliamp/external/local"
+	"github.com/bjarneo/cliamp/internal/sshurl"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/resolve"
 )
 
 // PlaylistList prints all playlists with their track counts.

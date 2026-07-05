@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"cliamp/config"
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/config"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // subsonicHandler serves fake Subsonic API responses for testing.

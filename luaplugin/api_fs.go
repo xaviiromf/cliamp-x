@@ -10,7 +10,7 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 var (

@@ -8,13 +8,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/internal/playback"
-	"cliamp/ipc"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/provider"
-	"cliamp/theme"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/ipc"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
+	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // Update handles messages: key presses, ticks, and window resizes.

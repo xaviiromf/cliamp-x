@@ -5,7 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // clampScroll keeps cursor inside [0, count) and adjusts scroll so that

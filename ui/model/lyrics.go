@@ -3,7 +3,7 @@ package model
 import (
 	"strings"
 
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 // lyricsArtistTitle resolves the best artist and title for a lyrics lookup.

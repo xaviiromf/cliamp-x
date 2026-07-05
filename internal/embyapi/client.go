@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}

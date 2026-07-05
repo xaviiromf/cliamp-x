@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 type tickMsg time.Time

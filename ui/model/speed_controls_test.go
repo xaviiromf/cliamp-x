@@ -1,8 +1,8 @@
 package model
 
 import (
-	"cliamp/config"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/config"
+	"github.com/bjarneo/cliamp/ui"
 	"os"
 	"path/filepath"
 	"strings"

@@ -10,11 +10,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/history"
-	"cliamp/internal/fileutil"
-	"cliamp/playlist"
-	"cliamp/provider"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/internal/fileutil"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // quit shuts down the player and signals the TUI to exit.

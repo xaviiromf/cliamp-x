@@ -15,9 +15,9 @@ import (
 	"slices"
 	"strings"
 
-	"cliamp/playlist"
-	"cliamp/provider"
-	"cliamp/resolve"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
+	"github.com/bjarneo/cliamp/resolve"
 )
 
 // Compile-time interface checks.

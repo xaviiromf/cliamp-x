@@ -3,7 +3,7 @@ package model
 import (
 	"charm.land/lipgloss/v2"
 
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // Model-specific lipgloss styles, rebuilt when the theme changes.

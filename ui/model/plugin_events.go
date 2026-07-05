@@ -1,7 +1,7 @@
 package model
 
 import (
-	"cliamp/luaplugin"
+	"github.com/bjarneo/cliamp/luaplugin"
 )
 
 // pluginEmitState is the last player/queue state emitted to plugins. It lets

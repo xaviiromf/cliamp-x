@@ -1,6 +1,6 @@
 package model
 
-import "cliamp/provider"
+import "github.com/bjarneo/cliamp/provider"
 
 // navSortLabel resolves a sort-type ID to its human label for the active
 // provider's album browser, falling back to the raw ID.

@@ -12,7 +12,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 var errSpotifyUnavailable = errors.New("spotify: unavailable on Windows (go-librespot requires CGO)")

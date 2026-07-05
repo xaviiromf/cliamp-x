@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // — provider browser (nav) —

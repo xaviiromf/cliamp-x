@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"cliamp/internal/playback"
-	"cliamp/luaplugin"
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/luaplugin"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // notifyAll sends the current playback state to both OS media controls and Lua plugins.

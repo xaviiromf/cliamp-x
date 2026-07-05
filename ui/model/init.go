@@ -6,12 +6,12 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/history"
-	"cliamp/luaplugin"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/theme"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/luaplugin"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // applyThemeAll updates colors, spectrum styles, and model-specific styles.

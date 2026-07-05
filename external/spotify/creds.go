@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // DefaultClientID is the librespot keymaster client_id, shared by spotify-player

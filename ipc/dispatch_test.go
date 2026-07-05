@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/internal/playback"
 )
 
 // captureDispatcher records the last message sent via Send and optionally

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // configPath returns the path to the config file.

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

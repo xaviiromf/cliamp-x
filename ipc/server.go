@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"cliamp/applog"
-	"cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/internal/playback"
 )
 
 // Dispatcher is how the server sends commands to the TUI.

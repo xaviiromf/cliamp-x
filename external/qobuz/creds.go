@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // storedCreds holds persisted Qobuz credentials so the user only signs in once.

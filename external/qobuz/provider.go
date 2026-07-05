@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"cliamp/applog"
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // Compile-time interface checks.

@@ -4,13 +4,13 @@ package model
 import (
 	"time"
 
-	"cliamp/history"
-	"cliamp/internal/playback"
-	"cliamp/luaplugin"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/theme"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/luaplugin"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // ConfigSaver persists individual config key-value pairs.

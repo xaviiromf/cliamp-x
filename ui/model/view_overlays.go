@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"cliamp/history"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // renderVisPickerList renders the visualizer mode list for the playlist region

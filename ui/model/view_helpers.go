@@ -10,8 +10,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"cliamp/playlist"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // formatListMatchCount returns a human-readable "matches of total" summary

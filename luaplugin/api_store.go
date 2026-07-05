@@ -9,7 +9,7 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // pluginStore is a per-plugin key/value store persisted as a single JSON file

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 // maxResponseBody limits JSON API responses to 10 MB.

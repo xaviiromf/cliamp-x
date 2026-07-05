@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"cliamp/internal/appmeta"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/internal/appmeta"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // dialect captures the handful of behaviors that differ between Emby and

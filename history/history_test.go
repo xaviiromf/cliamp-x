@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 func newTestStore(t *testing.T) *Store {

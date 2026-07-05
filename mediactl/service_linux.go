@@ -12,7 +12,7 @@ import (
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
 
-	"cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/internal/playback"
 )
 
 func Run(prog *tea.Program, svc *Service) (tea.Model, error) {

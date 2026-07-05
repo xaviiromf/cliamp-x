@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"cliamp/theme"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // openThemePicker re-loads themes from disk (picking up new user files)

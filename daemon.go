@@ -11,15 +11,15 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/applog"
-	"cliamp/external/local"
-	"cliamp/internal/playback"
-	"cliamp/internal/resume"
-	"cliamp/ipc"
-	"cliamp/mediactl"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/ui/model"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/external/local"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/internal/resume"
+	"github.com/bjarneo/cliamp/ipc"
+	"github.com/bjarneo/cliamp/mediactl"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/ui/model"
 )
 
 // runDaemon runs cliamp without a TUI: serves IPC against the shared

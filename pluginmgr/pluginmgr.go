@@ -13,8 +13,8 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"cliamp/internal/appdir"
-	"cliamp/luaplugin"
+	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/luaplugin"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}

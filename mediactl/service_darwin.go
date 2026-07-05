@@ -181,7 +181,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/internal/playback"
 )
 
 func Run(prog *tea.Program, svc *Service) (tea.Model, error) {

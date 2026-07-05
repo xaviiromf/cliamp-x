@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"strings"
 
-	"cliamp/history"
-	"cliamp/internal/appdir"
-	"cliamp/internal/fuzzy"
-	"cliamp/internal/tomlutil"
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/fuzzy"
+	"github.com/bjarneo/cliamp/internal/tomlutil"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // Compile-time interface checks.

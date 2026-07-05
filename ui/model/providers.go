@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // resetProviderNav resets provider navigation and search state to the top.

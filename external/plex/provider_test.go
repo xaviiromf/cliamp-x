@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"cliamp/config"
+	"github.com/bjarneo/cliamp/config"
 )
 
 // sectionsHandler returns a handler that serves a single music section.

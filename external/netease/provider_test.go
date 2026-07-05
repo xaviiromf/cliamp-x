@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 func TestPlaylistsIncludesAccountListsAndCharts(t *testing.T) {

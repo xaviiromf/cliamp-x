@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/internal/playback"
-	"cliamp/ipc"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/ipc"
 )
 
 type fakeEngine struct {

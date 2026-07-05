@@ -11,17 +11,17 @@ import (
 
 	cli "github.com/urfave/cli/v3"
 
-	"cliamp/applog"
-	"cliamp/cmd"
-	"cliamp/config"
-	"cliamp/external/qobuz"
-	"cliamp/external/spotify"
-	"cliamp/ipc"
-	"cliamp/player"
-	"cliamp/pluginmgr"
-	"cliamp/theme"
-	"cliamp/ui"
-	"cliamp/upgrade"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/cmd"
+	"github.com/bjarneo/cliamp/config"
+	"github.com/bjarneo/cliamp/external/qobuz"
+	"github.com/bjarneo/cliamp/external/spotify"
+	"github.com/bjarneo/cliamp/ipc"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/pluginmgr"
+	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
+	"github.com/bjarneo/cliamp/upgrade"
 )
 
 func buildApp() *cli.Command {

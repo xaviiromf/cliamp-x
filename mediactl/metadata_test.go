@@ -7,7 +7,7 @@ import (
 
 	"github.com/godbus/dbus/v5"
 
-	"cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/internal/playback"
 )
 
 func TestMakeMetadataMapsPlaybackTrackToMPRISFields(t *testing.T) {

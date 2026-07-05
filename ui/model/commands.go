@@ -6,12 +6,12 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/internal/playback"
-	"cliamp/lyrics"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/provider"
-	"cliamp/resolve"
+	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/bjarneo/cliamp/lyrics"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
+	"github.com/bjarneo/cliamp/resolve"
 )
 
 // — Message types used by tea.Cmd constructors —

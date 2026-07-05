@@ -24,8 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"cliamp/player"
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
 
 	"github.com/kkdai/youtube/v2"
 )

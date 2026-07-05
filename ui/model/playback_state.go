@@ -1,6 +1,6 @@
 package model
 
-import "cliamp/playlist"
+import "github.com/bjarneo/cliamp/playlist"
 
 func (m Model) currentPlaybackTrack() (playlist.Track, int) {
 	if m.playingTrackActive && (m.buffering || (m.player != nil && m.player.IsPlaying())) {

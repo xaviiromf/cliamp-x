@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // State holds enough information to resume a previous playback session.

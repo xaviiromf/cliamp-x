@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"cliamp/history"
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 func newTestProvider(t *testing.T) *Provider {

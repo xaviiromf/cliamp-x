@@ -8,10 +8,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"cliamp/internal/fuzzy"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/resolve"
+	"github.com/bjarneo/cliamp/internal/fuzzy"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/resolve"
 )
 
 // fbEntry is a single item in the file browser listing.

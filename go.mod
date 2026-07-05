@@ -1,17 +1,17 @@
-module cliamp
+module github.com/bjarneo/cliamp
 
 go 1.26
 
 require (
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
+	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/devgianlu/go-librespot v0.7.1
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/jfreymuth/oggvorbis v1.0.5
 	github.com/kkdai/youtube/v2 v2.10.6
-	github.com/madelynnblue/go-dsp v1.0.0
 	github.com/urfave/cli/v3 v3.8.0
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/oauth2 v0.36.0
@@ -28,7 +28,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
-	github.com/charmbracelet/x/ansi v0.11.6 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect

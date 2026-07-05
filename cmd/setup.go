@@ -25,12 +25,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"cliamp/external/emby"
-	"cliamp/external/jellyfin"
-	"cliamp/external/navidrome"
-	"cliamp/external/netease"
-	"cliamp/external/plex"
-	"cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/external/emby"
+	"github.com/bjarneo/cliamp/external/jellyfin"
+	"github.com/bjarneo/cliamp/external/navidrome"
+	"github.com/bjarneo/cliamp/external/netease"
+	"github.com/bjarneo/cliamp/external/plex"
+	"github.com/bjarneo/cliamp/internal/appdir"
 )
 
 // Setup launches the interactive wizard. Returns nil on clean exit.

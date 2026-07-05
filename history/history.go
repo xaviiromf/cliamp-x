@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"cliamp/internal/appdir"
-	"cliamp/internal/tomlutil"
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/tomlutil"
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 // DefaultCap is the maximum number of entries kept on disk. Older entries are

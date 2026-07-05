@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cliamp/internal/sshurl"
+	"github.com/bjarneo/cliamp/internal/sshurl"
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/flac"
@@ -19,7 +19,7 @@ import (
 	"github.com/gopxl/beep/v2/vorbis"
 	"github.com/gopxl/beep/v2/wav"
 
-	"cliamp/internal/httpclient"
+	"github.com/bjarneo/cliamp/internal/httpclient"
 )
 
 // SupportedExts is the set of file extensions the player can decode.

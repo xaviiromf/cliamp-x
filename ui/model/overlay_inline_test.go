@@ -7,8 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"cliamp/playlist"
-	"cliamp/ui"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/ui"
 )
 
 // newInlineOverlayModel builds a Model with a real player/playlist/visualizer

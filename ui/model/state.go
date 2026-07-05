@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"cliamp/applog"
-	"cliamp/lyrics"
-	"cliamp/player"
-	"cliamp/playlist"
-	"cliamp/provider"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/lyrics"
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 // searchState holds state for the playlist search overlay.

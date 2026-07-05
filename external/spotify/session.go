@@ -18,9 +18,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"cliamp/applog"
-	"cliamp/internal/browser"
-	"cliamp/playlist"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/internal/browser"
+	"github.com/bjarneo/cliamp/playlist"
 
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"

@@ -28,6 +28,14 @@ The formula pulls in all required runtime libraries automatically.
 yay -S cliamp
 ```
 
+**Go**
+
+```sh
+go install github.com/bjarneo/cliamp@latest
+```
+
+Linux builds need ALSA development headers installed first. See [Building from source](#building-from-source).
+
 **Pre-built binaries**
 
 Download from [GitHub Releases](https://github.com/bjarneo/cliamp/releases/latest).

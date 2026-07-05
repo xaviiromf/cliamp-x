@@ -5,7 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"cliamp/theme"
+	"github.com/bjarneo/cliamp/theme"
 )
 
 // CLIAMP color palette using standard ANSI terminal colors (0-15).

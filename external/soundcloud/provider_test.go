@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"cliamp/resolve"
+	"github.com/bjarneo/cliamp/resolve"
 )
 
 func TestNewFromConfig(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"cliamp/applog"
-	"cliamp/internal/browser"
+	"github.com/bjarneo/cliamp/applog"
+	"github.com/bjarneo/cliamp/internal/browser"
 )
 
 // authURLObserver is invoked with the OAuth URL when interactive auth begins.
