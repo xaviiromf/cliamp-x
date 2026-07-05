@@ -15,6 +15,9 @@ import (
 var sharedPlayer player.Engine
 
 func TestMain(m *testing.M) {
+	os.Unsetenv("CLIAMP_CONFIG_DIR")
+	os.Unsetenv("XDG_CONFIG_HOME")
+
 	sr := player.DeviceSampleRate()
 	if sr <= 0 {
 		sr = 44100
