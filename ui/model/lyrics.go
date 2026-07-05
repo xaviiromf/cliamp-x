@@ -23,6 +23,22 @@ func (m *Model) lyricsArtistTitle() (artist, title string) {
 	return track.Artist, track.Title
 }
 
+func lyricsLookupKey(track playlist.Track, artist, title string) string {
+	if artist != "" && title != "" {
+		return artist + "\n" + title
+	}
+	if track.EmbeddedLyrics == "" {
+		return ""
+	}
+	if track.Path != "" {
+		return "embedded\n" + track.Path
+	}
+	if track.Title != "" {
+		return "embedded\n" + track.Title
+	}
+	return "embedded"
+}
+
 // lyricsSyncable reports whether synced lyrics can track the current playback
 // position. This is true for local files and Navidrome streams (which have
 // accurate position tracking), but false for live radio (ICY — position is

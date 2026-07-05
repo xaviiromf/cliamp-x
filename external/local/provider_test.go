@@ -90,16 +90,18 @@ func TestWriteTrackMinimal(t *testing.T) {
 func TestWriteTrackAllFields(t *testing.T) {
 	var buf bytes.Buffer
 	writeTrack(&buf, playlist.Track{
-		Path:         "/music/song.flac",
-		Title:        "Title",
-		Artist:       "Artist",
-		Album:        "Album",
-		Genre:        "Rock",
-		Year:         2024,
-		TrackNumber:  3,
-		DurationSecs: 240,
-		Bookmark:     true,
-		Feed:         true,
+		Path:           "/music/song.flac",
+		Title:          "Title",
+		Artist:         "Artist",
+		Album:          "Album",
+		Genre:          "Rock",
+		Year:           2024,
+		TrackNumber:    3,
+		DurationSecs:   240,
+		Bookmark:       true,
+		Feed:           true,
+		EmbeddedLyrics: "[00:01.00]Line",
+		AlbumArtURL:    "file:///tmp/cover.jpg",
 	})
 	got := buf.String()
 
@@ -112,6 +114,8 @@ func TestWriteTrackAllFields(t *testing.T) {
 		"year = 2024",
 		"track_number = 3",
 		"duration_secs = 240",
+		`embedded_lyrics = "[00:01.00]Line"`,
+		`album_art_url = "file:///tmp/cover.jpg"`,
 		"bookmark = true",
 		"feed = true",
 	} {
@@ -128,7 +132,7 @@ func TestLoadTOMLRoundTrip(t *testing.T) {
 	os.MkdirAll(p.dir, 0o755)
 
 	tracks := []playlist.Track{
-		{Path: "/a.mp3", Title: "A", Artist: "Art1", Album: "Alb", Year: 2020, TrackNumber: 1, DurationSecs: 180, Bookmark: true},
+		{Path: "/a.mp3", Title: "A", Artist: "Art1", Album: "Alb", Year: 2020, TrackNumber: 1, DurationSecs: 180, Bookmark: true, EmbeddedLyrics: "Line 1\nLine 2", AlbumArtURL: "file:///tmp/a.jpg"},
 		{Path: "/b.flac", Title: "B", Genre: "Jazz", Feed: true},
 	}
 
@@ -152,6 +156,9 @@ func TestLoadTOMLRoundTrip(t *testing.T) {
 	}
 	if loaded[0].Year != 2020 || loaded[0].TrackNumber != 1 || loaded[0].DurationSecs != 180 {
 		t.Fatalf("track 0 numeric fields mismatch: %+v", loaded[0])
+	}
+	if loaded[0].EmbeddedLyrics != "Line 1\nLine 2" || loaded[0].AlbumArtURL != "file:///tmp/a.jpg" {
+		t.Fatalf("track 0 embedded fields mismatch: %+v", loaded[0])
 	}
 
 	if loaded[1].Path != "/b.flac" || loaded[1].Title != "B" || loaded[1].Genre != "Jazz" {

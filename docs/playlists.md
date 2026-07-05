@@ -82,6 +82,14 @@ Each `[[track]]` section supports:
 | `path` | Yes | File path or HTTP URL |
 | `title` | Yes | Display title |
 | `artist` | No | Artist name |
+| `album` | No | Album name |
+| `genre` | No | Genre name |
+| `year` | No | Release year |
+| `track_number` | No | Track number |
+| `duration_secs` | No | Duration in seconds |
+| `embedded_lyrics` | No | Lyrics copied from local file tags |
+| `album_art_url` | No | Cached file URL for embedded album art |
+| `bookmark` | No | Bookmark flag |
 
 HTTP/HTTPS paths are automatically treated as streams.
 
@@ -191,4 +199,3 @@ title = "My Radio"
 | `a` | Add currently playing track |
 | `d` | Delete playlist (confirms) / Remove track |
 | `←` / `Backspace` | Go back from tracks screen to list |
-

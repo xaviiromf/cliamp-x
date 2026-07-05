@@ -12,6 +12,7 @@ import (
 
 type playbackFakeEngine struct {
 	playing           bool
+	gaplessAdvanced   bool
 	paused            bool
 	ytdlSeek          bool
 	position          time.Duration
@@ -42,15 +43,21 @@ func (f *playbackFakeEngine) SeekYTDL(d time.Duration) error {
 	f.seekYTDLCalls = append(f.seekYTDLCalls, d)
 	return nil
 }
-func (f *playbackFakeEngine) CancelSeekYTDL()         {}
-func (f *playbackFakeEngine) IsPlaying() bool         { return f.playing }
-func (f *playbackFakeEngine) IsPaused() bool          { return f.paused }
-func (f *playbackFakeEngine) Drained() bool           { return false }
-func (f *playbackFakeEngine) HasPreload() bool        { return false }
-func (f *playbackFakeEngine) Seekable() bool          { return false }
-func (f *playbackFakeEngine) IsStreamSeek() bool      { return false }
-func (f *playbackFakeEngine) IsYTDLSeek() bool        { return f.ytdlSeek }
-func (f *playbackFakeEngine) GaplessAdvanced() bool   { return false }
+func (f *playbackFakeEngine) CancelSeekYTDL()    {}
+func (f *playbackFakeEngine) IsPlaying() bool    { return f.playing }
+func (f *playbackFakeEngine) IsPaused() bool     { return f.paused }
+func (f *playbackFakeEngine) Drained() bool      { return false }
+func (f *playbackFakeEngine) HasPreload() bool   { return false }
+func (f *playbackFakeEngine) Seekable() bool     { return false }
+func (f *playbackFakeEngine) IsStreamSeek() bool { return false }
+func (f *playbackFakeEngine) IsYTDLSeek() bool   { return f.ytdlSeek }
+func (f *playbackFakeEngine) GaplessAdvanced() bool {
+	if !f.gaplessAdvanced {
+		return false
+	}
+	f.gaplessAdvanced = false
+	return true
+}
 func (f *playbackFakeEngine) Position() time.Duration { return f.position }
 func (f *playbackFakeEngine) Duration() time.Duration { return 0 }
 func (f *playbackFakeEngine) PositionAndDuration() (time.Duration, time.Duration) {
@@ -328,5 +335,71 @@ func TestPreloadAfterProviderPlaylistLoadUsesFirstNewTrack(t *testing.T) {
 
 	if len(player.preloadCalls) != 1 || player.preloadCalls[0] != "new1.mp3" {
 		t.Fatalf("preloadCalls = %v, want first new track", player.preloadCalls)
+	}
+}
+
+func TestBeginPlaybackTrackFetchesEmbeddedLyricsWithoutNetworkMetadata(t *testing.T) {
+	m := Model{lyrics: lyricsState{visible: true}}
+	track := playlist.Track{Title: "Local", EmbeddedLyrics: "Line one\nLine two"}
+
+	_, cmd := m.beginPlaybackTrack(track)
+	if cmd == nil {
+		t.Fatal("beginPlaybackTrack() command = nil, want embedded lyrics command")
+	}
+	if !m.lyrics.loading {
+		t.Fatal("lyrics.loading = false, want true")
+	}
+
+	msg, ok := cmd().(lyricsLoadedMsg)
+	if !ok {
+		t.Fatalf("lyrics command returned %T, want lyricsLoadedMsg", msg)
+	}
+	if msg.err != nil {
+		t.Fatalf("lyrics command error = %v", msg.err)
+	}
+	if len(msg.lines) != 2 || msg.lines[0].Text != "Line one" || msg.lines[1].Text != "Line two" {
+		t.Fatalf("lyrics lines = %+v, want embedded plain text", msg.lines)
+	}
+}
+
+func TestGaplessAdvanceRefreshesLyricsAndArtwork(t *testing.T) {
+	player := &playbackFakeEngine{playing: true, gaplessAdvanced: true}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Old", Artist: "Artist", Path: "old.mp3", DurationSecs: 180, EmbeddedLyrics: "old lyric", AlbumArtURL: "file:///old.jpg"},
+		{Title: "New", Artist: "Artist", Path: "new.mp3", DurationSecs: 180, EmbeddedLyrics: "[00:01.00]new lyric", AlbumArtURL: "file:///new.jpg"},
+	})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		lyrics: lyricsState{
+			visible: true,
+			query:   "Artist\nOld",
+		},
+	}
+	m.setPlaybackTrack(p.Tracks()[0])
+	m.lyrics.lines = nil
+
+	next, cmd := m.Update(tickMsg(time.Now()))
+	m2 := next.(Model)
+	if cmd == nil {
+		t.Fatal("Update() command = nil, want lyric/preload/tick batch")
+	}
+
+	track, _ := m2.currentPlaybackTrack()
+	if track.Title != "New" {
+		t.Fatalf("current track = %q, want New", track.Title)
+	}
+	if track.AlbumArtURL != "file:///new.jpg" {
+		t.Fatalf("AlbumArtURL = %q, want new artwork", track.AlbumArtURL)
+	}
+	if m2.lyrics.query != "Artist\nNew" {
+		t.Fatalf("lyrics.query = %q, want new track query", m2.lyrics.query)
+	}
+	if !m2.lyrics.loading {
+		t.Fatal("lyrics.loading = false, want true for new track fetch")
 	}
 }

@@ -195,6 +195,16 @@ func fetchLyricsCmd(artist, title string) tea.Cmd {
 	}
 }
 
+func fetchTrackLyricsCmd(track playlist.Track, artist, title string) tea.Cmd {
+	return func() tea.Msg {
+		if lines := lyrics.ParseEmbedded(track.EmbeddedLyrics); len(lines) > 0 {
+			return lyricsLoadedMsg{lines: lines}
+		}
+		lines, err := lyrics.Fetch(artist, title)
+		return lyricsLoadedMsg{lines: lines, err: err}
+	}
+}
+
 func fetchNetSearchCmd(query string) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := resolve.Remote([]string{query})

@@ -280,7 +280,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.plCursor = m.playlist.Index()
 			m.adjustScroll()
 			m.titleOff = 0
-			m.setPlaybackTrack(newTrack)
+			var gaplessLyricCmd tea.Cmd
+			newTrack, gaplessLyricCmd = m.beginPlaybackTrack(newTrack)
+			if gaplessLyricCmd != nil {
+				cmds = append(cmds, gaplessLyricCmd)
+			}
 			// The preload that just fired is consumed — clear the in-flight flag
 			// so the next track can be preloaded.
 			m.preloading = false

@@ -56,6 +56,7 @@ func TestTickPendingSpeedSaveUsesElapsedTime(t *testing.T) {
 	}
 
 	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("HOME", home)
 
 	sharedPlayer.Stop()
@@ -96,6 +97,7 @@ func TestFlushPendingSpeedSavePersistsImmediately(t *testing.T) {
 	}
 
 	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("HOME", home)
 
 	sharedPlayer.Stop()

@@ -48,6 +48,9 @@ type Track struct {
 
 	Unplayable bool // true when the track is known not playable in the current playback context
 
+	EmbeddedLyrics string // embedded lyrics from local file tags, when present
+	AlbumArtURL    string // file:// URL for cached embedded album art, when present
+
 	// ProviderMeta holds provider-specific key-value pairs.
 	// Keys are namespaced by provider, e.g. "navidrome.id", "jellyfin.id".
 	ProviderMeta map[string]string
