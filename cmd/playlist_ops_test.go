@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 // captureStdout runs fn with os.Stdout redirected to a buffer and returns what
@@ -110,6 +112,27 @@ func TestPlaylistCreateNoAudio(t *testing.T) {
 	}
 }
 
+func TestPlaylistCreateEmpty(t *testing.T) {
+	setupTestEnv(t)
+
+	out, err := captureStdout(t, func() error {
+		return PlaylistCreate("empty", nil, "")
+	})
+	if err != nil {
+		t.Fatalf("PlaylistCreate empty: %v", err)
+	}
+	if !strings.Contains(out, "Created empty playlist") {
+		t.Fatalf("output = %q, want empty playlist confirmation", out)
+	}
+	out, err = captureStdout(t, func() error { return PlaylistShow("empty", false) })
+	if err != nil {
+		t.Fatalf("PlaylistShow empty: %v", err)
+	}
+	if !strings.Contains(out, "is empty") {
+		t.Fatalf("show output = %q, want empty message", out)
+	}
+}
+
 func TestPlaylistCreateDuplicate(t *testing.T) {
 	home := setupTestEnv(t)
 	audio := filepath.Join(home, "a.mp3")
@@ -145,6 +168,23 @@ func TestPlaylistAddAppends(t *testing.T) {
 	out, _ := captureStdout(t, func() error { return PlaylistShow("mix", false) })
 	if !strings.Contains(out, "2 tracks") {
 		t.Errorf("Show output = %q, want '2 tracks' after add", out)
+	}
+}
+
+func TestPlaylistAddSkipsDuplicates(t *testing.T) {
+	home := setupTestEnv(t)
+	a := filepath.Join(home, "a.mp3")
+	writeAudioFile(t, a)
+
+	if err := PlaylistCreate("mix", []string{a}, ""); err != nil {
+		t.Fatalf("PlaylistCreate: %v", err)
+	}
+	out, err := captureStdout(t, func() error { return PlaylistAdd("mix", []string{a}) })
+	if err != nil {
+		t.Fatalf("PlaylistAdd duplicate: %v", err)
+	}
+	if !strings.Contains(out, "0 tracks") || !strings.Contains(out, "1 duplicate skipped") {
+		t.Fatalf("output = %q, want duplicate skip count", out)
 	}
 }
 
@@ -244,6 +284,128 @@ func TestPlaylistDeleteMissing(t *testing.T) {
 	err := PlaylistDelete("ghost")
 	if err == nil {
 		t.Error("PlaylistDelete on missing playlist should error")
+	}
+}
+
+func TestPlaylistRename(t *testing.T) {
+	home := setupTestEnv(t)
+	a := filepath.Join(home, "a.mp3")
+	writeAudioFile(t, a)
+	if err := PlaylistCreate("old", []string{a}, ""); err != nil {
+		t.Fatalf("PlaylistCreate: %v", err)
+	}
+	if err := PlaylistRename("old", "new"); err != nil {
+		t.Fatalf("PlaylistRename: %v", err)
+	}
+	if err := PlaylistShow("new", false); err != nil {
+		t.Fatalf("renamed playlist missing: %v", err)
+	}
+	if err := PlaylistShow("old", false); err == nil {
+		t.Fatal("old playlist should no longer exist")
+	}
+}
+
+func TestPlaylistDedupeAndSort(t *testing.T) {
+	home := setupTestEnv(t)
+	a := filepath.Join(home, "a.mp3")
+	b := filepath.Join(home, "b.mp3")
+	writeAudioFile(t, a)
+	writeAudioFile(t, b)
+	if err := PlaylistCreate("mix", nil, ""); err != nil {
+		t.Fatalf("PlaylistCreate empty: %v", err)
+	}
+	p, err := newProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SavePlaylist("mix", []playlist.Track{{Path: b, Title: "B"}, {Path: a, Title: "A"}, {Path: a, Title: "A dup"}}); err != nil {
+		t.Fatalf("SavePlaylist: %v", err)
+	}
+	if err := PlaylistDedupe("mix"); err != nil {
+		t.Fatalf("PlaylistDedupe: %v", err)
+	}
+	if err := PlaylistSort("mix", "title"); err != nil {
+		t.Fatalf("PlaylistSort: %v", err)
+	}
+	tracks, err := p.Tracks("mix")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 2 || tracks[0].Title != "A" || tracks[1].Title != "B" {
+		t.Fatalf("tracks after dedupe/sort = %+v", tracks)
+	}
+}
+
+func TestPlaylistDoctorFixPrunesMissing(t *testing.T) {
+	home := setupTestEnv(t)
+	a := filepath.Join(home, "a.mp3")
+	missing := filepath.Join(home, "missing.mp3")
+	writeAudioFile(t, a)
+	if err := PlaylistCreate("mix", nil, ""); err != nil {
+		t.Fatalf("PlaylistCreate empty: %v", err)
+	}
+	p, err := newProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SavePlaylist("mix", []playlist.Track{{Path: a, Title: "A"}, {Path: missing, Title: "Missing"}}); err != nil {
+		t.Fatalf("SavePlaylist: %v", err)
+	}
+	if err := PlaylistDoctor("mix", true); err != nil {
+		t.Fatalf("PlaylistDoctor: %v", err)
+	}
+	tracks, err := p.Tracks("mix")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 1 || tracks[0].Path != a {
+		t.Fatalf("tracks after doctor = %+v", tracks)
+	}
+}
+
+func TestPlaylistImportExportM3U(t *testing.T) {
+	home := setupTestEnv(t)
+	a := filepath.Join(home, "a.mp3")
+	writeAudioFile(t, a)
+	m3u := filepath.Join(home, "mix.m3u")
+	if err := os.WriteFile(m3u, []byte("#EXTM3U\n#EXTINF:12,Song\na.mp3\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := PlaylistImport(m3u, "imported"); err != nil {
+		t.Fatalf("PlaylistImport: %v", err)
+	}
+	out, err := captureStdout(t, func() error { return PlaylistExport("imported", "m3u", "") })
+	if err != nil {
+		t.Fatalf("PlaylistExport: %v", err)
+	}
+	if !strings.Contains(out, "#EXTM3U") || !strings.Contains(out, a) {
+		t.Fatalf("export output = %q, want M3U with resolved path", out)
+	}
+}
+
+func TestPlaylistExportInvalidFormatDoesNotTruncateOutput(t *testing.T) {
+	home := setupTestEnv(t)
+	p, err := newProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SavePlaylist("mix", []playlist.Track{{Path: "/a.mp3", Title: "A"}}); err != nil {
+		t.Fatalf("SavePlaylist: %v", err)
+	}
+	out := filepath.Join(home, "keep.txt")
+	if err := os.WriteFile(out, []byte("keep"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if err := PlaylistExport("mix", "bad", out); err == nil {
+		t.Fatal("PlaylistExport should reject unsupported format")
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(data) != "keep" {
+		t.Fatalf("output file = %q, want keep", string(data))
 	}
 }
 

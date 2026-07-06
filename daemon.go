@@ -148,7 +148,7 @@ func (d *daemon) Send(msg any) {
 		d.handleLoad(m)
 
 	case ipc.QueueMsg:
-		d.playlist.Add(playlist.Track{Path: m.Path, Title: m.Path})
+		d.playlist.Add(playlist.TrackFromPath(m.Path))
 
 	case ipc.ThemeMsg:
 		reply(m.Reply, ipc.Response{OK: false, Error: "theme not available in headless mode"})

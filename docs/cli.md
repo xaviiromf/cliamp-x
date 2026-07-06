@@ -129,14 +129,28 @@ Manage local TOML playlists from the command line without opening the TUI.
 
 ```sh
 cliamp playlist list                          # list playlists with track counts
-cliamp playlist create "Name" file1 dir/ ...  # create from files/folders (recursive)
+cliamp playlist create "Name"                 # create an empty playlist
+cliamp playlist create "Name" file1 dir/ ...  # create from files/folders (recursive, skips duplicate paths)
 cliamp playlist create "Name" --ssh HOST dir/ # create from remote machine via SSH
-cliamp playlist add "Name" file1 ...          # append tracks to existing playlist
+cliamp playlist add "Name" file1 ...          # append tracks to existing playlist, skipping duplicates
+cliamp playlist rename "Old" "New"            # rename a playlist
 cliamp playlist show "Name"                   # display tracks
 cliamp playlist show "Name" --json            # machine-readable output
 cliamp playlist remove "Name" --index 3       # remove track by index
+cliamp playlist dedupe "Name"                 # remove duplicate paths, keeping the first
+cliamp playlist sort "Name" --by album         # sort in place
+cliamp playlist doctor [Name]                  # report missing local files
+cliamp playlist doctor "Name" --fix            # prune missing local files
+cliamp playlist export "Name" -o mix.m3u       # export as M3U
+cliamp playlist export "Name" --format pls     # export as PLS to stdout
+cliamp playlist import mix.m3u --name "Name"   # import local M3U/M3U8/PLS
+cliamp playlist bookmark "Name" --index 3      # toggle bookmark flag
+cliamp playlist bookmarks                       # list bookmarked tracks
+cliamp playlist enrich "Name"                  # probe duration/album metadata
 cliamp playlist delete "Name"                 # delete entire playlist
 ```
+
+Sort keys: `track`, `title`, `artist`, `album`, `artist+album`, `path`.
 
 See [playlists.md](playlists.md) for the TOML format and [ssh-streaming.md](ssh-streaming.md) for remote playback.
 

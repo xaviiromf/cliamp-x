@@ -42,6 +42,7 @@ var keymapEntries = []keymapEntry{
 	{key: "a", action: "Toggle queue (play next)"},
 	{key: "A", action: "Queue manager"},
 	{key: "x", action: "Remove selected track from playlist"},
+	{key: "w", action: "Write selected track/selection to playlist"},
 	{key: "o", action: "Open file browser"},
 	{key: "N", action: "Navidrome browser"},
 	{key: "L", action: "Browse local playlists"},
@@ -102,7 +103,7 @@ var coreReservedKeys = []string{
 
 	// Features.
 	"r", "z", "m", "e", "a", "A", "ctrl+h",
-	"ctrl+s", "S", "/", "ctrl+f",
+	"ctrl+s", "S", "/", "ctrl+f", "w",
 	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
 	"N", "L", "R", "P", "Y", "C", "M", "Q",
 	"v", "V", "ctrl+v", "ctrl+x", "x", "d", "ctrl+k", "?",

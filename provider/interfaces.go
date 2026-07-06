@@ -54,6 +54,18 @@ type PlaylistWriter interface {
 	AddTrackToPlaylist(ctx context.Context, playlistID string, track playlist.Track) error
 }
 
+// PlaylistBatchWriter is implemented by providers that support adding multiple
+// tracks to existing playlists in one operation.
+type PlaylistBatchWriter interface {
+	AddTracksToPlaylist(ctx context.Context, playlistID string, tracks []playlist.Track) (added, skipped int, err error)
+}
+
+// PlaylistSaver is implemented by providers that can overwrite a playlist's
+// complete ordered track list.
+type PlaylistSaver interface {
+	SavePlaylist(name string, tracks []playlist.Track) error
+}
+
 // PlaylistCreator is implemented by providers that support creating new
 // playlists.
 type PlaylistCreator interface {
@@ -76,6 +88,7 @@ type PlaylistRenamer interface {
 // track bookmarks and persisting them.
 type BookmarkSetter interface {
 	SetBookmark(playlistName string, idx int) error
+	SetBookmarkByPath(playlistName string, path string) error
 }
 
 // CustomStreamer is implemented by providers that need a custom audio

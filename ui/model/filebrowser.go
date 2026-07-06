@@ -25,8 +25,10 @@ type fbEntry struct {
 
 // fbTracksResolvedMsg carries tracks resolved from file browser selections.
 type fbTracksResolvedMsg struct {
-	tracks  []playlist.Track
-	replace bool
+	tracks         []playlist.Track
+	replace        bool
+	toPlaylist     bool
+	targetPlaylist string
 }
 
 func (m *Model) fbCount() int {
@@ -54,7 +56,11 @@ func (m Model) fbHelpLine() string {
 		help += helpKey("AltCZ", "Drive ")
 	}
 	if len(m.fileBrowser.selected) > 0 {
-		help += helpKey("R", "Replace ")
+		if m.fileBrowser.targetPlaylist == "" {
+			help += helpKey("w", "Playlist ") + helpKey("R", "Replace ")
+		} else {
+			help += helpKey("Enter", "Add to "+m.fileBrowser.targetPlaylist+" ")
+		}
 	}
 	help += helpKey("Esc", "Close")
 	return help
@@ -99,8 +105,14 @@ func (m *Model) openFileBrowser() {
 	m.fileBrowser.searching = false
 	m.fileBrowser.search = ""
 	m.fileBrowser.filtered = nil
+	m.fileBrowser.targetPlaylist = ""
 	m.loadFBDir()
 	m.fileBrowser.visible = true
+}
+
+func (m *Model) openFileBrowserForPlaylist(name string) {
+	m.openFileBrowser()
+	m.fileBrowser.targetPlaylist = name
 }
 
 // loadFBDir reads the current directory and populates fbEntries.
@@ -431,8 +443,20 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.fbMaybeAdjustScroll(m.fbVisible())
 
 	case "R":
-		if len(m.fileBrowser.selected) > 0 {
+		if len(m.fileBrowser.selected) > 0 && m.fileBrowser.targetPlaylist == "" {
 			return m.fbConfirm(true)
+		}
+
+	case "w":
+		if len(m.fileBrowser.selected) > 0 && m.fileBrowser.targetPlaylist == "" {
+			return m.fbConfirmToPlaylist()
+		}
+		if m.fileBrowser.cursor < m.fbCount() && m.fileBrowser.targetPlaylist == "" {
+			e := m.fbEntry(m.fileBrowser.cursor)
+			if e.isAudio || e.isDir {
+				m.fileBrowser.selected[e.path] = true
+				return m.fbConfirmToPlaylist()
+			}
 		}
 	}
 
@@ -461,11 +485,30 @@ func (m *Model) fbConfirm(replace bool) tea.Cmd {
 	}
 	m.fileBrowser.visible = false
 
+	target := m.fileBrowser.targetPlaylist
 	return func() tea.Msg {
 		r, err := resolve.Args(paths)
 		if err != nil {
 			return err
 		}
-		return fbTracksResolvedMsg{tracks: r.Tracks, replace: replace}
+		return fbTracksResolvedMsg{tracks: r.Tracks, replace: replace, targetPlaylist: target}
+	}
+}
+
+func (m *Model) fbConfirmToPlaylist() tea.Cmd {
+	paths := make([]string, 0, len(m.fileBrowser.selected))
+	for _, e := range m.fileBrowser.entries {
+		if m.fileBrowser.selected[e.path] {
+			paths = append(paths, e.path)
+		}
+	}
+	m.fileBrowser.visible = false
+
+	return func() tea.Msg {
+		r, err := resolve.Args(paths)
+		if err != nil {
+			return err
+		}
+		return fbTracksResolvedMsg{tracks: r.Tracks, toPlaylist: true}
 	}
 }

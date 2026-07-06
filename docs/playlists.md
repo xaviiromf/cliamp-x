@@ -1,15 +1,16 @@
 # Playlists
 
-Cliamp supports two kinds of playlists: **M3U files** loaded from the command line and **local TOML playlists** managed from within the app.
+Cliamp supports local **TOML playlists** managed from the TUI or CLI, plus **M3U/M3U8/PLS playlists** loaded from files or URLs.
 
-## M3U Playlists
+## M3U and PLS Playlists
 
-Load any `.m3u` or `.m3u8` file, local or remote:
+Load any `.m3u`, `.m3u8`, or `.pls` file, local or remote:
 
 ```sh
 cliamp ~/radio-stations.m3u
 cliamp http://radio.example.com/streams.m3u
 cliamp ~/music.m3u https://example.com/live.m3u   # mix local + remote
+cliamp ~/radio.pls
 ```
 
 ### EXTINF Metadata
@@ -55,7 +56,7 @@ Create and manage your own playlists stored as `.toml` files in `~/.config/cliam
 
 ### File Format
 
-Each playlist is a separate `.toml` file. The filename (minus extension) becomes the playlist name.
+Each playlist is a separate `.toml` file. The filename (minus extension) becomes the playlist name. Empty playlists are kept on disk so they remain visible in the TUI and CLI.
 
 ```toml
 # ~/.config/cliamp/playlists/radio-stations.toml
@@ -146,14 +147,54 @@ Press `p` from any view to open the playlist manager:
 3. **Open**: press `Enter` or `→` to view tracks inside a playlist
 4. **Add now-playing**: press `a` to add the currently playing track (the footer shows the track name so you know what gets added)
 5. **Delete playlist**: press `d` then `y` to confirm deletion
-6. **Remove track**: open a playlist, highlight a track, press `d` to remove it
-7. **Play this**: press `Enter` on the track list to start playback at the highlighted track. The rest of the playlist follows.
-8. **Play all**: press `P` (capital) to start from the top, regardless of cursor position
-9. **New playlist**: select "+ New Playlist...", type a name, and press Enter. If you create a playlist while a `/` filter is active, the filter text is pre-filled as the new playlist name.
+6. **Mark tracks**: open a playlist, press `Space` to mark a track and advance, or `a` to mark or unmark all visible tracks
+7. **Move tracks**: press `[` or `]`; the saved playlist is updated immediately
+8. **Sort tracks**: press `s` to cycle `track`, `title`, `artist`, `album`, `artist+album`, and `path` sorting
+9. **Remove tracks**: press `d` to remove the marked tracks, or the highlighted track when nothing is marked
+10. **Undo manager edits**: press `u` after delete, remove, move, or sort
+11. **Write tracks elsewhere**: press `w` to copy the marked or highlighted tracks to another playlist; duplicate paths are skipped
+12. **Add files**: press `o` from inside a playlist to browse files and add them to that playlist
+13. **Play this**: press `Enter` on the track list to start playback at the highlighted track. The rest of the playlist follows.
+14. **Play all**: press `p` to start from the top, regardless of cursor position
+15. **New playlist**: select "+ New Playlist...", type a name, and press Enter. If you create a playlist while a `/` filter is active, the filter text is pre-filled as the new playlist name.
 
 Tracks with an `album` field are grouped by album with visual separator headers in the playlist manager (album grouping is hidden while a filter is active) and the main player view.
 
-The directory `~/.config/cliamp/playlists/` is created automatically on first use. Removing the last track from a playlist auto-deletes the file.
+The directory `~/.config/cliamp/playlists/` is created automatically on first use. Removing the last track leaves an empty playlist file; use `d` on the playlist list or `cliamp playlist delete` to delete the playlist itself.
+
+### Writing to Playlists
+
+Press `w` on a track in the main playlist to open the local playlist picker. Pick an existing playlist or choose `+ New Playlist...`. Exact duplicate paths are skipped and reported.
+
+In the file browser, select files with `Space`, select all visible audio files with `a`, then press `w` to write the selection to a playlist instead of loading it into the current queue.
+
+### Command Line Management
+
+Manage local TOML playlists without opening the TUI:
+
+```sh
+cliamp playlist list
+cliamp playlist create "Name"                    # create an empty playlist
+cliamp playlist create "Name" file1 dir/ ...     # create from files/folders
+cliamp playlist add "Name" file1 dir/ ...        # append, skipping duplicate paths
+cliamp playlist rename "Old" "New"
+cliamp playlist dedupe "Name"
+cliamp playlist sort "Name" --by artist+album
+cliamp playlist doctor                           # report missing local files in all playlists
+cliamp playlist doctor "Name" --fix              # prune missing local files
+cliamp playlist export "Name" --format m3u -o mix.m3u
+cliamp playlist import mix.pls --name "Imported"
+cliamp playlist show "Name" --json
+cliamp playlist remove "Name" --index 3
+cliamp playlist bookmark "Name" --index 3       # toggle bookmark flag
+cliamp playlist bookmarks                        # list all bookmarked tracks
+cliamp playlist enrich "Name"                    # backfill duration/album metadata
+cliamp playlist delete "Name"
+```
+
+Sort keys are `track`, `title`, `artist`, `album`, `artist+album`, and `path`.
+
+New playlist names reject path separators and non-portable filename characters. Existing playlist files with older Unix-only names remain readable and writable.
 
 ### Creating Playlists Manually
 
@@ -195,7 +236,13 @@ title = "My Radio"
 | `Up` `Down` / `j` `k` | Navigate |
 | `/` | Filter playlists or tracks; `Esc` clears |
 | `Enter` / `→` | Open playlist (list screen) / Play **highlighted** track (tracks screen) |
-| `P` | Play all tracks from the top (tracks screen) |
-| `a` | Add currently playing track |
-| `d` | Delete playlist (confirms) / Remove track |
+| `p` | Play all tracks from the top (tracks screen) |
+| `a` | List: add currently playing track. Tracks: mark/unmark all visible tracks |
+| `Space` | Mark/unmark track and advance (tracks screen) |
+| `s` | Sort tracks, cycling supported sort keys (tracks screen) |
+| `w` | Write marked/highlighted tracks, or the current queue from the list screen, to another playlist |
+| `o` | Add files to the open playlist (tracks screen) |
+| `[` `]` | Move track up/down and save (tracks screen) |
+| `d` | Delete playlist (confirms) / Remove marked tracks, or highlighted track if none are marked |
+| `u` | Undo the last playlist-manager edit |
 | `←` / `Backspace` | Go back from tracks screen to list |

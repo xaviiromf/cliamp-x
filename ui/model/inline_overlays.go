@@ -135,6 +135,8 @@ func (m Model) activeOverlay() (overlayView, bool) {
 			(*Model).visPickerHelpLine, (*Model).renderVisPickerList}, true
 	case m.devicePicker.visible:
 		return overlayView{(*Model).deviceHeaderLine, (*Model).devicePickerHelpLine, (*Model).renderDeviceBody}, true
+	case m.plPicker.visible:
+		return overlayView{(*Model).plPickerHeaderLine, (*Model).plPickerHelpLine, (*Model).renderPlaylistPickerBody}, true
 	case m.fileBrowser.visible:
 		return overlayView{(*Model).fbHeaderLine, (*Model).fbHelpLine, (*Model).renderFileBrowserBody}, true
 	case m.navBrowser.visible:

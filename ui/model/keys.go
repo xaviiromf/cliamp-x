@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -196,6 +197,18 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	// Provider search overlay sits on top of the nav browser, so it must
 	// claim keys first when both are visible.
+	if m.plPicker.visible {
+		return m.handlePlaylistPickerKey(msg)
+	}
+
+	// File browser overlay can be opened from inside the playlist manager, so it
+	// must take precedence when both states are visible.
+	if m.fileBrowser.visible {
+		return m.handleFileBrowserKey(msg)
+	}
+
+	// Provider search overlay sits on top of the nav browser, so it must
+	// claim keys first when both are visible.
 	if m.spotSearch.visible {
 		return m.handleSpotSearchKey(msg)
 	}
@@ -218,11 +231,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	// Playlist manager overlay (browse, add, remove, delete)
 	if m.plManager.visible {
 		return m.handlePlaylistManagerKey(msg)
-	}
-
-	// File browser overlay
-	if m.fileBrowser.visible {
-		return m.handleFileBrowserKey(msg)
 	}
 
 	// Queue manager overlay
@@ -493,15 +501,18 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "f":
 		if m.focus == focusPlaylist && m.plCursor >= 0 && m.plCursor < m.playlist.Len() && m.loadedPlaylist != "" {
 			if bs, ok := m.localProvider.(provider.BookmarkSetter); ok {
-				m.playlist.ToggleBookmark(m.plCursor)
-				if err := bs.SetBookmark(m.loadedPlaylist, m.plCursor); err != nil {
+				tracks := m.playlist.Tracks()
+				track := tracks[m.plCursor]
+				if err := bs.SetBookmarkByPath(m.loadedPlaylist, track.Path); err != nil {
 					m.status.Showf(statusTTLDefault, "Save failed: %s", err)
+					return nil
 				}
-				t := m.playlist.Tracks()[m.plCursor]
-				if t.Bookmark {
-					m.status.Showf(statusTTLDefault, "★ %s", t.DisplayName())
+				m.playlist.ToggleBookmark(m.plCursor)
+				track = m.playlist.Tracks()[m.plCursor]
+				if track.Bookmark {
+					m.status.Showf(statusTTLDefault, "★ %s", track.DisplayName())
 				} else {
-					m.status.Showf(statusTTLDefault, "☆ %s", t.DisplayName())
+					m.status.Showf(statusTTLDefault, "☆ %s", track.DisplayName())
 				}
 			}
 		}
@@ -510,6 +521,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.focus == focusPlaylist && m.plCursor > 0 {
 			if m.playlist.Move(m.plCursor, m.plCursor-1) {
 				m.plCursor--
+				m.persistLoadedPlaylistOrder()
 				m.adjustScroll()
 			}
 		}
@@ -518,6 +530,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.focus == focusPlaylist && m.plCursor < m.playlist.Len()-1 {
 			if m.playlist.Move(m.plCursor, m.plCursor+1) {
 				m.plCursor++
+				m.persistLoadedPlaylistOrder()
 				m.adjustScroll()
 			}
 		}
@@ -660,6 +673,12 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			if !m.playlist.Dequeue(m.plCursor) {
 				m.playlist.Queue(m.plCursor)
 			}
+		}
+
+	case "w":
+		if m.focus == focusPlaylist && m.plCursor >= 0 && m.plCursor < m.playlist.Len() {
+			track := m.playlist.Tracks()[m.plCursor]
+			m.openPlaylistPicker([]playlist.Track{track}, "Track: "+track.DisplayName())
 		}
 
 	case "A":
@@ -1509,11 +1528,14 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 			realIdx := m.plMgrPlaylistRealIndex(m.plManager.cursor)
 			if realIdx >= 0 {
 				name := m.plManager.playlists[realIdx].Name
+				if tracks, err := m.localProvider.Tracks(name); err == nil {
+					m.plManager.undo = plManagerUndo{kind: plUndoPlaylist, name: name, tracks: cloneTracks(tracks)}
+				}
 				if d, ok := m.localProvider.(provider.PlaylistDeleter); ok {
 					if err := d.DeletePlaylist(name); err != nil {
 						m.status.Showf(statusTTLDefault, "Delete failed: %s", err)
 					} else {
-						m.status.Showf(statusTTLDefault, "Deleted %q", name)
+						m.status.Showf(statusTTLDefault, "Deleted %q (u to undo)", name)
 					}
 				}
 				m.plMgrRefreshList()
@@ -1593,6 +1615,13 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.addToPlaylist(m.plManager.playlists[realIdx].Name)
 			m.plMgrRefreshList()
 		}
+	case "w":
+		tracks := m.playlist.Tracks()
+		if len(tracks) == 0 {
+			m.status.Show("Queue is empty", statusTTLShort)
+			return nil
+		}
+		m.openPlaylistPicker(tracks, fmt.Sprintf("Save %d queued tracks", len(tracks)))
 	case "r":
 		realIdx := m.plMgrPlaylistRealIndex(m.plManager.cursor)
 		if realIdx < 0 {
@@ -1610,6 +1639,8 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.plMgrPlaylistRealIndex(m.plManager.cursor) >= 0 {
 			m.plManager.confirmDel = true
 		}
+	case "u":
+		m.plMgrUndoLast()
 	case "esc", "p":
 		if m.plManager.filter != "" {
 			// First Esc clears an active filter rather than closing.
@@ -1729,6 +1760,10 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.plManager.cursor = 0
 		}
 		m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+	case "[":
+		m.plMgrMoveTrack(-1)
+	case "]":
+		m.plMgrMoveTrack(1)
 	case "ctrl+x":
 		m.toggleExpandedView()
 		m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
@@ -1761,51 +1796,37 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			return m.plMgrLoadAndPlay(startIdx)
 		}
-	case "P":
+	case "p":
 		// Play all from the top, regardless of cursor.
 		if len(m.plManager.tracks) > 0 {
 			return m.plMgrLoadAndPlay(0)
 		}
-	case "a":
-		m.addToPlaylist(m.plManager.selPlaylist)
-		if tracks, err := m.localProvider.Tracks(m.plManager.selPlaylist); err == nil {
-			m.plManager.tracks = tracks
-			if m.plManager.filter != "" {
-				m.plMgrRecomputeFilter()
-			}
-		}
-	case "d":
-		// Remove highlighted track (translate view index to real index).
+	case "space":
 		realIdx := m.plMgrTrackRealIndex(m.plManager.cursor)
-		if realIdx >= 0 {
-			err := m.localDeleter().RemoveTrack(m.plManager.selPlaylist, realIdx)
-			if err != nil {
-				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
-			} else {
-				m.status.Show("Track removed", statusTTLDefault)
-			}
-			// Reload tracks (or go back if playlist was deleted).
-			tracks, err := m.localProvider.Tracks(m.plManager.selPlaylist)
-			if err != nil || len(tracks) == 0 {
-				// Playlist was auto-deleted (empty). Return to list.
-				m.plMgrResetFilter()
-				m.plMgrRefreshList()
-				m.plManager.screen = plMgrScreenList
-				m.plManager.cursor = 0
-				return nil
-			}
-			m.plManager.tracks = tracks
-			if m.plManager.filter != "" {
-				m.plMgrRecomputeFilter()
-			}
-			newCount := m.plMgrTracksViewCount()
-			if m.plManager.cursor >= newCount {
-				m.plManager.cursor = newCount - 1
-			}
-			if m.plManager.cursor < 0 {
-				m.plManager.cursor = 0
-			}
+		m.plMgrToggleMark(realIdx)
+		if m.plManager.cursor < count-1 {
+			m.plManager.cursor++
+			m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
 		}
+	case "a":
+		m.plMgrToggleMarkAll()
+	case "s":
+		m.plMgrSortTracks()
+	case "w":
+		tracks := m.plMgrSelectedTracks()
+		if len(tracks) > 0 {
+			title := "Track: " + tracks[0].DisplayName()
+			if len(tracks) > 1 {
+				title = fmt.Sprintf("%d tracks selected", len(tracks))
+			}
+			m.openPlaylistPicker(tracks, title)
+		}
+	case "o":
+		m.openFileBrowserForPlaylist(m.plManager.selPlaylist)
+	case "d":
+		m.plMgrRemoveSelectedTracks()
+	case "u":
+		m.plMgrUndoLast()
 	case "esc", "backspace", "h", "left":
 		if m.plManager.filter != "" {
 			m.plMgrResetFilter()
@@ -1858,7 +1879,7 @@ func (m *Model) handlePlMgrNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		name := strings.TrimSpace(m.plManager.newName)
 		if name != "" {
-			m.addToPlaylist(name)
+			m.createPlaylistFromManager(name)
 			m.plMgrRefreshList()
 			m.plManager.screen = plMgrScreenList
 		}
@@ -1917,10 +1938,247 @@ func (m *Model) plMgrCommitRename() {
 	m.plMgrRefreshList()
 }
 
-// localDeleter returns the PlaylistDeleter from the local provider.
-func (m *Model) localDeleter() provider.PlaylistDeleter {
-	d, _ := m.localProvider.(provider.PlaylistDeleter)
-	return d
+func (m *Model) localSaver() provider.PlaylistSaver {
+	s, _ := m.localProvider.(provider.PlaylistSaver)
+	return s
+}
+
+func cloneTracks(tracks []playlist.Track) []playlist.Track {
+	return append([]playlist.Track(nil), tracks...)
+}
+
+func (m *Model) plMgrSetTrackUndo() {
+	m.plManager.undo = plManagerUndo{
+		kind:   plUndoTracks,
+		name:   m.plManager.selPlaylist,
+		tracks: cloneTracks(m.plManager.tracks),
+	}
+}
+
+func (m *Model) plMgrUndoLast() {
+	undo := m.plManager.undo
+	if undo.kind == plUndoNone || undo.name == "" {
+		m.status.Show("Nothing to undo", statusTTLShort)
+		return
+	}
+	saver := m.localSaver()
+	if saver == nil {
+		m.status.Show("Undo unavailable", statusTTLDefault)
+		return
+	}
+	if err := saver.SavePlaylist(undo.name, cloneTracks(undo.tracks)); err != nil {
+		m.status.Showf(statusTTLDefault, "Undo failed: %s", err)
+		return
+	}
+	m.plManager.undo = plManagerUndo{}
+	m.plMgrRefreshList()
+	if m.plManager.screen == plMgrScreenTracks && m.plManager.selPlaylist == undo.name {
+		m.plManager.tracks = cloneTracks(undo.tracks)
+		m.plManager.marked = make(map[int]bool)
+		m.plMgrRecomputeFilter()
+		m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+	}
+	m.status.Showf(statusTTLDefault, "Restored %q", undo.name)
+}
+
+func (m *Model) plMgrSelectedTrackIndices() []int {
+	if len(m.plManager.marked) > 0 {
+		indices := make([]int, 0, len(m.plManager.marked))
+		for idx := range m.plManager.marked {
+			if idx >= 0 && idx < len(m.plManager.tracks) {
+				indices = append(indices, idx)
+			}
+		}
+		sort.Ints(indices)
+		return indices
+	}
+	realIdx := m.plMgrTrackRealIndex(m.plManager.cursor)
+	if realIdx < 0 {
+		return nil
+	}
+	return []int{realIdx}
+}
+
+func (m *Model) plMgrSelectedTracks() []playlist.Track {
+	indices := m.plMgrSelectedTrackIndices()
+	tracks := make([]playlist.Track, 0, len(indices))
+	for _, idx := range indices {
+		tracks = append(tracks, m.plManager.tracks[idx])
+	}
+	return tracks
+}
+
+func (m *Model) plMgrToggleMark(realIdx int) {
+	if realIdx < 0 || realIdx >= len(m.plManager.tracks) {
+		return
+	}
+	if m.plManager.marked == nil {
+		m.plManager.marked = make(map[int]bool)
+	}
+	if m.plManager.marked[realIdx] {
+		delete(m.plManager.marked, realIdx)
+		return
+	}
+	m.plManager.marked[realIdx] = true
+}
+
+func (m *Model) plMgrToggleMarkAll() {
+	count := m.plMgrTracksViewCount()
+	if count == 0 {
+		return
+	}
+	if m.plManager.marked == nil {
+		m.plManager.marked = make(map[int]bool)
+	}
+	allMarked := true
+	for i := 0; i < count; i++ {
+		realIdx := m.plMgrTrackRealIndex(i)
+		if realIdx >= 0 && !m.plManager.marked[realIdx] {
+			allMarked = false
+			break
+		}
+	}
+	for i := 0; i < count; i++ {
+		realIdx := m.plMgrTrackRealIndex(i)
+		if realIdx < 0 {
+			continue
+		}
+		if allMarked {
+			delete(m.plManager.marked, realIdx)
+		} else {
+			m.plManager.marked[realIdx] = true
+		}
+	}
+}
+
+func (m *Model) plMgrSaveTracks(status string) bool {
+	saver := m.localSaver()
+	if saver == nil {
+		m.status.Show("Playlist saving is not supported", statusTTLDefault)
+		return false
+	}
+	if err := saver.SavePlaylist(m.plManager.selPlaylist, m.plManager.tracks); err != nil {
+		m.status.Showf(statusTTLDefault, "Save failed: %s", err)
+		return false
+	}
+	if status != "" {
+		m.status.Show(status, statusTTLDefault)
+	}
+	return true
+}
+
+func (m *Model) plMgrRemoveSelectedTracks() {
+	indices := m.plMgrSelectedTrackIndices()
+	if len(indices) == 0 {
+		return
+	}
+	m.plMgrSetTrackUndo()
+	for i := len(indices) - 1; i >= 0; i-- {
+		idx := indices[i]
+		m.plManager.tracks = append(m.plManager.tracks[:idx], m.plManager.tracks[idx+1:]...)
+	}
+	m.plManager.marked = make(map[int]bool)
+	if !m.plMgrSaveTracks(fmt.Sprintf("Removed %d track(s) from %q", len(indices), m.plManager.selPlaylist)) {
+		m.plManager.tracks = cloneTracks(m.plManager.undo.tracks)
+		return
+	}
+	if m.plManager.filter != "" {
+		m.plMgrRecomputeFilter()
+	}
+	newCount := m.plMgrTracksViewCount()
+	if m.plManager.cursor >= newCount {
+		m.plManager.cursor = newCount - 1
+	}
+	if m.plManager.cursor < 0 {
+		m.plManager.cursor = 0
+	}
+	m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+}
+
+func (m *Model) plMgrMoveTrack(delta int) {
+	if m.plManager.filter != "" {
+		m.status.Show("Clear filter before moving tracks", statusTTLDefault)
+		return
+	}
+	from := m.plManager.cursor
+	to := from + delta
+	if from < 0 || from >= len(m.plManager.tracks) || to < 0 || to >= len(m.plManager.tracks) {
+		return
+	}
+	m.plMgrSetTrackUndo()
+	m.plManager.tracks[from], m.plManager.tracks[to] = m.plManager.tracks[to], m.plManager.tracks[from]
+	m.plManager.cursor = to
+	m.plManager.marked = make(map[int]bool)
+	if m.plMgrSaveTracks(fmt.Sprintf("Reordered %q", m.plManager.selPlaylist)) {
+		m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+	} else {
+		m.plManager.tracks = cloneTracks(m.plManager.undo.tracks)
+	}
+}
+
+var plMgrSortModes = []string{"track", "title", "artist", "album", "artist+album", "path"}
+
+func (m *Model) plMgrSortTracks() {
+	if len(m.plManager.tracks) < 2 {
+		return
+	}
+	m.plMgrSetTrackUndo()
+	mode := plMgrSortModes[m.plManager.sortMode%len(plMgrSortModes)]
+	m.plManager.sortMode++
+	sort.SliceStable(m.plManager.tracks, func(i, j int) bool {
+		return compareUITracks(m.plManager.tracks[i], m.plManager.tracks[j], mode) < 0
+	})
+	m.plManager.marked = make(map[int]bool)
+	if m.plMgrSaveTracks(fmt.Sprintf("Sorted %q by %s", m.plManager.selPlaylist, mode)) {
+		m.plManager.cursor = 0
+		m.plManager.scroll = 0
+		m.plMgrRecomputeFilter()
+	} else {
+		m.plManager.tracks = cloneTracks(m.plManager.undo.tracks)
+	}
+}
+
+func compareUITracks(a, b playlist.Track, mode string) int {
+	cmpString := func(x, y string) int {
+		return strings.Compare(strings.ToLower(x), strings.ToLower(y))
+	}
+	first := func(values ...int) int {
+		for _, v := range values {
+			if v != 0 {
+				return v
+			}
+		}
+		return 0
+	}
+	switch mode {
+	case "track":
+		return first(a.TrackNumber-b.TrackNumber, cmpString(a.Title, b.Title), cmpString(a.Path, b.Path))
+	case "artist":
+		return first(cmpString(a.Artist, b.Artist), cmpString(a.Album, b.Album), a.TrackNumber-b.TrackNumber, cmpString(a.Title, b.Title), cmpString(a.Path, b.Path))
+	case "album":
+		return first(cmpString(a.Album, b.Album), a.TrackNumber-b.TrackNumber, cmpString(a.Title, b.Title), cmpString(a.Path, b.Path))
+	case "artist+album":
+		return first(cmpString(a.Artist, b.Artist), cmpString(a.Album, b.Album), a.TrackNumber-b.TrackNumber, cmpString(a.Title, b.Title), cmpString(a.Path, b.Path))
+	case "path":
+		return cmpString(a.Path, b.Path)
+	default:
+		return first(cmpString(a.Title, b.Title), cmpString(a.Artist, b.Artist), cmpString(a.Path, b.Path))
+	}
+}
+
+func (m *Model) persistLoadedPlaylistOrder() {
+	if m.loadedPlaylist == "" {
+		return
+	}
+	saver, ok := m.localProvider.(provider.PlaylistSaver)
+	if !ok {
+		return
+	}
+	if err := saver.SavePlaylist(m.loadedPlaylist, m.playlist.Tracks()); err != nil {
+		m.status.Showf(statusTTLDefault, "Save failed: %s", err)
+		return
+	}
+	m.status.Showf(statusTTLDefault, "Reordered %q", m.loadedPlaylist)
 }
 
 // addToPlaylist appends the current track to a local playlist and shows a status message.
@@ -1930,12 +2188,66 @@ func (m *Model) addToPlaylist(name string) {
 		m.status.Show("No track to add", statusTTLShort)
 		return
 	}
+	if bw, ok := m.localProvider.(provider.PlaylistBatchWriter); ok {
+		added, skipped, err := bw.AddTracksToPlaylist(context.Background(), name, []playlist.Track{track})
+		if err != nil {
+			m.status.Showf(statusTTLDefault, "Failed: %s", err)
+			return
+		}
+		switch {
+		case added > 0:
+			m.status.Showf(statusTTLDefault, "Added to %q", name)
+		case skipped > 0:
+			m.status.Showf(statusTTLDefault, "Already in %q", name)
+		default:
+			m.status.Showf(statusTTLDefault, "Nothing added to %q", name)
+		}
+		return
+	}
 	if w, ok := m.localProvider.(provider.PlaylistWriter); ok {
 		if err := w.AddTrackToPlaylist(context.Background(), name, track); err != nil {
 			m.status.Showf(statusTTLDefault, "Failed: %s", err)
 		} else {
 			m.status.Showf(statusTTLDefault, "Added to %q", name)
 		}
+	}
+}
+
+func (m *Model) createPlaylistFromManager(name string) {
+	c, ok := m.localProvider.(provider.PlaylistCreator)
+	if !ok {
+		m.status.Show("Playlist creation is not supported", statusTTLDefault)
+		return
+	}
+	id, err := c.CreatePlaylist(context.Background(), name)
+	if err != nil {
+		m.status.Showf(statusTTLDefault, "Create failed: %s", err)
+		return
+	}
+	track, idx := m.currentPlaybackTrack()
+	if idx < 0 {
+		m.status.Showf(statusTTLDefault, "Created %q", name)
+		return
+	}
+	if bw, ok := m.localProvider.(provider.PlaylistBatchWriter); ok {
+		added, skipped, err := bw.AddTracksToPlaylist(context.Background(), id, []playlist.Track{track})
+		if err != nil {
+			m.status.Showf(statusTTLDefault, "Created %q, add failed: %s", name, err)
+			return
+		}
+		if added > 0 {
+			m.status.Showf(statusTTLDefault, "Created %q & added track", name)
+		} else if skipped > 0 {
+			m.status.Showf(statusTTLDefault, "Created %q; track was duplicate", name)
+		}
+		return
+	}
+	if w, ok := m.localProvider.(provider.PlaylistWriter); ok {
+		if err := w.AddTrackToPlaylist(context.Background(), id, track); err != nil {
+			m.status.Showf(statusTTLDefault, "Created %q, add failed: %s", name, err)
+			return
+		}
+		m.status.Showf(statusTTLDefault, "Created %q & added track", name)
 	}
 }
 

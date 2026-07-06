@@ -385,8 +385,8 @@ func playlistCommand() *cli.Command {
 			},
 			{
 				Name:      "create",
-				Usage:     "create a new playlist from files/directories",
-				ArgsUsage: "\"Name\" <file|dir> [...]",
+				Usage:     "create a new playlist, optionally from files/directories",
+				ArgsUsage: "\"Name\" [file|dir ...]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "ssh", Usage: "SSH host for remote directory walking"},
 				},
@@ -394,12 +394,21 @@ func playlistCommand() *cli.Command {
 					if c.Args().Len() == 0 {
 						return fmt.Errorf("playlist name is required")
 					}
-					if c.Args().Len() < 2 && c.String("ssh") == "" {
-						return fmt.Errorf("at least one file or directory is required (or use --ssh)")
-					}
 					name := c.Args().First()
 					paths := c.Args().Slice()[1:]
 					return cmd.PlaylistCreate(name, paths, c.String("ssh"))
+				},
+			},
+			{
+				Name:      "rename",
+				Usage:     "rename a playlist",
+				ArgsUsage: "\"Old\" \"New\"",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() != 2 {
+						return fmt.Errorf("usage: cliamp playlist rename \"Old\" \"New\"")
+					}
+					args := c.Args().Slice()
+					return cmd.PlaylistRename(args[0], args[1])
 				},
 			},
 			{
@@ -450,6 +459,75 @@ func playlistCommand() *cli.Command {
 						return fmt.Errorf("usage: cliamp playlist delete \"Name\"")
 					}
 					return cmd.PlaylistDelete(c.Args().First())
+				},
+			},
+			{
+				Name:      "dedupe",
+				Usage:     "remove duplicate tracks by exact path",
+				ArgsUsage: "\"Name\"",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() == 0 {
+						return fmt.Errorf("usage: cliamp playlist dedupe \"Name\"")
+					}
+					return cmd.PlaylistDedupe(c.Args().First())
+				},
+			},
+			{
+				Name:      "sort",
+				Usage:     "sort a playlist in place",
+				ArgsUsage: "\"Name\"",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "by", Usage: "sort key: track, title, artist, album, artist+album, path", Value: "title"},
+				},
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() == 0 {
+						return fmt.Errorf("usage: cliamp playlist sort \"Name\" --by album")
+					}
+					return cmd.PlaylistSort(c.Args().First(), c.String("by"))
+				},
+			},
+			{
+				Name:      "doctor",
+				Usage:     "report missing local files in playlists",
+				ArgsUsage: "[Name]",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{Name: "fix", Usage: "prune missing local files"},
+				},
+				Action: func(ctx context.Context, c *cli.Command) error {
+					name := ""
+					if c.Args().Len() > 0 {
+						name = c.Args().First()
+					}
+					return cmd.PlaylistDoctor(name, c.Bool("fix"))
+				},
+			},
+			{
+				Name:      "export",
+				Usage:     "export a playlist as M3U or PLS",
+				ArgsUsage: "\"Name\"",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "format", Usage: "format: m3u or pls", Value: "m3u"},
+					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "output file (default stdout)"},
+				},
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() == 0 {
+						return fmt.Errorf("usage: cliamp playlist export \"Name\" [--format m3u|pls] [-o file]")
+					}
+					return cmd.PlaylistExport(c.Args().First(), c.String("format"), c.String("output"))
+				},
+			},
+			{
+				Name:      "import",
+				Usage:     "import a local M3U or PLS file",
+				ArgsUsage: "file.m3u",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "name", Usage: "playlist name (default: file basename)"},
+				},
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() == 0 {
+						return fmt.Errorf("usage: cliamp playlist import file.m3u [--name Name]")
+					}
+					return cmd.PlaylistImport(c.Args().First(), c.String("name"))
 				},
 			},
 			{

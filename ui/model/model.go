@@ -60,6 +60,7 @@ const (
 	screenThemePicker
 	screenVisPicker
 	screenDevicePicker
+	screenPlaylistPicker
 	screenFileBrowser
 	screenNavBrowser
 	screenPlaylistManager
@@ -185,6 +186,7 @@ type Model struct {
 	keymap         keymapOverlay
 	queue          queueOverlay
 	plManager      plManagerState
+	plPicker       playlistPickerState
 	spotSearch     spotSearchState
 	fileBrowser    fileBrowserState
 	navBrowser     navBrowserState
@@ -317,6 +319,8 @@ func (m Model) activeScreen() topLevelScreen {
 		return screenVisPicker
 	case m.devicePicker.visible:
 		return screenDevicePicker
+	case m.plPicker.visible:
+		return screenPlaylistPicker
 	case m.fileBrowser.visible:
 		return screenFileBrowser
 	case m.navBrowser.visible:

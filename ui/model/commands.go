@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/internal/playback"
 	"github.com/bjarneo/cliamp/lyrics"
 	"github.com/bjarneo/cliamp/player"
@@ -42,7 +43,12 @@ type ShowStatusMsg struct {
 	Duration time.Duration
 }
 
-type tracksLoadedMsg []playlist.Track
+type tracksLoadedMsg struct {
+	tracks        []playlist.Track
+	playlistID    string
+	providerName  string
+	playlistExact bool
+}
 
 // feedsLoadedMsg carries tracks resolved from remote feed/M3U URLs,
 // along with the original source URLs so downstream handlers can identify
@@ -260,19 +266,21 @@ func fetchTracksCmd(prov playlist.Provider, playlistID string) tea.Cmd {
 		}
 		// Resolve PLS/M3U wrapper URLs to actual stream URLs so the
 		// player receives a direct audio stream instead of a playlist file.
-		tracks = resolveWrapperURLs(tracks)
-		return tracksLoadedMsg(tracks)
+		tracks, expanded := resolveWrapperURLs(tracks)
+		return tracksLoadedMsg{tracks: tracks, playlistID: playlistID, providerName: prov.Name(), playlistExact: !expanded}
 	}
 }
 
 // resolveWrapperURLs expands any PLS/M3U track paths into the actual stream
 // URLs they contain. Non-wrapper tracks are passed through unchanged.
-func resolveWrapperURLs(tracks []playlist.Track) []playlist.Track {
+func resolveWrapperURLs(tracks []playlist.Track) ([]playlist.Track, bool) {
 	var out []playlist.Track
+	expanded := false
 	for _, t := range tracks {
 		if playlist.IsURL(t.Path) && (playlist.IsPLS(t.Path) || playlist.IsM3U(t.Path)) {
 			resolved, err := resolve.Remote([]string{t.Path})
 			if err == nil && len(resolved) > 0 {
+				expanded = true
 				// Preserve the original title/artist on resolved tracks.
 				for i := range resolved {
 					if resolved[i].Title == "" || resolved[i].Title == resolved[i].Path {
@@ -291,7 +299,7 @@ func resolveWrapperURLs(tracks []playlist.Track) []playlist.Track {
 		}
 		out = append(out, t)
 	}
-	return out
+	return out, expanded
 }
 
 const navAlbumPageSize = 100
@@ -406,6 +414,15 @@ func fetchSpotSearchCmd(s provider.Searcher, query string) tea.Cmd {
 func fetchSpotPlaylistsCmd(prov playlist.Provider) tea.Cmd {
 	return func() tea.Msg {
 		playlists, err := prov.Playlists()
+		if err == nil && prov.Name() == "Local" {
+			filtered := playlists[:0]
+			for _, pl := range playlists {
+				if pl.Name != history.PlaylistName {
+					filtered = append(filtered, pl)
+				}
+			}
+			playlists = filtered
+		}
 		return spotPlaylistsMsg{playlists: playlists, err: err}
 	}
 }

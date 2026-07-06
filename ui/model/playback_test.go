@@ -274,8 +274,10 @@ func modelAfterProviderPlaylistLoadWhilePlaying(t *testing.T) (Model, *playbackF
 	}
 
 	updated, _ := m.Update(tracksLoadedMsg{
-		{Title: "New 1", Path: "new1.mp3", DurationSecs: 180},
-		{Title: "New 2", Path: "new2.mp3", DurationSecs: 180},
+		tracks: []playlist.Track{
+			{Title: "New 1", Path: "new1.mp3", DurationSecs: 180},
+			{Title: "New 2", Path: "new2.mp3", DurationSecs: 180},
+		},
 	})
 	m = updated.(Model)
 

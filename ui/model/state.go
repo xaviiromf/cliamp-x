@@ -124,6 +124,9 @@ type plManagerState struct {
 	confirmDel    bool
 	renameOldName string
 	renameName    string
+	marked        map[int]bool // real track indices marked on the tracks screen
+	sortMode      int
+	undo          plManagerUndo
 
 	// Filter (`/`) state. Reset on screen change. `filtered` indexes into
 	// `playlists` (list screen) or `tracks` (tracks screen).
@@ -134,20 +137,54 @@ type plManagerState struct {
 	savedScroll int
 }
 
+type plManagerUndoKind int
+
+const (
+	plUndoNone plManagerUndoKind = iota
+	plUndoTracks
+	plUndoPlaylist
+)
+
+type plManagerUndo struct {
+	kind   plManagerUndoKind
+	name   string
+	tracks []playlist.Track
+}
+
+type playlistPickerScreen int
+
+const (
+	plPickerChoose playlistPickerScreen = iota
+	plPickerNewName
+)
+
+// playlistPickerState holds the reusable local "write to playlist" picker.
+type playlistPickerState struct {
+	visible   bool
+	screen    playlistPickerScreen
+	cursor    int
+	scroll    int
+	playlists []playlist.PlaylistInfo
+	tracks    []playlist.Track
+	title     string
+	newName   string
+}
+
 // fileBrowserState holds state for the file browser overlay.
 type fileBrowserState struct {
-	visible     bool
-	dir         string
-	entries     []fbEntry
-	cursor      int
-	scroll      int
-	savedCursor int
-	savedScroll int
-	selected    map[string]bool
-	err         string
-	searching   bool
-	search      string
-	filtered    []int // indices into entries
+	visible        bool
+	dir            string
+	entries        []fbEntry
+	cursor         int
+	scroll         int
+	savedCursor    int
+	savedScroll    int
+	selected       map[string]bool
+	err            string
+	searching      bool
+	search         string
+	filtered       []int // indices into entries
+	targetPlaylist string
 }
 
 // navBrowserState holds state for the provider browser overlay.

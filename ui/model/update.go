@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/internal/playback"
 	"github.com/bjarneo/cliamp/ipc"
 	"github.com/bjarneo/cliamp/player"
@@ -79,6 +80,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.fileBrowser.visible {
 			m.fbMaybeAdjustScroll(m.fbVisible())
+		}
+		if m.plPicker.visible {
+			m.plPickerMaybeAdjustScroll(m.plPickerVisible())
 		}
 		if m.keymap.visible {
 			m.keymapMaybeAdjustScroll(m.keymapVisible())
@@ -356,8 +360,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clearPlaybackTrack()
 		}
 		m.resetYTDLBatch()
-		m.playlist.Replace(msg)
-		m.setHeaderStateFromTracks(msg)
+		m.playlist.Replace(msg.tracks)
+		m.setHeaderStateFromTracks(msg.tracks)
+		if msg.playlistExact && m.localProvider != nil && msg.providerName == m.localProvider.Name() && msg.playlistID != history.PlaylistName {
+			m.loadedPlaylist = msg.playlistID
+		} else {
+			m.loadedPlaylist = ""
+		}
 		m.plCursor = 0
 		m.plScroll = 0
 		m.focus = focusPlaylist
@@ -457,6 +466,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.playlist.Add(msg.tracks...)
+		m.loadedPlaylist = ""
 		m.addToHeaderState(msg.tracks)
 		m.ytdlBatch.offset += len(msg.tracks)
 		if len(msg.tracks) < ytdlBatchSize {
@@ -474,6 +484,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.playlist.Replace(msg.tracks)
+		m.loadedPlaylist = ""
 		m.setHeaderStateFromTracks(msg.tracks)
 		m.plCursor = 0
 		m.plScroll = 0
@@ -488,6 +499,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.feedLoading = false
 		if len(msg.tracks) > 0 {
 			m.playlist.Add(msg.tracks...)
+			m.loadedPlaylist = ""
 			m.addToHeaderState(msg.tracks)
 			m.status.Showf(statusTTLDefault, "Loaded %d track(s)", len(msg.tracks))
 		} else {
@@ -542,16 +554,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status.Show("No audio files found", statusTTLDefault)
 			return m, nil
 		}
+		if msg.targetPlaylist != "" {
+			added, skipped, err := m.writeTracksToPlaylist(msg.targetPlaylist, msg.tracks)
+			if err != nil {
+				m.status.Showf(statusTTLDefault, "Add failed: %s", err)
+			} else if skipped > 0 {
+				m.status.Showf(statusTTLBatch, "Added %d to %q, skipped %d duplicates", added, msg.targetPlaylist, skipped)
+			} else {
+				m.status.Showf(statusTTLDefault, "Added %d to %q", added, msg.targetPlaylist)
+			}
+			m.refreshPlaylistManagerAfterWrite(msg.targetPlaylist)
+			return m, nil
+		}
+		if msg.toPlaylist {
+			m.openPlaylistPicker(msg.tracks, fmt.Sprintf("%d tracks selected", len(msg.tracks)))
+			return m, nil
+		}
 		if msg.replace {
 			m.player.Stop()
 			m.player.ClearPreload()
 			m.resetYTDLBatch()
 			m.playlist.Replace(msg.tracks)
+			m.loadedPlaylist = ""
 			m.setHeaderStateFromTracks(msg.tracks)
 			m.plCursor = 0
 			m.plScroll = 0
 		} else {
 			m.playlist.Add(msg.tracks...)
+			m.loadedPlaylist = ""
 			m.addToHeaderState(msg.tracks)
 		}
 		m.focus = focusPlaylist
@@ -779,6 +809,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pluginQueueAddedMsg:
 		if len(msg.tracks) > 0 {
 			m.playlist.Add(msg.tracks...)
+			m.loadedPlaylist = ""
 			m.notifyPlayback()
 		}
 		return m, nil
@@ -826,7 +857,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.playlist.Replace(tracks)
 		m.setHeaderStateFromTracks(tracks)
-		m.loadedPlaylist = msg.Playlist
+		if msg.Playlist != history.PlaylistName {
+			m.loadedPlaylist = msg.Playlist
+		} else {
+			m.loadedPlaylist = ""
+		}
 		cmd := m.playCurrentTrack()
 		m.notifyAll()
 		if msg.Reply != nil {
@@ -834,8 +869,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case ipc.QueueMsg:
-		t := playlist.Track{Path: msg.Path, Title: msg.Path}
+		t := playlist.TrackFromPath(msg.Path)
 		m.playlist.Add(t)
+		m.loadedPlaylist = ""
 		m.addToHeaderState([]playlist.Track{t})
 		m.notifyAll()
 		return m, nil

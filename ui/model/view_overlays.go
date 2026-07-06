@@ -2,9 +2,11 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/bjarneo/cliamp/history"
+	"github.com/bjarneo/cliamp/playlist"
 	"github.com/bjarneo/cliamp/ui"
 )
 
@@ -34,7 +36,12 @@ func (m Model) plMgrHeaderLine() string {
 	}
 	switch m.plManager.screen {
 	case plMgrScreenTracks:
-		return sepHeaderN("Playlist: "+m.plManager.selPlaylist, m.plManager.cursor+1, len(m.plManager.tracks))
+		label := "Playlist: " + m.plManager.selPlaylist
+		if m.plManager.sortMode > 0 {
+			mode := plMgrSortModes[(m.plManager.sortMode-1)%len(plMgrSortModes)]
+			label += " · sort: " + mode
+		}
+		return sepHeaderN(label, m.plManager.cursor+1, len(m.plManager.tracks))
 	case plMgrScreenNewName:
 		return promptHeader("New Playlist", m.plManager.newName)
 	case plMgrScreenRename:
@@ -202,14 +209,45 @@ func (m Model) renderPlMgrTracksBody() string {
 		lines := make([]string, 0, budget)
 		for i := scroll; i < visibleN && len(lines) < budget; i++ {
 			realIdx := m.plMgrTrackRealIndex(i)
-			t := m.plManager.tracks[realIdx]
-			label := formatTrackRow(realIdx+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
+			label := m.plMgrTrackLabel(realIdx)
 			lines = append(lines, cursorLine(label, i == m.plManager.cursor))
 		}
 		return bodyLines(lines, budget)
 	}
 
-	return m.renderTrackRowsBody(m.plManager.tracks, m.plManager.cursor, scroll, budget)
+	lines := make([]string, 0, budget)
+	for row := range m.playlistRows(m.plManager.tracks, scroll, m.showAlbumHeaders) {
+		if len(lines) >= budget {
+			break
+		}
+		if row.Index < 0 {
+			lines = append(lines, m.albumSeparator(row.Album, row.Year))
+			continue
+		}
+		lines = append(lines, cursorLine(m.plMgrTrackLabel(row.Index), row.Index == m.plManager.cursor))
+	}
+	return bodyLines(lines, budget)
+}
+
+func (m Model) plMgrTrackLabel(realIdx int) string {
+	t := m.plManager.tracks[realIdx]
+	mark := "  "
+	if m.plManager.marked[realIdx] {
+		mark = "* "
+	}
+	missing := ""
+	if missingLocalTrack(t) {
+		missing = "! "
+	}
+	return mark + missing + formatTrackRow(realIdx+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)
+}
+
+func missingLocalTrack(t playlist.Track) bool {
+	if t.Path == "" || t.Stream || playlist.IsURL(t.Path) || strings.HasPrefix(t.Path, "ssh://") {
+		return false
+	}
+	_, err := os.Stat(t.Path)
+	return os.IsNotExist(err)
 }
 
 // renderSearchList renders the playlist-search results for the playlist region

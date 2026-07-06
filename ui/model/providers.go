@@ -105,6 +105,12 @@ func (m *Model) SetPendingURLs(urls []string) {
 	m.feedLoading = len(urls) > 0
 }
 
+// SetLoadedPlaylist records that the live queue exactly mirrors a local saved
+// playlist, allowing path-based write-backs such as bookmarks and removals.
+func (m *Model) SetLoadedPlaylist(name string) {
+	m.loadedPlaylist = name
+}
+
 // findBrowseProvider returns the first provider that supports browsing
 // (ArtistBrowser or AlbumBrowser), preferring the active provider.
 func (m *Model) findBrowseProvider() playlist.Provider {

@@ -25,10 +25,14 @@ import (
 
 // Compile-time interface checks.
 var (
-	_ provider.PlaylistWriter  = (*Provider)(nil)
-	_ provider.PlaylistDeleter = (*Provider)(nil)
-	_ provider.PlaylistRenamer = (*Provider)(nil)
-	_ provider.Searcher        = (*Provider)(nil)
+	_ provider.PlaylistWriter      = (*Provider)(nil)
+	_ provider.PlaylistBatchWriter = (*Provider)(nil)
+	_ provider.PlaylistCreator     = (*Provider)(nil)
+	_ provider.PlaylistSaver       = (*Provider)(nil)
+	_ provider.PlaylistDeleter     = (*Provider)(nil)
+	_ provider.PlaylistRenamer     = (*Provider)(nil)
+	_ provider.BookmarkSetter      = (*Provider)(nil)
+	_ provider.Searcher            = (*Provider)(nil)
 )
 
 // Provider reads and writes TOML-based playlists stored on disk.
@@ -55,7 +59,7 @@ func (p *Provider) Name() string { return "Local" }
 // file, ensuring the result stays within p.dir. This prevents path traversal
 // via names containing ".." or path separators.
 func (p *Provider) safePath(name string) (string, error) {
-	if strings.ContainsAny(name, "/\\") || name == ".." || name == "." || name == "" {
+	if strings.ContainsAny(name, "/\\") || strings.TrimSpace(name) == "" {
 		return "", fmt.Errorf("invalid playlist name %q", name)
 	}
 	resolved := filepath.Join(p.dir, name+".toml")
@@ -63,6 +67,13 @@ func (p *Provider) safePath(name string) (string, error) {
 		return "", fmt.Errorf("playlist path escapes base directory")
 	}
 	return resolved, nil
+}
+
+func validateNewName(name string) error {
+	if strings.ContainsAny(name, "/\\:<>\"|?*") || name == ".." || name == "." || strings.TrimSpace(name) == "" {
+		return fmt.Errorf("invalid playlist name %q", name)
+	}
+	return nil
 }
 
 func isHistoryName(name string) bool {
@@ -142,63 +153,86 @@ func (p *Provider) Tracks(playlistID string) ([]playlist.Track, error) {
 // AddTrack appends a track to the named playlist, creating the directory and
 // file if needed.
 func (p *Provider) AddTrack(playlistName string, track playlist.Track) error {
-	if isHistoryName(playlistName) {
-		return errReservedHistoryName
-	}
-	if err := os.MkdirAll(p.dir, 0o755); err != nil {
-		return err
-	}
-
-	path, err := p.safePath(playlistName)
-	if err != nil {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Add a blank line before the section if file is non-empty.
-	if info, err := f.Stat(); err == nil && info.Size() > 0 {
-		fmt.Fprintln(f)
-	}
-
-	writeTrack(f, track)
-	return nil
+	_, _, err := p.AddTracks(playlistName, []playlist.Track{track})
+	return err
 }
 
-// AddTracks appends multiple tracks in a single file open/close cycle.
-func (p *Provider) AddTracks(playlistName string, tracks []playlist.Track) error {
+// AddTracks appends multiple tracks, skipping exact path duplicates already in
+// the playlist or repeated in the input. It creates the playlist file if needed.
+func (p *Provider) AddTracks(playlistName string, tracks []playlist.Track) (added, skipped int, err error) {
 	if isHistoryName(playlistName) {
-		return errReservedHistoryName
+		return 0, 0, errReservedHistoryName
 	}
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
-		return err
+		return 0, 0, err
 	}
 	path, err := p.safePath(playlistName)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 
-	info, err := f.Stat()
+	existing, err := p.loadTOML(path)
 	if err != nil {
-		return err
-	}
-	nonEmpty := info.Size() > 0
-	for _, t := range tracks {
-		if nonEmpty {
-			fmt.Fprintln(f)
+		if !errors.Is(err, fs.ErrNotExist) {
+			return 0, 0, err
 		}
-		writeTrack(f, t)
-		nonEmpty = true
+		if err := validateNewName(playlistName); err != nil {
+			return 0, 0, err
+		}
+		existing = nil
 	}
-	return nil
+
+	seen := make(map[string]struct{}, len(existing)+len(tracks))
+	for _, t := range existing {
+		seen[t.Path] = struct{}{}
+	}
+	for _, t := range tracks {
+		if _, ok := seen[t.Path]; ok {
+			skipped++
+			continue
+		}
+		seen[t.Path] = struct{}{}
+		existing = append(existing, t)
+		added++
+	}
+
+	if added == 0 {
+		if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+			return 0, skipped, p.savePlaylist(playlistName, existing)
+		} else if err != nil {
+			return 0, skipped, err
+		}
+		return 0, skipped, nil
+	}
+	return added, skipped, p.savePlaylist(playlistName, existing)
+}
+
+// CreatePlaylist creates an empty playlist file.
+func (p *Provider) CreatePlaylist(_ context.Context, name string) (string, error) {
+	if isHistoryName(name) {
+		return "", errReservedHistoryName
+	}
+	if err := os.MkdirAll(p.dir, 0o755); err != nil {
+		return "", err
+	}
+	if err := validateNewName(name); err != nil {
+		return "", err
+	}
+	path, err := p.safePath(name)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return "", fmt.Errorf("playlist %q already exists", name)
+		}
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 // Exists reports whether a playlist with the given name exists on disk, or
@@ -225,6 +259,13 @@ func (p *Provider) savePlaylist(name string, tracks []playlist.Track) error {
 
 	path, err := p.safePath(name)
 	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		if err := validateNewName(name); err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 
@@ -268,6 +309,26 @@ func (p *Provider) SetBookmark(playlistName string, idx int) error {
 	return p.savePlaylist(playlistName, tracks)
 }
 
+// SetBookmarkByPath toggles the bookmark flag on the first track with path and
+// rewrites the playlist. This avoids corrupting saved playlists when the live
+// queue has been filtered, reordered, or otherwise diverged from file order.
+func (p *Provider) SetBookmarkByPath(playlistName string, path string) error {
+	if isHistoryName(playlistName) {
+		return errReservedHistoryName
+	}
+	tracks, err := p.loadTOMLByName(playlistName)
+	if err != nil {
+		return err
+	}
+	for i := range tracks {
+		if tracks[i].Path == path {
+			tracks[i].Bookmark = !tracks[i].Bookmark
+			return p.savePlaylist(playlistName, tracks)
+		}
+	}
+	return fmt.Errorf("track path %q not found in playlist %q", path, playlistName)
+}
+
 // loadTOMLByName loads tracks for a named playlist.
 func (p *Provider) loadTOMLByName(name string) ([]playlist.Track, error) {
 	path, err := p.safePath(name)
@@ -289,6 +350,12 @@ func (p *Provider) SavePlaylist(name string, tracks []playlist.Track) error {
 // Implements provider.PlaylistWriter.
 func (p *Provider) AddTrackToPlaylist(_ context.Context, playlistID string, track playlist.Track) error {
 	return p.AddTrack(playlistID, track)
+}
+
+// AddTracksToPlaylist appends multiple tracks to the named playlist.
+// Implements provider.PlaylistBatchWriter.
+func (p *Provider) AddTracksToPlaylist(_ context.Context, playlistID string, tracks []playlist.Track) (int, int, error) {
+	return p.AddTracks(playlistID, tracks)
 }
 
 // SearchTracks does a case-insensitive fuzzy search across every saved playlist
@@ -375,6 +442,9 @@ func (p *Provider) RenamePlaylist(oldName, newName string) error {
 	if err != nil {
 		return fmt.Errorf("invalid playlist name %q: %w", oldName, err)
 	}
+	if err := validateNewName(newName); err != nil {
+		return err
+	}
 	newPath, err := p.safePath(newName)
 	if err != nil {
 		return fmt.Errorf("invalid playlist name %q: %w", newName, err)
@@ -413,7 +483,7 @@ func (p *Provider) ClearHistory() error {
 }
 
 // RemoveTrack removes a track by index from the named playlist.
-// If the playlist becomes empty after removal, the file is deleted.
+// Empty playlists are kept on disk; deleting a playlist remains explicit.
 func (p *Provider) RemoveTrack(name string, index int) error {
 	if isHistoryName(name) {
 		return errReservedHistoryName
@@ -426,9 +496,6 @@ func (p *Provider) RemoveTrack(name string, index int) error {
 		return fmt.Errorf("track index %d out of range", index)
 	}
 	tracks = slices.Delete(tracks, index, index+1)
-	if len(tracks) == 0 {
-		return p.DeletePlaylist(name)
-	}
 	return p.savePlaylist(name, tracks)
 }
 

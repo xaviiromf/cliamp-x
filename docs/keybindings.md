@@ -55,6 +55,7 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
 | `Ctrl+S` | Save track to ~/Music |
+| `w` | Write the highlighted track to a local playlist |
 | `N` | Navidrome browser |
 | `L` | Browse local playlists (with cliamp radio) |
 | `R` | Open radio provider |
@@ -85,12 +86,34 @@ Press `?` or `Ctrl+K` in the player to see all keybindings.
 | `↑` `↓` / `j` `k` | Move cursor |
 | `/` | Filter (incremental); `Esc` clears |
 | `Enter` / `→` | List screen: open the highlighted playlist · Tracks screen: play the **highlighted** track |
-| `P` | Tracks screen: play all from the top |
-| `a` | Add the now-playing track (footer shows which track) |
+| `p` | Tracks screen: play all from the top |
+| `a` | List: add the now-playing track to the highlighted playlist. Tracks: mark/unmark all visible tracks. |
+| `w` | List: save the current queue through the playlist picker. Tracks: copy marked/highlighted tracks to another playlist. |
+| `Space` | Tracks: mark/unmark highlighted track and advance |
+| `[` `]` | Tracks: move highlighted track and save the playlist |
+| `s` | Tracks: sort and save, cycling `track`, `title`, `artist`, `album`, `artist+album`, `path` |
+| `o` | Tracks: open file browser to add files to this playlist |
 | `r` | List: rename the playlist |
-| `d` | List: delete playlist (confirms) · Tracks: remove the highlighted track |
+| `d` | List: delete playlist (confirms). Tracks: remove marked tracks, or highlighted track when none are marked |
+| `u` | Undo the last manager edit |
 | `←` `Backspace` `h` | Tracks screen: go back to the list |
-| `p` `Esc` | Close the playlist manager |
+| `Esc` | Close the playlist manager or go back |
+
+Shift-letter keys are reserved for provider switching, so playlist-manager track actions use lowercase or punctuation keys.
+
+## File browser
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k` | Move cursor |
+| `←` `→` / `h` `l` / `Enter` | Back / open directory or file |
+| `/` | Filter files |
+| `Space` | Select or unselect file/directory |
+| `a` | Select/unselect all visible audio files |
+| `R` | Replace the current queue with selected files |
+| `w` | Write selected files to a local playlist |
+| `~` `.` | Jump to home / current working directory |
+| `Esc` `o` | Close file browser |
 
 ## Provider browser (`N` key)
 

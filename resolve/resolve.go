@@ -250,6 +250,19 @@ func CollectAudioFiles(path string) ([]string, error) {
 	return files, nil
 }
 
+// LocalPlaylist resolves a local M3U/M3U8 or PLS playlist file into tracks.
+// Relative paths are resolved by the underlying parser against the playlist
+// file's directory, matching normal playback import behavior.
+func LocalPlaylist(path string) ([]playlist.Track, error) {
+	if playlist.IsLocalM3U(path) {
+		return resolveLocalM3U(path)
+	}
+	if playlist.IsLocalPLS(path) {
+		return resolveLocalPLS(path)
+	}
+	return nil, fmt.Errorf("unsupported playlist file %q", path)
+}
+
 // scanTracks converts file paths to Tracks concurrently, preserving order.
 func scanTracks(files []string) []playlist.Track {
 	if len(files) == 0 {

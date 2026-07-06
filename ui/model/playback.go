@@ -2,11 +2,13 @@ package model
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 )
 
 const ytdlReconnectPauseThreshold = 45 * time.Second
@@ -99,6 +101,7 @@ func (m *Model) playTrackImmediate(track playlist.Track) tea.Cmd {
 	m.player.Stop()
 	m.player.ClearPreload()
 	m.playlist.Add(track)
+	m.loadedPlaylist = ""
 	m.addToHeaderState([]playlist.Track{track})
 	idx := m.playlist.Len() - 1
 	m.playlist.SetIndex(idx)
@@ -114,6 +117,7 @@ func (m *Model) playTrackImmediate(track playlist.Track) tea.Cmd {
 func (m *Model) appendTrack(track playlist.Track) tea.Cmd {
 	wasEmpty := m.playlist.Len() == 0
 	m.playlist.Add(track)
+	m.loadedPlaylist = ""
 	m.addToHeaderState([]playlist.Track{track})
 	idx := m.playlist.Len() - 1
 	m.status.Showf(statusTTLMedium, "Added: %s", track.DisplayName())
@@ -144,6 +148,7 @@ func (m *Model) closeSpotSearch() {
 // queueTrackNext adds a track to the playlist and queues it to play next.
 func (m *Model) queueTrackNext(track playlist.Track) tea.Cmd {
 	m.playlist.Add(track)
+	m.loadedPlaylist = ""
 	m.addToHeaderState([]playlist.Track{track})
 	idx := m.playlist.Len() - 1
 	m.playlist.Queue(idx)
@@ -165,6 +170,32 @@ func (m *Model) removeSelectedFromPlaylist() {
 		return
 	}
 	track := m.playlist.Tracks()[idx]
+	loaded := m.loadedPlaylist
+	if loaded != "" {
+		if saver, ok := m.localProvider.(provider.PlaylistSaver); ok {
+			saved, err := m.localProvider.Tracks(loaded)
+			if err != nil {
+				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
+				return
+			}
+			removed := false
+			for i := range saved {
+				if saved[i].Path == track.Path {
+					saved = append(saved[:i], saved[i+1:]...)
+					removed = true
+					break
+				}
+			}
+			if !removed {
+				m.status.Showf(statusTTLDefault, "Remove failed: %s is not in %q", track.DisplayName(), loaded)
+				return
+			}
+			if err := saver.SavePlaylist(loaded, saved); err != nil {
+				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
+				return
+			}
+		}
+	}
 	wasActive := idx == m.playlist.Index()
 	if !m.playlist.Remove(idx) {
 		return
@@ -180,7 +211,11 @@ func (m *Model) removeSelectedFromPlaylist() {
 		m.plCursor = newLen - 1
 	}
 	m.adjustScroll()
-	m.status.Showf(statusTTLDefault, "Removed: %s", track.DisplayName())
+	if loaded != "" {
+		m.status.Showf(statusTTLDefault, "Removed from %q: %s", loaded, track.DisplayName())
+	} else {
+		m.status.Showf(statusTTLDefault, "Removed from queue: %s", track.DisplayName())
+	}
 	m.notifyPlayback()
 }
 
@@ -228,12 +263,48 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	} else {
 		m.err = nil
 		m.applyResume()
+		m.backfillLoadedPlaylistDuration(track)
 	}
 
 	if fetchCmd != nil {
 		return tea.Batch(m.preloadNext(), fetchCmd)
 	}
 	return m.preloadNext()
+}
+
+func (m *Model) backfillLoadedPlaylistDuration(track playlist.Track) {
+	if m.loadedPlaylist == "" || track.DurationSecs > 0 || track.Stream || playlist.IsURL(track.Path) || strings.HasPrefix(track.Path, "ssh://") {
+		return
+	}
+	dur := int(m.player.Duration().Seconds())
+	if dur <= 0 {
+		return
+	}
+	saver, ok := m.localProvider.(provider.PlaylistSaver)
+	if !ok {
+		return
+	}
+	tracks, err := m.localProvider.Tracks(m.loadedPlaylist)
+	if err != nil {
+		return
+	}
+	changed := false
+	for i := range tracks {
+		if tracks[i].Path == track.Path && tracks[i].DurationSecs == 0 {
+			tracks[i].DurationSecs = dur
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return
+	}
+	if err := saver.SavePlaylist(m.loadedPlaylist, tracks); err == nil {
+		if idx := m.playlist.Index(); idx >= 0 {
+			track.DurationSecs = dur
+			m.playlist.SetTrack(idx, track)
+		}
+	}
 }
 
 // beginPlaybackTrack centralizes metadata refresh and model state reset for a

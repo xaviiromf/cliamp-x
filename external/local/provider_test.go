@@ -35,10 +35,19 @@ func TestSafePathValid(t *testing.T) {
 
 func TestSafePathRejectsTraversal(t *testing.T) {
 	p := newTestProvider(t)
-	bad := []string{"..", ".", "", "foo/bar", "foo\\bar"}
+	bad := []string{"", "   ", "foo/bar", "foo\\bar"}
 	for _, name := range bad {
 		if _, err := p.safePath(name); err == nil {
 			t.Errorf("safePath(%q) should have returned error", name)
+		}
+	}
+}
+
+func TestValidateNewNameRejectsNonPortableNames(t *testing.T) {
+	bad := []string{"..", ".", "", "   ", "foo/bar", "foo\\bar", "bad:name", "bad?name"}
+	for _, name := range bad {
+		if err := validateNewName(name); err == nil {
+			t.Errorf("validateNewName(%q) should have returned error", name)
 		}
 	}
 }
@@ -262,6 +271,90 @@ func TestAddTrack(t *testing.T) {
 	}
 }
 
+func TestCreatePlaylistCreatesEmptyFile(t *testing.T) {
+	p := newTestProvider(t)
+
+	id, err := p.CreatePlaylist(context.Background(), "empty")
+	if err != nil {
+		t.Fatalf("CreatePlaylist: %v", err)
+	}
+	if id != "empty" {
+		t.Fatalf("CreatePlaylist id = %q, want empty", id)
+	}
+	if !p.Exists("empty") {
+		t.Fatal("created playlist should exist")
+	}
+	tracks, err := p.Tracks("empty")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 0 {
+		t.Fatalf("got %d tracks, want 0", len(tracks))
+	}
+	if _, err := p.CreatePlaylist(context.Background(), "empty"); err == nil {
+		t.Fatal("creating an existing playlist should fail")
+	}
+}
+
+func TestExistingPlaylistWithLegacyNameRemainsWritable(t *testing.T) {
+	p := newTestProvider(t)
+	if err := os.MkdirAll(p.dir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	path := filepath.Join(p.dir, "bad:name.toml")
+	data := []byte("[[track]]\npath = \"/a.mp3\"\ntitle = \"A\"\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	tracks, err := p.Tracks("bad:name")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 1 || tracks[0].Path != "/a.mp3" {
+		t.Fatalf("Tracks = %+v, want legacy playlist contents", tracks)
+	}
+	if err := p.AddTrack("bad:name", playlist.Track{Path: "/b.mp3", Title: "B"}); err != nil {
+		t.Fatalf("AddTrack legacy name: %v", err)
+	}
+	tracks, err = p.Tracks("bad:name")
+	if err != nil {
+		t.Fatalf("Tracks after AddTrack: %v", err)
+	}
+	if len(tracks) != 2 || tracks[1].Path != "/b.mp3" {
+		t.Fatalf("Tracks after AddTrack = %+v, want appended track", tracks)
+	}
+	if _, err := p.CreatePlaylist(context.Background(), "new:name"); err == nil {
+		t.Fatal("CreatePlaylist should reject new non-portable names")
+	}
+}
+
+func TestAddTracksSkipsDuplicatePaths(t *testing.T) {
+	p := newTestProvider(t)
+	if err := p.AddTrack("dupes", playlist.Track{Path: "/a.mp3", Title: "A"}); err != nil {
+		t.Fatalf("AddTrack: %v", err)
+	}
+
+	added, skipped, err := p.AddTracks("dupes", []playlist.Track{
+		{Path: "/a.mp3", Title: "A again"},
+		{Path: "/b.mp3", Title: "B"},
+		{Path: "/b.mp3", Title: "B again"},
+	})
+	if err != nil {
+		t.Fatalf("AddTracks: %v", err)
+	}
+	if added != 1 || skipped != 2 {
+		t.Fatalf("AddTracks added=%d skipped=%d, want 1/2", added, skipped)
+	}
+	tracks, err := p.Tracks("dupes")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 2 || tracks[0].Path != "/a.mp3" || tracks[1].Path != "/b.mp3" {
+		t.Fatalf("unexpected tracks: %+v", tracks)
+	}
+}
+
 // --- Exists ---
 
 func TestExists(t *testing.T) {
@@ -312,15 +405,41 @@ func TestSetBookmarkOutOfRange(t *testing.T) {
 	}
 }
 
+func TestSetBookmarkByPath(t *testing.T) {
+	p := newTestProvider(t)
+	if _, _, err := p.AddTracks("marks", []playlist.Track{
+		{Path: "/a.mp3", Title: "A"},
+		{Path: "/b.mp3", Title: "B"},
+	}); err != nil {
+		t.Fatalf("AddTracks: %v", err)
+	}
+
+	if err := p.SetBookmarkByPath("marks", "/b.mp3"); err != nil {
+		t.Fatalf("SetBookmarkByPath: %v", err)
+	}
+	tracks, err := p.Tracks("marks")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if tracks[0].Bookmark || !tracks[1].Bookmark {
+		t.Fatalf("wrong bookmark row toggled: %+v", tracks)
+	}
+	if err := p.SetBookmarkByPath("marks", "/missing.mp3"); err == nil {
+		t.Fatal("missing path should return an error")
+	}
+}
+
 // --- RemoveTrack ---
 
 func TestRemoveTrack(t *testing.T) {
 	p := newTestProvider(t)
-	p.AddTracks("rem", []playlist.Track{
+	if _, _, err := p.AddTracks("rem", []playlist.Track{
 		{Path: "/a.mp3", Title: "A"},
 		{Path: "/b.mp3", Title: "B"},
 		{Path: "/c.mp3", Title: "C"},
-	})
+	}); err != nil {
+		t.Fatalf("AddTracks: %v", err)
+	}
 
 	if err := p.RemoveTrack("rem", 1); err != nil {
 		t.Fatalf("RemoveTrack: %v", err)
@@ -335,7 +454,7 @@ func TestRemoveTrack(t *testing.T) {
 	}
 }
 
-func TestRemoveTrackDeletesEmptyPlaylist(t *testing.T) {
+func TestRemoveTrackKeepsEmptyPlaylist(t *testing.T) {
 	p := newTestProvider(t)
 	p.AddTrack("solo", playlist.Track{Path: "/a.mp3", Title: "A"})
 
@@ -343,8 +462,15 @@ func TestRemoveTrackDeletesEmptyPlaylist(t *testing.T) {
 		t.Fatalf("RemoveTrack: %v", err)
 	}
 
-	if p.Exists("solo") {
-		t.Fatal("playlist should be deleted when last track is removed")
+	if !p.Exists("solo") {
+		t.Fatal("playlist should remain after last track is removed")
+	}
+	tracks, err := p.Tracks("solo")
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 0 {
+		t.Fatalf("got %d tracks, want 0", len(tracks))
 	}
 }
 
@@ -367,10 +493,12 @@ func TestDeletePlaylist(t *testing.T) {
 
 func TestSavePlaylistOverwrites(t *testing.T) {
 	p := newTestProvider(t)
-	p.AddTracks("over", []playlist.Track{
+	if _, _, err := p.AddTracks("over", []playlist.Track{
 		{Path: "/a.mp3", Title: "A"},
 		{Path: "/b.mp3", Title: "B"},
-	})
+	}); err != nil {
+		t.Fatalf("AddTracks: %v", err)
+	}
 
 	// Overwrite with single track.
 	if err := p.SavePlaylist("over", []playlist.Track{{Path: "/c.mp3", Title: "C"}}); err != nil {
@@ -476,11 +604,12 @@ func TestWritesRejectedForHistoryName(t *testing.T) {
 		call func() error
 	}{
 		{"AddTrack", func() error { return p.AddTrack(history.PlaylistName, track) }},
-		{"AddTracks", func() error { return p.AddTracks(history.PlaylistName, []playlist.Track{track}) }},
+		{"AddTracks", func() error { _, _, err := p.AddTracks(history.PlaylistName, []playlist.Track{track}); return err }},
 		{"SavePlaylist", func() error { return p.SavePlaylist(history.PlaylistName, []playlist.Track{track}) }},
 		{"DeletePlaylist", func() error { return p.DeletePlaylist(history.PlaylistName) }},
 		{"RemoveTrack", func() error { return p.RemoveTrack(history.PlaylistName, 0) }},
 		{"SetBookmark", func() error { return p.SetBookmark(history.PlaylistName, 0) }},
+		{"SetBookmarkByPath", func() error { return p.SetBookmarkByPath(history.PlaylistName, track.Path) }},
 	}
 
 	for _, tt := range tests {

@@ -214,8 +214,10 @@ func (m *Model) plMgrListHelpLine() string {
 	return helpKey("↓↑→", "Navigate ") +
 		helpKey("Enter", "Open ") +
 		helpKey("a", addLabel+" ") +
+		helpKey("w", "Save queue ") +
 		helpKey("r", "Rename ") +
 		helpKey("d", "Delete ") +
+		helpKey("u", "Undo ") +
 		helpKey("/", "Filter ") +
 		helpKey("Esc", "Close")
 }
@@ -229,15 +231,16 @@ func (m *Model) plMgrListMaybeAdjustScroll(visible int) {
 }
 
 func (m *Model) plMgrTracksHelpLine() string {
-	addLabel := "Add (nothing playing)"
-	if track, idx := m.currentPlaybackTrack(); idx >= 0 && track.Path != "" {
-		addLabel = "Add: " + truncate(track.DisplayName(), 32)
-	}
 	return helpKey("←↓↑", "Navigate ") +
 		helpKey("Enter", "Play this ") +
-		helpKey("P", "Play all ") +
-		helpKey("a", addLabel+" ") +
+		helpKey("p", "Play all ") +
+		helpKey("Spc/a", "Mark ") +
+		helpKey("[]", "Move ") +
+		helpKey("s", "Sort ") +
+		helpKey("o", "Add files ") +
+		helpKey("w", "Write ") +
 		helpKey("d", "Remove ") +
+		helpKey("u", "Undo ") +
 		helpKey("/", "Filter ") +
 		helpKey("Esc", "Back")
 }
@@ -286,6 +289,8 @@ func (m *Model) plMgrEnterTrackList(name string) {
 	}
 	m.plManager.selPlaylist = name
 	m.plManager.tracks = tracks
+	m.plManager.marked = make(map[int]bool)
+	m.plManager.sortMode = 0
 	m.setHeaderStateFromTracks(tracks)
 	m.plManager.screen = plMgrScreenTracks
 	m.plManager.cursor = 0
