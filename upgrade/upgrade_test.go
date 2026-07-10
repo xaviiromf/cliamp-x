@@ -1,6 +1,8 @@
 package upgrade
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +14,11 @@ import (
 	"testing"
 	"time"
 )
+
+func testHash(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
 
 type rewriter struct {
 	target *url.URL
@@ -89,6 +96,56 @@ func TestLatestVersionBadJSON(t *testing.T) {
 	}
 }
 
+func TestReleaseChecksum(t *testing.T) {
+	want := strings.Repeat("a", 64)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, want+"  cliamp-linux-amd64\n")
+	}))
+	defer srv.Close()
+	installTestClient(t, srv.URL)
+
+	got, err := releaseChecksum(srv.URL+"/checksums.txt", "cliamp-linux-amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("checksum = %q, want %q", got, want)
+	}
+}
+
+func TestReleaseChecksumMissingEntry(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, strings.Repeat("a", 64)+"  another-file\n")
+	}))
+	defer srv.Close()
+	installTestClient(t, srv.URL)
+	if _, err := releaseChecksum(srv.URL+"/checksums.txt", "cliamp-linux-amd64"); err == nil {
+		t.Fatal("releaseChecksum accepted a missing asset entry")
+	}
+}
+
+func TestDownloadAndReplaceChecksumMismatchPreservesOriginal(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "cliamp")
+	if err := os.WriteFile(target, []byte("OLD"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "NEW")
+	}))
+	defer srv.Close()
+	installTestClient(t, srv.URL)
+
+	err := downloadAndReplace(srv.URL+"/cliamp", target, testHash([]byte("different")))
+	if err == nil || !strings.Contains(err.Error(), "SHA-256 mismatch") {
+		t.Fatalf("downloadAndReplace error = %v, want checksum mismatch", err)
+	}
+	got, readErr := os.ReadFile(target)
+	if readErr != nil || string(got) != "OLD" {
+		t.Fatalf("original after mismatch = %q, %v", got, readErr)
+	}
+}
+
 func TestDownloadAndReplace(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "cliamp")
@@ -105,7 +162,7 @@ func TestDownloadAndReplace(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	if err := downloadAndReplace(srv.URL+"/cliamp-linux-amd64", target); err != nil {
+	if err := downloadAndReplace(srv.URL+"/cliamp-linux-amd64", target, testHash(newContent)); err != nil {
 		t.Fatalf("downloadAndReplace: %v", err)
 	}
 
@@ -140,7 +197,7 @@ func TestDownloadAndReplaceHTTPError(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	err := downloadAndReplace(srv.URL+"/cliamp", target)
+	err := downloadAndReplace(srv.URL+"/cliamp", target, testHash([]byte("unused")))
 	if err == nil {
 		t.Error("downloadAndReplace should error on 404")
 	}
@@ -169,7 +226,7 @@ func TestDownloadAndReplaceTruncatesOversize(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	if err := downloadAndReplace(srv.URL+"/cliamp", target); err != nil {
+	if err := downloadAndReplace(srv.URL+"/cliamp", target, testHash([]byte(body))); err != nil {
 		t.Fatalf("downloadAndReplace: %v", err)
 	}
 	got, _ := os.ReadFile(target)

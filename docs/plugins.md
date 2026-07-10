@@ -8,7 +8,7 @@ Plugins live in `~/.config/cliamp/plugins/`. Create the directory:
 mkdir -p ~/.config/cliamp/plugins
 ```
 
-Drop a `.lua` file in and restart cliamp. That's it.
+Plugins run only after their exact contents have been approved. Existing and manually copied plugins start untrusted; approve one with `cliamp plugins trust <name>`.
 
 ## Plugin manager
 
@@ -16,8 +16,11 @@ Drop a `.lua` file in and restart cliamp. That's it.
 cliamp plugins                          # show help
 cliamp plugins list                     # list installed plugins
 cliamp plugins install <source>         # install a plugin
+cliamp plugins trust <name>             # approve installed plugin contents
 cliamp plugins remove <name>            # remove a plugin
 ```
+
+Install and trust display the source, SHA-256, declared permissions, and implicit filesystem/network access before prompting. Use `--yes` only after independently reviewing the same content in non-interactive environments. Approvals are stored in `plugins/.trust.json`; editing a plugin changes its hash and disables it until it is approved again. Unknown permission names are rejected.
 
 ### Install sources
 
@@ -86,7 +89,7 @@ p:on("track.change", function(track)
 end)
 ```
 
-Note: `os.execute` is removed by the sandbox. For shell commands, use `cliamp.http.post` to a local webhook, or write to a file that a watcher picks up.
+Note: `os.execute` is removed by the sandbox. Public HTTP endpoints are available through `cliamp.http`; private, loopback, link-local, multicast, and unspecified addresses are blocked. For local automation, write to an allowlisted file that a watcher picks up or declare the permission-gated `exec` capability.
 
 ### Webhook
 
@@ -560,7 +563,7 @@ For security, plugins run with restricted access. The sandbox removes dangerous 
 |---------|-------------|
 | `os.execute`, `os.remove`, `os.rename`, `os.exit`, `os.setlocale`, `os.tmpname` | Use `cliamp.fs`, `cliamp.http`, or permission-gated `cliamp.exec` |
 | `io` module (all of it) | Use `cliamp.fs` |
-| `dofile`, `loadfile` | Not available |
+| `dofile`, `loadfile`, `load`, `loadstring`, `require`, `module`, `package`, `debug` | Not available |
 
 ### Kept functions
 
@@ -583,8 +586,8 @@ Attempts to write outside these directories will raise a Lua error. Directory tr
 
 - Each plugin runs in its own Lua VM. Plugins cannot access each other's state or variables.
 - A crash in one plugin does not affect other plugins or the player.
-- Network access is available via `cliamp.http` (no raw socket access).
-- There is no process spawning — `os.execute` is removed. For shell commands, write to a file that a watcher picks up, or use `cliamp.http.post` to a local webhook.
+- Public network access is available via `cliamp.http` (no raw socket access). Private, loopback, link-local, multicast, and unspecified destinations are blocked after DNS resolution and across redirects.
+- `os.execute` is removed. Permission-gated `cliamp.exec` can spawn only configured allowlisted binaries.
 
 ## Debugging
 

@@ -429,10 +429,7 @@ func isAuthError(err error) bool {
 		return false
 	}
 	var keyErr *audio.KeyProviderError
-	if errors.As(err, &keyErr) {
-		return true
-	}
-	return false
+	return errors.As(err, &keyErr)
 }
 
 // URISchemes returns the URI prefixes handled by this provider.

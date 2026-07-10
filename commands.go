@@ -234,11 +234,28 @@ func pluginsCommand() *cli.Command {
 				Name:      "install",
 				Usage:     "install a plugin",
 				ArgsUsage: "<source>",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{Name: "yes", Aliases: []string{"y"}, Usage: "approve plugin trust without prompting"},
+				},
 				Action: func(ctx context.Context, c *cli.Command) error {
 					if c.Args().Len() == 0 {
 						return fmt.Errorf("usage: cliamp plugins install <source>")
 					}
-					return pluginmgr.Install(c.Args().First())
+					return pluginmgr.Install(c.Args().First(), c.Bool("yes"))
+				},
+			},
+			{
+				Name:      "trust",
+				Usage:     "approve the current contents of an installed plugin",
+				ArgsUsage: "<name>",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{Name: "yes", Aliases: []string{"y"}, Usage: "approve plugin trust without prompting"},
+				},
+				Action: func(ctx context.Context, c *cli.Command) error {
+					if c.Args().Len() == 0 {
+						return fmt.Errorf("usage: cliamp plugins trust <name>")
+					}
+					return pluginmgr.Trust(c.Args().First(), c.Bool("yes"))
 				},
 			},
 			{

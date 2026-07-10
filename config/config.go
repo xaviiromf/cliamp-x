@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/fileutil"
 )
 
 // configPath returns the path to the config file.
@@ -571,7 +572,7 @@ func Save(key, value string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 
@@ -582,7 +583,7 @@ func Save(key, value string) error {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		return os.WriteFile(path, []byte(line+"\n"), 0o644)
+		return fileutil.WriteFileAtomic(path, []byte(line+"\n"), 0o600)
 	}
 
 	// Scan existing lines and replace the matching key in-place,
@@ -622,7 +623,7 @@ func Save(key, value string) error {
 		}
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+	return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
 // SaveNavidromeSort persists the given album browse sort type to the
@@ -635,7 +636,7 @@ func SaveNavidromeSort(sortType string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 
@@ -647,7 +648,7 @@ func SaveNavidromeSort(sortType string) error {
 			return err
 		}
 		// No file: create with section + key.
-		return os.WriteFile(path, []byte("[navidrome]\n"+line+"\n"), 0o644)
+		return fileutil.WriteFileAtomic(path, []byte("[navidrome]\n"+line+"\n"), 0o600)
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -664,7 +665,7 @@ func SaveNavidromeSort(sortType string) error {
 			k, _, ok := strings.Cut(trimmed, "=")
 			if ok && strings.TrimSpace(k) == "browse_sort" {
 				lines[i] = line
-				return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+				return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
 			}
 		}
 	}
@@ -695,7 +696,7 @@ func SaveNavidromeSort(sortType string) error {
 		lines = append(lines, "[navidrome]", line)
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+	return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
 // PlayerConfig is the subset of player controls needed to apply config.

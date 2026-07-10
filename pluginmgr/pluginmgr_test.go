@@ -233,7 +233,7 @@ func TestInstallFromRawURL(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	if err := Install(srv.URL + "/example.lua"); err != nil {
+	if err := Install(srv.URL+"/example.lua", true); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -262,7 +262,7 @@ func TestInstallAlreadyExists(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	err := Install(srv.URL + "/mypl.lua")
+	err := Install(srv.URL+"/mypl.lua", true)
 	if err == nil {
 		t.Fatal("Install over existing plugin should error")
 	}
@@ -279,7 +279,7 @@ func TestInstallAllURLsFail(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	err := Install(srv.URL + "/nonexistent.lua")
+	err := Install(srv.URL+"/nonexistent.lua", true)
 	if err == nil {
 		t.Error("Install with all failing URLs should error")
 	}
@@ -294,7 +294,7 @@ func TestInstallTooLarge(t *testing.T) {
 	defer srv.Close()
 	installTestClient(t, srv.URL)
 
-	err := Install(srv.URL + "/huge.lua")
+	err := Install(srv.URL+"/huge.lua", true)
 	if err == nil {
 		t.Error("Install of oversized plugin should fail")
 	}

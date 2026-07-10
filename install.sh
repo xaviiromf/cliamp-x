@@ -38,6 +38,8 @@ URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
 
 echo "Downloading ${BINARY}..."
 TMP=$(mktemp)
+CHECKSUMS=$(mktemp)
+trap 'rm -f "$TMP" "$CHECKSUMS"' EXIT HUP INT TERM
 if command -v curl > /dev/null; then
     curl -fSL -o "$TMP" "$URL"
 elif command -v wget > /dev/null; then
@@ -46,47 +48,42 @@ else
     echo "Error: curl or wget required" >&2; exit 1
 fi
 
-chmod +x "$TMP"
-
-# Verify checksum if checksums.txt is available
+# A release without a matching checksum is not installable.
 CHECKSUM_URL="https://github.com/${REPO}/releases/latest/download/checksums.txt"
-CHECKSUMS=$(mktemp)
-GOT_CHECKSUMS=false
 if command -v curl > /dev/null; then
-    curl -fSL -o "$CHECKSUMS" "$CHECKSUM_URL" 2>/dev/null && GOT_CHECKSUMS=true
+    curl -fSL -o "$CHECKSUMS" "$CHECKSUM_URL"
 elif command -v wget > /dev/null; then
-    wget -qO "$CHECKSUMS" "$CHECKSUM_URL" 2>/dev/null && GOT_CHECKSUMS=true
+    wget -qO "$CHECKSUMS" "$CHECKSUM_URL"
 fi
 
-if [ "$GOT_CHECKSUMS" = true ]; then
-    EXPECTED=$(grep "${BINARY}$" "$CHECKSUMS" | awk '{print $1}')
-    if [ -n "$EXPECTED" ]; then
-        if command -v sha256sum > /dev/null; then
-            ACTUAL=$(sha256sum "$TMP" | awk '{print $1}')
-        elif command -v shasum > /dev/null; then
-            ACTUAL=$(shasum -a 256 "$TMP" | awk '{print $1}')
-        else
-            ACTUAL=""
-        fi
-        if [ -n "$ACTUAL" ] && [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "Error: checksum mismatch" >&2
-            echo "  expected: $EXPECTED" >&2
-            echo "  got:      $ACTUAL" >&2
-            rm -f "$TMP" "$CHECKSUMS"
-            exit 1
-        fi
-        if [ -n "$ACTUAL" ]; then
-            echo "Checksum verified."
-        fi
-    fi
+EXPECTED=$(awk -v file="$BINARY" '$2 == file || $2 == "*" file { print $1 }' "$CHECKSUMS")
+if [ -z "$EXPECTED" ]; then
+    echo "Error: release has no checksum for ${BINARY}" >&2
+    exit 1
 fi
-rm -f "$CHECKSUMS"
+if command -v sha256sum > /dev/null; then
+    ACTUAL=$(sha256sum "$TMP" | awk '{print $1}')
+elif command -v shasum > /dev/null; then
+    ACTUAL=$(shasum -a 256 "$TMP" | awk '{print $1}')
+else
+    echo "Error: sha256sum or shasum is required" >&2
+    exit 1
+fi
+if [ "$ACTUAL" != "$EXPECTED" ]; then
+    echo "Error: checksum mismatch" >&2
+    echo "  expected: $EXPECTED" >&2
+    echo "  got:      $ACTUAL" >&2
+    exit 1
+fi
+echo "Checksum verified."
+chmod +x "$TMP"
 
 if [ -w "$INSTALL_DIR" ]; then
     mv "$TMP" "${INSTALL_DIR}/cliamp"
 else
     sudo mv "$TMP" "${INSTALL_DIR}/cliamp"
 fi
+TMP=""
 
 echo "Installed cliamp to ${INSTALL_DIR}/cliamp"
 

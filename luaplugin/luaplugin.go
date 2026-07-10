@@ -15,6 +15,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 
 	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/plugintrust"
 )
 
 // Plugin represents a single loaded Lua plugin.
@@ -146,6 +147,10 @@ func New(pluginCfg map[string]map[string]string) (*Manager, error) {
 		}
 		return m, fmt.Errorf("read plugin dir: %w", err)
 	}
+	trustManifest, err := plugintrust.Load(dir)
+	if err != nil {
+		return m, err
+	}
 
 	// Collect plugin files: *.lua and directories with init.lua.
 	type pluginFile struct {
@@ -191,6 +196,10 @@ func New(pluginCfg map[string]map[string]string) (*Manager, error) {
 			if v, ok := cfg["enabled"]; ok && v == "false" {
 				continue
 			}
+		}
+		if err := plugintrust.Verify(trustManifest, f.name, f.path); err != nil {
+			loadErrs = append(loadErrs, fmt.Sprintf("%s: %v; run `cliamp plugins trust %s`", f.name, err, f.name))
+			continue
 		}
 
 		p, err := m.loadPlugin(f.path, f.name, cfg)
@@ -322,8 +331,16 @@ func (m *Manager) registerPluginAPI(L *lua.LState, p *Plugin) {
 			if tbl, ok := perms.(*lua.LTable); ok {
 				p.perms = make(map[string]bool)
 				tbl.ForEach(func(_, v lua.LValue) {
-					p.perms[v.String()] = true
+					permission := v.String()
+					switch permission {
+					case PermControl, PermExec, PermKeymap:
+						p.perms[permission] = true
+					default:
+						L.RaiseError("unknown permission %q", permission)
+					}
 				})
+			} else {
+				L.RaiseError("permissions must be an array")
 			}
 		}
 

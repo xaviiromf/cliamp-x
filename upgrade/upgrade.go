@@ -3,13 +3,17 @@
 package upgrade
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -44,7 +48,9 @@ func Run(currentVersion string) error {
 		binaryName += ".exe"
 	}
 
-	url := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", repo, binaryName)
+	baseURL := fmt.Sprintf("https://github.com/%s/releases/download/%s", repo, latest)
+	checksumURL := baseURL + "/checksums.txt"
+	binaryURL := baseURL + "/" + binaryName
 
 	fmt.Printf("Downloading %s...\n", binaryName)
 
@@ -57,7 +63,11 @@ func Run(currentVersion string) error {
 		return fmt.Errorf("resolving binary path: %w", err)
 	}
 
-	if err := downloadAndReplace(url, exe); err != nil {
+	expectedHash, err := releaseChecksum(checksumURL, binaryName)
+	if err != nil {
+		return fmt.Errorf("verifying release checksum: %w", err)
+	}
+	if err := downloadAndReplace(binaryURL, exe, expectedHash); err != nil {
 		return err
 	}
 
@@ -82,10 +92,48 @@ func latestVersion() (string, error) {
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&r); err != nil {
 		return "", fmt.Errorf("parsing response: %w", err)
 	}
+	if strings.TrimSpace(r.TagName) == "" || strings.ContainsAny(r.TagName, "/\\") {
+		return "", errors.New("release response contains an invalid tag")
+	}
 	return r.TagName, nil
 }
 
-func downloadAndReplace(url, destPath string) error {
+func releaseChecksum(url, binaryName string) (string, error) {
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("checksum download failed: %s", resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) > 1<<20 {
+		return "", errors.New("checksum file is too large")
+	}
+	for line := range strings.Lines(string(data)) {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || strings.TrimPrefix(fields[1], "*") != binaryName {
+			continue
+		}
+		if len(fields[0]) != sha256.Size*2 {
+			return "", fmt.Errorf("invalid SHA-256 entry for %s", binaryName)
+		}
+		if _, err := hex.DecodeString(fields[0]); err != nil {
+			return "", fmt.Errorf("invalid SHA-256 entry for %s", binaryName)
+		}
+		return strings.ToLower(fields[0]), nil
+	}
+	return "", fmt.Errorf("no SHA-256 entry for %s", binaryName)
+}
+
+func downloadAndReplace(url, destPath, expectedHash string) error {
+	if len(expectedHash) != sha256.Size*2 {
+		return errors.New("valid expected SHA-256 is required")
+	}
 	resp, err := httpClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("downloading: %w", err)
@@ -108,10 +156,32 @@ func downloadAndReplace(url, destPath string) error {
 	// Limit download to 200 MB to prevent unbounded disk usage from a
 	// rogue redirect or compromised CDN.
 	const maxBinarySize = 200 << 20
-	if _, err := io.Copy(tmp, io.LimitReader(resp.Body, maxBinarySize)); err != nil {
+	h := sha256.New()
+	written, err := io.Copy(io.MultiWriter(tmp, h), io.LimitReader(resp.Body, maxBinarySize+1))
+	if err != nil {
 		tmp.Close()
 		os.Remove(tmpPath)
 		return fmt.Errorf("writing binary: %w", err)
+	}
+	if written == 0 || written > maxBinarySize {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return errors.New("download is empty or exceeds maximum size")
+	}
+	if resp.ContentLength >= 0 && written != resp.ContentLength {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("truncated download: received %d of %d bytes", written, resp.ContentLength)
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, expectedHash) {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("SHA-256 mismatch: got %s", got)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("syncing binary: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmpPath)

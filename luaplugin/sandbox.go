@@ -12,9 +12,11 @@ func Sandbox(L *lua.LState) { sandbox(L) }
 // compatibility helpers missing from Lua 5.1 (e.g. utf8.char).
 func sandbox(L *lua.LState) {
 	// Remove top-level functions that can load/execute arbitrary code.
-	for _, name := range []string{"dofile", "loadfile"} {
+	for _, name := range []string{"dofile", "loadfile", "load", "loadstring", "require", "module"} {
 		L.SetGlobal(name, lua.LNil)
 	}
+	L.SetGlobal("package", lua.LNil)
+	L.SetGlobal("debug", lua.LNil)
 
 	// Remove the io module entirely (replaced by cliamp.fs).
 	L.SetGlobal("io", lua.LNil)
