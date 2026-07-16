@@ -170,6 +170,11 @@ func decodeFFmpegStream(path string, sr beep.SampleRate, bitDepth int) (*ffmpegP
 	if err != nil {
 		return nil, beep.Format{}, err
 	}
+	// live is intentionally left false here: ffmpeg opens the URL itself and
+	// manages its own reconnection, and this path is dual-use (live HLS radio
+	// and finite HLS/VOD or fallback decodes), so an EOF cannot be assumed to
+	// mean a dropped stream. Only decodeFFmpegPipeStream (stdin-fed infinite
+	// radio) marks live.
 	return &ffmpegPipeStreamer{ffmpegPipe: fp}, format, nil
 }
 
@@ -214,6 +219,7 @@ type ffmpegPipe struct {
 	src    io.ReadCloser        // optional stdin source (e.g. ICY-wrapped body); closed on stop
 	buf    [pcmFrameSize32]byte // large enough for both 16-bit and 32-bit frames
 	f32    bool                 // true = f32le, false = s16le
+	live   bool                 // true for infinite radio streams: EOF means the upstream died
 	err    error
 	pos    int // current sample frame position
 	total  int // total frames (0 if unknown/unbounded)
@@ -222,6 +228,13 @@ type ffmpegPipe struct {
 func (f *ffmpegPipe) Stream(samples [][2]float64) (int, bool) {
 	n, ok := streamFromReader(f.reader, samples, f.buf[:], f.f32, &f.err)
 	f.pos += n
+	if !ok && f.live && f.err == nil {
+		// A live stream never cleanly ends; reaching EOF means the upstream
+		// connection dropped (e.g. the stall timeout cancelled it). Surface it
+		// so StreamErr()/auto-reconnect fires instead of treating it as
+		// end-of-track and stopping playback.
+		f.err = io.ErrUnexpectedEOF
+	}
 	return n, ok
 }
 
@@ -315,6 +328,7 @@ func decodeFFmpegPipeStream(src io.ReadCloser, sr beep.SampleRate, bitDepth int)
 	if err != nil {
 		return nil, beep.Format{}, err
 	}
+	fp.live = true // infinite radio stream: a clean EOF means the upstream died
 	return &ffmpegPipeStreamer{ffmpegPipe: fp}, format, nil
 }
 

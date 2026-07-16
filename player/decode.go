@@ -1,6 +1,7 @@
 package player
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bjarneo/cliamp/internal/sshurl"
 
@@ -127,6 +129,43 @@ type sourceResult struct {
 	contentLength int64  // -1 if unknown; from Content-Length header for HTTP
 }
 
+// streamStallTimeout bounds how long a single Read on a live HTTP stream may
+// block before the connection is treated as dead. Live radio connections can go
+// half-open (no FIN/RST) behind CDNs and load balancers; without a deadline the
+// audio-callback goroutine parks in Read forever while holding the beep speaker
+// mutex, which then deadlocks every caller that needs that mutex (Position,
+// Stop, reconnect) and freezes the whole app. On timeout the request context is
+// cancelled so the blocked Read returns an error, which surfaces via StreamErr
+// and drives the existing auto-reconnect path.
+//
+// This is the live pass-through counterpart to navBuffer's readStallTimeout,
+// which detects stalls in the buffered (seekable) download path; the two use
+// different mechanisms and are tuned independently.
+const streamStallTimeout = 10 * time.Second
+
+// stallReader wraps a streaming HTTP body and enforces a per-read stall timeout.
+// Each Read arms a timer that cancels the underlying request if the read does
+// not complete in time; a healthy read stops the timer before it fires. Cancel
+// closes the connection, so the blocked Read returns promptly with an error
+// instead of hanging indefinitely.
+type stallReader struct {
+	rc      io.ReadCloser
+	cancel  context.CancelFunc
+	timeout time.Duration
+}
+
+func (s *stallReader) Read(p []byte) (int, error) {
+	timer := time.AfterFunc(s.timeout, s.cancel)
+	n, err := s.rc.Read(p)
+	timer.Stop()
+	return n, err
+}
+
+func (s *stallReader) Close() error {
+	s.cancel()
+	return s.rc.Close()
+}
+
 // openSourceAt opens a ReadCloser for the given path, handling both
 // local files and HTTP URLs.
 // offset using an HTTP Range request (Range: bytes=offset-). For local files
@@ -139,8 +178,12 @@ func openSourceAt(path string, byteOffset int64, onMeta func(string)) (sourceRes
 		f, err := os.Open(path)
 		return sourceResult{body: f, contentLength: -1}, err
 	}
-	req, err := http.NewRequest("GET", path, nil)
+	// A cancellable request context lets the stallReader below abort a
+	// half-open live connection whose Read has hung (see streamStallTimeout).
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
+		cancel()
 		return sourceResult{}, fmt.Errorf("http request: %w", err)
 	}
 	req.Header.Set("User-Agent", "cliamp/1.0 (https://github.com/bjarneo/cliamp)")
@@ -152,15 +195,20 @@ func openSourceAt(path string, byteOffset int64, onMeta func(string)) (sourceRes
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		cancel()
 		return sourceResult{}, fmt.Errorf("http get: %w", err)
 	}
 	// Accept 200 OK (full response) or 206 Partial Content (range response).
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		resp.Body.Close()
+		cancel()
 		return sourceResult{}, fmt.Errorf("http status %s", resp.Status)
 	}
 
-	body := resp.Body
+	// Guard the body with a stall timeout so a stalled/half-open live stream
+	// can't park the audio-callback goroutine in Read forever. Close() cancels
+	// the request, so this also cleans up the context.
+	var body io.ReadCloser = &stallReader{rc: resp.Body, cancel: cancel, timeout: streamStallTimeout}
 
 	// Wrap in ICY reader if the server provides a metaint interval.
 	if metaStr := resp.Header.Get("Icy-Metaint"); metaStr != "" && onMeta != nil {
