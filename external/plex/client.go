@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/bjarneo/cliamp/internal/netdiag"
 )
 
 // maxResponseBody limits API responses to 10 MB to prevent unbounded memory growth.
@@ -77,7 +79,7 @@ func (c *Client) get(path string, params url.Values, result any) error {
 
 	resp, err := apiClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("plex: %s: server unreachable: %w", path, err)
+		return fmt.Errorf("plex: %s: server unreachable: %w", path, netdiag.Explain(err))
 	}
 	defer resp.Body.Close()
 

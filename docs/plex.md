@@ -72,6 +72,14 @@ http://<server>:32400/library/parts/<partID>/<timestamp>/file.<ext>?X-Plex-Token
 
 These are direct file-serve URLs. Plex serves the original file without transcoding, and cliamp's existing HTTP streaming pipeline handles playback. All formats supported by cliamp (MP3, FLAC, AAC, OGG, OPUS, WAV, etc.) work as long as the original file format is one of them.
 
+## Troubleshooting
+
+### macOS: `dial tcp ... connect: no route to host`
+
+If cliamp reports `no route to host` for a Plex server on your LAN while `curl` to the same URL works, macOS is most likely denying the app Local Network access. macOS blocks these connections before any packet is sent and reports the block as a routing error.
+
+Fix: open **System Settings > Privacy & Security > Local Network** and enable access for your terminal app (Terminal, iTerm2, Ghostty, etc.), then restart cliamp. If the terminal is not listed, toggle any entry off and on, or reset the permission database with `tccutil reset All` and relaunch the terminal so macOS prompts again.
+
 ## Known limitations
 
 - **No scrobbling**: play counts are not reported back to Plex
