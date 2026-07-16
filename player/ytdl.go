@@ -289,8 +289,11 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 	// Start yt-dlp: download best audio to stdout.
 	// Prefer direct HTTPS/HTTP streams over HLS (m3u8). HLS requires segment
 	// downloading and muxing which doesn't pipe cleanly to stdout.
+	// Live streams (e.g. YouTube live) expose no audio-only formats at all,
+	// only muxed video+audio over HLS, so fall back to "best" as a last
+	// resort; the ffmpeg stage below outputs PCM audio and drops the video.
 	ytdlArgs := []string{
-		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio",
+		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best",
 		"--no-playlist",
 		"--quiet",
 		"--no-warnings",

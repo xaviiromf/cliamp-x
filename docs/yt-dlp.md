@@ -13,6 +13,8 @@ cliamp https://space.bilibili.com/uid/lists/id  # season/series playlists
 
 Playlists and albums are supported. Press `S` to save a downloaded track to `~/Music/cliamp/`.
 
+Live streams (for example 24/7 YouTube lofi radios) work too: they expose no audio-only formats, so cliamp falls back to the best muxed stream and plays only its audio track. This also applies to live-stream URLs used as stations in `radios.toml`.
+
 ## Search
 
 Search and play directly from the command line:
