@@ -229,6 +229,8 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 			playlist.Track{Path: "http://radio.cliamp.stream/ncs-dnb/stream", Title: "NCS Drum & Bass Stream", Stream: true},
 			playlist.Track{Path: "http://radio.cliamp.stream/ncs-trap/stream", Title: "NCS Trap Stream", Stream: true},
 			playlist.Track{Path: "http://radio.cliamp.stream/ncs-phonk/stream", Title: "NCS Phonk Stream", Stream: true},
+			playlist.Track{Path: "http://radio.cliamp.stream/ncs-pop/stream", Title: "NCS Pop Stream", Stream: true},
+			playlist.Track{Path: "http://radio.cliamp.stream/ncs-chill/stream", Title: "NCS Chill Stream", Stream: true},
 		)
 	}
 	pl.Add(resolved.Tracks...)
