@@ -152,31 +152,6 @@ Or without Make: `go build -o cliamp .`
 
 Full documentation is hosted at **[docs.cliamp.stream](https://docs.cliamp.stream)**.
 
-- [Configuration](docs/configuration.md)
-- [Keybindings](docs/keybindings.md)
-- [CLI Flags](docs/cli.md)
-- [Streaming](docs/streaming.md)
-- [Playlists](docs/playlists.md)
-- [YouTube, SoundCloud, Bandcamp and Bilibili](docs/yt-dlp.md)
-- [YouTube Music](docs/youtube-music.md)
-- [NetEase Cloud Music](docs/netease.md)
-- [SoundCloud](docs/soundcloud.md)
-- [Lyrics](docs/lyrics.md)
-- [Spotify](docs/spotify.md)
-- [Navidrome](docs/navidrome.md)
-- [Plex](docs/plex.md)
-- [Jellyfin](docs/jellyfin.md)
-- [Themes](docs/themes.md)
-- [SSH Streaming](docs/ssh-streaming.md)
-- [Remote Control (IPC)](docs/remote-control.md)
-- [Headless Daemon Mode](docs/headless.md)
-- [Audio Quality](docs/audio-quality.md)
-- [Media Controls](docs/mediactl.md)
-- [Quickshell Now-Playing Widget (Omarchy)](docs/quickshell.md)
-- [Lua Plugins](docs/plugins.md)
-  - [Community Plugins](docs/community-plugins.md)
-  - [Soap Bubbles Visualizer](https://github.com/bjarneo/cliamp-plugin-soap-bubbles)
-
 ## Troubleshooting
 
 **No audio output (silence with no errors)**
