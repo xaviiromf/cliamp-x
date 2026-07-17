@@ -9,6 +9,9 @@ Built with [Bubbletea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](
 
 https://github.com/user-attachments/assets/fbc33d20-e3ac-4a62-a991-8a2f0243c8ea
 
+<div align="center">
+  <a href="https://contextowl.co"><img src="https://contextowl.co/uploads/_brand/sponsor-dark.svg" alt="Proudly sponsored by contextowl.co" width="400"></a>
+</div>
 
 ## Install
 
@@ -173,10 +176,6 @@ sudo pacman -S pulseaudio-alsa
 # Debian/Ubuntu (PipeWire)
 sudo apt install pipewire-alsa
 ```
-
-## Sponsor
-
-<a href="https://contextowl.co"><img src="https://contextowl.co/uploads/_brand/sponsor-light.svg" alt="Proudly sponsored by contextowl.co" width="400"></a>
 
 ## Author
 
