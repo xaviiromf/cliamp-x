@@ -16,7 +16,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev shellcheck
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev libflac-dev libvorbis-dev libogg-dev shellcheck
       - run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
       - run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
       - run: make fmt-check vet staticcheck security
@@ -40,5 +40,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install codec libs (macOS)
+        if: matrix.goos == 'darwin'
+        run: brew install flac libvorbis libogg pkg-config
       - run: go test -count=1 ./...
       - run: go build -trimpath ./...
