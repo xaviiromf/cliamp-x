@@ -223,7 +223,7 @@ func TestRemoveMissing(t *testing.T) {
 }
 
 func TestInstallFromRawURL(t *testing.T) {
-	withTempHome(t)
+	home := withTempHome(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/example.lua") {
 			t.Errorf("unexpected path %q", r.URL.Path)
@@ -237,8 +237,8 @@ func TestInstallFromRawURL(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 
-	// Verify the installed file exists.
-	home, _ := os.UserHomeDir()
+	// Verify the installed file exists. Use the temp HOME (not os.UserHomeDir,
+	// which ignores HOME on Windows) so this matches where Install wrote it.
 	dest := filepath.Join(home, ".config", "cliamp", "plugins", "example.lua")
 	if _, err := os.Stat(dest); err != nil {
 		t.Errorf("installed plugin missing: %v", err)

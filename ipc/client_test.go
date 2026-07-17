@@ -3,16 +3,34 @@ package ipc
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
+// shortTempDir returns a temp directory whose path is short enough for a Unix
+// socket. macOS caps the socket path (sun_path) at 104 bytes, and t.TempDir()
+// under /var/folders overflows that for longer test names; use a short /tmp base
+// there. Other platforms keep t.TempDir().
+func shortTempDir(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS != "darwin" {
+		return t.TempDir()
+	}
+	d, err := os.MkdirTemp("/tmp", "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(d) })
+	return d
+}
+
 // TestSendRoundTrip spins up a real server bound to a temp socket and exchanges
 // one request/response through the client.
 func TestSendRoundTrip(t *testing.T) {
-	sock := filepath.Join(t.TempDir(), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
 
 	disp := &captureDispatcher{autoReply: Response{OK: true}}
 	srv, err := NewServer(sock, disp)
@@ -34,7 +52,7 @@ func TestSendRoundTrip(t *testing.T) {
 }
 
 func TestSendNoServer(t *testing.T) {
-	sock := filepath.Join(t.TempDir(), "missing.sock")
+	sock := filepath.Join(shortTempDir(t), "missing.sock")
 
 	_, err := Send(sock, Request{Cmd: "status"})
 	if err == nil {
@@ -47,7 +65,7 @@ func TestSendNoServer(t *testing.T) {
 
 func TestSendInvalidRequestReturnsError(t *testing.T) {
 	// Server responds to an unknown cmd with OK:false, Error:"unknown command:...".
-	sock := filepath.Join(t.TempDir(), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
 	srv, err := NewServer(sock, &captureDispatcher{})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -153,7 +171,7 @@ func TestNewServerLivePIDReturnsError(t *testing.T) {
 }
 
 func TestServerCloseRemovesFiles(t *testing.T) {
-	sock := filepath.Join(t.TempDir(), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
 	srv, err := NewServer(sock, &captureDispatcher{})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -182,7 +200,7 @@ func TestServerMultipleRequestsSameConnection(t *testing.T) {
 	// Make sure the server can handle multiple requests over a single socket.
 	// Each Send opens its own connection, so this really verifies the accept
 	// loop keeps going beyond the first request.
-	sock := filepath.Join(t.TempDir(), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
 	disp := &captureDispatcher{}
 	srv, err := NewServer(sock, disp)
 	if err != nil {
@@ -202,7 +220,7 @@ func TestServerMultipleRequestsSameConnection(t *testing.T) {
 }
 
 func TestServerHandlesInvalidJSON(t *testing.T) {
-	sock := filepath.Join(t.TempDir(), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
 	srv, err := NewServer(sock, &captureDispatcher{})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

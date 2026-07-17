@@ -45,7 +45,9 @@ func execTestAllowedBinaries() []string {
 
 func execOutputCommand() (binary string, args []string, wantLine string) {
 	if runtime.GOOS == "windows" {
-		return "powershell", []string{"-NoProfile", "-Command", "Write-Output 'hello world'"}, "hello world"
+		// cmd exits immediately after echo and closes stdout cleanly; PowerShell's
+		// slower startup and stdout-close timing left on_exit pending on CI.
+		return "cmd", []string{"/c", "echo", "hello", "world"}, "hello world"
 	}
 	return "echo", []string{"hello", "world"}, "hello world"
 }
