@@ -93,7 +93,7 @@ func TestDefaultSocketPath(t *testing.T) {
 }
 
 func TestNewServerRemovesOrphanSocket(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortTempDir(t)
 	sock := filepath.Join(dir, "cliamp.sock")
 
 	// Create an orphan socket file with no PID file — NewServer should remove it.
@@ -118,7 +118,7 @@ func TestNewServerRemovesOrphanSocket(t *testing.T) {
 }
 
 func TestNewServerCorruptPIDFile(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortTempDir(t)
 	sock := filepath.Join(dir, "cliamp.sock")
 
 	// Corrupt PID file is cleaned and NewServer succeeds.
@@ -134,7 +134,7 @@ func TestNewServerCorruptPIDFile(t *testing.T) {
 }
 
 func TestNewServerDeadPIDFile(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortTempDir(t)
 	sock := filepath.Join(dir, "cliamp.sock")
 
 	// PID 1 is init (alive), but a far-out-of-range PID should be dead on Linux.
@@ -152,7 +152,7 @@ func TestNewServerDeadPIDFile(t *testing.T) {
 }
 
 func TestNewServerLivePIDReturnsError(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortTempDir(t)
 	sock := filepath.Join(dir, "cliamp.sock")
 
 	// Our own PID is definitely live → NewServer should refuse to start.
