@@ -3,10 +3,14 @@ package fileutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestWriteFileAtomicPreservesStricterMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits (0400) have no equivalent on Windows")
+	}
 	path := filepath.Join(t.TempDir(), "secret")
 	if err := os.WriteFile(path, []byte("old"), 0o400); err != nil {
 		t.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -297,6 +298,9 @@ func TestCreatePlaylistCreatesEmptyFile(t *testing.T) {
 }
 
 func TestExistingPlaylistWithLegacyNameRemainsWritable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("colon is an illegal filename character on Windows")
+	}
 	p := newTestProvider(t)
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)

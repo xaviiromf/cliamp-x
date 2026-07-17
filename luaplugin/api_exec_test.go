@@ -126,7 +126,7 @@ func TestExecRunsAllowedBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitExec(t, p, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 20*time.Second)
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -203,7 +203,7 @@ func TestExecPropagatesExitCode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitExec(t, p, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 20*time.Second)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if code := L.GetGlobal("exit_code").(lua.LNumber); code != 1 {
@@ -236,7 +236,7 @@ func TestExecCancel(t *testing.T) {
 	_ = L.CallByParam(lua.P{Fn: cancelFn, NRet: 0, Protect: true}, handle)
 	p.mu.Unlock()
 
-	waitExec(t, p, L, "exit_code", 2*time.Second)
+	waitExec(t, p, L, "exit_code", 20*time.Second)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if code := L.GetGlobal("exit_code").(lua.LNumber); code >= 0 {

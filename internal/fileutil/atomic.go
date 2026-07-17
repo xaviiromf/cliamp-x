@@ -52,12 +52,7 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) (err error) {
 		return fmt.Errorf("replace file: %w", err)
 	}
 
-	d, openErr := os.Open(dir)
-	if openErr != nil {
-		return fmt.Errorf("open parent directory: %w", openErr)
-	}
-	defer d.Close()
-	if err = d.Sync(); err != nil {
+	if err = syncDir(dir); err != nil {
 		return fmt.Errorf("sync parent directory: %w", err)
 	}
 	return nil

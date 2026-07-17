@@ -194,7 +194,13 @@ func fileURL(path string) string {
 	if err != nil {
 		abs = path
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+	slashed := filepath.ToSlash(abs)
+	// Windows drive-letter paths (C:/...) have no leading slash; prepend one so
+	// url.URL renders the RFC 8089 form file:///C:/... instead of file://C:/...
+	if !strings.HasPrefix(slashed, "/") {
+		slashed = "/" + slashed
+	}
+	u := url.URL{Scheme: "file", Path: slashed}
 	return u.String()
 }
 
