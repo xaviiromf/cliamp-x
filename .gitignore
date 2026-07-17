@@ -9,3 +9,5 @@ docs/ideas.md
 /plugins.md
 .worktrees/
 config.backup.toml
+.env
+.github/workflows/contextowl-changelog.yml
