@@ -278,6 +278,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.lyrics.loading = false
 			m.lyrics.query = ""
 			m.lyrics.visible = false
+		case "r":
+			return m.retryLyrics()
 		case "up", "k":
 			if !(m.lyricsSyncable() && m.lyricsHaveTimestamps()) && m.lyrics.scroll > 0 {
 				m.lyrics.scroll--
@@ -752,17 +754,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "y":
 		m.lyrics.visible = !m.lyrics.visible
-		if m.lyrics.visible && !m.lyrics.loading {
-			track, _ := m.currentPlaybackTrack()
-			artist, title := m.lyricsArtistTitle()
-			q := lyricsLookupKey(track, artist, title)
-			if q != "" && q != m.lyrics.query {
-				m.lyrics.query = q
-				m.lyrics.loading = true
-				m.lyrics.lines = nil
-				m.lyrics.err = nil
-				return m.fetchLyricsForTrack(track, artist, title)
-			}
+		if m.lyrics.visible {
+			return m.retryLyrics()
 		}
 
 	case "o":

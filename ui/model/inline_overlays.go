@@ -318,10 +318,14 @@ func (m Model) renderJumpBody() string {
 // — lyrics —
 
 func (m Model) lyricsHelpLine() string {
-	if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
-		return helpKey("Esc", "Close")
+	retry := ""
+	if !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) {
+		retry = helpKey("r", "Retry ")
 	}
-	return helpKey("↓↑", "Scroll ") + helpKey("Esc", "Close")
+	if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
+		return retry + helpKey("Esc", "Close")
+	}
+	return helpKey("↓↑", "Scroll ") + retry + helpKey("Esc", "Close")
 }
 
 func (m Model) renderLyricsBody() string {
@@ -348,7 +352,7 @@ func (m Model) renderLyricsBody() string {
 				lines = append(lines, dimStyle.Render("  Waiting for stream metadata..."))
 			}
 		} else {
-			lines = append(lines, dimStyle.Render("  No lyrics loaded. Press y to retry."))
+			lines = append(lines, dimStyle.Render("  No lyrics loaded. Press r to retry."))
 		}
 	case m.lyricsSyncable() && m.lyricsHaveTimestamps():
 		pos := m.player.Position()

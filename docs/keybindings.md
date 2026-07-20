@@ -65,7 +65,8 @@ fields support these editor keys:
 | `f` | Toggle bookmark ★ on selected track (or favorite radio station in radio browser) |
 | `Ctrl+F` | Search — active provider's native search (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
-| `y` | Show lyrics |
+| `y` | Show or close lyrics |
+| `r` | Retry lyrics lookup while lyrics are open |
 | `i` | Show track metadata (`↑`/`↓` scrolls) |
 | `Ctrl+S` | Save track to ~/Music |
 | `w` | Write the highlighted track to a local playlist |

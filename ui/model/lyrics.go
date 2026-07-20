@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/bjarneo/cliamp/playlist"
 )
 
@@ -37,6 +39,23 @@ func lyricsLookupKey(track playlist.Track, artist, title string) string {
 		return "embedded\n" + track.Title
 	}
 	return "embedded"
+}
+
+func (m *Model) retryLyrics() tea.Cmd {
+	if m.lyrics.loading {
+		return nil
+	}
+	track, _ := m.currentPlaybackTrack()
+	artist, title := m.lyricsArtistTitle()
+	q := lyricsLookupKey(track, artist, title)
+	if q == "" {
+		return nil
+	}
+	m.lyrics.query = q
+	m.lyrics.loading = true
+	m.lyrics.lines = nil
+	m.lyrics.err = nil
+	return m.fetchLyricsForTrack(track, artist, title)
 }
 
 // lyricsSyncable reports whether synced lyrics can track the current playback

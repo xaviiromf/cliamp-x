@@ -1,9 +1,12 @@
 package model
 
 import (
+	"errors"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bjarneo/cliamp/playlist"
 )
 
 func TestGlobalHelpOpensOverActiveTextInput(t *testing.T) {
@@ -23,5 +26,30 @@ func TestGlobalHelpOpensOverActiveTextInput(t *testing.T) {
 	}
 	if !m.search.active || m.search.query != "jazz" {
 		t.Fatalf("search state = %+v after closing help, want active input preserved", m.search)
+	}
+}
+
+func TestLyricsRetryStartsNewRequest(t *testing.T) {
+	p := playlist.New()
+	p.Add(playlist.Track{Artist: "Artist", Title: "Title"})
+	m := Model{
+		playlist: p,
+		lyrics: lyricsState{
+			visible: true,
+			err:     errors.New("temporary failure"),
+		},
+	}
+
+	if cmd := m.handleKey(tea.KeyPressMsg{Text: "r"}); cmd == nil {
+		t.Fatal("lyrics retry command is nil")
+	}
+	if !m.lyrics.loading {
+		t.Fatal("lyrics.loading = false after retry")
+	}
+	if m.lyrics.err != nil {
+		t.Fatalf("lyrics.err = %v after retry, want nil", m.lyrics.err)
+	}
+	if m.lyrics.query != "Artist\nTitle" {
+		t.Fatalf("lyrics.query = %q, want lookup key", m.lyrics.query)
 	}
 }
