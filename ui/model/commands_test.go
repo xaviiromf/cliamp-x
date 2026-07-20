@@ -41,12 +41,12 @@ func TestFetchSpotPlaylistsFiltersHistoryOnlyForLocal(t *testing.T) {
 		{ID: "mix", Name: "Mix"},
 	}
 
-	msg := fetchSpotPlaylistsCmd(commandsTestProvider{name: "Spotify", lists: lists})().(spotPlaylistsMsg)
+	msg := fetchSpotPlaylistsCmd(commandsTestProvider{name: "Spotify", lists: lists}, 1)().(spotPlaylistsMsg)
 	if len(msg.playlists) != 2 {
 		t.Fatalf("Spotify playlists = %d, want 2", len(msg.playlists))
 	}
 
-	msg = fetchSpotPlaylistsCmd(commandsTestProvider{name: "Local", lists: lists})().(spotPlaylistsMsg)
+	msg = fetchSpotPlaylistsCmd(commandsTestProvider{name: "Local", lists: lists}, 2)().(spotPlaylistsMsg)
 	if len(msg.playlists) != 1 || msg.playlists[0].Name != "Mix" {
 		t.Fatalf("Local playlists = %+v, want only Mix", msg.playlists)
 	}
@@ -58,14 +58,17 @@ func TestTracksLoadedMsgMarksOnlyExactLocalPlaylist(t *testing.T) {
 		player:        player,
 		playlist:      playlist.New(),
 		localProvider: commandsTestProvider{name: "Local"},
+		provider:      commandsTestProvider{name: "Local"},
 		vis:           ui.NewVisualizer(float64(player.SampleRate())),
 	}
+	m.requests.tracks = 1
 
 	updated, _ := m.Update(tracksLoadedMsg{
 		tracks:        []playlist.Track{{Path: "/a.mp3", Title: "A"}},
 		playlistID:    "mix",
 		providerName:  "Local",
 		playlistExact: true,
+		gen:           1,
 	})
 	m = updated.(Model)
 	if m.loadedPlaylist != "mix" {
@@ -77,6 +80,7 @@ func TestTracksLoadedMsgMarksOnlyExactLocalPlaylist(t *testing.T) {
 		playlistID:    "mix",
 		providerName:  "Local",
 		playlistExact: false,
+		gen:           1,
 	})
 	m = updated.(Model)
 	if m.loadedPlaylist != "" {

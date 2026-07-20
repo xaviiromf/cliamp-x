@@ -226,6 +226,9 @@ func (m Model) centerFrame(frame string) string {
 func (m Model) renderTitle() string {
 	title := titleStyle.Render("C L I A M P")
 	label := m.focus.label()
+	if screen := m.activeScreen(); screen != screenMain {
+		label = screen.label()
+	}
 	if label == "" {
 		return title
 	}
@@ -342,7 +345,7 @@ func (m Model) renderFullVisualizer() string {
 		m.renderSpectrum(),
 		m.renderSeekBar(),
 		"",
-		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol"),
+		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol ") + helpKey("?", "Keys"),
 	}
 
 	return strings.Join(sections, "\n")
@@ -534,7 +537,7 @@ func (m Model) renderProviderList() string {
 	if m.provSignIn {
 		return dimStyle.Render(fmt.Sprintf("  Sign in to %s. Press Enter to continue.", m.provider.Name()))
 	}
-	if m.provLoading {
+	if m.provLoading && len(m.providerLists) == 0 {
 		lines := []string{loadingLine(fmt.Sprintf("Loading %s…", m.provider.Name()))}
 		if m.provAuthURL != "" {
 			lines = append(lines,

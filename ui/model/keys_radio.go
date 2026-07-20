@@ -21,7 +21,7 @@ func (m *Model) maybeLoadCatalogBatch() tea.Cmd {
 	}
 	if m.provCursor >= len(m.providerLists)-10 {
 		m.catalogBatch.loading = true
-		return fetchCatalogBatchCmd(loader, m.catalogBatch.offset, catalogBatchSize)
+		return m.fetchCatalogBatch(loader)
 	}
 	return nil
 }

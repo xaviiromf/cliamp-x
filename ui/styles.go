@@ -46,6 +46,11 @@ func SetPadding(h, v int) {
 	FrameStyle = FrameStyle.Padding(paddingV, PaddingH)
 }
 
+// VerticalPadding returns the current frame padding above and below content.
+func VerticalPadding() int {
+	return paddingV
+}
+
 // FrameStyle is the outer frame style for the TUI.
 var FrameStyle = lipgloss.NewStyle().
 	Padding(paddingV, PaddingH).

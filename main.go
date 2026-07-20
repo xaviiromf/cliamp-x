@@ -407,13 +407,13 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 
 	if spotifyProv != nil {
 		spotify.SetAuthURLObserver(func(u string) {
-			prog.Send(model.ProvAuthURLMsg{URL: u})
+			prog.Send(model.ProvAuthURLMsg{ProviderName: spotifyProv.Name(), URL: u})
 		})
 		defer spotify.SetAuthURLObserver(nil)
 	}
 	if qobuzProv != nil {
 		qobuz.SetAuthURLObserver(func(u string) {
-			prog.Send(model.ProvAuthURLMsg{URL: u})
+			prog.Send(model.ProvAuthURLMsg{ProviderName: qobuzProv.Name(), URL: u})
 		})
 		defer qobuz.SetAuthURLObserver(nil)
 	}

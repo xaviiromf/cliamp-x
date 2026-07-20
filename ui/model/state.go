@@ -43,6 +43,7 @@ type netSearchState struct {
 	cursor     int
 	scroll     int
 	err        string
+	request    string
 }
 
 // provSearchState holds state for filtering the provider playlist list.
@@ -209,6 +210,29 @@ type navBrowserState struct {
 	searchIdx    []int
 }
 
+// requestState tracks the latest request in each independently asynchronous UI
+// domain. Completion messages must match their generation before they can
+// change the current screen.
+type requestState struct {
+	provider     uint64
+	tracks       uint64
+	nav          uint64
+	lyrics       uint64
+	netSearch    uint64
+	spotSearch   uint64
+	spotLists    uint64
+	spotMutation uint64
+	auth         uint64
+	catalog      uint64
+	stream       uint64
+	preload      uint64
+}
+
+func nextRequest(gen *uint64) uint64 {
+	*gen = *gen + 1
+	return *gen
+}
+
 // spotSearchScreenType identifies which screen of the Spotify search overlay is active.
 type spotSearchScreenType int
 
@@ -233,6 +257,7 @@ type spotSearchState struct {
 	selTrack  playlist.Track          // track selected to add
 	newName   string                  // new playlist name input
 	err       string
+	cancel    func()
 }
 
 // catalogBatchState holds state for lazy-loading catalog entries from a provider.CatalogLoader.

@@ -82,6 +82,45 @@ func (s topLevelScreen) hidesVisualizer() bool {
 	return false
 }
 
+func (s topLevelScreen) label() string {
+	switch s {
+	case screenKeymap:
+		return "Keys"
+	case screenThemePicker:
+		return "Themes"
+	case screenVisPicker:
+		return "Visualizers"
+	case screenDevicePicker:
+		return "Audio Device"
+	case screenPlaylistPicker:
+		return "Save to Playlist"
+	case screenFileBrowser:
+		return "Files"
+	case screenNavBrowser:
+		return "Browse"
+	case screenPlaylistManager:
+		return "Playlists"
+	case screenSpotSearch, screenNetSearch:
+		return "Search"
+	case screenQueue:
+		return "Queue"
+	case screenInfo:
+		return "Track Info"
+	case screenSearch:
+		return "Filter"
+	case screenURLInput:
+		return "Load URL"
+	case screenLyrics:
+		return "Lyrics"
+	case screenJump:
+		return "Jump to Time"
+	case screenFullVisualizer:
+		return "Visualizer"
+	default:
+		return ""
+	}
+}
+
 // maxPlVisible caps the playlist at a readable height even on tall terminals.
 // maxPlExpandVisible is the higher cap used when the user expands with 'x'.
 const (
@@ -197,6 +236,7 @@ type Model struct {
 	status         statusMsg
 	logLines       []logLine
 	network        networkStats
+	requests       requestState
 	speedSaveAfter time.Duration
 	termTitle      terminalTitleState
 
@@ -311,40 +351,40 @@ type Model struct {
 
 func (m Model) activeScreen() topLevelScreen {
 	switch {
+	case m.fullVis:
+		return screenFullVisualizer
 	case m.keymap.visible:
 		return screenKeymap
-	case m.themePicker.visible:
-		return screenThemePicker
-	case m.visPicker.visible:
-		return screenVisPicker
 	case m.devicePicker.visible:
 		return screenDevicePicker
 	case m.plPicker.visible:
 		return screenPlaylistPicker
 	case m.fileBrowser.visible:
 		return screenFileBrowser
-	case m.navBrowser.visible:
-		return screenNavBrowser
-	case m.plManager.visible:
-		return screenPlaylistManager
 	case m.spotSearch.visible:
 		return screenSpotSearch
+	case m.navBrowser.visible:
+		return screenNavBrowser
+	case m.themePicker.visible:
+		return screenThemePicker
+	case m.visPicker.visible:
+		return screenVisPicker
+	case m.plManager.visible:
+		return screenPlaylistManager
 	case m.queue.visible:
 		return screenQueue
 	case m.showInfo:
 		return screenInfo
-	case m.search.active:
-		return screenSearch
-	case m.netSearch.active:
-		return screenNetSearch
-	case m.urlInputting:
-		return screenURLInput
 	case m.lyrics.visible:
 		return screenLyrics
 	case m.jumping:
 		return screenJump
-	case m.fullVis:
-		return screenFullVisualizer
+	case m.urlInputting:
+		return screenURLInput
+	case m.search.active:
+		return screenSearch
+	case m.netSearch.active:
+		return screenNetSearch
 	default:
 		return screenMain
 	}

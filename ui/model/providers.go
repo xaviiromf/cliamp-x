@@ -11,6 +11,10 @@ import (
 
 // resetProviderNav resets provider navigation and search state to the top.
 func (m *Model) resetProviderNav() {
+	nextRequest(&m.requests.provider)
+	nextRequest(&m.requests.tracks)
+	nextRequest(&m.requests.auth)
+	nextRequest(&m.requests.catalog)
 	m.provCursor = 0
 	m.provScroll = 0
 	m.provLoading = true
@@ -43,12 +47,59 @@ func (m *Model) switchProvider(idx int) tea.Cmd {
 	m.activeProviderPlaylistID = ""
 	m.resetProviderNav()
 	m.focus = focusProvider
-	return fetchPlaylistsCmd(m.provider)
+	return m.fetchProviderPlaylists()
+}
+
+func (m *Model) fetchProviderPlaylists() tea.Cmd {
+	if m.provider == nil {
+		return nil
+	}
+	return fetchPlaylistsCmd(m.provider, nextRequest(&m.requests.provider))
+}
+
+func (m *Model) fetchProviderTracks(playlistID string) tea.Cmd {
+	if m.provider == nil {
+		return nil
+	}
+	return fetchTracksCmd(m.provider, playlistID, nextRequest(&m.requests.tracks))
+}
+
+func (m Model) isActiveProvider(name string) bool {
+	return m.provider != nil && m.provider.Name() == name
+}
+
+func (m Model) isCurrentNavRequest(gen uint64) bool {
+	return m.navBrowser.visible && gen == m.requests.nav
+}
+
+func (m Model) isCurrentSpotProvider(providerName string) bool {
+	return m.spotSearch.visible &&
+		m.spotSearch.prov != nil &&
+		m.spotSearch.prov.Name() == providerName
+}
+
+func (m Model) isCurrentSpotRequest(gen uint64, providerName string) bool {
+	return m.isCurrentSpotProvider(providerName) && gen == m.requests.spotSearch
+}
+
+func (m Model) isCurrentSpotListRequest(gen uint64, providerName string) bool {
+	return m.isCurrentSpotProvider(providerName) && gen == m.requests.spotLists
+}
+
+func (m Model) isCurrentSpotMutation(gen uint64, providerName string) bool {
+	return m.isCurrentSpotProvider(providerName) && gen == m.requests.spotMutation
+}
+
+func (m *Model) fetchCatalogBatch(loader provider.CatalogLoader) tea.Cmd {
+	if m.provider == nil {
+		return nil
+	}
+	return fetchCatalogBatchCmd(loader, m.catalogBatch.offset, catalogBatchSize, m.provider.Name(), nextRequest(&m.requests.catalog))
 }
 
 // quickSwitchProvider closes any browser overlays and jumps to the provider
 // matched by key. Use the same Shift+letter shortcuts that switch providers
-// from the main pane (S, N, P, J, E, Y, M, R, L). Returns nil when the key doesn't
+// from the main pane (S, N, P, J, E, Y, C, M, Q, R, L). Returns nil when the key doesn't
 // match a known provider.
 func (m *Model) quickSwitchProvider(key string) tea.Cmd {
 	provKey := providerKeyForShortcut(key)
@@ -56,6 +107,7 @@ func (m *Model) quickSwitchProvider(key string) tea.Cmd {
 		return nil
 	}
 	// Close any open overlays so the user lands on the provider pane.
+	m.cancelNavRequests()
 	m.navBrowser.visible = false
 	m.plManager.visible = false
 	m.fileBrowser.visible = false
@@ -78,8 +130,12 @@ func providerKeyForShortcut(key string) string {
 		return "emby"
 	case "Y":
 		return "yt"
+	case "C":
+		return "soundcloud"
 	case "M":
 		return "netease"
+	case "Q":
+		return "qobuz"
 	case "L":
 		return "local"
 	case "R":
@@ -124,6 +180,7 @@ func (m *Model) findBrowseProvider() playlist.Provider {
 }
 
 func (m *Model) openNavBrowserWith(prov playlist.Provider) {
+	nextRequest(&m.requests.nav)
 	m.navBrowser.prov = prov
 	m.navBrowser.visible = true
 	m.navBrowser.mode = navBrowseModeMenu
@@ -146,6 +203,16 @@ func (m *Model) openNavBrowserWith(prov playlist.Provider) {
 	} else {
 		m.navBrowser.sortType = ""
 	}
+}
+
+func (m *Model) nextNavRequest() uint64 {
+	return nextRequest(&m.requests.nav)
+}
+
+func (m *Model) cancelNavRequests() {
+	nextRequest(&m.requests.nav)
+	m.navBrowser.loading = false
+	m.navBrowser.albumLoading = false
 }
 
 // navUpdateSearch rebuilds navSearchIdx from the current navSearch query
@@ -197,23 +264,24 @@ func (m *Model) navClearSearch() {
 // all tracks across every album. This is used by the "By Artist" browse mode.
 // The provider must implement both ArtistBrowser and AlbumTrackLoader.
 func (m *Model) fetchNavArtistAllTracksCmd(ab provider.ArtistBrowser, artistID string) tea.Cmd {
+	gen := m.nextNavRequest()
 	loader, _ := m.navBrowser.prov.(provider.AlbumTrackLoader)
 	return func() tea.Msg {
 		albums, err := ab.ArtistAlbums(artistID)
 		if err != nil {
-			return err
+			return navTracksLoadedMsg{gen: gen, err: err}
 		}
 		if loader == nil {
-			return navTracksLoadedMsg(nil)
+			return navTracksLoadedMsg{gen: gen}
 		}
 		var all []playlist.Track
 		for _, album := range albums {
 			tracks, err := loader.AlbumTracks(album.ID)
 			if err != nil {
-				return err
+				return navTracksLoadedMsg{gen: gen, err: err}
 			}
 			all = append(all, tracks...)
 		}
-		return navTracksLoadedMsg(all)
+		return navTracksLoadedMsg{tracks: all, gen: gen}
 	}
 }

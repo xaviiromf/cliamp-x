@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bjarneo/cliamp/provider"
@@ -40,7 +42,7 @@ func (m *Model) handleSpotSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			m.spotSearch.loading = true
 			m.spotSearch.err = ""
-			return fetchSpotSearchCmd(s, m.spotSearch.query)
+			return fetchSpotSearchCmd(m.newSpotRequestContext(30*time.Second), s, m.spotSearch.prov.Name(), m.spotSearch.query, nextRequest(&m.requests.spotSearch))
 		}
 	case tea.KeyBackspace:
 		if m.spotSearch.query != "" {
@@ -105,7 +107,7 @@ func (m *Model) handleSpotSearchResultsKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.spotSearch.selTrack = m.spotSearch.results[m.spotSearch.cursor]
 			m.spotSearch.loading = true
 			m.spotSearch.err = ""
-			return fetchSpotPlaylistsCmd(m.spotSearch.prov)
+			return fetchSpotPlaylistsCmd(m.spotSearch.prov, nextRequest(&m.requests.spotLists))
 		}
 	case "esc", "backspace":
 		m.spotSearch.screen = spotSearchInput
@@ -179,7 +181,7 @@ func (m *Model) handleSpotSearchPlaylistKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			m.spotSearch.loading = true
 			m.spotSearch.err = ""
-			return addToSpotPlaylistCmd(w, pl.ID, m.spotSearch.selTrack, pl.Name)
+			return addToSpotPlaylistCmd(m.newSpotRequestContext(15*time.Second), w, pl.ID, m.spotSearch.selTrack, m.spotSearch.prov.Name(), pl.Name, nextRequest(&m.requests.spotMutation))
 		}
 		// "+ New Playlist..." selected.
 		m.spotSearch.screen = spotSearchNewName
@@ -211,7 +213,7 @@ func (m *Model) handleSpotSearchNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			m.spotSearch.loading = true
 			m.spotSearch.err = ""
-			return createSpotPlaylistCmd(c, w, m.spotSearch.newName, m.spotSearch.selTrack)
+			return createSpotPlaylistCmd(m.newSpotRequestContext(15*time.Second), c, w, m.spotSearch.prov.Name(), m.spotSearch.newName, m.spotSearch.selTrack, nextRequest(&m.requests.spotMutation))
 		}
 	case tea.KeyBackspace:
 		if m.spotSearch.newName != "" {

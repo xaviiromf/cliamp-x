@@ -1,6 +1,6 @@
 # Keybindings
 
-Press `?` or `Ctrl+K` in the player to see all keybindings.
+Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 
 ## Playback
 
@@ -129,7 +129,7 @@ When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Sp
 | `a` | Append all visible tracks to the queue |
 | `q` | Queue the highlighted track to play next |
 | `s` | Cycle album sort (album list only) |
-| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` `R` | Quick-switch to that provider without going back through the main pane |
+| `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` | Quick-switch to that provider without going back through the main pane. `R` replaces the queue on the track screen. |
 | `Esc` `b` | Walk back one level / close the browser |
 
 The track screen shows a `N tracks · 47:22` subtitle and right-aligned per-track durations when the provider returns them.

@@ -204,8 +204,10 @@ func TestPlayCurrentTrackUnplayableUsesSelectionOrder(t *testing.T) {
 	m := Model{
 		player:   player,
 		playlist: p,
+		provider: commandsTestProvider{name: "Test"},
 		vis:      ui.NewVisualizer(float64(player.SampleRate())),
 	}
+	m.requests.tracks = 1
 
 	cmd := m.playCurrentTrack()
 	if cmd == nil {
@@ -270,14 +272,18 @@ func modelAfterProviderPlaylistLoadWhilePlaying(t *testing.T) (Model, *playbackF
 	m := Model{
 		player:   player,
 		playlist: p,
+		provider: commandsTestProvider{name: "Test"},
 		vis:      ui.NewVisualizer(float64(player.SampleRate())),
 	}
+	m.requests.tracks = 1
 
 	updated, _ := m.Update(tracksLoadedMsg{
 		tracks: []playlist.Track{
 			{Title: "New 1", Path: "new1.mp3", DurationSecs: 180},
 			{Title: "New 2", Path: "new2.mp3", DurationSecs: 180},
 		},
+		providerName: "Test",
+		gen:          1,
 	})
 	m = updated.(Model)
 

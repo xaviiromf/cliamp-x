@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -135,6 +136,7 @@ func (m *Model) appendTrack(track playlist.Track) tea.Cmd {
 // closeNetSearch fully resets the net search overlay and restores focus,
 // dropping any cached results so they don't linger between sessions.
 func (m *Model) closeNetSearch() {
+	nextRequest(&m.requests.netSearch)
 	m.netSearch = netSearchState{}
 	m.focus = m.prevFocus
 }
@@ -142,7 +144,25 @@ func (m *Model) closeNetSearch() {
 // closeSpotSearch fully resets the Spotify search overlay, dropping cached
 // results, playlists, and the selected track.
 func (m *Model) closeSpotSearch() {
+	m.cancelSpotRequest()
+	nextRequest(&m.requests.spotSearch)
+	nextRequest(&m.requests.spotLists)
+	nextRequest(&m.requests.spotMutation)
 	m.spotSearch = spotSearchState{}
+}
+
+func (m *Model) newSpotRequestContext(timeout time.Duration) context.Context {
+	m.cancelSpotRequest()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	m.spotSearch.cancel = cancel
+	return ctx
+}
+
+func (m *Model) cancelSpotRequest() {
+	if m.spotSearch.cancel != nil {
+		m.spotSearch.cancel()
+		m.spotSearch.cancel = nil
+	}
 }
 
 // queueTrackNext adds a track to the playlist and queues it to play next.
@@ -237,9 +257,9 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		m.err = nil
 		dur := time.Duration(track.DurationSecs) * time.Second
 		if fetchCmd != nil {
-			return tea.Batch(playYTDLStreamCmd(m.player, track.Path, dur), fetchCmd)
+			return tea.Batch(playYTDLStreamCmd(m.player, track.Path, dur, m.requests.stream), fetchCmd)
 		}
-		return playYTDLStreamCmd(m.player, track.Path, dur)
+		return playYTDLStreamCmd(m.player, track.Path, dur, m.requests.stream)
 	}
 	// Fire now-playing notification for Navidrome tracks.
 	m.nowPlaying(track)
@@ -248,7 +268,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		m.buffering = true
 		m.bufferingAt = time.Now()
 		m.err = nil
-		return tea.Batch(playStreamCmd(m.player, track.Path, dur), fetchCmd)
+		return tea.Batch(playStreamCmd(m.player, track.Path, dur, m.requests.stream), fetchCmd)
 	}
 	if err := m.player.Play(track.Path, dur); err != nil {
 		// Provider session went stale (e.g. Spotify auth expired and
@@ -311,6 +331,10 @@ func (m *Model) backfillLoadedPlaylistDuration(track playlist.Track) {
 // new active track. It is used both by explicit playback and by gapless
 // transitions, which advance audio without calling playTrack.
 func (m *Model) beginPlaybackTrack(track playlist.Track) (playlist.Track, tea.Cmd) {
+	nextRequest(&m.requests.stream)
+	nextRequest(&m.requests.preload)
+	m.preloading = false
+	nextRequest(&m.requests.lyrics)
 	track = playlist.RefreshEmbeddedMetadata(track)
 	m.setPlaybackTrack(track)
 	m.reconnect.attempts = 0
@@ -333,10 +357,14 @@ func (m *Model) beginPlaybackTrack(track playlist.Track) (playlist.Track, tea.Cm
 		}
 		m.lyrics.loading = true
 		m.lyrics.query = q
-		return track, fetchTrackLyricsCmd(track, track.Artist, track.Title)
+		return track, m.fetchLyricsForTrack(track, track.Artist, track.Title)
 	}
 	m.lyrics.loading = false
 	return track, nil
+}
+
+func (m *Model) fetchLyricsForTrack(track playlist.Track, artist, title string) tea.Cmd {
+	return fetchTrackLyricsCmd(track, artist, title, m.lyrics.query, nextRequest(&m.requests.lyrics))
 }
 
 // togglePlayPause starts playback if stopped, or toggles pause if playing.

@@ -186,8 +186,18 @@ func (m *Model) providerToBottom() {
 
 // handleKey processes a single key press and returns an optional command.
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
+	if msg.String() == "ctrl+c" {
+		return m.quit()
+	}
+	if m.fullVis {
+		return m.handleFullVisualizerKey(msg)
+	}
 	if m.keymap.visible {
 		return m.handleKeymapKey(msg)
+	}
+	if msg.String() == "ctrl+k" {
+		m.openKeymap()
+		return nil
 	}
 
 	// Audio device picker overlay
@@ -255,6 +265,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		case "ctrl+c":
 			return m.quit()
 		case "esc", "y":
+			nextRequest(&m.requests.lyrics)
+			m.lyrics.loading = false
+			m.lyrics.query = ""
 			m.lyrics.visible = false
 		case "up", "k":
 			if !(m.lyricsSyncable() && m.lyricsHaveTimestamps()) && m.lyrics.scroll > 0 {
@@ -310,13 +323,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				if auth, ok := m.provider.(playlist.Authenticator); ok {
 					m.provSignIn = false
 					m.provLoading = true
-					return authenticateProviderCmd(auth)
+					return authenticateProviderCmd(auth, m.provider.Name(), nextRequest(&m.requests.auth))
 				}
 			}
 			if len(m.providerLists) > 0 && !m.provLoading {
 				m.provLoading = true
 				m.activeProviderPlaylistID = m.providerLists[m.provCursor].ID
-				return fetchTracksCmd(m.provider, m.providerLists[m.provCursor].ID)
+				return m.fetchProviderTracks(m.providerLists[m.provCursor].ID)
 			}
 		case "tab":
 			m.focus = focusEQ
@@ -340,11 +353,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				if r, ok := m.provider.(playlist.Refresher); ok {
 					r.Refresh()
 				}
-				m.providerLists = nil
 				m.provLoading = true
 				m.activeProviderPlaylistID = ""
 				m.status.Showf(statusTTLShort, "Refreshing %s…", m.provider.Name())
-				return fetchPlaylistsCmd(m.provider)
+				return m.fetchProviderPlaylists()
 			}
 		case "f":
 			return m.toggleProviderFavorite()
@@ -372,6 +384,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			return m.switchToProvider("emby")
 		case "S":
 			return m.switchToProvider("spotify")
+		case "P":
+			return m.switchToProvider("plex")
+		case "Y":
+			return m.switchToProvider("yt")
 		case "C":
 			return m.switchToProvider("soundcloud")
 		case "M":
@@ -442,12 +458,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "q", "ctrl+c":
 		return m.quit()
 	case "esc", "backspace", "b":
-		if m.fullVis {
-			m.fullVis = false
-			m.vis.Rows = ui.DefaultVisRows
-			m.restorePanelWidth()
-			m.refreshChrome()
-		} else if m.focus == focusPlaylist {
+		if m.focus == focusPlaylist {
 			// Keep current expanded/collapsed height mode when switching focus.
 			m.focus = focusProvider
 		}
@@ -740,7 +751,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				m.lyrics.loading = true
 				m.lyrics.lines = nil
 				m.lyrics.err = nil
-				return fetchTrackLyricsCmd(track, artist, title)
+				return m.fetchLyricsForTrack(track, artist, title)
 			}
 		}
 
@@ -791,7 +802,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "V":
 		m.fullVis = !m.fullVis
 		if m.fullVis {
-			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
+			m.vis.Rows = m.fullVisualizerRows()
 			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		} else {
 			m.vis.Rows = ui.DefaultVisRows
@@ -824,7 +835,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "[":
 		m.changeSpeed(-0.25)
 
-	case "ctrl+k", "?":
+	case "?":
 		m.openKeymap()
 
 	default:
@@ -833,6 +844,64 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 
+	return nil
+}
+
+func (m *Model) exitFullVisualizer() {
+	m.fullVis = false
+	m.vis.Rows = ui.DefaultVisRows
+	m.restorePanelWidth()
+	m.refreshChrome()
+}
+
+func (m Model) fullVisualizerRows() int {
+	// Track info, time, two spacers, seek bar, and help occupy six rows.
+	const fixedRows = 6
+	return max(1, m.height-fixedRows-2*ui.VerticalPadding())
+}
+
+func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "q":
+		return m.quit()
+	case "esc", "backspace", "b", "V":
+		m.exitFullVisualizer()
+	case "space":
+		cmd := m.togglePlayPause()
+		m.notifyPlayback()
+		return cmd
+	case ">", ".":
+		m.scrobbleCurrent()
+		cmd := m.nextTrack()
+		m.notifyPlayback()
+		return cmd
+	case "<", ",":
+		m.scrobbleCurrent()
+		cmd := m.prevTrack()
+		m.notifyPlayback()
+		return cmd
+	case "left":
+		return m.doSeek(-5 * time.Second)
+	case "shift+left":
+		return m.doSeek(-m.seekStepLarge)
+	case "right":
+		return m.doSeek(5 * time.Second)
+	case "shift+right":
+		return m.doSeek(m.seekStepLarge)
+	case "+", "=":
+		m.player.SetVolume(m.player.Volume() + 1)
+		m.notifyPlayback()
+	case "-":
+		m.player.SetVolume(m.player.Volume() - 1)
+		m.notifyPlayback()
+	case "v":
+		m.vis.CycleMode()
+		m.vis.RequestRefresh()
+		m.refreshChrome()
+	case "ctrl+k", "?":
+		m.exitFullVisualizer()
+		m.openKeymap()
+	}
 	return nil
 }
 
@@ -915,6 +984,10 @@ func (m *Model) openProviderSearch() {
 // Falls back to YouTube net search when prov doesn't implement Searcher.
 func (m *Model) openProviderSearchWith(prov playlist.Provider) {
 	if _, ok := prov.(provider.Searcher); ok {
+		m.cancelSpotRequest()
+		nextRequest(&m.requests.spotSearch)
+		nextRequest(&m.requests.spotLists)
+		nextRequest(&m.requests.spotMutation)
 		m.spotSearch = spotSearchState{
 			prov:    prov,
 			visible: true,
@@ -922,6 +995,7 @@ func (m *Model) openProviderSearchWith(prov playlist.Provider) {
 		}
 		return
 	}
+	nextRequest(&m.requests.netSearch)
 	m.netSearch = netSearchState{
 		active: true,
 		screen: netSearchInput,
@@ -1049,7 +1123,7 @@ func (m *Model) handleProvSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.provLoading = true
 			m.provSearch.active = false
 			m.activeProviderPlaylistID = m.providerLists[idx].ID
-			return fetchTracksCmd(m.provider, m.providerLists[idx].ID)
+			return m.fetchProviderTracks(m.providerLists[idx].ID)
 		}
 	case tea.KeyUp:
 		if m.provSearch.cursor > 0 {
@@ -1097,7 +1171,7 @@ func (m *Model) handleCatalogSearchKey(msg tea.KeyPressMsg, cs provider.CatalogS
 			return nil
 		}
 		m.provLoading = true
-		return fetchCatalogSearchCmd(cs, m.provSearch.query)
+		return fetchCatalogSearchCmd(cs, m.provider.Name(), m.provSearch.query, nextRequest(&m.requests.catalog))
 	case tea.KeyBackspace, tea.KeyDelete:
 		if m.provSearch.query != "" {
 			m.provSearch.query = removeLastRune(m.provSearch.query)
@@ -1161,6 +1235,17 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 		return nil
 	}
 
+	// Provider search can sit above the navigation browser.
+	if m.spotSearch.visible {
+		switch m.spotSearch.screen {
+		case spotSearchInput:
+			m.spotSearch.query += content
+		case spotSearchNewName:
+			m.spotSearch.newName += content
+		}
+		return nil
+	}
+
 	// Nav browser search
 	if m.navBrowser.visible && m.navBrowser.mode != navBrowseModeMenu && m.navBrowser.searching {
 		m.navBrowser.search += content
@@ -1203,16 +1288,6 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	if m.netSearch.active {
 		if m.netSearch.screen == netSearchInput {
 			m.netSearch.query += content
-		}
-		return nil
-	}
-
-	if m.spotSearch.visible {
-		switch m.spotSearch.screen {
-		case spotSearchInput:
-			m.spotSearch.query += content
-		case spotSearchNewName:
-			m.spotSearch.newName += content
 		}
 		return nil
 	}
@@ -1377,7 +1452,9 @@ func (m *Model) handleNetSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			m.netSearch.loading = true
 			m.netSearch.err = ""
-			return fetchNetSearchCmd(prefix + strings.TrimSpace(m.netSearch.query))
+			query := prefix + strings.TrimSpace(m.netSearch.query)
+			m.netSearch.request = query
+			return fetchNetSearchCmd(query, nextRequest(&m.requests.netSearch))
 		}
 
 	case tea.KeyBackspace:

@@ -192,7 +192,10 @@ func (m Model) Init() tea.Cmd {
 	}
 	cmds := []tea.Cmd{tickCmd(), func() tea.Msg { return tea.RequestWindowSize() }}
 	if m.provider != nil {
-		cmds = append(cmds, fetchPlaylistsCmd(m.provider))
+		// Init has a value receiver, so it must not advance a request generation
+		// on its private model copy. The initial zero generation is current until
+		// the user starts another provider request.
+		cmds = append(cmds, fetchPlaylistsCmd(m.provider, m.requests.provider))
 	}
 	if len(m.pendingURLs) > 0 {
 		cmds = append(cmds, resolveRemoteCmd(m.pendingURLs, m.autoPlay))

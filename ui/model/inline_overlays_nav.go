@@ -112,6 +112,9 @@ func (m Model) renderNavBody() string {
 		if m.navBrowser.loading && len(m.navBrowser.artists) == 0 {
 			return bodyLines([]string{loadingLine("Loading artists…")}, budget)
 		}
+		if m.navBrowser.search != "" && len(m.navBrowser.searchIdx) == 0 {
+			return bodyMessage("No matches.", budget)
+		}
 		if len(m.navBrowser.artists) == 0 {
 			return bodyMessage("No artists found.", budget)
 		}
@@ -121,8 +124,11 @@ func (m Model) renderNavBody() string {
 		})
 		return strings.Join(items, "\n")
 	case navViewAlbums:
-		if m.navBrowser.loading && len(m.navBrowser.albums) == 0 {
+		if (m.navBrowser.loading || m.navBrowser.albumLoading) && len(m.navBrowser.albums) == 0 {
 			return bodyLines([]string{loadingLine("Loading albums…")}, budget)
+		}
+		if m.navBrowser.search != "" && len(m.navBrowser.searchIdx) == 0 {
+			return bodyMessage("No matches.", budget)
 		}
 		if len(m.navBrowser.albums) == 0 {
 			return bodyMessage("No albums found.", budget)
@@ -150,8 +156,11 @@ func (m Model) renderNavTrackBody(budget int) string {
 	if len(m.navBrowser.tracks) == 0 {
 		return bodyMessage("No tracks found.", budget)
 	}
+	if m.navBrowser.search != "" && len(m.navBrowser.searchIdx) == 0 {
+		return bodyMessage("No matches.", budget)
+	}
 
-	if len(m.navBrowser.searchIdx) > 0 || m.navBrowser.search != "" {
+	if m.navBrowser.search != "" {
 		items := m.navScrollItems(len(m.navBrowser.tracks), func(i int) string {
 			t := m.navBrowser.tracks[i]
 			return formatTrackRow(i+1, t.DisplayName()+trackAlbumSuffix(t, m.showAlbumHeaders), t.DurationSecs)

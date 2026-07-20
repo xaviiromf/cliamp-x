@@ -125,6 +125,16 @@ func (m Model) activeOverlay() (overlayView, bool) {
 	switch {
 	case m.keymap.visible:
 		return overlayView{(*Model).keymapHeaderLine, (*Model).keymapHelpLine, (*Model).renderKeymapList}, true
+	case m.devicePicker.visible:
+		return overlayView{(*Model).deviceHeaderLine, (*Model).devicePickerHelpLine, (*Model).renderDeviceBody}, true
+	case m.plPicker.visible:
+		return overlayView{(*Model).plPickerHeaderLine, (*Model).plPickerHelpLine, (*Model).renderPlaylistPickerBody}, true
+	case m.fileBrowser.visible:
+		return overlayView{(*Model).fbHeaderLine, (*Model).fbHelpLine, (*Model).renderFileBrowserBody}, true
+	case m.spotSearch.visible:
+		return overlayView{(*Model).spotSearchHeaderLine, (*Model).spotSearchHelpLine, (*Model).renderSpotSearchBody}, true
+	case m.navBrowser.visible:
+		return overlayView{(*Model).navHeaderLine, (*Model).navHelpLine, (*Model).renderNavBody}, true
 	case m.themePicker.visible:
 		return overlayView{
 			func(m *Model) string { return sepHeaderN("Themes", m.themePicker.cursor+1, m.themeCount()) },
@@ -133,18 +143,8 @@ func (m Model) activeOverlay() (overlayView, bool) {
 		return overlayView{
 			func(m *Model) string { return sepHeaderN("Visualizers", m.visPicker.cursor+1, len(m.visPicker.modes)) },
 			(*Model).visPickerHelpLine, (*Model).renderVisPickerList}, true
-	case m.devicePicker.visible:
-		return overlayView{(*Model).deviceHeaderLine, (*Model).devicePickerHelpLine, (*Model).renderDeviceBody}, true
-	case m.plPicker.visible:
-		return overlayView{(*Model).plPickerHeaderLine, (*Model).plPickerHelpLine, (*Model).renderPlaylistPickerBody}, true
-	case m.fileBrowser.visible:
-		return overlayView{(*Model).fbHeaderLine, (*Model).fbHelpLine, (*Model).renderFileBrowserBody}, true
-	case m.navBrowser.visible:
-		return overlayView{(*Model).navHeaderLine, (*Model).navHelpLine, (*Model).renderNavBody}, true
 	case m.plManager.visible:
 		return overlayView{(*Model).plMgrHeaderLine, (*Model).plMgrHelpLine, (*Model).renderPlMgrBody}, true
-	case m.spotSearch.visible:
-		return overlayView{(*Model).spotSearchHeaderLine, (*Model).spotSearchHelpLine, (*Model).renderSpotSearchBody}, true
 	case m.queue.visible:
 		return overlayView{
 			func(m *Model) string { return sepHeaderN("Queue", m.queue.cursor+1, m.playlist.QueueLen()) },
@@ -154,15 +154,6 @@ func (m Model) activeOverlay() (overlayView, bool) {
 			func(*Model) string { return sepHeader("Track Info") },
 			func(*Model) string { return helpKey("Esc", "Close") },
 			(*Model).renderInfoBody}, true
-	case m.search.active:
-		return overlayView{(*Model).searchHeaderLine, (*Model).searchHelpLine, (*Model).renderSearchList}, true
-	case m.netSearch.active:
-		return overlayView{(*Model).netSearchHeaderLine, (*Model).netSearchHelpLine, (*Model).renderNetSearchBody}, true
-	case m.urlInputting:
-		return overlayView{
-			func(m *Model) string { return promptHeader("Load URL", m.urlInput) },
-			func(*Model) string { return helpKey("Enter", "Load ") + helpKey("Esc", "Cancel") },
-			(*Model).renderURLBody}, true
 	case m.lyrics.visible:
 		return overlayView{
 			func(*Model) string { return sepHeader("Lyrics") },
@@ -172,6 +163,15 @@ func (m Model) activeOverlay() (overlayView, bool) {
 			func(*Model) string { return sepHeader("Jump to Time") },
 			func(*Model) string { return helpKey("Enter", "Jump ") + helpKey("Esc", "Cancel") },
 			(*Model).renderJumpBody}, true
+	case m.urlInputting:
+		return overlayView{
+			func(m *Model) string { return promptHeader("Load URL", m.urlInput) },
+			func(*Model) string { return helpKey("Enter", "Load ") + helpKey("Esc", "Cancel") },
+			(*Model).renderURLBody}, true
+	case m.search.active:
+		return overlayView{(*Model).searchHeaderLine, (*Model).searchHelpLine, (*Model).renderSearchList}, true
+	case m.netSearch.active:
+		return overlayView{(*Model).netSearchHeaderLine, (*Model).netSearchHelpLine, (*Model).renderNetSearchBody}, true
 	}
 	return overlayView{}, false
 }

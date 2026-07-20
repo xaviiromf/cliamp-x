@@ -69,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		ui.FrameStyle = ui.FrameStyle.Width(frameW)
 		m.restorePanelWidth()
 		if m.fullVis {
-			m.vis.Rows = max(ui.DefaultVisRows, (m.height-10)*4/5)
+			m.vis.Rows = m.fullVisualizerRows()
 			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
 		}
 		m.recomputeChrome()
@@ -205,7 +205,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.lyrics.lines = nil
 						m.lyrics.err = nil
 						m.lyrics.scroll = 0
-						lyricCmd = fetchLyricsCmd(artist, song)
+						lyricCmd = fetchLyricsCmd(artist, song, q, nextRequest(&m.requests.lyrics))
 					}
 				}
 			}
@@ -339,17 +339,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, tickCmdAt(m.tickInterval()))
 		return m, tea.Batch(cmds...)
 
-	case []playlist.PlaylistInfo:
-		m.providerLists = msg
+	case playlistsLoadedMsg:
+		if msg.gen != m.requests.provider || !m.isActiveProvider(msg.providerName) {
+			return m, nil
+		}
 		m.provLoading = false
+		if msg.err != nil {
+			if errors.Is(msg.err, playlist.ErrNeedsAuth) {
+				m.provSignIn = true
+				m.err = nil
+				return m, nil
+			}
+			m.err = msg.err
+			return m, nil
+		}
+		m.providerLists = msg.playlists
 		// Start loading catalog when the provider supports lazy catalog loading.
 		if loader, ok := m.provider.(provider.CatalogLoader); ok && !m.catalogBatch.loading && !m.catalogBatch.done {
 			m.catalogBatch.loading = true
-			return m, fetchCatalogBatchCmd(loader, m.catalogBatch.offset, catalogBatchSize)
+			return m, m.fetchCatalogBatch(loader)
 		}
 		return m, nil
 
 	case tracksLoadedMsg:
+		if msg.gen != m.requests.tracks || !m.isActiveProvider(msg.providerName) {
+			return m, nil
+		}
+		m.provLoading = false
+		if msg.err != nil {
+			if errors.Is(msg.err, playlist.ErrNeedsAuth) {
+				m.provSignIn = true
+				m.err = nil
+				return m, nil
+			}
+			m.err = msg.err
+			return m, nil
+		}
 		if m.player.IsPlaying() || m.buffering {
 			m.detachPlaybackTrack()
 			m.player.ClearPreload()
@@ -372,18 +397,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focus = focusPlaylist
 		m.applyHeightMode()
 		m.adjustScroll()
-		m.provLoading = false
 		m.notifyAll()
 		return m, nil
 
 	case navArtistsLoadedMsg:
-		m.navBrowser.artists = []provider.ArtistInfo(msg)
+		if !m.isCurrentNavRequest(msg.gen) {
+			return m, nil
+		}
 		m.navBrowser.loading = false
+		if msg.err != nil {
+			m.status.Showf(statusTTLDefault, "Artist load failed: %s", msg.err)
+			return m, nil
+		}
+		m.navBrowser.artists = msg.artists
 		m.navBrowser.cursor = 0
 		m.navBrowser.scroll = 0
 		return m, nil
 
 	case navAlbumsLoadedMsg:
+		if !m.isCurrentNavRequest(msg.gen) {
+			return m, nil
+		}
+		m.navBrowser.albumLoading = false
+		m.navBrowser.loading = false
+		if msg.err != nil {
+			m.status.Showf(statusTTLDefault, "Album load failed: %s", msg.err)
+			return m, nil
+		}
 		if msg.offset == 0 {
 			// Fresh load (new sort or drill-in): replace the list.
 			m.navBrowser.albums = msg.albums
@@ -395,26 +435,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.isLast {
 			m.navBrowser.albumDone = true
 		}
-		m.navBrowser.albumLoading = false
 		if msg.offset == 0 {
 			m.navBrowser.cursor = 0
 			m.navBrowser.scroll = 0
 		}
 		// If we just loaded the first page and it was a full menu → list transition,
 		// also clear the general loading flag.
-		m.navBrowser.loading = false
 		return m, nil
 
 	case navTracksLoadedMsg:
-		m.navBrowser.tracks = []playlist.Track(msg)
-		m.setHeaderStateFromTracks(m.navBrowser.tracks)
+		if !m.isCurrentNavRequest(msg.gen) {
+			return m, nil
+		}
 		m.navBrowser.loading = false
+		if msg.err != nil {
+			m.status.Showf(statusTTLDefault, "Track load failed: %s", msg.err)
+			return m, nil
+		}
+		m.navBrowser.tracks = msg.tracks
+		m.setHeaderStateFromTracks(m.navBrowser.tracks)
 		m.navBrowser.cursor = 0
 		m.navBrowser.scroll = 0
 		m.navBrowser.screen = navBrowseScreenTracks
 		return m, nil
 
 	case catalogBatchMsg:
+		if msg.gen != m.requests.catalog || !m.isActiveProvider(msg.providerName) {
+			return m, nil
+		}
 		m.catalogBatch.loading = false
 		if msg.err != nil {
 			m.catalogBatch.done = true
@@ -435,6 +483,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case catalogSearchMsg:
+		if msg.gen != m.requests.catalog || !m.isActiveProvider(msg.providerName) {
+			return m, nil
+		}
 		m.provLoading = false
 		if msg.err != nil {
 			m.status.Show("Search failed", statusTTLDefault)
@@ -525,6 +576,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case netSearchResultsMsg:
+		if msg.gen != m.requests.netSearch || !m.netSearch.active || msg.query != m.netSearch.request {
+			return m, nil
+		}
 		m.netSearch.loading = false
 		m.netSearch.cursor = 0
 		m.netSearch.scroll = 0
@@ -541,6 +595,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case lyricsLoadedMsg:
+		if msg.gen != m.requests.lyrics || !m.lyrics.visible || msg.query != m.lyrics.query {
+			return m, nil
+		}
 		m.lyrics.loading = false
 		m.lyrics.err = msg.err
 		m.lyrics.scroll = 0
@@ -599,6 +656,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case streamPlayedMsg:
+		track, _ := m.currentPlaybackTrack()
+		if msg.gen != m.requests.stream || msg.path != track.Path {
+			return m, nil
+		}
 		m.buffering = false
 		if msg.err != nil {
 			m.err = msg.err
@@ -615,6 +676,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.preloadNext()
 
 	case streamPreloadedMsg:
+		if msg.gen != m.requests.preload {
+			return m, nil
+		}
 		m.preloading = false
 		return m, nil
 
@@ -654,6 +718,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spotSearchResultsMsg:
+		if !m.isCurrentSpotRequest(msg.gen, msg.providerName) || m.spotSearch.query != msg.query {
+			return m, nil
+		}
+		m.cancelSpotRequest()
 		m.spotSearch.loading = false
 		m.spotSearch.cursor = 0
 		m.spotSearch.scroll = 0
@@ -670,6 +738,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spotPlaylistsMsg:
+		if !m.isCurrentSpotListRequest(msg.gen, msg.providerName) {
+			return m, nil
+		}
 		m.spotSearch.loading = false
 		m.spotSearch.cursor = 0
 		m.spotSearch.scroll = 0
@@ -683,6 +754,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spotAddedMsg:
+		if !m.isCurrentSpotMutation(msg.gen, msg.providerName) {
+			return m, nil
+		}
+		m.cancelSpotRequest()
 		m.spotSearch.loading = false
 		if msg.err != nil {
 			m.spotSearch.err = "Add failed: " + msg.err.Error()
@@ -693,6 +768,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spotCreatedMsg:
+		if !m.isCurrentSpotMutation(msg.gen, msg.providerName) {
+			return m, nil
+		}
+		m.cancelSpotRequest()
 		m.spotSearch.loading = false
 		if msg.err != nil {
 			m.spotSearch.err = "Create failed: " + msg.err.Error()
@@ -703,6 +782,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case provAuthDoneMsg:
+		if msg.gen != m.requests.auth || !m.isActiveProvider(msg.providerName) {
+			return m, nil
+		}
 		m.provAuthURL = ""
 		if msg.err != nil {
 			m.err = msg.err
@@ -712,9 +794,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.provSignIn = false
 		m.provLoading = true
-		return m, fetchPlaylistsCmd(m.provider)
+		return m, m.fetchProviderPlaylists()
 
 	case ProvAuthURLMsg:
+		if !m.provLoading || !m.isActiveProvider(msg.ProviderName) {
+			return m, nil
+		}
 		m.provAuthURL = msg.URL
 		return m, nil
 
