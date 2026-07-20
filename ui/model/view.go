@@ -116,6 +116,13 @@ func (m Model) View() tea.View {
 	if m.quitting {
 		return tea.NewView("")
 	}
+	m.recomputeLayout()
+	if m.layout.tooSmall() {
+		content := fmt.Sprintf("Terminal too small. Resize to at least 40x10 (current: %dx%d).", m.width, m.height)
+		view := tea.NewView(ui.FitRect(content, max(1, m.width), max(1, m.height)))
+		view.AltScreen = true
+		return view
+	}
 
 	screen := m.activeScreen()
 	if !screen.hidesVisualizer() {
@@ -131,12 +138,14 @@ func (m Model) View() tea.View {
 		// with its header/help supplied by renderPlaylistHeader / renderHelp, so
 		// the now-playing + visualizer chrome stays live above and the layout
 		// height never shifts when an overlay opens.
-		content = strings.Join(m.mainSections(m.renderMainBody(), true), "\n")
+		body := ui.FitRect(m.renderMainBody(), m.layout.panelWidth, m.layout.bodyRows)
+		content = strings.Join(m.mainSections(body, true), "\n")
 	}
 
 	// Every screen now renders within the main frame, so frame and center
 	// uniformly.
 	rendered := m.centerFrame(ui.FrameStyle.Render(content))
+	rendered = ui.FitRect(rendered, m.layout.frameWidth, max(1, m.height))
 
 	view := tea.NewView(rendered)
 	view.AltScreen = true
@@ -152,67 +161,110 @@ func trimTrailingEmpty(sections []string) []string {
 }
 
 func (m Model) mainSections(playlist string, includeTransient bool) []string {
-	sections := []string{
-		// Now playing
-		m.renderTitle(),
-		m.renderTrackInfo(),
-		m.renderTimeStatus(),
-		"",
-		// ui.Visualizer
-		m.renderSpectrum(),
-		m.renderSeekBar(),
-		"",
-		// Controls
-		m.renderControls(),
-		m.renderProviderPill(),
-		"",
-		// Playlist
-		m.renderPlaylistHeader(),
+	var sections []string
+	switch m.layout.tier {
+	case layoutCompact:
+		sections = []string{
+			m.renderTitle(),
+			m.renderTrackInfo(),
+			m.renderTimeStatus(),
+			m.renderSpectrum(),
+			m.renderSeekBar(),
+			m.renderCompactControls(),
+			m.renderCompactSource(),
+			m.renderPlaylistHeader(),
+		}
+	case layoutMinimal:
+		sections = []string{
+			m.renderTrackInfo(),
+			m.renderTimeStatus(),
+			m.renderSeekBar(),
+			m.renderPlaylistHeader(),
+		}
+	default:
+		sections = []string{
+			m.renderTitle(),
+			m.renderTrackInfo(),
+			m.renderTimeStatus(),
+			"",
+			m.renderSpectrum(),
+			m.renderSeekBar(),
+			"",
+			m.renderControls(),
+		}
+		if source := m.renderProviderPill(); source != "" {
+			sections = append(sections, source)
+		}
+		sections = append(sections, "", m.renderPlaylistHeader())
 	}
 	if playlist != "" {
 		sections = append(sections, playlist)
 	}
-	sections = append(sections,
-		"",
-		// Help
-		m.renderHelp(),
-		m.renderBottomStatus(),
-	)
+	sections = append(sections, "", m.renderTierHelp(), m.renderBottomStatus())
 
 	if includeTransient {
-		if m.err != nil {
-			sections = append(sections, errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)))
+		if line := m.renderTransient(); line != "" {
+			sections = append(sections, line)
 		}
-		sections = append(sections, m.footerMessages()...)
 	}
 
 	return trimTrailingEmpty(sections)
 }
 
-func (m Model) footerMessages() []string {
-	var lines []string
-	if text := m.save.activityText(); text != "" {
-		lines = append(lines, statusStyle.Render(text))
+func (m Model) renderTierHelp() string {
+	if m.layout.tier != layoutMinimal {
+		return m.renderHelp()
 	}
-	if m.status.text != "" {
-		lines = append(lines, statusStyle.Render(m.status.text))
+	if ov, ok := m.activeOverlay(); ok {
+		return fitHelpLine(ov.help(&m))
 	}
-	for _, l := range m.logLines {
-		lines = append(lines, dimStyle.Render(l.text))
-	}
-	return lines
+	return fitHelpLine(helpKey("Spc", "Play ") + helpKey("?", "Keys"))
 }
 
-// centerFrame centers a pre-rendered frame in the terminal using plain string
-// padding instead of allocating a new lipgloss.Style every render.
+func (m Model) renderTransient() string {
+	if m.err != nil {
+		return ui.FitRect(errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)), m.layout.panelWidth, 1)
+	}
+	if text := m.save.activityText(); text != "" {
+		return ui.FitRect(statusStyle.Render(text), m.layout.panelWidth, 1)
+	}
+	if m.status.text != "" {
+		return ui.FitRect(statusStyle.Render(m.status.text), m.layout.panelWidth, 1)
+	}
+	if n := len(m.logLines); n > 0 {
+		return ui.FitRect(dimStyle.Render(m.logLines[n-1].text), m.layout.panelWidth, 1)
+	}
+	return ""
+}
+
+func (m Model) renderCompactControls() string {
+	mono := ""
+	if m.player.Mono() {
+		mono = " [M]"
+	}
+	return labelStyle.Render("EQ ") + activeToggle.Render("["+m.EQPresetName()+"]") +
+		" " + labelStyle.Render("VOL ") + fmt.Sprintf("%+.0fdB", m.player.Volume()) + mono
+}
+
+func (m Model) renderCompactSource() string {
+	if len(m.providers) <= 1 {
+		return ""
+	}
+	name := "Unknown"
+	if m.provider != nil {
+		name = m.provider.Name()
+	}
+	return labelStyle.Render("SRC ") + trackStyle.Render("["+name+"]") + dimStyle.Render(fmt.Sprintf(" %d/%d", m.provPillIdx+1, len(m.providers)))
+}
+
+// centerFrame horizontally centers a pre-rendered frame without wasting rows
+// that can instead hold playlist content.
 func (m Model) centerFrame(frame string) string {
 	frameW := lipgloss.Width(frame)
-	frameH := lipgloss.Height(frame)
 	padLeft := max(0, (m.width-frameW)/2)
-	padTop := max(0, (m.height-frameH)/2)
 
 	if padLeft == 0 {
-		return strings.Repeat("\n", padTop) + frame
+		return frame
 	}
 	// Indent every line by padLeft spaces.
 	prefix := strings.Repeat(" ", padLeft)
@@ -220,7 +272,7 @@ func (m Model) centerFrame(frame string) string {
 	for i, l := range lines {
 		lines[i] = prefix + l
 	}
-	return strings.Repeat("\n", padTop) + strings.Join(lines, "\n")
+	return strings.Join(lines, "\n")
 }
 
 func (m Model) renderTitle() string {
@@ -598,7 +650,7 @@ func (m Model) renderProviderList() string {
 		})
 
 		if isRadio {
-			for scroll < len(m.providerLists)-1 && m.providerRowsFromScroll(sl, scroll, m.provCursor) > visibleBudget {
+			for scroll < len(m.providerLists)-1 && m.providerRowsFromScroll(scroll, m.provCursor) > visibleBudget {
 				scroll++
 			}
 		} else if m.provCursor >= scroll+visibleBudget {

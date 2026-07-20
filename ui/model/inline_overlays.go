@@ -152,7 +152,7 @@ func (m Model) activeOverlay() (overlayView, bool) {
 	case m.showInfo:
 		return overlayView{
 			func(*Model) string { return sepHeader("Track Info") },
-			func(*Model) string { return helpKey("Esc", "Close") },
+			func(*Model) string { return helpKey("↑↓", "Scroll ") + helpKey("Esc", "Close") },
 			(*Model).renderInfoBody}, true
 	case m.lyrics.visible:
 		return overlayView{
@@ -255,6 +255,13 @@ func (m Model) renderQueueBody() string {
 
 func (m Model) renderInfoBody() string {
 	budget := m.effectivePlaylistVisible()
+	lines := m.infoLines()
+	start := min(m.infoScroll, max(0, len(lines)-budget))
+	end := min(start+budget, len(lines))
+	return bodyLines(lines[start:end], budget)
+}
+
+func (m Model) infoLines() []string {
 	track, _ := m.currentPlaybackTrack()
 
 	var lines []string
@@ -277,7 +284,11 @@ func (m Model) renderInfoBody() string {
 	if len(lines) == 0 {
 		lines = append(lines, dimStyle.Render("  No track metadata available."))
 	}
-	return bodyLines(lines, budget)
+	return lines
+}
+
+func (m *Model) infoMaybeAdjustScroll() {
+	m.infoScroll = min(m.infoScroll, max(0, len(m.infoLines())-m.effectivePlaylistVisible()))
 }
 
 // — URL input —

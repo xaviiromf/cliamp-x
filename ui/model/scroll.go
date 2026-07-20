@@ -1,13 +1,5 @@
 package model
 
-import (
-	"strings"
-
-	"charm.land/lipgloss/v2"
-
-	"github.com/bjarneo/cliamp/ui"
-)
-
 // clampScroll keeps cursor inside [0, count) and adjusts scroll so that
 // the cursor sits within the visible window of `visible` rows.
 func clampScroll(cursor, scroll *int, count, visible int) {
@@ -33,38 +25,9 @@ func clampScroll(cursor, scroll *int, count, visible int) {
 	}
 }
 
-// measurePlVisible calculates playlist lines available for a given upper limit.
-func (m *Model) measurePlVisible(limit int) int {
-	saved := m.plVisible
-	m.plVisible = 3 // temporary minimal value for measurement
-	defer func() { m.plVisible = saved }()
-
-	// Use mainSections to get all fixed chrome plus any active transient messages.
-	probe := strings.Join(m.mainSections("x", true), "\n")
-	fixedLines := lipgloss.Height(ui.FrameStyle.Render(probe)) - 1
-	return max(3, min(limit, m.height-fixedLines))
-}
-
-// collapsedPlVisible returns the natural (non-expanded) playlist height.
-func (m *Model) collapsedPlVisible() int {
-	return m.measurePlVisible(maxPlVisible)
-}
-
-// expandedPlVisible returns the expanded playlist height with no cap.
-func (m *Model) expandedPlVisible() int {
-	return m.measurePlVisible(m.height)
-}
-
 // applyHeightMode sets plVisible based on the current heightExpanded state.
 func (m *Model) applyHeightMode() {
-	if m.playlist == nil {
-		return
-	}
-	if m.heightExpanded {
-		m.plVisible = m.expandedPlVisible()
-	} else {
-		m.plVisible = m.collapsedPlVisible()
-	}
+	m.recomputeLayout()
 }
 
 // adjustScroll ensures plCursor is visible in the playlist view.
@@ -101,50 +64,95 @@ func (m Model) playlistScroll(visible int) int {
 }
 
 func (m Model) mainFrameFixedLines(includeTransient bool) int {
-	if m.chromeOK {
-		if !includeTransient {
-			return m.chromeHeight
-		}
-		transientLines := len(m.footerMessages())
-		if m.err != nil {
-			transientLines++
-		}
-		return m.chromeHeight + transientLines
+	if m.layout.frameWidth == 0 {
+		m.recomputeLayout()
 	}
-	// Fallback: render and measure (only needed until first WindowSizeMsg)
-	content := strings.Join(m.mainSections("", includeTransient), "\n")
-	return lipgloss.Height(ui.FrameStyle.Render(content))
+	fixed := 2*m.layout.paddingV + m.layout.fixedRows
+	if includeTransient {
+		fixed += m.layout.footerRows
+	}
+	return fixed
 }
 
 func (m Model) effectivePlaylistVisible() int {
-	available := m.height - m.mainFrameFixedLines(true)
-	if available <= 0 {
+	if m.layout.frameWidth == 0 {
+		if m.plVisible > 0 {
+			return m.plVisible
+		}
 		return 0
 	}
-	if m.plVisible <= 0 {
+	if m.layout.tooSmall() || m.layout.bodyRows <= 0 {
 		return 0
 	}
-	return min(m.plVisible, available)
+	return min(m.plVisible, m.layout.bodyRows)
 }
 
-// recomputeChrome renders the fixed chrome (without playlist or transients)
-// and caches its height. Called when terminal width or compact mode changes.
+// recomputeChrome preserves the existing layout-refresh seam for callers that
+// change an overlay or visualizer mode.
 func (m *Model) recomputeChrome() {
-	content := strings.Join(m.mainSections("", false), "\n")
-	m.chromeHeight = lipgloss.Height(ui.FrameStyle.Render(content))
-	m.chromeOK = true
+	m.recomputeLayout()
 }
 
-// invalidateChrome marks the chrome height dirty. Until the next recompute,
-// mainFrameFixedLines falls back to direct measurement.
 func (m *Model) invalidateChrome() {
-	m.chromeOK = false
+	m.recomputeLayout()
 }
 
 func (m *Model) refreshChrome() {
-	if m.width > 0 {
-		m.recomputeChrome()
+	m.recomputeLayout()
+}
+
+func (m *Model) clampActiveScrollState() {
+	if m.layout.tooSmall() {
 		return
 	}
-	m.invalidateChrome()
+	if m.provSearch.active {
+		m.provSearchMaybeAdjustScroll()
+		return
+	}
+	switch m.activeScreen() {
+	case screenKeymap:
+		m.keymapMaybeAdjustScroll(m.keymapVisible())
+	case screenThemePicker:
+		m.themePickerMaybeAdjustScroll(m.themePickerVisible())
+	case screenVisPicker:
+		m.visPickerMaybeAdjustScroll(m.visPickerVisible())
+	case screenDevicePicker:
+		clampScroll(&m.devicePicker.cursor, &m.devicePicker.scroll, len(m.devicePicker.devices), m.devicePickerVisible())
+	case screenPlaylistPicker:
+		m.plPickerMaybeAdjustScroll(m.plPickerVisible())
+	case screenFileBrowser:
+		m.fbMaybeAdjustScroll(m.fbVisible())
+	case screenNavBrowser:
+		m.navMaybeAdjustScroll()
+	case screenPlaylistManager:
+		if m.plManager.screen == plMgrScreenList {
+			m.plMgrListMaybeAdjustScroll(m.plMgrListVisible())
+		} else if m.plManager.screen == plMgrScreenTracks {
+			m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
+		}
+	case screenSpotSearch:
+		if m.spotSearch.screen == spotSearchResults {
+			m.spotSearchResultsMaybeAdjustScroll(m.spotSearchResultsVisible())
+		} else if m.spotSearch.screen == spotSearchPlaylist {
+			m.spotSearchPlaylistMaybeAdjustScroll(m.spotSearchPlaylistVisible())
+		}
+	case screenQueue:
+		m.queueMaybeAdjustScroll(m.queueVisible())
+	case screenInfo:
+		m.infoMaybeAdjustScroll()
+	case screenSearch:
+		m.searchMaybeAdjustScroll(m.searchVisible())
+	case screenNetSearch:
+		if m.netSearch.screen == netSearchResults {
+			m.netSearchResultsMaybeAdjustScroll(m.netSearchResultsVisible())
+		}
+	case screenLyrics:
+		m.lyrics.scroll = min(m.lyrics.scroll, max(0, len(m.lyrics.lines)-m.effectivePlaylistVisible()))
+	default:
+		if m.focus == focusProvider {
+			m.providerMaybeAdjustScroll()
+		} else {
+			m.adjustScroll()
+		}
+	}
 }

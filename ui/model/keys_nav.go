@@ -519,11 +519,17 @@ func navNextSort(s string, types []provider.SortType) string {
 
 // navMaybeAdjustScroll keeps navCursor visible within the rendered list window.
 func (m *Model) navMaybeAdjustScroll() {
-	visible := m.navVisible()
-	if m.navBrowser.cursor < m.navBrowser.scroll {
-		m.navBrowser.scroll = m.navBrowser.cursor
+	count := 3 // browse mode menu
+	switch m.navView() {
+	case navViewArtists:
+		count = len(m.navBrowser.artists)
+	case navViewAlbums:
+		count = len(m.navBrowser.albums)
+	case navViewTracks:
+		count = len(m.navBrowser.tracks)
 	}
-	if m.navBrowser.cursor >= m.navBrowser.scroll+visible {
-		m.navBrowser.scroll = m.navBrowser.cursor - visible + 1
+	if m.navBrowser.search != "" {
+		count = len(m.navBrowser.searchIdx)
 	}
+	clampScroll(&m.navBrowser.cursor, &m.navBrowser.scroll, count, m.navVisible())
 }

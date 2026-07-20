@@ -52,6 +52,9 @@ func (m *Model) plPickerCount() int {
 }
 
 func (m *Model) plPickerVisible() int {
+	if m.plPicker.screen == plPickerChoose {
+		return max(1, m.effectivePlaylistVisible()-1)
+	}
 	return m.effectivePlaylistVisible()
 }
 

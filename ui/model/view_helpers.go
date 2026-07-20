@@ -5,7 +5,6 @@ import (
 	"iter"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -72,8 +71,8 @@ func formatTrackRow(num int, name string, secs int) string {
 	const prefixOverhead = 4 // leaves room for "  " / "> " caller prefix
 	dur := formatTrackTime(secs)
 	numStr := fmt.Sprintf("%d. ", num)
-	numLen := utf8.RuneCountInString(numStr)
-	durLen := utf8.RuneCountInString(dur)
+	numLen := lipgloss.Width(numStr)
+	durLen := lipgloss.Width(dur)
 
 	titleBudget := ui.PanelWidth - prefixOverhead - numLen
 	if dur != "" {
@@ -87,28 +86,23 @@ func formatTrackRow(num int, name string, secs int) string {
 		return numStr + title
 	}
 
-	pad := ui.PanelWidth - prefixOverhead - durLen - numLen - utf8.RuneCountInString(title)
+	pad := ui.PanelWidth - prefixOverhead - durLen - numLen - lipgloss.Width(title)
 	if pad < 1 {
 		pad = 1
 	}
 	return numStr + title + strings.Repeat(" ", pad) + dur
 }
 
-// truncate shortens s to maxW runes, appending "…" if truncated.
-// Uses RuneCountInString first to avoid rune slice allocation in the common
-// case where the string is already short enough.
+// truncate shortens s to maxW terminal cells, preserving ANSI escapes and
+// avoiding splits inside wide characters.
 func truncate(s string, maxW int) string {
 	if maxW <= 0 {
 		return ""
 	}
-	if utf8.RuneCountInString(s) <= maxW {
+	if lipgloss.Width(s) <= maxW {
 		return s
 	}
-	if maxW == 1 {
-		return "…"
-	}
-	r := []rune(s)
-	return string(r[:maxW-1]) + "…"
+	return ansi.Truncate(s, maxW, "…")
 }
 
 // cursorLine renders a list item with "> " prefix when active, "  " otherwise.

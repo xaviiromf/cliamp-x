@@ -139,7 +139,7 @@ func (m *Model) handleSpotSearchResultsKey(msg tea.KeyPressMsg) tea.Cmd {
 
 func (m *Model) spotSearchPlaylistMaybeAdjustScroll(visible int) {
 	count := len(m.spotSearch.playlists) + 1
-	clampScroll(&m.spotSearch.cursor, &m.spotSearch.scroll, count, visible)
+	clampScroll(&m.spotSearch.cursor, &m.spotSearch.scroll, count, max(1, visible-1))
 }
 
 // handleSpotSearchPlaylistKey handles picking a playlist to add to.

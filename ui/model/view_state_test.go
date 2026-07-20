@@ -49,9 +49,10 @@ func TestMainViewShrinksPlaylistForFooterMessages(t *testing.T) {
 	m.save.startDownload()
 	m.status.Show("Saved", statusTTLDefault)
 	m.height = m.mainFrameFixedLines(true) + 1
+	m.recomputeLayout()
 
-	if got := m.effectivePlaylistVisible(); got != 1 {
-		t.Fatalf("effectivePlaylistVisible() = %d, want 1 with one row left after footer lines", got)
+	if got := m.effectivePlaylistVisible(); got != 8 {
+		t.Fatalf("effectivePlaylistVisible() = %d, want 8 in compact layout", got)
 	}
 	if got := lipgloss.Height(m.View().Content); got > m.height {
 		t.Fatalf("View() height = %d, want <= %d after footer lines shrink playlist", got, m.height)
@@ -88,9 +89,10 @@ func TestRenderPlaylistKeepsCursorVisibleWhenFooterShrinksBudget(t *testing.T) {
 	m.save.startDownload()
 	m.status.Show("Saved", statusTTLDefault)
 	m.height = m.mainFrameFixedLines(true) + 2
+	m.recomputeLayout()
 
-	if got := m.effectivePlaylistVisible(); got != 2 {
-		t.Fatalf("effectivePlaylistVisible() = %d, want 2 with footer-shrunk playlist", got)
+	if got := m.effectivePlaylistVisible(); got != 9 {
+		t.Fatalf("effectivePlaylistVisible() = %d, want 9 in compact layout", got)
 	}
 
 	out := m.renderPlaylist()

@@ -61,39 +61,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Dynamic frame width: use full terminal width, or cap at 80 in compact mode.
-		frameW := msg.Width
-		if m.compact {
-			frameW = min(frameW, 80)
-		}
-		ui.FrameStyle = ui.FrameStyle.Width(frameW)
-		m.restorePanelWidth()
-		if m.fullVis {
-			m.vis.Rows = m.fullVisualizerRows()
-			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
-		}
-		m.recomputeChrome()
-		m.applyHeightMode()
-		m.adjustScroll()
-		if m.focus == focusProvider {
-			m.providerMaybeAdjustScroll()
-		}
-		if m.fileBrowser.visible {
-			m.fbMaybeAdjustScroll(m.fbVisible())
-		}
-		if m.plPicker.visible {
-			m.plPickerMaybeAdjustScroll(m.plPickerVisible())
-		}
-		if m.keymap.visible {
-			m.keymapMaybeAdjustScroll(m.keymapVisible())
-		}
-		if m.plManager.visible {
-			if m.plManager.screen == plMgrScreenList {
-				m.plMgrListMaybeAdjustScroll(m.plMgrListVisible())
-			} else if m.plManager.screen == plMgrScreenTracks {
-				m.plMgrTracksMaybeAdjustScroll(m.plMgrTracksVisible())
-			}
-		}
+		m.recomputeLayout()
+		m.clampActiveScrollState()
 		return m, nil
 
 	case seekTickMsg:
@@ -1233,9 +1202,5 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // restorePanelWidth resets PanelWidth to the correct value based on compact mode.
 func (m *Model) restorePanelWidth() {
-	frameW := m.width
-	if m.compact {
-		frameW = min(frameW, 80)
-	}
-	ui.PanelWidth = max(0, frameW-2*ui.PaddingH)
+	m.recomputeLayout()
 }

@@ -54,6 +54,7 @@ Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 | `Ctrl+F` | Search — active provider's native search (Spotify, Qobuz, Navidrome, Jellyfin, Emby, Plex, NetEase, Local) or YouTube fallback. Available from playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show lyrics |
+| `i` | Show track metadata (`↑`/`↓` scrolls) |
 | `Ctrl+S` | Save track to ~/Music |
 | `w` | Write the highlighted track to a local playlist |
 | `N` | Navidrome browser |

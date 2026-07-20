@@ -87,6 +87,20 @@ log_level = "info"
 
 ```
 
+## Terminal Layout
+
+cliamp adapts its playback screen to the available terminal rectangle:
+
+| Terminal size | Layout |
+| --- | --- |
+| At least `80x24` | Full controls, five-row visualizer, and detailed source controls |
+| At least `56x16` | Compact controls and a two-row visualizer |
+| At least `40x10` | Minimal playback, list, seek bar, and help layout |
+| Smaller than `40x10` | A resize message only |
+
+`compact = true` caps the frame at 80 columns on wide terminals. It does not
+change the minimum supported terminal size.
+
 ## Secrets from Environment Variables
 
 Any string value in `config.toml` can be read from an environment variable by setting the value to `$VAR_NAME` or `${VAR_NAME}`. This keeps passwords, tokens, and client secrets out of the file itself.

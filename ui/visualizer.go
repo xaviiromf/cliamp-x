@@ -80,16 +80,21 @@ var brailleBit = [4][2]rune{
 	{0x40, 0x80}, // row 3
 }
 
-// visBandWidth returns the character width for band b so that all bands plus
-// 1-char gaps exactly fill PanelWidth. The remainder is distributed across the
-// first few bands.
+// visBandWidth returns the character width for band b. At narrow widths only
+// the leading visible bands receive columns; final frame fitting clips the
+// legacy inter-band gaps emitted by older renderers.
 func visBandWidth(totalBands, b int) int {
-	const gap = 1
-	if totalBands <= 0 {
+	if totalBands <= 0 || b < 0 || b >= totalBands || PanelWidth <= 0 {
 		return 0
 	}
-	base := (PanelWidth - (totalBands-1)*gap) / totalBands
-	extra := (PanelWidth - (totalBands-1)*gap) % totalBands
+	visibleBands := min(totalBands, PanelWidth)
+	if b >= visibleBands {
+		return 0
+	}
+	gapCount := min(visibleBands-1, max(0, PanelWidth-visibleBands))
+	bandCols := PanelWidth - gapCount
+	base := bandCols / visibleBands
+	extra := bandCols % visibleBands
 	if b < extra {
 		return base + 1
 	}
@@ -390,6 +395,7 @@ type Visualizer struct {
 	lastAnalyzeAt   time.Time // wall clock of the last FFT analysis
 	sr              float64
 	Mode            VisMode
+	Cols            int       // display width in terminal cells
 	Rows            int       // display height in terminal rows (default 5)
 	waveBuf         []float64 // raw samples for wave mode
 	waveYBuf        []int     // reusable y-position buffer for wave rendering
@@ -748,11 +754,22 @@ func (v *Visualizer) Analyze(samples []float64, spec VisAnalysisSpec) []float64 
 
 // Render dispatches to the active visualizer mode.
 func (v *Visualizer) Render() string {
+	if v == nil || v.Mode == VisNone || v.Rows <= 0 {
+		return ""
+	}
+	cols := v.columns()
+	if cols <= 0 {
+		return ""
+	}
+	previousWidth := PanelWidth
+	PanelWidth = cols
+	defer func() { PanelWidth = previousWidth }()
+
 	driver := v.syncDriverMode()
 	if driver == nil {
 		return ""
 	}
-	return driver.Render(v)
+	return fitVisualizerFrame(driver.Render(v), cols, v.Rows)
 }
 
 func (v *Visualizer) RequestRefresh() {
@@ -834,6 +851,17 @@ func (v *Visualizer) TickInterval(ctx VisTickContext) time.Duration {
 }
 
 func (v *Visualizer) Tick(ctx VisTickContext) {
+	if v == nil || v.Rows <= 0 {
+		return
+	}
+	cols := v.columns()
+	if cols <= 0 {
+		return
+	}
+	previousWidth := PanelWidth
+	PanelWidth = cols
+	defer func() { PanelWidth = previousWidth }()
+
 	driver := v.syncDriverMode()
 	if driver == nil {
 		return
@@ -886,7 +914,29 @@ func (d *luaModeDriver) Render(v *Visualizer) string {
 	if v == nil || d.index < 0 || d.index >= len(v.luaVisNames) || v.luaRender == nil {
 		return ""
 	}
-	return v.luaRender(v.luaVisNames[d.index], luaBands(v.bands), v.Rows, PanelWidth, v.frame)
+	return v.luaRender(v.luaVisNames[d.index], luaBands(v.bands), v.Rows, v.columns(), v.frame)
+}
+
+func (v *Visualizer) columns() int {
+	if v != nil && v.Cols > 0 {
+		return v.Cols
+	}
+	return PanelWidth
+}
+
+func fitVisualizerFrame(frame string, cols, rows int) string {
+	if cols <= 0 || rows <= 0 {
+		return ""
+	}
+
+	lines := strings.Split(FitRect(frame, cols, rows), "\n")
+	for len(lines) < rows {
+		lines = append(lines, "")
+	}
+	for i, line := range lines {
+		lines[i] = line + strings.Repeat(" ", max(0, cols-lipgloss.Width(line)))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (d *luaModeDriver) Tick(v *Visualizer, ctx VisTickContext) {

@@ -15,7 +15,6 @@ import (
 	"github.com/bjarneo/cliamp/internal/fileutil"
 	"github.com/bjarneo/cliamp/playlist"
 	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/ui"
 )
 
 // quit shuts down the player and signals the TUI to exit.
@@ -86,50 +85,44 @@ func (m *Model) providerMaybeAdjustScroll() {
 		m.provScroll = m.provCursor
 	}
 
-	// Sectioned providers (e.g. radio) render extra header rows, so
-	// cursor visibility must be computed in rendered rows, not item count.
-	if sl, ok := m.provider.(provider.SectionedList); ok {
-		if m.provScroll >= total {
-			m.provScroll = max(0, total-1)
-		}
-
-		// Only push down when needed to keep the cursor visible.
-		// Do not "pull up" aggressively, which can make paging feel jumpy
-		// and keep the cursor stuck near the bottom of the viewport.
-		for m.provScroll < total && m.providerRowsFromScroll(sl, m.provScroll, m.provCursor) > visible {
-			m.provScroll++
-		}
-		return
+	if m.provScroll >= total {
+		m.provScroll = max(0, total-1)
 	}
 
-	// Non-sectioned providers: regular item-count based scrolling.
-	if m.provCursor >= m.provScroll+visible {
-		m.provScroll = m.provCursor - visible + 1
-	}
-	if m.provScroll+visible > total {
-		m.provScroll = max(0, total-visible)
+	// Provider lists can add radio-prefix or PlaylistInfo.Section headers. Keep
+	// the logical cursor visible in their rendered-row viewport.
+	for m.provScroll < total && m.providerRowsFromScroll(m.provScroll, m.provCursor) > visible {
+		m.provScroll++
 	}
 }
 
-func (m *Model) providerRowsFromScroll(sl provider.SectionedList, scroll, cursor int) int {
+func (m *Model) providerRowsFromScroll(scroll, cursor int) int {
 	total := len(m.providerLists)
 	if total == 0 || cursor < scroll || scroll < 0 || cursor >= total {
 		return 0
 	}
 
 	rows := 0
-	prevPrefix := ""
+	sl, isRadio := m.provider.(provider.SectionedList)
+	prevHeader := ""
 	if scroll > 0 {
-		prevPrefix = sl.IDPrefix(m.providerLists[scroll-1].ID)
+		if isRadio {
+			prevHeader = sl.IDPrefix(m.providerLists[scroll-1].ID)
+		} else {
+			prevHeader = m.providerLists[scroll-1].Section
+		}
 	}
 
 	for i := scroll; i <= cursor && i < total; i++ {
-		pfx := sl.IDPrefix(m.providerLists[i].ID)
-		if pfx != prevPrefix {
+		header := m.providerLists[i].Section
+		if isRadio {
+			header = sl.IDPrefix(m.providerLists[i].ID)
+		}
+		if header != "" && header != prevHeader {
 			rows++ // section header row
 		}
 		rows++ // item row
-		prevPrefix = pfx
+		prevHeader = header
 	}
 	return rows
 }
@@ -188,6 +181,12 @@ func (m *Model) providerToBottom() {
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if msg.String() == "ctrl+c" {
 		return m.quit()
+	}
+	if m.width > 0 && m.layout.tooSmall() {
+		if msg.String() == "q" {
+			return m.quit()
+		}
+		return nil
 	}
 	if m.fullVis {
 		return m.handleFullVisualizerKey(msg)
@@ -255,6 +254,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			return m.quit()
 		case "esc", "i":
 			m.showInfo = false
+		case "up", "k":
+			if m.infoScroll > 0 {
+				m.infoScroll--
+			}
+		case "down", "j":
+			m.infoScroll++
+			m.infoMaybeAdjustScroll()
 		}
 		return nil
 	}
@@ -739,6 +745,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "i":
 		m.showInfo = true
+		m.infoScroll = 0
 
 	case "y":
 		m.lyrics.visible = !m.lyrics.visible
@@ -801,14 +808,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "V":
 		m.fullVis = !m.fullVis
-		if m.fullVis {
-			m.vis.Rows = m.fullVisualizerRows()
-			ui.PanelWidth = max(0, m.width-2*ui.PaddingH)
-		} else {
-			m.vis.Rows = ui.DefaultVisRows
-			m.restorePanelWidth()
-		}
-		m.refreshChrome()
+		m.recomputeLayout()
 
 	case "ctrl+x":
 		if m.focus == focusPlaylist {
@@ -849,15 +849,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 func (m *Model) exitFullVisualizer() {
 	m.fullVis = false
-	m.vis.Rows = ui.DefaultVisRows
-	m.restorePanelWidth()
-	m.refreshChrome()
-}
-
-func (m Model) fullVisualizerRows() int {
-	// Track info, time, two spacers, seek bar, and help occupy six rows.
-	const fixedRows = 6
-	return max(1, m.height-fixedRows-2*ui.VerticalPadding())
+	m.recomputeLayout()
 }
 
 func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {

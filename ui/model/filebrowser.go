@@ -69,7 +69,11 @@ func (m Model) fbHelpLine() string {
 // fbVisible returns the file-browser list height. The browser renders inline in
 // the playlist region, so it shares the playlist's row budget.
 func (m *Model) fbVisible() int {
-	return m.effectivePlaylistVisible()
+	visible := m.effectivePlaylistVisible()
+	if m.fileBrowser.err != "" {
+		return max(1, visible-1)
+	}
+	return visible
 }
 
 // fbMaybeAdjustScroll keeps the cursor visible in the current file-browser window.
