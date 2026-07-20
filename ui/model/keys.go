@@ -182,6 +182,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if msg.String() == "ctrl+c" {
 		return m.quit()
 	}
+	if msg.String() == "ctrl+k" && !m.keymap.visible {
+		if m.fullVis {
+			m.exitFullVisualizer()
+		}
+		m.openKeymap()
+		return nil
+	}
 	if m.width > 0 && m.layout.tooSmall() {
 		if msg.String() == "q" {
 			return m.quit()
@@ -193,10 +200,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	if m.keymap.visible {
 		return m.handleKeymapKey(msg)
-	}
-	if msg.String() == "ctrl+k" {
-		m.openKeymap()
-		return nil
 	}
 
 	// Audio device picker overlay
