@@ -162,6 +162,16 @@ func TestArgsRemoteAudioURLBecomesTrack(t *testing.T) {
 	}
 }
 
+func TestURLResolvesRawStream(t *testing.T) {
+	tracks, err := URL("https://example.com/live.mp3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tracks) != 1 || tracks[0].Path != "https://example.com/live.mp3" {
+		t.Fatalf("tracks = %#v", tracks)
+	}
+}
+
 func TestArgsLocalM3U(t *testing.T) {
 	dir := t.TempDir()
 	// Write a local m3u that points at a dummy audio file.

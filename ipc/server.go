@@ -244,6 +244,19 @@ func (s *Server) dispatch(req Request) Response {
 		s.disp.Send(QueueMsg{Path: req.Path})
 		return Response{OK: true}
 
+	case "url.load":
+		if strings.TrimSpace(req.Path) == "" {
+			return Response{OK: false, Error: "url.load requires a URL"}
+		}
+		reply := make(chan Response, 1)
+		s.disp.Send(URLRequestMsg{URL: req.Path, Reply: reply})
+		return waitReply(reply, s.done, "url.load", 60*time.Second)
+
+	case "save":
+		reply := make(chan Response, 1)
+		s.disp.Send(SaveRequestMsg{Reply: reply})
+		return waitReply(reply, s.done, "save", 5*time.Minute)
+
 	case "theme":
 		if req.Name == "" {
 			return Response{OK: false, Error: "theme requires a name"}
@@ -303,6 +316,33 @@ func (s *Server) dispatch(req Request) Response {
 		reply := make(chan Response, 1)
 		s.disp.Send(BandsRequestMsg{Reply: reply})
 		return waitReply(reply, s.done, "bands", 1*time.Second)
+
+	case "queue.list", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "track.play", "track.queue":
+		reply := make(chan Response, 1)
+		s.disp.Send(QueueRequestMsg{Op: strings.ToLower(req.Cmd), Index: req.Index, To: req.To, Track: req.Track, Reply: reply})
+		return waitReply(reply, s.done, req.Cmd, 10*time.Second)
+
+	case "provider.list", "provider.playlists", "provider.tracks", "provider.load", "provider.search",
+		"provider.artists", "provider.artist_albums", "provider.albums", "provider.album_tracks", "provider.load_album",
+		"provider.favorite", "provider.catalog",
+		"playlist.create", "playlist.rename", "playlist.delete", "playlist.add", "playlist.remove", "playlist.bookmark":
+		reply := make(chan Response, 1)
+		s.disp.Send(LibraryRequestMsg{
+			Op: strings.ToLower(req.Cmd), Provider: req.Provider, Playlist: req.Playlist,
+			Query: req.Query, Artist: req.Artist, Album: req.Album, Sort: req.Sort, Offset: req.Offset,
+			Limit: req.Limit, Index: req.Index, NewName: req.NewName, Track: req.Track, Reply: reply,
+		})
+		return waitReply(reply, s.done, req.Cmd, 30*time.Second)
+
+	case "lyrics":
+		reply := make(chan Response, 1)
+		s.disp.Send(LyricsRequestMsg{Reply: reply})
+		return waitReply(reply, s.done, "lyrics", 15*time.Second)
+
+	case "history", "history.clear":
+		reply := make(chan Response, 1)
+		s.disp.Send(HistoryRequestMsg{Op: strings.ToLower(req.Cmd), Limit: req.Limit, Reply: reply})
+		return waitReply(reply, s.done, "history", 5*time.Second)
 
 	case "plugin.call":
 		if s.plugins == nil {

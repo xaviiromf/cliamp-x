@@ -1023,15 +1023,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Encode device list as newline-separated string in the Device field.
 			var lines []string
+			items := make([]ipc.DeviceInfo, 0, len(devices))
 			for _, d := range devices {
 				marker := "  "
 				if d.Active {
 					marker = "* "
 				}
 				lines = append(lines, fmt.Sprintf("%s%s", marker, d.Name))
+				items = append(items, ipc.DeviceInfo{Name: d.Name, Active: d.Active})
 			}
 			if msg.Reply != nil {
-				msg.Reply <- ipc.Response{OK: true, Device: strings.Join(lines, "\n")}
+				msg.Reply <- ipc.Response{OK: true, Device: strings.Join(lines, "\n"), Devices: items}
 			}
 			return m, nil
 		}
@@ -1062,17 +1064,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			resp.State = "stopped"
 		}
 		if cur, _ := m.currentPlaybackTrack(); cur.Path != "" {
-			resp.Track = &ipc.TrackInfo{
-				Title:  cur.Title,
-				Artist: cur.Artist,
-				Path:   cur.Path,
-			}
+			info := ipcTrackInfo(cur, m.playlist.Index(), m.playlist.QueuePosition(m.playlist.Index()))
+			resp.Track = &info
 		}
 		resp.Position = m.player.Position().Seconds()
 		resp.Duration = m.player.Duration().Seconds()
 		resp.Volume = m.player.Volume()
 		resp.Index = m.playlist.Index()
 		resp.Total = m.playlist.Len()
+		resp.Playlist = m.loadedPlaylist
 		resp.Visualizer = m.vis.ModeName()
 		shuffled := m.playlist.Shuffled()
 		resp.Shuffle = &shuffled
@@ -1081,6 +1081,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		resp.Mono = &mono
 		resp.Speed = m.player.Speed()
 		resp.EQPreset = m.EQPresetName()
+		bands := m.player.EQBands()
+		resp.EQBands = append([]float64(nil), bands[:]...)
 		if m.themeIdx >= 0 && m.themeIdx < len(m.themes) {
 			t := m.themes[m.themeIdx]
 			resp.Theme = &ipc.ThemeInfo{
@@ -1099,6 +1101,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.Reply <- resp
 		}
 		return m, nil
+
+	case ipc.QueueRequestMsg:
+		return m, m.handleIPCQueue(msg)
+
+	case ipc.LibraryRequestMsg:
+		return m, m.handleIPCLibrary(msg)
+
+	case ipcProviderLoadResult:
+		return m, m.handleIPCProviderLoad(msg)
+
+	case ipc.LyricsRequestMsg:
+		return m, m.handleIPCLyrics(msg)
+
+	case ipc.HistoryRequestMsg:
+		return m, m.handleIPCHistory(msg)
+
+	case ipc.URLRequestMsg:
+		return m, m.handleIPCURL(msg)
+
+	case ipcURLLoadResult:
+		return m, m.handleIPCURLResult(msg)
+
+	case ipc.SaveRequestMsg:
+		return m, m.handleIPCSave(msg)
 
 	case ipc.BandsRequestMsg:
 		resp := ipc.Response{OK: true}

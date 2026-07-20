@@ -170,3 +170,24 @@ func TestResponseBoolPointerFields(t *testing.T) {
 		t.Error("Mono should be nil when unset")
 	}
 }
+
+func TestStructuredLibraryResponseRoundTrip(t *testing.T) {
+	resp := Response{
+		OK:        true,
+		Providers: []ProviderInfo{{Key: "local", Name: "Local", Searchable: true}},
+		Playlists: []PlaylistInfo{{ID: "mix", Name: "Mix", Provider: "local", TrackCount: 3}},
+		Tracks:    []TrackInfo{{Title: "Song", Album: "Album", Path: "/song.flac", Index: 2}},
+		Lyrics:    []LyricLine{{Start: 12.5, Text: "Line"}},
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Response
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.Providers) != 1 || decoded.Playlists[0].TrackCount != 3 || decoded.Tracks[0].Album != "Album" || decoded.Lyrics[0].Start != 12.5 {
+		t.Fatalf("structured response did not round trip: %#v", decoded)
+	}
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,26 +14,39 @@ import (
 
 	"github.com/bjarneo/cliamp/applog"
 	"github.com/bjarneo/cliamp/external/local"
+	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/internal/playback"
 	"github.com/bjarneo/cliamp/internal/resume"
 	"github.com/bjarneo/cliamp/ipc"
+	"github.com/bjarneo/cliamp/lyrics"
 	"github.com/bjarneo/cliamp/mediactl"
 	"github.com/bjarneo/cliamp/player"
 	"github.com/bjarneo/cliamp/playlist"
+	providerapi "github.com/bjarneo/cliamp/provider"
+	"github.com/bjarneo/cliamp/resolve"
+	"github.com/bjarneo/cliamp/tracksave"
+	"github.com/bjarneo/cliamp/ui"
 	"github.com/bjarneo/cliamp/ui/model"
 )
 
 // runDaemon runs cliamp without a TUI: serves IPC against the shared
 // player+playlist, auto-advances tracks, exits on SIGINT/SIGTERM.
-func runDaemon(p *player.Player, pl *playlist.Playlist, localProv *local.Provider, autoPlay bool) error {
+func runDaemon(p *player.Player, pl *playlist.Playlist, localProv *local.Provider, providers []model.ProviderEntry, autoPlay bool, eqPreset string) error {
 	fmt.Fprintf(os.Stderr, "cliamp: running headless (socket: %s)\n", ipc.DefaultSocketPath())
 	applog.Info("daemon: starting headless mode")
 
 	d := &daemon{
-		player:    p,
-		playlist:  pl,
-		localProv: localProv,
-		quit:      make(chan struct{}, 1),
+		player:       p,
+		playlist:     pl,
+		localProv:    localProv,
+		providers:    providers,
+		vis:          ui.NewVisualizer(float64(p.SampleRate())),
+		historyStore: history.New(),
+		eqPreset:     eqPreset,
+		quit:         make(chan struct{}, 1),
+	}
+	if d.eqPreset == "" {
+		d.eqPreset = "Custom"
 	}
 
 	// Wire MPRIS (Linux) / NowPlaying (macOS) so playerctl and OS media
@@ -85,15 +99,40 @@ func runDaemon(p *player.Player, pl *playlist.Playlist, localProv *local.Provide
 // playlist state and "what plays next" decisions; the player itself is
 // internally thread-safe so blocking I/O (Play, PlayYTDL) runs without it.
 type daemon struct {
-	mu        sync.Mutex
-	player    *player.Player
-	playlist  *playlist.Playlist
-	localProv *local.Provider
-	notifier  playback.Notifier
-	quit      chan struct{}
+	mu              sync.Mutex
+	player          *player.Player
+	playlist        *playlist.Playlist
+	localProv       *local.Provider
+	providers       []model.ProviderEntry
+	vis             *ui.Visualizer
+	historyStore    *history.Store
+	historyTrack    string
+	historyRecorded bool
+	loadedPlaylist  string
+	eqPreset        string
+	notifier        playback.Notifier
+	quit            chan struct{}
 }
 
 func (d *daemon) Send(msg any) {
+	switch m := msg.(type) {
+	case ipc.LibraryRequestMsg:
+		d.handleLibrary(m)
+		return
+	case ipc.LyricsRequestMsg:
+		d.handleLyrics(m)
+		return
+	case ipc.HistoryRequestMsg:
+		d.handleHistory(m)
+		return
+	case ipc.URLRequestMsg:
+		d.handleURL(m)
+		return
+	case ipc.SaveRequestMsg:
+		d.handleSave(m)
+		return
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -177,7 +216,50 @@ func (d *daemon) Send(msg any) {
 
 	case ipc.StatusRequestMsg:
 		reply(m.Reply, d.statusResponse())
+
+	case ipc.BandsRequestMsg:
+		d.handleBands(m)
+
+	case ipc.QueueRequestMsg:
+		d.handleQueue(m)
 	}
+}
+
+func (d *daemon) handleURL(m ipc.URLRequestMsg) {
+	tracks, err := resolve.URL(m.URL)
+	if err != nil {
+		replyError(m.Reply, err)
+		return
+	}
+	if len(tracks) == 0 {
+		reply(m.Reply, ipc.Response{OK: false, Error: "no tracks found at URL"})
+		return
+	}
+	d.mu.Lock()
+	wasStopped := !d.player.IsPlaying()
+	d.playlist.Add(tracks...)
+	d.loadedPlaylist = ""
+	if wasStopped {
+		d.playCurrent()
+	}
+	d.mu.Unlock()
+	reply(m.Reply, ipc.Response{OK: true, Tracks: trackInfos(tracks), Total: len(tracks)})
+}
+
+func (d *daemon) handleSave(m ipc.SaveRequestMsg) {
+	d.mu.Lock()
+	track, index := d.playlist.Current()
+	d.mu.Unlock()
+	if index < 0 {
+		reply(m.Reply, ipc.Response{OK: false, Error: "nothing to save"})
+		return
+	}
+	path, err := tracksave.Save(track)
+	if err != nil {
+		replyError(m.Reply, err)
+		return
+	}
+	reply(m.Reply, ipc.Response{OK: true, Output: path})
 }
 
 // tick advances to the next track when the current one has drained, and
@@ -188,6 +270,7 @@ func (d *daemon) tick() {
 	if d.player.IsPlaying() && !d.player.IsPaused() && d.player.Drained() {
 		d.nextTrack()
 	}
+	d.recordHistory()
 	state := d.snapshotState()
 	d.mu.Unlock()
 	if d.notifier != nil {
@@ -301,6 +384,7 @@ func (d *daemon) handleLoad(m ipc.LoadMsg) {
 		return
 	}
 	d.playlist.Replace(tracks)
+	d.loadedPlaylist = m.Playlist
 	d.playCurrent()
 	reply(m.Reply, ipc.Response{OK: true, Playlist: m.Playlist, Total: len(tracks)})
 }
@@ -356,6 +440,7 @@ func (d *daemon) handleMono(m ipc.MonoMsg) {
 func (d *daemon) handleEQ(m ipc.EQMsg) {
 	if m.Band > 0 || (m.Band == 0 && m.Name == "") {
 		d.player.SetEQBand(m.Band, m.Value)
+		d.eqPreset = "Custom"
 		reply(m.Reply, ipc.Response{OK: true, EQPreset: "Custom"})
 		return
 	}
@@ -371,6 +456,7 @@ func (d *daemon) handleEQ(m ipc.EQMsg) {
 	for i, gain := range preset.Bands {
 		d.player.SetEQBand(i, gain)
 	}
+	d.eqPreset = preset.Name
 	reply(m.Reply, ipc.Response{OK: true, EQPreset: preset.Name})
 }
 
@@ -382,14 +468,16 @@ func (d *daemon) handleDevice(m ipc.DeviceMsg) {
 			return
 		}
 		var lines []string
+		items := make([]ipc.DeviceInfo, 0, len(devices))
 		for _, dev := range devices {
 			marker := "  "
 			if dev.Active {
 				marker = "* "
 			}
 			lines = append(lines, fmt.Sprintf("%s%s", marker, dev.Name))
+			items = append(items, ipc.DeviceInfo{Name: dev.Name, Active: dev.Active})
 		}
-		reply(m.Reply, ipc.Response{OK: true, Device: strings.Join(lines, "\n")})
+		reply(m.Reply, ipc.Response{OK: true, Device: strings.Join(lines, "\n"), Devices: items})
 		return
 	}
 	if err := player.SwitchAudioDevice(m.Name); err != nil {
@@ -397,6 +485,463 @@ func (d *daemon) handleDevice(m ipc.DeviceMsg) {
 		return
 	}
 	reply(m.Reply, ipc.Response{OK: true, Device: m.Name})
+}
+
+func (d *daemon) handleQueue(m ipc.QueueRequestMsg) {
+	switch m.Op {
+	case "queue.list":
+		reply(m.Reply, d.queueResponse())
+	case "queue.play":
+		if m.Index < 0 || m.Index >= d.playlist.Len() {
+			reply(m.Reply, ipc.Response{OK: false, Error: "queue index out of range"})
+			return
+		}
+		d.playlist.SetIndex(m.Index)
+		d.playCurrent()
+		reply(m.Reply, d.queueResponse())
+	case "queue.enqueue":
+		if m.Index < 0 || m.Index >= d.playlist.Len() {
+			reply(m.Reply, ipc.Response{OK: false, Error: "queue index out of range"})
+			return
+		}
+		d.playlist.Queue(m.Index)
+		reply(m.Reply, d.queueResponse())
+	case "queue.remove":
+		if m.Index == d.playlist.Index() {
+			d.player.Stop()
+		}
+		if !d.playlist.Remove(m.Index) {
+			reply(m.Reply, ipc.Response{OK: false, Error: "queue index out of range"})
+			return
+		}
+		reply(m.Reply, d.queueResponse())
+	case "queue.move":
+		if !d.playlist.Move(m.Index, m.To) {
+			reply(m.Reply, ipc.Response{OK: false, Error: "invalid queue move"})
+			return
+		}
+		reply(m.Reply, d.queueResponse())
+	case "queue.clear":
+		d.player.Stop()
+		d.playlist.Replace(nil)
+		d.loadedPlaylist = ""
+		reply(m.Reply, d.queueResponse())
+	case "track.play", "track.queue":
+		if m.Track == nil || m.Track.Path == "" {
+			reply(m.Reply, ipc.Response{OK: false, Error: "track is required"})
+			return
+		}
+		track := trackFromInfo(*m.Track)
+		d.playlist.Add(track)
+		idx := d.playlist.Len() - 1
+		if m.Op == "track.queue" && d.player.IsPlaying() {
+			d.playlist.Queue(idx)
+		} else {
+			d.playlist.SetIndex(idx)
+			d.playCurrent()
+		}
+		reply(m.Reply, d.queueResponse())
+	default:
+		reply(m.Reply, ipc.Response{OK: false, Error: "unknown queue operation"})
+	}
+}
+
+func (d *daemon) queueResponse() ipc.Response {
+	tracks := d.playlist.Tracks()
+	items := make([]ipc.TrackInfo, len(tracks))
+	for i, track := range tracks {
+		items[i] = trackInfo(track, i, d.playlist.QueuePosition(i))
+	}
+	return ipc.Response{OK: true, Tracks: items, Index: d.playlist.Index(), Total: len(items)}
+}
+
+func (d *daemon) handleLibrary(m ipc.LibraryRequestMsg) {
+	switch m.Op {
+	case "provider.list":
+		items := make([]ipc.ProviderInfo, 0, len(d.providers))
+		for _, entry := range d.providers {
+			_, searchable := entry.Provider.(providerapi.Searcher)
+			if _, ok := entry.Provider.(providerapi.CatalogSearcher); ok {
+				searchable = true
+			}
+			_, browseArtists := entry.Provider.(providerapi.ArtistBrowser)
+			_, browseAlbums := entry.Provider.(providerapi.AlbumBrowser)
+			_, catalog := entry.Provider.(providerapi.CatalogLoader)
+			items = append(items, ipc.ProviderInfo{Key: entry.Key, Name: entry.Name, Searchable: searchable, BrowseArtists: browseArtists, BrowseAlbums: browseAlbums, Catalog: catalog})
+		}
+		reply(m.Reply, ipc.Response{OK: true, Providers: items})
+		return
+	}
+
+	entry, ok := d.provider(m.Provider)
+	if !ok {
+		reply(m.Reply, ipc.Response{OK: false, Error: fmt.Sprintf("unknown provider %q", m.Provider)})
+		return
+	}
+
+	switch m.Op {
+	case "playlist.create":
+		creator, ok := entry.Provider.(providerapi.PlaylistCreator)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support playlist creation"})
+			return
+		}
+		_, err := creator.CreatePlaylist(context.Background(), m.Playlist)
+		replyError(m.Reply, err)
+	case "playlist.rename":
+		renamer, ok := entry.Provider.(providerapi.PlaylistRenamer)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support playlist renaming"})
+			return
+		}
+		replyError(m.Reply, renamer.RenamePlaylist(m.Playlist, m.NewName))
+	case "playlist.delete":
+		deleter, ok := entry.Provider.(providerapi.PlaylistDeleter)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support playlist deletion"})
+			return
+		}
+		replyError(m.Reply, deleter.DeletePlaylist(m.Playlist))
+	case "playlist.remove":
+		deleter, ok := entry.Provider.(providerapi.PlaylistDeleter)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support removing tracks"})
+			return
+		}
+		replyError(m.Reply, deleter.RemoveTrack(m.Playlist, m.Index))
+	case "playlist.add":
+		if m.Track == nil {
+			reply(m.Reply, ipc.Response{OK: false, Error: "track is required"})
+			return
+		}
+		writer, ok := entry.Provider.(providerapi.PlaylistWriter)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support adding tracks"})
+			return
+		}
+		replyError(m.Reply, writer.AddTrackToPlaylist(context.Background(), m.Playlist, trackFromInfo(*m.Track)))
+	case "playlist.bookmark":
+		if m.Track == nil {
+			reply(m.Reply, ipc.Response{OK: false, Error: "track is required"})
+			return
+		}
+		bookmarks, ok := entry.Provider.(providerapi.BookmarkSetter)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support bookmarks"})
+			return
+		}
+		replyError(m.Reply, bookmarks.SetBookmarkByPath(m.Playlist, m.Track.Path))
+	case "provider.playlists":
+		items, err := providerPlaylistInfos(entry)
+		if err != nil {
+			reply(m.Reply, ipc.Response{OK: false, Error: err.Error()})
+			return
+		}
+		reply(m.Reply, ipc.Response{OK: true, Playlists: items})
+	case "provider.catalog":
+		loader, ok := entry.Provider.(providerapi.CatalogLoader)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support catalog paging"})
+			return
+		}
+		limit := m.Limit
+		if limit <= 0 || limit > 200 {
+			limit = 50
+		}
+		added, err := loader.LoadCatalogPage(m.Offset, limit)
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		items, err := providerPlaylistInfos(entry)
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		reply(m.Reply, ipc.Response{OK: true, Playlists: items, Total: added})
+	case "provider.tracks", "provider.load":
+		tracks, err := entry.Provider.Tracks(m.Playlist)
+		if err != nil {
+			reply(m.Reply, ipc.Response{OK: false, Error: err.Error()})
+			return
+		}
+		if m.Op == "provider.load" {
+			d.mu.Lock()
+			d.playlist.Replace(tracks)
+			d.loadedPlaylist = entry.Key + ":" + m.Playlist
+			d.playCurrent()
+			d.mu.Unlock()
+		}
+		reply(m.Reply, ipc.Response{OK: true, Tracks: trackInfos(tracks), Playlist: m.Playlist, Total: len(tracks)})
+	case "provider.search":
+		limit := m.Limit
+		if limit <= 0 || limit > 100 {
+			limit = 25
+		}
+		tracks, err := searchProvider(entry.Provider, m.Query, limit)
+		if err != nil {
+			reply(m.Reply, ipc.Response{OK: false, Error: err.Error()})
+			return
+		}
+		reply(m.Reply, ipc.Response{OK: true, Tracks: trackInfos(tracks), Total: len(tracks)})
+	case "provider.artists":
+		browser, ok := entry.Provider.(providerapi.ArtistBrowser)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support artist browsing"})
+			return
+		}
+		artists, err := browser.Artists()
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		items := make([]ipc.ArtistInfo, len(artists))
+		for i, artist := range artists {
+			items[i] = ipc.ArtistInfo{ID: artist.ID, Name: artist.Name, AlbumCount: artist.AlbumCount}
+		}
+		reply(m.Reply, ipc.Response{OK: true, Artists: items, Total: len(items)})
+	case "provider.artist_albums":
+		browser, ok := entry.Provider.(providerapi.ArtistBrowser)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support artist browsing"})
+			return
+		}
+		albums, err := browser.ArtistAlbums(m.Artist)
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		reply(m.Reply, ipc.Response{OK: true, Albums: ipcAlbumInfos(albums), Total: len(albums)})
+	case "provider.albums":
+		browser, ok := entry.Provider.(providerapi.AlbumBrowser)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support album browsing"})
+			return
+		}
+		sortType := m.Sort
+		if sortType == "" {
+			sortType = browser.DefaultAlbumSort()
+		}
+		limit := m.Limit
+		if limit <= 0 || limit > 200 {
+			limit = 100
+		}
+		albums, err := browser.AlbumList(sortType, m.Offset, limit)
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		sorts := browser.AlbumSortTypes()
+		sortItems := make([]ipc.SortInfo, len(sorts))
+		for i, item := range sorts {
+			sortItems[i] = ipc.SortInfo{ID: item.ID, Label: item.Label}
+		}
+		reply(m.Reply, ipc.Response{OK: true, Albums: ipcAlbumInfos(albums), Sorts: sortItems, Total: len(albums)})
+	case "provider.album_tracks", "provider.load_album":
+		loader, ok := entry.Provider.(providerapi.AlbumTrackLoader)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support album tracks"})
+			return
+		}
+		tracks, err := loader.AlbumTracks(m.Album)
+		if err != nil {
+			replyError(m.Reply, err)
+			return
+		}
+		if m.Op == "provider.load_album" {
+			d.mu.Lock()
+			d.playlist.Replace(tracks)
+			d.loadedPlaylist = entry.Key + ":album:" + m.Album
+			d.playCurrent()
+			d.mu.Unlock()
+		}
+		reply(m.Reply, ipc.Response{OK: true, Tracks: trackInfos(tracks), Total: len(tracks)})
+	case "provider.favorite":
+		favorites, ok := entry.Provider.(providerapi.FavoriteToggler)
+		if !ok {
+			reply(m.Reply, ipc.Response{OK: false, Error: "provider does not support favorites"})
+			return
+		}
+		_, _, err := favorites.ToggleFavorite(m.Playlist)
+		replyError(m.Reply, err)
+	default:
+		reply(m.Reply, ipc.Response{OK: false, Error: "unknown provider operation"})
+	}
+}
+
+func providerPlaylistInfos(entry model.ProviderEntry) ([]ipc.PlaylistInfo, error) {
+	lists, err := entry.Provider.Playlists()
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ipc.PlaylistInfo, len(lists))
+	for i, list := range lists {
+		items[i] = ipc.PlaylistInfo{ID: list.ID, Name: list.Name, Provider: entry.Key, Section: list.Section, TrackCount: list.TrackCount, DurationSecs: list.DurationSecs}
+		if sectioned, ok := entry.Provider.(providerapi.SectionedList); ok {
+			items[i].Favoritable = sectioned.IsFavoritableID(list.ID)
+			items[i].Favorite = strings.HasPrefix(list.ID, "f:")
+		}
+	}
+	return items, nil
+}
+
+func ipcAlbumInfos(albums []providerapi.AlbumInfo) []ipc.AlbumInfo {
+	items := make([]ipc.AlbumInfo, len(albums))
+	for i, album := range albums {
+		items[i] = ipc.AlbumInfo{ID: album.ID, Name: album.Name, Artist: album.Artist, ArtistID: album.ArtistID, Year: album.Year, TrackCount: album.TrackCount, Genre: album.Genre}
+	}
+	return items
+}
+
+func searchProvider(source playlist.Provider, query string, limit int) ([]playlist.Track, error) {
+	if searcher, ok := source.(providerapi.Searcher); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return searcher.SearchTracks(ctx, query, limit)
+	}
+	catalog, ok := source.(providerapi.CatalogSearcher)
+	if !ok {
+		return nil, fmt.Errorf("provider does not support search")
+	}
+	if _, err := catalog.SearchCatalog(query); err != nil {
+		return nil, err
+	}
+	defer catalog.ClearSearch()
+	lists, err := source.Playlists()
+	if err != nil {
+		return nil, err
+	}
+	if len(lists) > limit {
+		lists = lists[:limit]
+	}
+	tracks := make([]playlist.Track, 0, len(lists))
+	for _, list := range lists {
+		items, err := source.Tracks(list.ID)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+		tracks = append(tracks, items[0])
+	}
+	return tracks, nil
+}
+
+func (d *daemon) provider(key string) (model.ProviderEntry, bool) {
+	for _, entry := range d.providers {
+		if strings.EqualFold(entry.Key, key) {
+			return entry, true
+		}
+	}
+	return model.ProviderEntry{}, false
+}
+
+func (d *daemon) handleLyrics(m ipc.LyricsRequestMsg) {
+	track, idx := d.playlist.Current()
+	if idx < 0 {
+		reply(m.Reply, ipc.Response{OK: false, Error: "no current track"})
+		return
+	}
+	lines := lyrics.ParseEmbedded(track.EmbeddedLyrics)
+	var err error
+	if len(lines) == 0 {
+		lines, err = lyrics.Fetch(track.Artist, track.Title)
+	}
+	if err != nil {
+		reply(m.Reply, ipc.Response{OK: false, Error: err.Error()})
+		return
+	}
+	items := make([]ipc.LyricLine, len(lines))
+	for i, line := range lines {
+		items[i] = ipc.LyricLine{Start: line.Start.Seconds(), Text: line.Text}
+	}
+	reply(m.Reply, ipc.Response{OK: true, Lyrics: items})
+}
+
+func (d *daemon) handleHistory(m ipc.HistoryRequestMsg) {
+	if d.historyStore == nil {
+		reply(m.Reply, ipc.Response{OK: true})
+		return
+	}
+	if m.Op == "history.clear" {
+		replyError(m.Reply, d.historyStore.Clear())
+		return
+	}
+	entries, err := d.historyStore.Recent(m.Limit)
+	if err != nil {
+		reply(m.Reply, ipc.Response{OK: false, Error: err.Error()})
+		return
+	}
+	items := make([]ipc.HistoryInfo, len(entries))
+	for i, entry := range entries {
+		items[i] = ipc.HistoryInfo{Track: trackInfo(entry.Track, i, 0), PlayedAt: entry.PlayedAt.Format(time.RFC3339)}
+	}
+	reply(m.Reply, ipc.Response{OK: true, History: items})
+}
+
+func (d *daemon) recordHistory() {
+	track, idx := d.playlist.Current()
+	if idx < 0 || track.Path == "" {
+		return
+	}
+	if track.Path != d.historyTrack {
+		d.historyTrack = track.Path
+		d.historyRecorded = false
+	}
+	if d.historyRecorded || d.historyStore == nil {
+		return
+	}
+	pos, dur := d.player.PositionAndDuration()
+	if dur <= 0 && track.DurationSecs > 0 {
+		dur = time.Duration(track.DurationSecs) * time.Second
+	}
+	if dur > 0 && pos >= dur/2 {
+		_ = d.historyStore.Record(track, time.Now())
+		d.historyRecorded = true
+	}
+}
+
+func trackInfos(tracks []playlist.Track) []ipc.TrackInfo {
+	items := make([]ipc.TrackInfo, len(tracks))
+	for i, track := range tracks {
+		items[i] = trackInfo(track, i, 0)
+	}
+	return items
+}
+
+func trackInfo(track playlist.Track, index, queuePosition int) ipc.TrackInfo {
+	return ipc.TrackInfo{
+		Title: track.Title, Artist: track.Artist, Album: track.Album, Genre: track.Genre,
+		Path: track.Path, AlbumArtURL: track.AlbumArtURL, Year: track.Year,
+		TrackNumber: track.TrackNumber, DurationSecs: track.DurationSecs, Index: index,
+		QueuePosition: queuePosition, Stream: track.Stream, Realtime: track.Realtime,
+		Bookmark: track.Bookmark, Unplayable: track.Unplayable,
+	}
+}
+
+func trackFromInfo(info ipc.TrackInfo) playlist.Track {
+	return playlist.Track{
+		Title: info.Title, Artist: info.Artist, Album: info.Album, Genre: info.Genre,
+		Path: info.Path, AlbumArtURL: info.AlbumArtURL, Year: info.Year,
+		TrackNumber: info.TrackNumber, DurationSecs: info.DurationSecs,
+		Stream: info.Stream || playlist.IsURL(info.Path), Realtime: info.Realtime,
+		Bookmark: info.Bookmark, Unplayable: info.Unplayable,
+	}
+}
+
+// handleBands performs the same FFT analysis used by the interactive TUI so
+// external widgets can render a real spectrum while cliamp runs headless.
+func (d *daemon) handleBands(m ipc.BandsRequestMsg) {
+	d.vis.Tick(ui.VisTickContext{
+		Now:     time.Now(),
+		Playing: d.player.IsPlaying(),
+		Paused:  d.player.IsPaused(),
+		Analyze: func(spec ui.VisAnalysisSpec) []float64 {
+			samples := d.vis.SampleBuf()
+			n := d.player.SamplesInto(samples)
+			return d.vis.Analyze(samples[:n], spec)
+		},
+	})
+	bands := append([]float64(nil), d.vis.SmoothedBands()...)
+	reply(m.Reply, ipc.Response{OK: true, Visualizer: d.vis.ModeName(), Bands: bands})
 }
 
 func (d *daemon) statusResponse() ipc.Response {
@@ -410,11 +955,8 @@ func (d *daemon) statusResponse() ipc.Response {
 		resp.State = "stopped"
 	}
 	if cur, _ := d.playlist.Current(); cur.Path != "" {
-		resp.Track = &ipc.TrackInfo{
-			Title:  cur.Title,
-			Artist: cur.Artist,
-			Path:   cur.Path,
-		}
+		info := trackInfo(cur, d.playlist.Index(), d.playlist.QueuePosition(d.playlist.Index()))
+		resp.Track = &info
 	}
 	pos, dur := d.player.PositionAndDuration()
 	resp.Position = pos.Seconds()
@@ -422,12 +964,16 @@ func (d *daemon) statusResponse() ipc.Response {
 	resp.Volume = d.player.Volume()
 	resp.Index = d.playlist.Index()
 	resp.Total = d.playlist.Len()
+	resp.Playlist = d.loadedPlaylist
 	shuffled := d.playlist.Shuffled()
 	resp.Shuffle = &shuffled
 	resp.Repeat = d.playlist.Repeat().String()
 	mono := d.player.Mono()
 	resp.Mono = &mono
 	resp.Speed = d.player.Speed()
+	resp.EQPreset = d.eqPreset
+	bands := d.player.EQBands()
+	resp.EQBands = append([]float64(nil), bands[:]...)
 	return resp
 }
 
@@ -449,4 +995,12 @@ func reply(ch chan ipc.Response, resp ipc.Response) {
 	if ch != nil {
 		ch <- resp
 	}
+}
+
+func replyError(ch chan ipc.Response, err error) {
+	if err != nil {
+		reply(ch, ipc.Response{OK: false, Error: err.Error()})
+		return
+	}
+	reply(ch, ipc.Response{OK: true})
 }

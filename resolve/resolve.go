@@ -188,6 +188,24 @@ func Remote(urls []string) ([]playlist.Track, error) {
 	return tracks, nil
 }
 
+// URL resolves one interactive URL using the same classification as command-line
+// arguments, including raw streams, feeds, remote playlists, and video pages.
+func URL(rawURL string) ([]playlist.Track, error) {
+	result, err := Args([]string{rawURL})
+	if err != nil {
+		return nil, err
+	}
+	tracks := result.Tracks
+	if len(result.Pending) > 0 {
+		remote, err := Remote(result.Pending)
+		if err != nil {
+			return nil, err
+		}
+		tracks = append(tracks, remote...)
+	}
+	return tracks, nil
+}
+
 // sniffFeedURL does a HEAD request and returns true if the Content-Type
 // indicates an RSS/Atom feed. Used as a fallback when the URL has no
 // recognizable file extension (e.g. https://feeds.megaphone.fm/GLT1412515089).

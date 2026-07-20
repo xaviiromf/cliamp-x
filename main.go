@@ -208,7 +208,6 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	if defaultProvider == "" {
 		defaultProvider = "radio"
 	}
-
 	defaultRadio := len(positional) == 0 && defaultProvider == "radio"
 
 	pl := playlist.New()
@@ -288,7 +287,14 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	ui.SetPadding(cfg.PaddingH, cfg.PaddingV)
 
 	if daemon {
-		return runDaemon(p, pl, localProv, cfg.AutoPlay)
+		if cfg.EQPreset != "" && cfg.EQPreset != "Custom" {
+			if preset, ok := model.EQPresetByName(cfg.EQPreset); ok {
+				for i, gain := range preset.Bands {
+					p.SetEQBand(i, gain)
+				}
+			}
+		}
+		return runDaemon(p, pl, localProv, providers, cfg.AutoPlay, cfg.EQPreset)
 	}
 
 	themes := theme.LoadAll()

@@ -9,39 +9,60 @@ var _ Dispatcher = DispatcherFunc(nil)
 
 // Request is the JSON command sent by the client.
 type Request struct {
-	Cmd      string   `json:"cmd"`
-	Value    float64  `json:"value,omitempty"`
-	Playlist string   `json:"playlist,omitempty"`
-	Path     string   `json:"path,omitempty"`
-	Name     string   `json:"name,omitempty"`
-	Band     int      `json:"band,omitempty"`
-	Sub      string   `json:"sub,omitempty"`
-	Args     []string `json:"args,omitempty"`
+	Cmd      string     `json:"cmd"`
+	Value    float64    `json:"value,omitempty"`
+	Playlist string     `json:"playlist,omitempty"`
+	Path     string     `json:"path,omitempty"`
+	Name     string     `json:"name,omitempty"`
+	Band     int        `json:"band,omitempty"`
+	Sub      string     `json:"sub,omitempty"`
+	Args     []string   `json:"args,omitempty"`
+	Provider string     `json:"provider,omitempty"`
+	Query    string     `json:"query,omitempty"`
+	Artist   string     `json:"artist,omitempty"`
+	Album    string     `json:"album,omitempty"`
+	Sort     string     `json:"sort,omitempty"`
+	Offset   int        `json:"offset,omitempty"`
+	Index    int        `json:"index,omitempty"`
+	To       int        `json:"to,omitempty"`
+	Limit    int        `json:"limit,omitempty"`
+	NewName  string     `json:"new_name,omitempty"`
+	Track    *TrackInfo `json:"track,omitempty"`
 }
 
 // Response is the JSON response sent by the server.
 type Response struct {
-	OK         bool       `json:"ok"`
-	Error      string     `json:"error,omitempty"`
-	State      string     `json:"state,omitempty"`
-	Track      *TrackInfo `json:"track,omitempty"`
-	Position   float64    `json:"position,omitempty"`
-	Duration   float64    `json:"duration,omitempty"`
-	Volume     float64    `json:"volume,omitempty"`
-	Playlist   string     `json:"playlist,omitempty"`
-	Index      int        `json:"index,omitempty"`
-	Total      int        `json:"total,omitempty"`
-	Visualizer string     `json:"visualizer,omitempty"`
-	Shuffle    *bool      `json:"shuffle,omitempty"`
-	Repeat     string     `json:"repeat,omitempty"`
-	Mono       *bool      `json:"mono,omitempty"`
-	Speed      float64    `json:"speed,omitempty"`
-	EQPreset   string     `json:"eq_preset,omitempty"`
-	Device     string     `json:"device,omitempty"`
-	Output     string     `json:"output,omitempty"`
-	Items      []string   `json:"items,omitempty"`
-	Theme      *ThemeInfo `json:"theme,omitempty"`
-	Bands      []float64  `json:"bands,omitempty"`
+	OK         bool           `json:"ok"`
+	Error      string         `json:"error,omitempty"`
+	State      string         `json:"state,omitempty"`
+	Track      *TrackInfo     `json:"track,omitempty"`
+	Position   float64        `json:"position,omitempty"`
+	Duration   float64        `json:"duration,omitempty"`
+	Volume     float64        `json:"volume,omitempty"`
+	Playlist   string         `json:"playlist,omitempty"`
+	Index      int            `json:"index,omitempty"`
+	Total      int            `json:"total,omitempty"`
+	Visualizer string         `json:"visualizer,omitempty"`
+	Shuffle    *bool          `json:"shuffle,omitempty"`
+	Repeat     string         `json:"repeat,omitempty"`
+	Mono       *bool          `json:"mono,omitempty"`
+	Speed      float64        `json:"speed,omitempty"`
+	EQPreset   string         `json:"eq_preset,omitempty"`
+	Device     string         `json:"device,omitempty"`
+	Output     string         `json:"output,omitempty"`
+	Items      []string       `json:"items,omitempty"`
+	Theme      *ThemeInfo     `json:"theme,omitempty"`
+	Bands      []float64      `json:"bands,omitempty"`
+	EQBands    []float64      `json:"eq_bands,omitempty"`
+	Tracks     []TrackInfo    `json:"tracks,omitempty"`
+	Playlists  []PlaylistInfo `json:"playlists,omitempty"`
+	Providers  []ProviderInfo `json:"providers,omitempty"`
+	Artists    []ArtistInfo   `json:"artists,omitempty"`
+	Albums     []AlbumInfo    `json:"albums,omitempty"`
+	Sorts      []SortInfo     `json:"sorts,omitempty"`
+	Lyrics     []LyricLine    `json:"lyrics,omitempty"`
+	History    []HistoryInfo  `json:"history,omitempty"`
+	Devices    []DeviceInfo   `json:"devices,omitempty"`
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.
@@ -66,9 +87,77 @@ type PluginDispatcher interface {
 
 // TrackInfo is the track metadata in a status response.
 type TrackInfo struct {
-	Title  string `json:"title,omitempty"`
-	Artist string `json:"artist,omitempty"`
-	Path   string `json:"path"`
+	Title         string `json:"title,omitempty"`
+	Artist        string `json:"artist,omitempty"`
+	Album         string `json:"album,omitempty"`
+	Genre         string `json:"genre,omitempty"`
+	Path          string `json:"path"`
+	AlbumArtURL   string `json:"album_art_url,omitempty"`
+	Year          int    `json:"year,omitempty"`
+	TrackNumber   int    `json:"track_number,omitempty"`
+	DurationSecs  int    `json:"duration_secs,omitempty"`
+	Index         int    `json:"index,omitempty"`
+	QueuePosition int    `json:"queue_position,omitempty"`
+	Stream        bool   `json:"stream,omitempty"`
+	Realtime      bool   `json:"realtime,omitempty"`
+	Bookmark      bool   `json:"bookmark,omitempty"`
+	Unplayable    bool   `json:"unplayable,omitempty"`
+}
+
+type PlaylistInfo struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Provider     string `json:"provider"`
+	Section      string `json:"section,omitempty"`
+	TrackCount   int    `json:"track_count,omitempty"`
+	DurationSecs int    `json:"duration_secs,omitempty"`
+	Favoritable  bool   `json:"favoritable,omitempty"`
+	Favorite     bool   `json:"favorite,omitempty"`
+}
+
+type ProviderInfo struct {
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	Searchable    bool   `json:"searchable"`
+	BrowseArtists bool   `json:"browse_artists,omitempty"`
+	BrowseAlbums  bool   `json:"browse_albums,omitempty"`
+	Catalog       bool   `json:"catalog,omitempty"`
+}
+
+type ArtistInfo struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	AlbumCount int    `json:"album_count,omitempty"`
+}
+
+type AlbumInfo struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Artist     string `json:"artist,omitempty"`
+	ArtistID   string `json:"artist_id,omitempty"`
+	Year       int    `json:"year,omitempty"`
+	TrackCount int    `json:"track_count,omitempty"`
+	Genre      string `json:"genre,omitempty"`
+}
+
+type SortInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type LyricLine struct {
+	Start float64 `json:"start"`
+	Text  string  `json:"text"`
+}
+
+type HistoryInfo struct {
+	Track    TrackInfo `json:"track"`
+	PlayedAt string    `json:"played_at"`
+}
+
+type DeviceInfo struct {
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
 }
 
 // DispatcherFunc adapts a plain function to the Dispatcher interface.
@@ -170,5 +259,48 @@ type StatusRequestMsg struct {
 // (smoothed) and the active visualizer mode name. Lightweight compared to
 // StatusRequestMsg — intended for high-rate polling from external widgets.
 type BandsRequestMsg struct {
+	Reply chan Response
+}
+
+type QueueRequestMsg struct {
+	Op    string
+	Index int
+	To    int
+	Track *TrackInfo
+	Reply chan Response
+}
+
+type LibraryRequestMsg struct {
+	Op       string
+	Provider string
+	Playlist string
+	Query    string
+	Artist   string
+	Album    string
+	Sort     string
+	Offset   int
+	Limit    int
+	Index    int
+	NewName  string
+	Track    *TrackInfo
+	Reply    chan Response
+}
+
+type LyricsRequestMsg struct {
+	Reply chan Response
+}
+
+type HistoryRequestMsg struct {
+	Op    string
+	Limit int
+	Reply chan Response
+}
+
+type URLRequestMsg struct {
+	URL   string
+	Reply chan Response
+}
+
+type SaveRequestMsg struct {
 	Reply chan Response
 }

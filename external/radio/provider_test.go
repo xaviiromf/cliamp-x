@@ -108,6 +108,11 @@ func TestProviderCatalogLifecycle(t *testing.T) {
 	if !strings.Contains(infos[1].ID, "c:0") {
 		t.Errorf("catalog id[0] = %q, want c:0", infos[1].ID)
 	}
+	p.AppendCatalog([]CatalogStation{{Name: "Radio A duplicate", URL: "http://a/"}})
+	infos, _ = p.Playlists()
+	if len(infos) != 3 {
+		t.Fatalf("duplicate catalog station changed len to %d", len(infos))
+	}
 
 	// Tracks for catalog entry.
 	tracks, err := p.Tracks("c:0")

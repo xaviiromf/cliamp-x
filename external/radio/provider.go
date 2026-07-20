@@ -168,7 +168,17 @@ func (p *Provider) Tracks(id string) ([]playlist.Track, error) {
 func (p *Provider) AppendCatalog(stations []CatalogStation) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.catalog = append(p.catalog, stations...)
+	seen := make(map[string]struct{}, len(p.catalog)+len(stations))
+	for _, station := range p.catalog {
+		seen[station.URL] = struct{}{}
+	}
+	for _, station := range stations {
+		if _, exists := seen[station.URL]; exists {
+			continue
+		}
+		seen[station.URL] = struct{}{}
+		p.catalog = append(p.catalog, station)
+	}
 }
 
 // ToggleFavorite toggles the favorite status of a catalog or favorite entry.
