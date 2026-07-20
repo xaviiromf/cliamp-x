@@ -200,6 +200,7 @@ type Model struct {
 	width           int
 	height          int
 	layout          frameLayout
+	textInput       textEditor
 
 	// Provider state
 	provider      playlist.Provider

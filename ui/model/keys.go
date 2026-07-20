@@ -1019,27 +1019,29 @@ func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		target, err := parseJumpTarget(m.jumpInput)
 		if err != nil {
-			m.resetJumpInput()
+			m.status.Showf(statusTTLDefault, "Invalid jump: %s", err)
+			return nil
+		}
+		if !m.player.Seekable() {
+			m.status.Show("This track cannot be seeked", statusTTLDefault)
 			return nil
 		}
 		if dur := m.player.Duration(); dur > 0 && target > dur {
-			m.resetJumpInput()
+			m.status.Showf(statusTTLDefault, "Jump exceeds track duration (%s)", formatJumpClock(dur))
 			return nil
 		}
-		m.player.Seek(target - m.player.Position())
+		if err := m.player.Seek(target - m.player.Position()); err != nil {
+			m.status.Showf(statusTTLDefault, "Seek failed: %s", err)
+			return nil
+		}
 		// finishSeek notifies plugins as well as MPRIS, matching every other
 		// completed seek; the previous manual block skipped Lua plugins.
 		m.finishSeek()
 		m.closeJumpMode()
 		return nil
-	case tea.KeyBackspace:
-		m.jumpInput = removeLastRune(m.jumpInput)
-		return nil
 	}
 
-	if len(msg.Text) > 0 {
-		m.jumpInput += msg.Text
-	}
+	m.editText("jump", &m.jumpInput, msg)
 	return nil
 }
 
@@ -1225,7 +1227,7 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 
 	// Keymap overlay search
 	if m.keymap.visible {
-		m.keymap.search += content
+		m.insertText("keymap", &m.keymap.search, content)
 		m.updateKeymapFilter()
 		return nil
 	}
@@ -1234,9 +1236,9 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	if m.spotSearch.visible {
 		switch m.spotSearch.screen {
 		case spotSearchInput:
-			m.spotSearch.query += content
+			m.insertText("spot-search", &m.spotSearch.query, content)
 		case spotSearchNewName:
-			m.spotSearch.newName += content
+			m.insertText("spot-playlist-name", &m.spotSearch.newName, content)
 		}
 		return nil
 	}
@@ -1265,24 +1267,24 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	}
 
 	if m.jumping {
-		m.jumpInput += content
+		m.insertText("jump", &m.jumpInput, content)
 		return nil
 	}
 
 	if m.urlInputting {
-		m.urlInput += content
+		m.insertText("url", &m.urlInput, content)
 		return nil
 	}
 
 	if m.search.active {
-		m.search.query += content
+		m.insertText("playlist-search", &m.search.query, content)
 		m.updateSearch()
 		return nil
 	}
 
 	if m.netSearch.active {
 		if m.netSearch.screen == netSearchInput {
-			m.netSearch.query += content
+			m.insertText("net-search", &m.netSearch.query, content)
 		}
 		return nil
 	}
@@ -1329,16 +1331,8 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.searchMaybeAdjustScroll(m.searchVisible())
 		return nil
 	case "ctrl+u":
-		step := m.searchVisible()
-		if step < 1 {
-			step = 1
-		}
-		if m.search.cursor >= step {
-			m.search.cursor -= step
-		} else {
-			m.search.cursor = 0
-		}
-		m.searchMaybeAdjustScroll(m.searchVisible())
+		m.editText("playlist-search", &m.search.query, msg)
+		m.updateSearch()
 		return nil
 	case "ctrl+d":
 		step := m.searchVisible()
@@ -1398,19 +1392,8 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		m.searchMaybeAdjustScroll(m.searchVisible())
 
-	case tea.KeyBackspace:
-		if m.search.query != "" {
-			m.search.query = removeLastRune(m.search.query)
-			m.updateSearch()
-		}
-
-	case tea.KeySpace:
-		m.search.query += " "
-		m.updateSearch()
-
 	default:
-		if len(msg.Text) > 0 {
-			m.search.query += msg.Text
+		if m.editText("playlist-search", &m.search.query, msg) {
 			m.updateSearch()
 		}
 	}
@@ -1452,16 +1435,8 @@ func (m *Model) handleNetSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			return fetchNetSearchCmd(query, nextRequest(&m.requests.netSearch))
 		}
 
-	case tea.KeyBackspace:
-		m.netSearch.query = removeLastRune(m.netSearch.query)
-
-	case tea.KeySpace:
-		m.netSearch.query += " "
-
 	default:
-		if len(msg.Text) > 0 {
-			m.netSearch.query += msg.Text
-		}
+		m.editText("net-search", &m.netSearch.query, msg)
 	}
 	return nil
 }
@@ -1554,12 +1529,8 @@ func (m *Model) handleURLInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.status.Show("Loading URL...", statusTTLLong)
 			return resolveRemoteCmd([]string{input}, true)
 		}
-	case tea.KeyBackspace:
-		m.urlInput = removeLastRune(m.urlInput)
 	default:
-		if len(msg.Text) > 0 {
-			m.urlInput += msg.Text
-		}
+		m.editText("url", &m.urlInput, msg)
 	}
 	return nil
 }

@@ -189,14 +189,8 @@ func (m *Model) handlePlaylistPickerNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		m.createPickerPlaylist(name)
 		m.closePlaylistPicker()
-	case tea.KeyBackspace:
-		m.plPicker.newName = removeLastRune(m.plPicker.newName)
-	case tea.KeySpace:
-		m.plPicker.newName += " "
 	default:
-		if len(msg.Text) > 0 {
-			m.plPicker.newName += msg.Text
-		}
+		m.editText("playlist-picker-name", &m.plPicker.newName, msg)
 	}
 	return nil
 }

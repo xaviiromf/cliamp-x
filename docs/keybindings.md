@@ -24,15 +24,27 @@ Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 |---|---|
 | `Tab` | Toggle focus (Playlist / EQ) |
 | `j` `k` / `Up` `Down` | Playlist scroll / EQ band adjust (wraps around) |
-| `PageUp` `PageDown` / `Ctrl+U` `Ctrl+D` | Scroll playlist/file browser by page |
+| `PageUp` `PageDown` / `Ctrl+U` `Ctrl+D` | Scroll playlist/file browser by page (outside text input) |
 | `Home` `End` / `g` `G` | Go to top/end of playlist/file browser |
 | `Shift+Up` `Shift+Down` | Move track up/down in playlist/queue |
 | `h` `l` | EQ cursor left/right |
 | `Enter` | Play selected track |
-| `/` | Search playlist (navigate results with `↑` `↓` / `Ctrl+N` `Ctrl+P`; page scroll with `Ctrl+U` `Ctrl+D`) |
+| `/` | Search playlist (navigate results with `↑` `↓` / `Ctrl+N` `Ctrl+P`; `Ctrl+U` clears the query) |
 | `Ctrl+X` | Expand/collapse playlist |
 | `o` | Open file browser |
 | `b` `Esc` | Back to provider |
+
+## Text Input
+
+Playlist and native-provider search, URL, playlist-name, keymap, and jump
+fields support these editor keys:
+
+| Key | Action |
+|---|---|
+| `Left` `Right` / `Home` `End` | Move cursor |
+| `Backspace` `Delete` | Delete before/at cursor |
+| `Ctrl+W` | Delete previous word |
+| `Ctrl+U` | Clear text before cursor |
 
 
 ## EQ and Appearance

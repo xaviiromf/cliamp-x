@@ -235,23 +235,15 @@ func (m *Model) handleKeymapSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	case "backspace":
-		if m.keymap.search != "" {
-			m.keymap.search = removeLastRune(m.keymap.search)
-			m.updateKeymapFilter()
-		} else {
+		if m.keymap.search == "" {
 			m.keymap.searching = false
 			m.keymap.cursor = m.keymap.savedCursor
 			m.keymap.scroll = m.keymap.savedScroll
+			return nil
 		}
-		return nil
-	case "space":
-		m.keymap.search += " "
-		m.updateKeymapFilter()
-		return nil
 	}
 
-	if len(msg.Text) > 0 {
-		m.keymap.search += msg.Text
+	if m.editText("keymap", &m.keymap.search, msg) {
 		m.updateKeymapFilter()
 	}
 	return nil

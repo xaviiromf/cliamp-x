@@ -3,6 +3,8 @@ package model
 import (
 	"testing"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestParseJumpTarget(t *testing.T) {
@@ -55,6 +57,21 @@ func TestParseJumpTarget(t *testing.T) {
 				t.Fatalf("got %v want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestInvalidJumpKeepsInputOpen(t *testing.T) {
+	m := Model{jumping: true, jumpInput: "1:99"}
+
+	m.handleJumpKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.jumping {
+		t.Fatal("jumping = false after invalid target, want input to remain open")
+	}
+	if m.jumpInput != "1:99" {
+		t.Fatalf("jump input = %q, want preserved value", m.jumpInput)
+	}
+	if m.status.text == "" {
+		t.Fatal("status is empty after invalid target")
 	}
 }
 

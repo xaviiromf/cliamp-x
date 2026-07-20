@@ -44,16 +44,8 @@ func (m *Model) handleSpotSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.spotSearch.err = ""
 			return fetchSpotSearchCmd(m.newSpotRequestContext(30*time.Second), s, m.spotSearch.prov.Name(), m.spotSearch.query, nextRequest(&m.requests.spotSearch))
 		}
-	case tea.KeyBackspace:
-		if m.spotSearch.query != "" {
-			m.spotSearch.query = removeLastRune(m.spotSearch.query)
-		}
-	case tea.KeySpace:
-		m.spotSearch.query += " "
 	default:
-		if len(msg.Text) > 0 {
-			m.spotSearch.query += msg.Text
-		}
+		m.editText("spot-search", &m.spotSearch.query, msg)
 	}
 	return nil
 }
@@ -215,16 +207,8 @@ func (m *Model) handleSpotSearchNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.spotSearch.err = ""
 			return createSpotPlaylistCmd(m.newSpotRequestContext(15*time.Second), c, w, m.spotSearch.prov.Name(), m.spotSearch.newName, m.spotSearch.selTrack, nextRequest(&m.requests.spotMutation))
 		}
-	case tea.KeyBackspace:
-		if m.spotSearch.newName != "" {
-			m.spotSearch.newName = removeLastRune(m.spotSearch.newName)
-		}
-	case tea.KeySpace:
-		m.spotSearch.newName += " "
 	default:
-		if len(msg.Text) > 0 {
-			m.spotSearch.newName += msg.Text
-		}
+		m.editText("spot-playlist-name", &m.spotSearch.newName, msg)
 	}
 	return nil
 }
