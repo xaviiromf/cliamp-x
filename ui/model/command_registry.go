@@ -216,7 +216,10 @@ func renderCommandHelp(commands []commandSpec, width int) string {
 			}
 		}
 		hint := helpKey(command.KeyLabel, label)
-		if b.Len() > 0 && lipgloss.Width(b.String()+hint) > width {
+		if b.Len() > 0 {
+			hint = " " + hint
+		}
+		if lipgloss.Width(b.String()+hint) > width {
 			break
 		}
 		b.WriteString(hint)
