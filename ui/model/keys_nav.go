@@ -318,6 +318,17 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 
 // handleNavTrackListKey handles the final track-list screen (used by all modes).
 func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.navBrowser.confirmReplace {
+		switch msg.String() {
+		case "enter":
+			m.navBrowser.confirmReplace = false
+			return m.replacePlaylistFromNav()
+		case "esc", "R":
+			m.navBrowser.confirmReplace = false
+		}
+		return nil
+	}
+
 	// Determine effective list length (filtered or full).
 	listLen := len(m.navBrowser.tracks)
 	if m.navBrowser.search != "" {
@@ -389,31 +400,11 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	case "R":
-		// Replace playlist with all displayed tracks and close browser.
-		tracks := m.navBrowser.tracks
-		if m.navBrowser.search != "" {
-			filtered := make([]playlist.Track, 0, len(m.navBrowser.searchIdx))
-			for _, i := range m.navBrowser.searchIdx {
-				filtered = append(filtered, m.navBrowser.tracks[i])
-			}
-			tracks = filtered
+		if m.playlist.Len() > 0 {
+			m.navBrowser.confirmReplace = true
+			return nil
 		}
-		if len(tracks) > 0 {
-			m.player.Stop()
-			m.player.ClearPreload()
-			m.resetYTDLBatch()
-			m.playlist.Replace(tracks)
-			m.loadedPlaylist = ""
-			m.setHeaderStateFromTracks(tracks)
-			m.plCursor = 0
-			m.plScroll = 0
-			m.playlist.SetIndex(0)
-			m.focus = focusPlaylist
-			m.navBrowser.visible = false
-			cmd := m.playCurrentTrack()
-			m.notifyPlayback()
-			return cmd
-		}
+		return m.replacePlaylistFromNav()
 	case "a":
 		// Append all displayed tracks to the playlist (keep current playback).
 		tracks := m.navBrowser.tracks
@@ -477,6 +468,41 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
+func (m *Model) navDisplayedTracks() []playlist.Track {
+	if m.navBrowser.search == "" {
+		return m.navBrowser.tracks
+	}
+	tracks := make([]playlist.Track, 0, len(m.navBrowser.searchIdx))
+	for _, i := range m.navBrowser.searchIdx {
+		tracks = append(tracks, m.navBrowser.tracks[i])
+	}
+	return tracks
+}
+
+// replacePlaylistFromNav discards the live queue. Its caller confirms whenever
+// that queue is non-empty because this browser replacement has no undo snapshot.
+func (m *Model) replacePlaylistFromNav() tea.Cmd {
+	tracks := m.navDisplayedTracks()
+	if len(tracks) == 0 {
+		return nil
+	}
+	m.player.Stop()
+	m.player.ClearPreload()
+	m.resetYTDLBatch()
+	m.playlist.Replace(tracks)
+	m.loadedPlaylist = ""
+	m.setHeaderStateFromTracks(tracks)
+	m.plCursor = 0
+	m.plScroll = 0
+	m.playlist.SetIndex(0)
+	m.focus = focusPlaylist
+	m.navBrowser.visible = false
+	m.status.Successf(statusTTLDefault, "Replaced queue with %d tracks", len(tracks))
+	cmd := m.playCurrentTrack()
+	m.notifyPlayback()
+	return cmd
+}
+
 // handleNavSearchKey handles key input while the nav search bar is open.
 func (m *Model) handleNavSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.Code {
@@ -486,21 +512,15 @@ func (m *Model) handleNavSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		m.navBrowser.searching = false
 		return nil
-	case tea.KeyBackspace, tea.KeyDelete:
-		if m.navBrowser.search != "" {
-			m.navBrowser.search = removeLastRune(m.navBrowser.search)
-			m.navBrowser.cursor = 0
-			m.navBrowser.scroll = 0
-			m.navUpdateSearch()
-		}
+	}
+	if msg.Code == tea.KeySpace && msg.Text == "" {
+		m.insertText("nav-search", &m.navBrowser.search, " ")
+	} else if !m.editText("nav-search", &m.navBrowser.search, msg) {
 		return nil
 	}
-	if len(msg.Text) > 0 {
-		m.navBrowser.search += msg.Text
-		m.navBrowser.cursor = 0
-		m.navBrowser.scroll = 0
-		m.navUpdateSearch()
-	}
+	m.navBrowser.cursor = 0
+	m.navBrowser.scroll = 0
+	m.navUpdateSearch()
 	return nil
 }
 

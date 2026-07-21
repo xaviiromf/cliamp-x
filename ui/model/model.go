@@ -183,8 +183,9 @@ type Model struct {
 	pausedAt      time.Time
 
 	// Primed Nj seek: digit sets pct, next `j` completes.
-	pendingSeekActive bool
-	pendingSeekPct    int
+	pendingSeekActive    bool
+	pendingSeekPct       int
+	pendingSeekExpiresAt time.Time
 
 	// UI navigation
 	focus           focusArea
@@ -241,15 +242,18 @@ type Model struct {
 	network        networkStats
 	requests       requestState
 	speedSaveAfter time.Duration
+	eqSaveAfter    time.Duration
 	termTitle      terminalTitleState
 
 	// Jump to time mode
 	jumping   bool
 	jumpInput string
+	jumpErr   string
 
 	// URL input mode (load playlist/stream URL at runtime)
 	urlInputting bool
 	urlInput     string
+	urlErr       string
 
 	// Async feed/M3U URL resolution
 	pendingURLs []string

@@ -83,11 +83,15 @@ func (m *Model) insertText(field string, value *string, text string) {
 	m.textInput.cursor += len(text)
 }
 
-// removeLastRune remains for inputs that have not yet moved to editText.
-func removeLastRune(s string) string {
-	if s == "" {
-		return s
+// textWithCursor renders the shared editor cursor at its current rune boundary.
+// Callers use this in their prompt instead of assuming text always appends.
+func (m Model) textWithCursor(field, value string) string {
+	cursor := len(value)
+	if m.textInput.field == field {
+		cursor = min(m.textInput.cursor, len(value))
+		for cursor > 0 && cursor < len(value) && !utf8.RuneStart(value[cursor]) {
+			cursor--
+		}
 	}
-	_, size := utf8.DecodeLastRuneInString(s)
-	return s[:len(s)-size]
+	return value[:cursor] + "_" + value[cursor:]
 }

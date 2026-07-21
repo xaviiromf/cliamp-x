@@ -125,7 +125,7 @@ Shift-letter keys are reserved for provider switching, so playlist-manager track
 | `/` | Filter files |
 | `Space` | Select or unselect file/directory |
 | `a` | Select/unselect all visible audio files |
-| `R` | Replace the current queue with selected files |
+| `R` | Replace the current queue with selected files (confirm when it is non-empty) |
 | `w` | Write selected files to a local playlist |
 | `~` `.` | Jump to home / current working directory |
 | `Esc` `o` | Close file browser |
@@ -140,7 +140,7 @@ When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Sp
 | `←` `→` / `h` `l` | Back / drill in |
 | `/` | Filter the visible list (search bar appears under the title) |
 | `Enter` | Open (artists/albums) · play the highlighted track and queue the rest of the visible list |
-| `R` | Replace the queue with all visible tracks (start from the top) |
+| `R` | Replace the queue with all visible tracks (start from the top, confirm when non-empty) |
 | `a` | Append all visible tracks to the queue |
 | `q` | Queue the highlighted track to play next |
 | `s` | Cycle album sort (album list only) |

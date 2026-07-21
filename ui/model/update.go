@@ -136,6 +136,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.adjustScroll()
 		}
 		m.tickPendingSpeedSave(dt)
+		m.tickPendingEQSave(dt)
+		if m.pendingSeekActive && !m.pendingSeekExpiresAt.IsZero() && !now.Before(m.pendingSeekExpiresAt) {
+			m.pendingSeekActive = false
+			m.pendingSeekExpiresAt = time.Time{}
+		}
 		// Decrement seek grace period.
 		advanceTickUnits(&m.seek.grace, &m.seek.graceFor, dt, ui.TickFast)
 		// Surface stream errors (e.g., connection drops) and auto-reconnect streams.
@@ -613,7 +618,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focus = focusPlaylist
 		m.applyHeightMode()
 		m.adjustScroll()
-		m.status.Showf(statusTTLDefault, "Added %d track(s)", len(msg.tracks))
+		if msg.replace {
+			m.status.Successf(statusTTLDefault, "Replaced queue with %d track(s)", len(msg.tracks))
+		} else {
+			m.status.Successf(statusTTLDefault, "Added %d track(s)", len(msg.tracks))
+		}
 		if !m.player.IsPlaying() && m.playlist.Len() > 0 {
 			if msg.replace {
 				m.playlist.SetIndex(0)
@@ -848,6 +857,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playback.QuitMsg:
 		m.flushPendingSpeedSave()
+		m.flushPendingEQSave()
 		m.player.Close()
 		m.clearPlaybackTrack()
 		m.quitting = true
@@ -1048,14 +1058,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Band > 0 || (msg.Band == 0 && msg.Name == "") {
 			// Set a specific band (0-9).
 			m.player.SetEQBand(msg.Band, msg.Value)
-			m.saveEQ()
+			m.scheduleEQSave()
 			if msg.Reply != nil {
 				msg.Reply <- ipc.Response{OK: true, EQPreset: m.EQPresetName()}
 			}
 		} else if msg.Name != "" {
 			// Apply a preset by name.
 			m.SetEQPreset(msg.Name, nil)
-			m.saveEQ()
+			m.scheduleEQSave()
 			if msg.Reply != nil {
 				msg.Reply <- ipc.Response{OK: true, EQPreset: m.EQPresetName()}
 			}

@@ -47,23 +47,9 @@ func (m *Model) fbEntry(idx int) fbEntry {
 
 func (m Model) fbHelpLine() string {
 	if m.fileBrowser.searching {
-		return helpKey("Enter", "Confirm ") + helpKey("Esc", "Cancel ") + helpKey("Type", "Filter")
+		return m.commandHelp(commandModeFileBrowserSearch)
 	}
-	help := helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Open ") + helpKey("/", "Filter ") +
-		helpKey("Spc", "Select ") + helpKey("a", "All ") +
-		helpKey("←", "Back ") + helpKey("~.", "Home/Cwd ")
-	if os.PathSeparator == '\\' {
-		help += helpKey("AltCZ", "Drive ")
-	}
-	if len(m.fileBrowser.selected) > 0 {
-		if m.fileBrowser.targetPlaylist == "" {
-			help += helpKey("w", "Playlist ") + helpKey("R", "Replace ")
-		} else {
-			help += helpKey("Enter", "Add to "+m.fileBrowser.targetPlaylist+" ")
-		}
-	}
-	help += helpKey("Esc", "Close")
-	return help
+	return m.commandHelp(commandModeFileBrowser)
 }
 
 // fbVisible returns the file-browser list height. The browser renders inline in
@@ -110,6 +96,7 @@ func (m *Model) openFileBrowser() {
 	m.fileBrowser.search = ""
 	m.fileBrowser.filtered = nil
 	m.fileBrowser.targetPlaylist = ""
+	m.fileBrowser.confirmReplace = false
 	m.loadFBDir()
 	m.fileBrowser.visible = true
 }
@@ -257,7 +244,7 @@ func (m *Model) handleFileBrowserSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case "backspace":
 		if m.fileBrowser.search != "" {
-			m.fileBrowser.search = removeLastRune(m.fileBrowser.search)
+			m.editText("file-browser-search", &m.fileBrowser.search, msg)
 			m.fbUpdateFilter()
 		} else {
 			m.fileBrowser.searching = false
@@ -265,14 +252,14 @@ func (m *Model) handleFileBrowserSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.fileBrowser.scroll = m.fileBrowser.savedScroll
 		}
 		return nil
-	case "space":
-		m.fileBrowser.search += " "
+	}
+
+	if msg.Code == tea.KeySpace && msg.Text == "" {
+		m.insertText("file-browser-search", &m.fileBrowser.search, " ")
 		m.fbUpdateFilter()
 		return nil
 	}
-
-	if len(msg.Text) > 0 {
-		m.fileBrowser.search += msg.Text
+	if m.editText("file-browser-search", &m.fileBrowser.search, msg) {
 		m.fbUpdateFilter()
 	}
 	return nil
@@ -282,6 +269,16 @@ func (m *Model) handleFileBrowserSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *Model) handleFileBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.fileBrowser.searching {
 		return m.handleFileBrowserSearchKey(msg)
+	}
+	if m.fileBrowser.confirmReplace {
+		switch msg.String() {
+		case "enter":
+			m.fileBrowser.confirmReplace = false
+			return m.fbConfirm(true)
+		case "esc", "R":
+			m.fileBrowser.confirmReplace = false
+		}
+		return nil
 	}
 
 	var cd string
@@ -448,6 +445,10 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "R":
 		if len(m.fileBrowser.selected) > 0 && m.fileBrowser.targetPlaylist == "" {
+			if m.playlist != nil && m.playlist.Len() > 0 {
+				m.fileBrowser.confirmReplace = true
+				return nil
+			}
 			return m.fbConfirm(true)
 		}
 

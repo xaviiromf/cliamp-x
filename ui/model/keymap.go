@@ -14,108 +14,15 @@ type keymapEntry struct {
 	divider     bool
 }
 
-// keymapEntries is the full list of keybindings shown in the keymap overlay.
-var keymapEntries = []keymapEntry{
-	{key: "Space", action: "Play / Pause"},
-	{key: "s", action: "Stop"},
-	{key: "> .", action: "Next track"},
-	{key: "< ,", action: "Previous track"},
-	{key: "← →", action: "Seek ±5s"},
-	{key: "Shift+← →", action: "Seek ±large step"},
-	{key: "Nj", action: "Seek to N×10% of track (e.g. 7j = 70%)"},
-	{key: "+ -", action: "Volume up/down"},
-	{key: "] [", action: "Speed up/down (±0.25x)"},
-	{key: "z", action: "Toggle shuffle"},
-	{key: "r", action: "Cycle repeat"},
-	{key: "m", action: "Toggle mono"},
-	{key: "e", action: "Cycle EQ preset"},
-	{key: "t", action: "Choose theme"},
-	{key: "v", action: "Cycle visualizer"},
-	{key: "Ctrl+V", action: "Choose visualizer"},
-	{key: "V", action: "Full-screen visualizer"},
-	{key: "↑ ↓", action: "Playlist scroll / EQ adjust (wraps around)"},
-	{key: "PgUp PgDn / Ctrl+U D", action: "Scroll playlist/browser by page"},
-	{key: "Home End / g G", action: "Go to top/end of playlist/browser"},
-	{key: "Shift+↑ ↓", action: "Move track up/down"},
-	{key: "h l", action: "EQ cursor left/right"},
-	{key: "Enter", action: "Play selected track"},
-	{key: "a", action: "Toggle queue (play next)"},
-	{key: "A", action: "Queue manager"},
-	{key: "x", action: "Remove selected track from playlist"},
-	{key: "w", action: "Write selected track/selection to playlist"},
-	{key: "o", action: "Open file browser"},
-	{key: "N", action: "Navidrome browser"},
-	{key: "L", action: "Browse local playlists"},
-	{key: "R", action: "Open radio provider"},
-	{key: "S", action: "Open Spotify provider"},
-	{key: "P", action: "Open Plex provider"},
-	{key: "Y", action: "Open YouTube provider"},
-	{key: "C", action: "Open SoundCloud provider"},
-	{key: "M", action: "Open NetEase provider"},
-	{key: "J", action: "Open Jellyfin provider"},
-	{key: "E", action: "Open Emby provider"},
-	{key: "Q", action: "Open Qobuz provider"},
-	{key: "Ctrl+J", action: "Jump to time"},
-	{key: "p", action: "Playlist manager"},
-	{key: "Ctrl+H", action: "Toggle album headers"},
-	{key: "i", action: "Track info / metadata"},
-	{key: "Ctrl+S", action: "Save/download track to ~/Music"},
-	{key: "Ctrl+X", action: "Expand/collapse view"},
-	{key: "/", action: "Filter/search list"},
-	{key: "f", action: "Toggle bookmark ★ (or favorite station in radio)"},
-	{key: "Ctrl+F", action: "Search (active provider or YouTube)"},
-	{key: "u", action: "Load URL (stream/playlist)"},
-	{key: "d", action: "Audio device picker"},
-	{key: "y", action: "Show lyrics"},
-	{key: "Tab", action: "Toggle focus"},
-	{key: "Esc", action: "Back to provider"},
-	{key: "? Ctrl+K", action: "This keymap"},
-	{key: "q", action: "Quit"},
-}
-
-// coreReservedKeys is the set of keys owned by cliamp's global UI handler.
-// Plugins are refused registration for any key in this set. Kept as a plain
-// slice so it's obvious at a glance which strings belong here; every entry
-// is in Bubbletea's `msg.String()` form (lowercase, ctrl+ prefix, etc.).
-//
-// This must be kept in sync with handleKey() in keys.go. If you add or remove
-// a case there, update this list — the TestReservedKeys test in keymap_test.go
-// guards against drift.
-var coreReservedKeys = []string{
-	// Global quit / escape.
-	"q", "ctrl+c", "esc", "backspace", "b",
-
-	// Playback.
-	"space", "s", ">", ".", "<", ",",
-	"left", "right", "shift+left", "shift+right",
-	"+", "=", "-", "]", "[",
-	"f",
-
-	// Percentage seek primes on digits 0-9 and consumes the following `j`.
-	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "j",
-
-	// Navigation and focus.
-	"up", "k", "down", "ctrl+n", "ctrl+p",
-	"shift+up", "shift+down",
-	"pgup", "pgdown", "ctrl+u", "ctrl+d",
-	"g", "G", "home", "end",
-	"enter", "tab", "h", "l",
-
-	// Features.
-	"r", "z", "m", "e", "a", "A", "ctrl+h",
-	"ctrl+s", "S", "/", "ctrl+f", "w",
-	"ctrl+j", "J", "E", "p", "t", "i", "y", "o", "u",
-	"N", "L", "R", "P", "Y", "C", "M", "Q",
-	"v", "V", "ctrl+v", "ctrl+x", "x", "d", "ctrl+k", "?",
-	"ctrl+r",
-}
-
-// ReservedKeys returns a fresh copy of the core-reserved key set. Handed to
-// the Lua plugin manager at startup so it can reject conflicting plugin binds.
+// ReservedKeys returns a fresh copy of every key described by commandRegistry.
+// It is handed to the Lua plugin manager at startup so plugins cannot shadow
+// a core action or an active text field.
 func ReservedKeys() map[string]bool {
-	out := make(map[string]bool, len(coreReservedKeys))
-	for _, k := range coreReservedKeys {
-		out[k] = true
+	out := make(map[string]bool)
+	for _, command := range commandRegistry {
+		for _, key := range command.Keys {
+			out[key] = true
+		}
 	}
 	return out
 }
@@ -125,8 +32,12 @@ func ReservedKeys() map[string]bool {
 // Only called when the overlay is opened; the result is cached on keymap.entries
 // so navigation (which calls keymapCount many times per frame) is allocation-free.
 func (m Model) buildKeymapEntries() []keymapEntry {
-	out := make([]keymapEntry, 0, len(keymapEntries)+4)
-	out = append(out, keymapEntries...)
+	out := make([]keymapEntry, 0, len(commandRegistry)+4)
+	for _, command := range commandRegistry {
+		if command.Keymap && command.enabled(m) {
+			out = append(out, keymapEntry{key: command.KeyLabel, action: command.Label})
+		}
+	}
 	if m.luaMgr == nil {
 		return out
 	}
@@ -154,10 +65,9 @@ func (m *Model) keymapCount() int {
 
 func (m *Model) keymapHelpLine() string {
 	if m.keymap.searching {
-		return helpKey("Enter", "Confirm ") + helpKey("Esc", "Cancel ") + helpKey("Type", "Filter")
+		return m.commandHelp(commandModeKeymapSearch)
 	}
-	return helpKey("↓↑", "Scroll ") + helpKey("PgUp/Dn", "Page ") +
-		helpKey("Home/End", "Jump ") + helpKey("/", "Filter ") + helpKey("Esc", "Close")
+	return m.commandHelp(commandModeKeymap)
 }
 
 // keymapHeaderLine renders the keymap's single-line header for the playlist
@@ -165,7 +75,7 @@ func (m *Model) keymapHelpLine() string {
 // separator with the match count.
 func (m Model) keymapHeaderLine() string {
 	if m.keymap.searching || m.keymap.search != "" {
-		return filterCountHeader(m.keymap.search, fmt.Sprintf("%d/%d", m.keymapCount(), len(m.keymap.entries)))
+		return m.filterCountHeader("keymap", m.keymap.search, fmt.Sprintf("%d/%d", m.keymapCount(), len(m.keymap.entries)))
 	}
 	return sepHeaderN("Keymap", m.keymap.cursor+1, len(m.keymap.entries))
 }

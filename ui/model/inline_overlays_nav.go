@@ -59,8 +59,11 @@ func (m Model) navTrackBreadcrumb() string {
 }
 
 func (m Model) navHeaderLine() string {
+	if m.navBrowser.confirmReplace {
+		return sepHeader("Replace current queue?")
+	}
 	if m.navBrowser.searching {
-		return filterPromptHeader(m.navBrowser.search)
+		return m.filterPromptHeader("nav-search", m.navBrowser.search)
 	}
 	switch m.navView() {
 	case navViewArtists:
@@ -86,27 +89,16 @@ func (m Model) navHeaderLine() string {
 
 func (m Model) navHelpLine() string {
 	if m.navBrowser.searching {
-		return helpKey("Enter", "Confirm ") + helpKey("Esc", "Cancel ") + helpKey("Type", "Filter")
+		return m.commandHelp(commandModeNavSearch)
 	}
-	switch m.navView() {
-	case navViewArtists:
-		return helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Open ") + helpKey("/", "Search")
-	case navViewAlbums:
-		h := helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Open ")
-		if m.navBrowser.mode == navBrowseModeByAlbum {
-			h += helpKey("s", "Sort ")
-		}
-		return h + helpKey("/", "Search")
-	case navViewTracks:
-		return helpKey("←↓↑→", "Navigate ") + helpKey("Enter", "Play from here ") +
-			helpKey("q", "Queue ") + helpKey("R", "Replace ") + helpKey("a", "Append ") + helpKey("/", "Search")
-	default:
-		return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Close")
-	}
+	return m.commandHelp(commandModeNavBrowser)
 }
 
 func (m Model) renderNavBody() string {
 	budget := m.effectivePlaylistVisible()
+	if m.navBrowser.confirmReplace {
+		return bodyMessage("Displayed tracks will replace the current queue. Enter confirms; Esc cancels.", budget)
+	}
 	switch m.navView() {
 	case navViewArtists:
 		if m.navBrowser.loading && len(m.navBrowser.artists) == 0 {
@@ -174,8 +166,11 @@ func (m Model) renderNavTrackBody(budget int) string {
 // — file browser —
 
 func (m Model) fbHeaderLine() string {
+	if m.fileBrowser.confirmReplace {
+		return sepHeader("Replace current queue?")
+	}
 	if m.fileBrowser.searching {
-		return filterPromptHeader(m.fileBrowser.search)
+		return m.filterPromptHeader("file-browser-search", m.fileBrowser.search)
 	}
 	label := "Files: " + m.fileBrowser.dir
 	if n := len(m.fileBrowser.selected); n > 0 {
@@ -188,6 +183,9 @@ func (m Model) renderFileBrowserBody() string {
 	budget := m.effectivePlaylistVisible()
 	if budget <= 0 {
 		return ""
+	}
+	if m.fileBrowser.confirmReplace {
+		return bodyMessage("Selected files will replace the current queue. Enter confirms; Esc cancels.", budget)
 	}
 
 	var lines []string

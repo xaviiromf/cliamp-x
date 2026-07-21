@@ -141,6 +141,10 @@ func TestNavigationTrackReplaceWinsOverRadioShortcut(t *testing.T) {
 	}
 
 	m.handleNavBrowserKey(tea.KeyPressMsg{Text: "R"})
+	if !m.navBrowser.confirmReplace {
+		t.Fatal("replace confirmation was not opened")
+	}
+	m.handleNavBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	tracks := m.playlist.Tracks()
 	if len(tracks) != 1 || tracks[0].Path != "replacement.mp3" {
 		t.Fatalf("playlist after R = %#v, want replacement track", tracks)

@@ -64,19 +64,16 @@ func (m *Model) plPickerMaybeAdjustScroll(visible int) {
 
 func (m Model) plPickerHeaderLine() string {
 	if m.plPicker.screen == plPickerNewName {
-		return promptHeader("New Playlist", m.plPicker.newName)
+		return m.promptHeader("playlist-picker-name", "New Playlist", m.plPicker.newName)
 	}
 	return sepHeaderN("Write to Playlist", m.plPicker.cursor+1, m.plPickerCount())
 }
 
 func (m Model) plPickerHelpLine() string {
 	if m.plPicker.screen == plPickerNewName {
-		if len(m.plPicker.tracks) == 0 {
-			return helpKey("Enter", "Create ") + helpKey("Esc", "Cancel")
-		}
-		return helpKey("Enter", "Create & add ") + helpKey("Esc", "Cancel")
+		return m.commandHelp(commandModePlaylistPickerInput)
 	}
-	return helpKey("↓↑", "Select ") + helpKey("Enter", "Write ") + helpKey("Esc", "Cancel")
+	return m.commandHelp(commandModePlaylistPicker)
 }
 
 func (m Model) renderPlaylistPickerBody() string {
@@ -88,7 +85,11 @@ func (m Model) renderPlaylistPickerBody() string {
 		} else if n > 1 {
 			msg = fmt.Sprintf("Create and add %d tracks.", n)
 		}
-		return bodyMessage(msg, budget)
+		lines := []string{dimStyle.Render("  " + msg)}
+		if m.plPicker.inputErr != "" {
+			lines = append(lines, errorStyle.Render("  "+m.plPicker.inputErr))
+		}
+		return bodyLines(lines, budget)
 	}
 
 	items := make([]string, len(m.plPicker.playlists)+1)
@@ -164,8 +165,9 @@ func (m *Model) handlePlaylistPickerKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.plPickerMaybeAdjustScroll(m.plPickerVisible())
 	case "enter":
 		if m.plPicker.cursor < len(m.plPicker.playlists) {
-			m.writePickerTracks(m.plPicker.playlists[m.plPicker.cursor].Name)
-			m.closePlaylistPicker()
+			if m.writePickerTracks(m.plPicker.playlists[m.plPicker.cursor].Name) {
+				m.closePlaylistPicker()
+			}
 			return nil
 		}
 		m.plPicker.screen = plPickerNewName
@@ -185,40 +187,47 @@ func (m *Model) handlePlaylistPickerNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		name := strings.TrimSpace(m.plPicker.newName)
 		if name == "" {
+			m.plPicker.inputErr = "Playlist name is required."
 			return nil
 		}
-		m.createPickerPlaylist(name)
-		m.closePlaylistPicker()
+		if m.createPickerPlaylist(name) {
+			m.closePlaylistPicker()
+		}
 	default:
-		m.editText("playlist-picker-name", &m.plPicker.newName, msg)
+		if msg.Code == tea.KeySpace && msg.Text == "" {
+			m.insertText("playlist-picker-name", &m.plPicker.newName, " ")
+			m.plPicker.inputErr = ""
+		} else if m.editText("playlist-picker-name", &m.plPicker.newName, msg) {
+			m.plPicker.inputErr = ""
+		}
 	}
 	return nil
 }
 
-func (m *Model) createPickerPlaylist(name string) {
+func (m *Model) createPickerPlaylist(name string) bool {
 	c, ok := m.localProvider.(provider.PlaylistCreator)
 	if !ok {
-		m.status.Show("Playlist creation is not supported", statusTTLDefault)
-		return
+		m.plPicker.inputErr = "Playlist creation is not supported."
+		return false
 	}
 	id, err := c.CreatePlaylist(context.Background(), name)
 	if err != nil {
-		m.status.Showf(statusTTLDefault, "Create failed: %s", err)
-		return
+		m.plPicker.inputErr = "Create failed: " + err.Error()
+		return false
 	}
 	if len(m.plPicker.tracks) == 0 {
 		m.status.Showf(statusTTLDefault, "Created %q", name)
 		m.refreshPlaylistManagerAfterWrite(id)
-		return
+		return true
 	}
-	m.writePickerTracks(id)
+	return m.writePickerTracks(id)
 }
 
-func (m *Model) writePickerTracks(name string) {
+func (m *Model) writePickerTracks(name string) bool {
 	added, skipped, err := m.writeTracksToPlaylist(name, m.plPicker.tracks)
 	if err != nil {
-		m.status.Showf(statusTTLDefault, "Write failed: %s", err)
-		return
+		m.plPicker.inputErr = "Write failed: " + err.Error()
+		return false
 	}
 	switch {
 	case added > 0 && skipped > 0:
@@ -231,6 +240,7 @@ func (m *Model) writePickerTracks(name string) {
 		m.status.Showf(statusTTLDefault, "Nothing added to %q", name)
 	}
 	m.refreshPlaylistManagerAfterWrite(name)
+	return true
 }
 
 func (m *Model) writeTracksToPlaylist(name string, tracks []playlist.Track) (added, skipped int, err error) {

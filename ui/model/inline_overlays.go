@@ -39,22 +39,22 @@ func sepHeaderN(label string, pos, total int) string {
 	return sepHeader(fmt.Sprintf("%s  %d/%d", label, pos, total))
 }
 
-// promptHeader renders an editable "label: value_" input as the header line,
-// truncated to the panel width.
-func promptHeader(label, value string) string {
-	return playlistSelectedStyle.Render(truncate("  "+label+": "+value+"_", ui.PanelWidth))
+// promptHeader renders an editable input with the shared editor cursor at its
+// actual insertion point, then clips it to the panel width.
+func (m Model) promptHeader(field, label, value string) string {
+	return playlistSelectedStyle.Render(truncate("  "+label+": "+m.textWithCursor(field, value), ui.PanelWidth))
 }
 
 // filterPromptHeader renders a `/` filter input as the header line.
-func filterPromptHeader(query string) string {
-	return playlistSelectedStyle.Render(truncate("  / "+query+"_", ui.PanelWidth))
+func (m Model) filterPromptHeader(field, query string) string {
+	return playlistSelectedStyle.Render(truncate("  / "+m.textWithCursor(field, query), ui.PanelWidth))
 }
 
 // filterCountHeader renders a `/` filter prompt with a trailing match count,
 // kept to one panel-wide row by clipping the query to leave room for the count.
-func filterCountHeader(query, count string) string {
+func (m Model) filterCountHeader(field, query, count string) string {
 	maxPrompt := max(1, ui.PanelWidth-len(count)-2)
-	return playlistSelectedStyle.Render(truncate("  / "+query+"_", maxPrompt)) + dimStyle.Render("  "+count)
+	return playlistSelectedStyle.Render(truncate("  / "+m.textWithCursor(field, query), maxPrompt)) + dimStyle.Render("  "+count)
 }
 
 // windowList renders items[scroll:] into at most budget rows, applying the
@@ -152,7 +152,7 @@ func (m Model) activeOverlay() (overlayView, bool) {
 	case m.showInfo:
 		return overlayView{
 			func(*Model) string { return sepHeader("Track Info") },
-			func(*Model) string { return helpKey("↑↓", "Scroll ") + helpKey("Esc", "Close") },
+			func(m *Model) string { return m.commandHelp(commandModeInfo) },
 			(*Model).renderInfoBody}, true
 	case m.lyrics.visible:
 		return overlayView{
@@ -161,12 +161,12 @@ func (m Model) activeOverlay() (overlayView, bool) {
 	case m.jumping:
 		return overlayView{
 			func(*Model) string { return sepHeader("Jump to Time") },
-			func(*Model) string { return helpKey("Enter", "Jump ") + helpKey("Esc", "Cancel") },
+			func(m *Model) string { return m.commandHelp(commandModeJump) },
 			(*Model).renderJumpBody}, true
 	case m.urlInputting:
 		return overlayView{
-			func(m *Model) string { return promptHeader("Load URL", m.urlInput) },
-			func(*Model) string { return helpKey("Enter", "Load ") + helpKey("Esc", "Cancel") },
+			func(m *Model) string { return m.promptHeader("url", "Load URL", m.urlInput) },
+			func(m *Model) string { return m.commandHelp(commandModeURL) },
 			(*Model).renderURLBody}, true
 	case m.search.active:
 		return overlayView{(*Model).searchHeaderLine, (*Model).searchHelpLine, (*Model).renderSearchList}, true
@@ -188,7 +188,7 @@ func (m Model) renderMainBody() string {
 // — search —
 
 func (m Model) searchHeaderLine() string {
-	return filterCountHeader(m.search.query, m.formatListMatchCount(len(m.search.results), m.playlist.Len()))
+	return m.filterCountHeader("playlist-search", m.search.query, m.formatListMatchCount(len(m.search.results), m.playlist.Len()))
 }
 
 // — theme picker —
@@ -295,7 +295,11 @@ func (m *Model) infoMaybeAdjustScroll() {
 
 func (m Model) renderURLBody() string {
 	budget := m.effectivePlaylistVisible()
-	return bodyMessage("Paste a stream, track, or playlist URL above.", budget)
+	lines := []string{dimStyle.Render("  Paste a stream, track, or playlist URL above.")}
+	if m.urlErr != "" {
+		lines = append(lines, errorStyle.Render("  "+m.urlErr))
+	}
+	return bodyLines(lines, budget)
 }
 
 // — jump to time —
@@ -306,26 +310,23 @@ func (m Model) renderJumpBody() string {
 	dur := m.player.Duration()
 	inputLine := dimStyle.Faint(true).Render("  " + formatJumpPlaceholder(dur))
 	if m.jumpInput != "" {
-		inputLine = playlistSelectedStyle.Render("  " + m.jumpInput + "_")
+		inputLine = playlistSelectedStyle.Render("  " + m.textWithCursor("jump", m.jumpInput))
 	}
-	return bodyLines([]string{
+	lines := []string{
 		dimStyle.Render(fmt.Sprintf("  %s / %s", formatJumpClock(pos), formatJumpClock(dur))),
 		"",
 		inputLine,
-	}, budget)
+	}
+	if m.jumpErr != "" {
+		lines = append(lines, errorStyle.Render("  "+m.jumpErr))
+	}
+	return bodyLines(lines, budget)
 }
 
 // — lyrics —
 
 func (m Model) lyricsHelpLine() string {
-	retry := ""
-	if !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) {
-		retry = helpKey("r", "Retry ")
-	}
-	if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
-		return retry + helpKey("Esc", "Close")
-	}
-	return helpKey("↓↑", "Scroll ") + retry + helpKey("Esc", "Close")
+	return m.commandHelp(commandModeLyrics)
 }
 
 func (m Model) renderLyricsBody() string {
@@ -408,14 +409,14 @@ func (m Model) netSearchHeaderLine() string {
 	if m.netSearch.screen == netSearchResults {
 		return sepHeaderN("Online Results", m.netSearch.cursor+1, len(m.netSearch.results))
 	}
-	return promptHeader(m.netSearchSource()+" search", m.netSearch.query)
+	return m.promptHeader("net-search", m.netSearchSource()+" search", m.netSearch.query)
 }
 
 func (m Model) netSearchHelpLine() string {
 	if m.netSearch.screen == netSearchResults {
 		return m.netSearchResultsHelpLine()
 	}
-	return helpKey("Enter", "Search ") + helpKey("Esc", "Cancel")
+	return m.commandHelp(commandModeNetSearch)
 }
 
 func (m Model) renderNetSearchBody() string {
@@ -452,9 +453,9 @@ func (m Model) spotSearchHeaderLine() string {
 	case spotSearchPlaylist:
 		return sepHeaderN("Add to Playlist", m.spotSearch.cursor+1, len(m.spotSearch.playlists)+1)
 	case spotSearchNewName:
-		return promptHeader("New Playlist", m.spotSearch.newName)
+		return m.promptHeader("spot-playlist-name", "New Playlist", m.spotSearch.newName)
 	default:
-		return promptHeader("Search", m.spotSearch.query)
+		return m.promptHeader("spot-search", "Search", m.spotSearch.query)
 	}
 }
 
@@ -465,9 +466,9 @@ func (m Model) spotSearchHelpLine() string {
 	case spotSearchPlaylist:
 		return m.spotSearchPlaylistHelpLine()
 	case spotSearchNewName:
-		return helpKey("Enter", "Create & add ") + helpKey("Esc", "Cancel")
+		return m.commandHelp(commandModeSpotSearch)
 	default:
-		return helpKey("Enter", "Search ") + helpKey("Esc", "Cancel")
+		return m.commandHelp(commandModeSpotSearch)
 	}
 }
 

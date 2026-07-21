@@ -218,7 +218,7 @@ func (m Model) renderTierHelp() string {
 	if ov, ok := m.activeOverlay(); ok {
 		return fitHelpLine(ov.help(&m))
 	}
-	return fitHelpLine(helpKey("Spc", "Play ") + helpKey("?", "Keys"))
+	return m.commandHelp(commandModeMain)
 }
 
 func (m Model) renderTransient() string {
@@ -226,10 +226,19 @@ func (m Model) renderTransient() string {
 		return ui.FitRect(errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)), m.layout.panelWidth, 1)
 	}
 	if text := m.save.activityText(); text != "" {
-		return ui.FitRect(statusStyle.Render(text), m.layout.panelWidth, 1)
+		return ui.FitRect(feedbackActivityStyle.Render(text), m.layout.panelWidth, 1)
 	}
 	if m.status.text != "" {
-		return ui.FitRect(statusStyle.Render(m.status.text), m.layout.panelWidth, 1)
+		style := feedbackSuccessStyle
+		switch m.status.kind {
+		case feedbackActivity:
+			style = feedbackActivityStyle
+		case feedbackWarning:
+			style = feedbackWarningStyle
+		case feedbackError:
+			style = errorStyle
+		}
+		return ui.FitRect(style.Render(m.status.text), m.layout.panelWidth, 1)
 	}
 	if n := len(m.logLines); n > 0 {
 		return ui.FitRect(dimStyle.Render(m.logLines[n-1].text), m.layout.panelWidth, 1)
@@ -827,58 +836,18 @@ func (m Model) renderHelp() string {
 	if ov, ok := m.activeOverlay(); ok {
 		return fitHelpLine(ov.help(&m))
 	}
-	if m.focus == focusProvider {
-		help := helpKey("↓↑", "Scroll ") + helpKey("Enter", "Load ") + helpKey("/", "Search ")
-		if _, ok := m.provider.(provider.FavoriteToggler); ok {
-			help += helpKey("f", "Fav ")
-		}
-		return help + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
+	switch m.focus {
+	case focusProvider:
+		return m.commandHelp(commandModeProvider)
+	case focusProvPill:
+		return m.commandHelp(commandModeProviderPill)
+	case focusSpeed:
+		return m.commandHelp(commandModeSpeed)
+	case focusEQ:
+		return m.commandHelp(commandModeEQ)
+	default:
+		return m.commandHelp(commandModeMain)
 	}
-	if m.focus == focusProvPill {
-		return helpKey("←→", "Select ") + helpKey("Enter", "Open ") + helpKey("Esc", "Back ") + helpKey("Tab", "Focus ") + helpKey("Ctrl+K", "Keys")
-	}
-
-	// Show only the 4-5 most relevant keys per mode; Ctrl+K always anchored for full list.
-	var hints []helpHint
-
-	if m.focus == focusSpeed {
-		hints = append(hints,
-			helpHint{helpKey("←→", "Speed "), 100},
-			helpHint{helpKey("[]", "Speed "), 90},
-			helpHint{helpKey("Spc", "▶❚❚ "), 80},
-			helpHint{helpKey("Tab", "Focus "), 70},
-			helpHint{helpKey("Ctrl+K", "Keys"), 100},
-		)
-	} else if m.focus == focusEQ {
-		hints = append(hints,
-			helpHint{helpKey("←→", "Band "), 100},
-			helpHint{helpKey("↓↑", "Gain "), 100},
-			helpHint{helpKey("e", "Preset "), 90},
-			helpHint{helpKey("Spc", "▶❚❚ "), 80},
-			helpHint{helpKey("Tab", "Focus "), 70},
-			helpHint{helpKey("Ctrl+K", "Keys"), 100},
-		)
-	} else {
-		// focusPlaylist (default)
-		hints = append(hints,
-			helpHint{helpKey("↓↑", "Scroll "), 100},
-			helpHint{helpKey("Enter", "Play "), 100},
-			helpHint{helpKey("Spc", "▶❚❚ "), 90},
-		)
-		track, _ := m.currentPlaybackTrack()
-		if !track.Stream || m.player.Seekable() {
-			hints = append(hints, helpHint{helpKey("←→", "Seek "), 80})
-		}
-		if m.loadedPlaylist != "" {
-			hints = append(hints, helpHint{helpKey("f", "Bookmark "), 75})
-		}
-		hints = append(hints,
-			helpHint{helpKey("Tab", "Focus "), 70},
-			helpHint{helpKey("Ctrl+K", "Keys"), 100},
-		)
-	}
-
-	return fitHints(hints, ui.PanelWidth)
 }
 
 // helpHint is a rendered help key with an associated display priority.

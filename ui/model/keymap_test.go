@@ -9,10 +9,7 @@ import (
 )
 
 // TestReservedKeysCoversHandleKey is a drift guard: every `case "..."` clause in
-// the main handleKey switch (keys.go) must be represented in coreReservedKeys.
-// If this fails after editing keys.go, add the missing key to coreReservedKeys
-// in keymap.go. The test deliberately skips case strings containing "+" with
-// keys like "shift+up" which *are* included — it scans all quoted tokens.
+// the main handleKey switch (keys.go) must be represented in commandRegistry.
 func TestReservedKeysCoversHandleKey(t *testing.T) {
 	path := filepath.Join("keys.go")
 	data, err := os.ReadFile(path)

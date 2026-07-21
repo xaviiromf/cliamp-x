@@ -32,7 +32,7 @@ func (m Model) renderVisPickerList() string {
 
 func (m Model) plMgrHeaderLine() string {
 	if m.plManager.filtering {
-		return filterPromptHeader(m.plManager.filter)
+		return m.filterPromptHeader("playlist-manager-filter", m.plManager.filter)
 	}
 	switch m.plManager.screen {
 	case plMgrScreenTracks:
@@ -43,9 +43,9 @@ func (m Model) plMgrHeaderLine() string {
 		}
 		return sepHeaderN(label, m.plManager.cursor+1, len(m.plManager.tracks))
 	case plMgrScreenNewName:
-		return promptHeader("New Playlist", m.plManager.newName)
+		return m.promptHeader("playlist-manager-new-name", "New Playlist", m.plManager.newName)
 	case plMgrScreenRename:
-		return promptHeader("Rename "+m.plManager.renameOldName, m.plManager.renameName)
+		return m.promptHeader("playlist-manager-rename", "Rename "+m.plManager.renameOldName, m.plManager.renameName)
 	default:
 		total := len(m.plManager.playlists)
 		if m.plManager.filter != "" {
@@ -60,9 +60,9 @@ func (m Model) plMgrHelpLine() string {
 	case plMgrScreenTracks:
 		return m.plMgrTracksHelpLine()
 	case plMgrScreenNewName:
-		return helpKey("Enter", "Create & add ") + helpKey("Esc", "Cancel")
+		return m.commandHelp(commandModePlaylistManagerInput)
 	case plMgrScreenRename:
-		return helpKey("Enter", "Rename ") + helpKey("Esc", "Cancel")
+		return m.commandHelp(commandModePlaylistManagerInput)
 	default:
 		return m.plMgrListHelpLine()
 	}
@@ -88,7 +88,11 @@ func (m Model) renderPlMgrFormBody() string {
 	if track, idx := m.currentPlaybackTrack(); idx >= 0 && track.Path != "" {
 		label = "Create & add: " + truncate(track.DisplayName(), max(1, ui.PanelWidth-16))
 	}
-	return bodyMessage(label, budget)
+	lines := []string{dimStyle.Render("  " + label)}
+	if m.plManager.inputErr != "" {
+		lines = append(lines, errorStyle.Render("  "+m.plManager.inputErr))
+	}
+	return bodyLines(lines, budget)
 }
 
 func (m Model) renderPlMgrListBody() string {

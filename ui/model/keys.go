@@ -34,6 +34,7 @@ func (m *Model) quit() tea.Cmd {
 	}
 
 	m.flushPendingSpeedSave()
+	m.flushPendingEQSave()
 	m.player.Close()
 	m.clearPlaybackTrack()
 	m.quitting = true
@@ -454,12 +455,14 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if s := msg.String(); m.focus == focusPlaylist && len(s) == 1 && s[0] >= '0' && s[0] <= '9' {
 		m.pendingSeekActive = true
 		m.pendingSeekPct = int(s[0] - '0')
-		m.status.Showf(statusTTLMedium, "%dj → seek to %d%%", m.pendingSeekPct, m.pendingSeekPct*10)
+		m.pendingSeekExpiresAt = time.Now().Add(time.Duration(statusTTLMedium))
+		m.status.Activityf(statusTTLMedium, "%dj -> seek to %d%%", m.pendingSeekPct, m.pendingSeekPct*10)
 		return nil
 	}
 	if m.pendingSeekActive {
 		pct := m.pendingSeekPct
 		m.pendingSeekActive = false
+		m.pendingSeekExpiresAt = time.Time{}
 		m.status.Clear()
 		if msg.String() == "j" && m.focus == focusPlaylist {
 			if dur := m.player.Duration(); dur > 0 {
@@ -567,7 +570,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]+1)
 			m.eqPresetIdx = -1 // manual tweak → custom
 			m.eqCustomLabel = ""
-			m.saveEQ()
+			m.scheduleEQSave()
 		} else {
 			if m.plCursor > 0 {
 				m.plCursor--
@@ -584,7 +587,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.player.SetEQBand(m.eqCursor, bands[m.eqCursor]-1)
 			m.eqPresetIdx = -1 // manual tweak → custom
 			m.eqCustomLabel = ""
-			m.saveEQ()
+			m.scheduleEQSave()
 		} else {
 			if m.plCursor < m.playlist.Len()-1 {
 				m.plCursor++
@@ -692,7 +695,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.eqPresetIdx = 0
 		}
 		m.applyEQPreset()
-		m.saveEQ()
+		m.scheduleEQSave()
 
 	case "a":
 		if m.focus == focusPlaylist {
@@ -768,6 +771,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "u":
 		m.urlInputting = true
 		m.urlInput = ""
+		m.urlErr = ""
 
 	case "N":
 		if prov := m.findBrowseProvider(); prov != nil {
@@ -958,6 +962,7 @@ func (m *Model) saveTrack() tea.Cmd {
 
 func (m *Model) resetJumpInput() {
 	m.jumpInput = ""
+	m.jumpErr = ""
 }
 
 func (m *Model) openJumpMode() {
@@ -1016,19 +1021,23 @@ func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		target, err := parseJumpTarget(m.jumpInput)
 		if err != nil {
-			m.status.Showf(statusTTLDefault, "Invalid jump: %s", err)
+			m.jumpErr = "Invalid jump: " + err.Error()
+			m.status.Warning(m.jumpErr, statusTTLDefault)
 			return nil
 		}
 		if !m.player.Seekable() {
-			m.status.Show("This track cannot be seeked", statusTTLDefault)
+			m.jumpErr = "This track cannot be seeked."
+			m.status.Warning(m.jumpErr, statusTTLDefault)
 			return nil
 		}
 		if dur := m.player.Duration(); dur > 0 && target > dur {
-			m.status.Showf(statusTTLDefault, "Jump exceeds track duration (%s)", formatJumpClock(dur))
+			m.jumpErr = fmt.Sprintf("Jump exceeds track duration (%s).", formatJumpClock(dur))
+			m.status.Warning(m.jumpErr, statusTTLDefault)
 			return nil
 		}
 		if err := m.player.Seek(target - m.player.Position()); err != nil {
-			m.status.Showf(statusTTLDefault, "Seek failed: %s", err)
+			m.jumpErr = "Seek failed: " + err.Error()
+			m.status.Warning(m.jumpErr, statusTTLDefault)
 			return nil
 		}
 		// finishSeek notifies plugins as well as MPRIS, matching every other
@@ -1038,7 +1047,9 @@ func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	m.editText("jump", &m.jumpInput, msg)
+	if m.editText("jump", &m.jumpInput, msg) {
+		m.jumpErr = ""
+	}
 	return nil
 }
 
@@ -1077,16 +1088,8 @@ func (m *Model) handleProvSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.provSearchMaybeAdjustScroll()
 		return nil
 	case "ctrl+u":
-		step := m.providerScrollStep() - 1
-		if step < 1 {
-			step = 1
-		}
-		if m.provSearch.cursor >= step {
-			m.provSearch.cursor -= step
-		} else {
-			m.provSearch.cursor = 0
-		}
-		m.provSearchMaybeAdjustScroll()
+		m.editText("provider-search", &m.provSearch.query, msg)
+		m.updateProvSearch()
 		return nil
 	case "ctrl+d":
 		step := m.providerScrollStep() - 1
@@ -1134,17 +1137,11 @@ func (m *Model) handleProvSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.provSearch.cursor = 0
 		}
 		m.provSearchMaybeAdjustScroll()
-	case tea.KeyBackspace:
-		if m.provSearch.query != "" {
-			m.provSearch.query = removeLastRune(m.provSearch.query)
-			m.updateProvSearch()
-		}
-	case tea.KeySpace:
-		m.provSearch.query += " "
-		m.updateProvSearch()
 	default:
-		if len(msg.Text) > 0 {
-			m.provSearch.query += msg.Text
+		if msg.Code == tea.KeySpace && msg.Text == "" {
+			m.insertText("provider-search", &m.provSearch.query, " ")
+			m.updateProvSearch()
+		} else if m.editText("provider-search", &m.provSearch.query, msg) {
 			m.updateProvSearch()
 		}
 	}
@@ -1166,15 +1163,11 @@ func (m *Model) handleCatalogSearchKey(msg tea.KeyPressMsg, cs provider.CatalogS
 		}
 		m.provLoading = true
 		return fetchCatalogSearchCmd(cs, m.provider.Name(), m.provSearch.query, nextRequest(&m.requests.catalog))
-	case tea.KeyBackspace, tea.KeyDelete:
-		if m.provSearch.query != "" {
-			m.provSearch.query = removeLastRune(m.provSearch.query)
-		}
-	case tea.KeySpace:
-		m.provSearch.query += " "
 	default:
-		if len(msg.Text) > 0 {
-			m.provSearch.query += msg.Text
+		if msg.Code == tea.KeySpace && msg.Text == "" {
+			m.insertText("provider-search", &m.provSearch.query, " ")
+		} else {
+			m.editText("provider-search", &m.provSearch.query, msg)
 		}
 	}
 	return nil
@@ -1240,24 +1233,42 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 		return nil
 	}
 
+	if m.plPicker.visible && m.plPicker.screen == plPickerNewName {
+		m.insertText("playlist-picker-name", &m.plPicker.newName, content)
+		m.plPicker.inputErr = ""
+		return nil
+	}
+
+	if m.fileBrowser.visible && m.fileBrowser.searching {
+		m.insertText("file-browser-search", &m.fileBrowser.search, content)
+		m.fbUpdateFilter()
+		return nil
+	}
+
 	// Nav browser search
 	if m.navBrowser.visible && m.navBrowser.mode != navBrowseModeMenu && m.navBrowser.searching {
-		m.navBrowser.search += content
+		m.insertText("nav-search", &m.navBrowser.search, content)
 		m.navBrowser.cursor = 0
 		m.navBrowser.scroll = 0
 		m.navUpdateSearch()
 		return nil
 	}
 
-	// Playlist manager new-name input
+	// Playlist manager name input
 	if m.plManager.visible && m.plManager.screen == plMgrScreenNewName {
-		m.plManager.newName += content
+		m.insertText("playlist-manager-new-name", &m.plManager.newName, content)
+		m.plManager.inputErr = ""
+		return nil
+	}
+	if m.plManager.visible && m.plManager.screen == plMgrScreenRename {
+		m.insertText("playlist-manager-rename", &m.plManager.renameName, content)
+		m.plManager.inputErr = ""
 		return nil
 	}
 
 	// Playlist manager `/` filter
 	if m.plManager.visible && m.plManager.filtering {
-		m.plManager.filter += content
+		m.insertText("playlist-manager-filter", &m.plManager.filter, content)
 		m.plManager.cursor = 0
 		m.plMgrRecomputeFilter()
 		return nil
@@ -1265,11 +1276,13 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 
 	if m.jumping {
 		m.insertText("jump", &m.jumpInput, content)
+		m.jumpErr = ""
 		return nil
 	}
 
 	if m.urlInputting {
 		m.insertText("url", &m.urlInput, content)
+		m.urlErr = ""
 		return nil
 	}
 
@@ -1287,7 +1300,7 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	}
 
 	if m.provSearch.active {
-		m.provSearch.query += content
+		m.insertText("provider-search", &m.provSearch.query, content)
 		if _, ok := m.provider.(provider.CatalogSearcher); !ok {
 			m.updateProvSearch()
 		}
@@ -1420,7 +1433,11 @@ func (m *Model) handleNetSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.closeNetSearch()
 
 	case tea.KeyEnter:
-		if strings.TrimSpace(m.netSearch.query) != "" && !m.netSearch.loading {
+		if strings.TrimSpace(m.netSearch.query) == "" {
+			m.netSearch.err = "Enter a search query."
+			return nil
+		}
+		if !m.netSearch.loading {
 			prefix := "ytsearch10:"
 			if m.netSearch.soundcloud {
 				prefix = "scsearch10:"
@@ -1433,7 +1450,9 @@ func (m *Model) handleNetSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 
 	default:
-		m.editText("net-search", &m.netSearch.query, msg)
+		if m.editText("net-search", &m.netSearch.query, msg) {
+			m.netSearch.err = ""
+		}
 	}
 	return nil
 }
@@ -1523,11 +1542,15 @@ func (m *Model) handleURLInputKey(msg tea.KeyPressMsg) tea.Cmd {
 		input := strings.TrimSpace(m.urlInput)
 		if input != "" {
 			m.feedLoading = true
-			m.status.Show("Loading URL...", statusTTLLong)
+			m.status.Activity("Loading URL...", statusTTLLong)
 			return resolveRemoteCmd([]string{input}, true)
 		}
+		m.urlInputting = true
+		m.urlErr = "Enter a stream, track, or playlist URL."
 	default:
-		m.editText("url", &m.urlInput, msg)
+		if m.editText("url", &m.urlInput, msg) {
+			m.urlErr = ""
+		}
 	}
 	return nil
 }
@@ -1647,6 +1670,7 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 			// active filter so a no-match search doubles as "create this".
 			m.plManager.screen = plMgrScreenNewName
 			m.plManager.newName = m.plManager.filter
+			m.plManager.inputErr = ""
 		}
 	case "a":
 		// Quick-add current track to the highlighted playlist.
@@ -1674,6 +1698,7 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		m.plManager.renameOldName = name
 		m.plManager.renameName = name
+		m.plManager.inputErr = ""
 		m.plManager.screen = plMgrScreenRename
 	case "d":
 		if m.plMgrPlaylistRealIndex(m.plManager.cursor) >= 0 {
@@ -1738,7 +1763,7 @@ func (m *Model) handlePlMgrFilterKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case "backspace":
 		if m.plManager.filter != "" {
-			m.plManager.filter = removeLastRune(m.plManager.filter)
+			m.editText("playlist-manager-filter", &m.plManager.filter, msg)
 			m.plManager.cursor = 0
 			m.plMgrRecomputeFilter()
 		} else {
@@ -1747,15 +1772,15 @@ func (m *Model) handlePlMgrFilterKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.plManager.scroll = m.plManager.savedScroll
 		}
 		return nil
-	case "space":
-		m.plManager.filter += " "
+	}
+
+	if msg.Code == tea.KeySpace && msg.Text == "" {
+		m.insertText("playlist-manager-filter", &m.plManager.filter, " ")
 		m.plManager.cursor = 0
 		m.plMgrRecomputeFilter()
 		return nil
 	}
-
-	if len(msg.Text) > 0 {
-		m.plManager.filter += msg.Text
+	if m.editText("playlist-manager-filter", &m.plManager.filter, msg) {
 		m.plManager.cursor = 0
 		m.plMgrRecomputeFilter()
 	}
@@ -1918,18 +1943,18 @@ func (m *Model) handlePlMgrNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.plManager.screen = plMgrScreenList
 	case tea.KeyEnter:
 		name := strings.TrimSpace(m.plManager.newName)
-		if name != "" {
-			m.createPlaylistFromManager(name)
+		if name == "" {
+			m.plManager.inputErr = "Playlist name is required."
+		} else if m.createPlaylistFromManager(name) {
 			m.plMgrRefreshList()
 			m.plManager.screen = plMgrScreenList
 		}
-	case tea.KeyBackspace:
-		m.plManager.newName = removeLastRune(m.plManager.newName)
-	case tea.KeySpace:
-		m.plManager.newName += " "
 	default:
-		if len(msg.Text) > 0 {
-			m.plManager.newName += msg.Text
+		if msg.Code == tea.KeySpace && msg.Text == "" {
+			m.insertText("playlist-manager-new-name", &m.plManager.newName, " ")
+			m.plManager.inputErr = ""
+		} else if m.editText("playlist-manager-new-name", &m.plManager.newName, msg) {
+			m.plManager.inputErr = ""
 		}
 	}
 	return nil
@@ -1941,15 +1966,15 @@ func (m *Model) handlePlMgrRenameKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEscape:
 		m.plManager.screen = plMgrScreenList
 	case tea.KeyEnter:
-		m.plMgrCommitRename()
-		m.plManager.screen = plMgrScreenList
-	case tea.KeyBackspace:
-		m.plManager.renameName = removeLastRune(m.plManager.renameName)
-	case tea.KeySpace:
-		m.plManager.renameName += " "
+		if m.plMgrCommitRename() {
+			m.plManager.screen = plMgrScreenList
+		}
 	default:
-		if len(msg.Text) > 0 {
-			m.plManager.renameName += msg.Text
+		if msg.Code == tea.KeySpace && msg.Text == "" {
+			m.insertText("playlist-manager-rename", &m.plManager.renameName, " ")
+			m.plManager.inputErr = ""
+		} else if m.editText("playlist-manager-rename", &m.plManager.renameName, msg) {
+			m.plManager.inputErr = ""
 		}
 	}
 	return nil
@@ -1957,25 +1982,31 @@ func (m *Model) handlePlMgrRenameKey(msg tea.KeyPressMsg) tea.Cmd {
 
 // plMgrCommitRename applies the pending rename. No-op when the name is
 // empty, unchanged, or the local provider doesn't support renaming.
-func (m *Model) plMgrCommitRename() {
+func (m *Model) plMgrCommitRename() bool {
 	newName := strings.TrimSpace(m.plManager.renameName)
 	oldName := m.plManager.renameOldName
-	if newName == "" || newName == oldName {
-		return
+	if newName == "" {
+		m.plManager.inputErr = "Playlist name is required."
+		return false
+	}
+	if newName == oldName {
+		return true
 	}
 	r, ok := m.localProvider.(provider.PlaylistRenamer)
 	if !ok {
-		return
+		m.plManager.inputErr = "Playlist renaming is not supported."
+		return false
 	}
 	if err := r.RenamePlaylist(oldName, newName); err != nil {
-		m.status.Showf(statusTTLDefault, "Rename failed: %s", err)
-		return
+		m.plManager.inputErr = "Rename failed: " + err.Error()
+		return false
 	}
 	m.status.Showf(statusTTLDefault, "Renamed %q to %q", oldName, newName)
 	if m.loadedPlaylist == oldName {
 		m.loadedPlaylist = newName
 	}
 	m.plMgrRefreshList()
+	return true
 }
 
 func (m *Model) localSaver() provider.PlaylistSaver {
@@ -2253,42 +2284,43 @@ func (m *Model) addToPlaylist(name string) {
 	}
 }
 
-func (m *Model) createPlaylistFromManager(name string) {
+func (m *Model) createPlaylistFromManager(name string) bool {
 	c, ok := m.localProvider.(provider.PlaylistCreator)
 	if !ok {
-		m.status.Show("Playlist creation is not supported", statusTTLDefault)
-		return
+		m.plManager.inputErr = "Playlist creation is not supported."
+		return false
 	}
 	id, err := c.CreatePlaylist(context.Background(), name)
 	if err != nil {
-		m.status.Showf(statusTTLDefault, "Create failed: %s", err)
-		return
+		m.plManager.inputErr = "Create failed: " + err.Error()
+		return false
 	}
 	track, idx := m.currentPlaybackTrack()
 	if idx < 0 {
 		m.status.Showf(statusTTLDefault, "Created %q", name)
-		return
+		return true
 	}
 	if bw, ok := m.localProvider.(provider.PlaylistBatchWriter); ok {
 		added, skipped, err := bw.AddTracksToPlaylist(context.Background(), id, []playlist.Track{track})
 		if err != nil {
 			m.status.Showf(statusTTLDefault, "Created %q, add failed: %s", name, err)
-			return
+			return true
 		}
 		if added > 0 {
 			m.status.Showf(statusTTLDefault, "Created %q & added track", name)
 		} else if skipped > 0 {
 			m.status.Showf(statusTTLDefault, "Created %q; track was duplicate", name)
 		}
-		return
+		return true
 	}
 	if w, ok := m.localProvider.(provider.PlaylistWriter); ok {
 		if err := w.AddTrackToPlaylist(context.Background(), id, track); err != nil {
 			m.status.Showf(statusTTLDefault, "Created %q, add failed: %s", name, err)
-			return
+			return true
 		}
 		m.status.Showf(statusTTLDefault, "Created %q & added track", name)
 	}
+	return true
 }
 
 // handleThemeKey processes key presses while the theme picker is open.

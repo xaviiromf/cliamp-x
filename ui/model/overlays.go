@@ -50,7 +50,7 @@ func (m *Model) themePickerCancel() {
 }
 
 func (m *Model) themePickerHelpLine() string {
-	return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Close")
+	return m.commandHelp(commandModeThemePicker)
 }
 
 func (m *Model) themePickerVisible() int {
@@ -117,7 +117,7 @@ func (m *Model) visPickerCancel() {
 }
 
 func (m *Model) visPickerHelpLine() string {
-	return helpKey("↓↑", "Preview ") + helpKey("Enter", "Select ") + helpKey("Esc", "Cancel ") + helpKey("Ctrl+K", "Keys")
+	return m.commandHelp(commandModeVisPicker)
 }
 
 func (m *Model) visPickerVisible() int {
@@ -129,7 +129,7 @@ func (m *Model) visPickerMaybeAdjustScroll(visible int) {
 }
 
 func (m *Model) devicePickerHelpLine() string {
-	return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Cancel")
+	return m.commandHelp(commandModeDevicePicker)
 }
 
 func (m *Model) devicePickerVisible() int {
@@ -137,11 +137,7 @@ func (m *Model) devicePickerVisible() int {
 }
 
 func (m *Model) queueHelpLine() string {
-	return helpKey("↓↑", "Scroll ") +
-		helpKey("Shift+↓↑", "Reorder ") +
-		helpKey("d", "Remove ") +
-		helpKey("c", "Clear ") +
-		helpKey("Esc", "Close")
+	return m.commandHelp(commandModeQueue)
 }
 
 func (m *Model) queueVisible() int {
@@ -149,10 +145,7 @@ func (m *Model) queueVisible() int {
 }
 
 func (m *Model) searchHelpLine() string {
-	return helpKey("↓↑", "Scroll ") +
-		helpKey("Enter", "Play ") +
-		helpKey("Tab", "Queue ") +
-		helpKey("Esc", "Close")
+	return m.commandHelp(commandModeSearch)
 }
 
 func (m *Model) searchVisible() int {
@@ -168,11 +161,7 @@ func (m *Model) closeSearchLayout() {
 }
 
 func (m *Model) netSearchResultsHelpLine() string {
-	return helpKey("↓↑", "Scroll ") +
-		helpKey("Enter", "Play ") +
-		helpKey("a", "Append ") +
-		helpKey("q", "Queue next ") +
-		helpKey("Esc", "Back")
+	return m.commandHelp(commandModeNetSearch)
 }
 
 func (m *Model) netSearchResultsVisible() int {
@@ -180,12 +169,7 @@ func (m *Model) netSearchResultsVisible() int {
 }
 
 func (m *Model) spotSearchResultsHelpLine() string {
-	return helpKey("↓↑", "Scroll ") +
-		helpKey("Enter", "Play ") +
-		helpKey("a", "Append ") +
-		helpKey("q", "Queue next ") +
-		helpKey("p", "Add to playlist ") +
-		helpKey("Esc", "Back")
+	return m.commandHelp(commandModeSpotSearch)
 }
 
 func (m *Model) spotSearchResultsVisible() int {
@@ -193,7 +177,7 @@ func (m *Model) spotSearchResultsVisible() int {
 }
 
 func (m *Model) spotSearchPlaylistHelpLine() string {
-	return helpKey("↓↑", "Scroll ") + helpKey("Enter", "Select ") + helpKey("Esc", "Close")
+	return m.commandHelp(commandModeSpotSearch)
 }
 
 func (m *Model) spotSearchPlaylistVisible() int {
@@ -207,19 +191,7 @@ func (m *Model) navVisible() int {
 }
 
 func (m *Model) plMgrListHelpLine() string {
-	addLabel := "Add (nothing playing)"
-	if track, idx := m.currentPlaybackTrack(); idx >= 0 && track.Path != "" {
-		addLabel = "Add: " + truncate(track.DisplayName(), 32)
-	}
-	return helpKey("↓↑→", "Navigate ") +
-		helpKey("Enter", "Open ") +
-		helpKey("a", addLabel+" ") +
-		helpKey("w", "Save queue ") +
-		helpKey("r", "Rename ") +
-		helpKey("d", "Delete ") +
-		helpKey("u", "Undo ") +
-		helpKey("/", "Filter ") +
-		helpKey("Esc", "Close")
+	return m.commandHelp(commandModePlaylistManager)
 }
 
 func (m *Model) plMgrListVisible() int {
@@ -231,18 +203,7 @@ func (m *Model) plMgrListMaybeAdjustScroll(visible int) {
 }
 
 func (m *Model) plMgrTracksHelpLine() string {
-	return helpKey("←↓↑", "Navigate ") +
-		helpKey("Enter", "Play this ") +
-		helpKey("p", "Play all ") +
-		helpKey("Spc/a", "Mark ") +
-		helpKey("[]", "Move ") +
-		helpKey("s", "Sort ") +
-		helpKey("o", "Add files ") +
-		helpKey("w", "Write ") +
-		helpKey("d", "Remove ") +
-		helpKey("u", "Undo ") +
-		helpKey("/", "Filter ") +
-		helpKey("Esc", "Back")
+	return m.commandHelp(commandModePlaylistManager)
 }
 
 func (m *Model) plMgrTracksVisible() int {

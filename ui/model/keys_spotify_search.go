@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -35,7 +36,11 @@ func (m *Model) handleSpotSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEscape:
 		m.closeSpotSearch()
 	case tea.KeyEnter:
-		if m.spotSearch.query != "" && !m.spotSearch.loading {
+		if m.spotSearch.query == "" {
+			m.spotSearch.err = "Enter a search query."
+			return nil
+		}
+		if !m.spotSearch.loading {
 			s, ok := m.spotSearch.prov.(provider.Searcher)
 			if !ok {
 				return nil
@@ -45,7 +50,9 @@ func (m *Model) handleSpotSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			return fetchSpotSearchCmd(m.newSpotRequestContext(30*time.Second), s, m.spotSearch.prov.Name(), m.spotSearch.query, nextRequest(&m.requests.spotSearch))
 		}
 	default:
-		m.editText("spot-search", &m.spotSearch.query, msg)
+		if m.editText("spot-search", &m.spotSearch.query, msg) {
+			m.spotSearch.err = ""
+		}
 	}
 	return nil
 }
@@ -197,7 +204,11 @@ func (m *Model) handleSpotSearchNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.spotSearch.cursor = len(m.spotSearch.playlists)
 		m.spotSearchPlaylistMaybeAdjustScroll(m.spotSearchPlaylistVisible())
 	case tea.KeyEnter:
-		if m.spotSearch.newName != "" && !m.spotSearch.loading {
+		if strings.TrimSpace(m.spotSearch.newName) == "" {
+			m.spotSearch.err = "Playlist name is required."
+			return nil
+		}
+		if !m.spotSearch.loading {
 			c, cOk := m.spotSearch.prov.(provider.PlaylistCreator)
 			w, wOk := m.spotSearch.prov.(provider.PlaylistWriter)
 			if !cOk || !wOk {
@@ -208,7 +219,9 @@ func (m *Model) handleSpotSearchNewNameKey(msg tea.KeyPressMsg) tea.Cmd {
 			return createSpotPlaylistCmd(m.newSpotRequestContext(15*time.Second), c, w, m.spotSearch.prov.Name(), m.spotSearch.newName, m.spotSearch.selTrack, nextRequest(&m.requests.spotMutation))
 		}
 	default:
-		m.editText("spot-playlist-name", &m.spotSearch.newName, msg)
+		if m.editText("spot-playlist-name", &m.spotSearch.newName, msg) {
+			m.spotSearch.err = ""
+		}
 	}
 	return nil
 }

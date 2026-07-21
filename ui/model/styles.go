@@ -22,6 +22,17 @@ var (
 			Foreground(ui.ColorPlaying).
 			Bold(true)
 
+	feedbackActivityStyle = lipgloss.NewStyle().
+				Foreground(ui.ColorDim)
+
+	feedbackSuccessStyle = lipgloss.NewStyle().
+				Foreground(ui.ColorPlaying).
+				Bold(true)
+
+	feedbackWarningStyle = lipgloss.NewStyle().
+				Foreground(ui.ColorAccent).
+				Bold(true)
+
 	dimStyle = lipgloss.NewStyle().
 			Foreground(ui.ColorDim)
 
@@ -69,6 +80,9 @@ func rebuildModelStyles() {
 	trackStyle = lipgloss.NewStyle().Foreground(ui.ColorAccent)
 	timeStyle = lipgloss.NewStyle().Foreground(ui.ColorText)
 	statusStyle = lipgloss.NewStyle().Foreground(ui.ColorPlaying).Bold(true)
+	feedbackActivityStyle = lipgloss.NewStyle().Foreground(ui.ColorDim)
+	feedbackSuccessStyle = lipgloss.NewStyle().Foreground(ui.ColorPlaying).Bold(true)
+	feedbackWarningStyle = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 	dimStyle = lipgloss.NewStyle().Foreground(ui.ColorDim)
 	labelStyle = lipgloss.NewStyle().Foreground(ui.ColorText).Bold(true)
 	eqActiveStyle = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)

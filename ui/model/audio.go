@@ -7,7 +7,10 @@ import (
 	"time"
 )
 
-const speedSaveDebounce = time.Second
+const (
+	speedSaveDebounce = time.Second
+	eqSaveDebounce    = time.Second
+)
 
 // SetEQPreset sets the preset by name. If it matches a built-in preset,
 // those bands are applied. Otherwise the name is used as a custom label.
@@ -92,6 +95,12 @@ func (m *Model) changeSpeed(delta float64) {
 	m.speedSaveAfter = speedSaveDebounce
 }
 
+// scheduleEQSave mirrors speed persistence: audio changes immediately while
+// repeated cursor adjustments collapse into one config write.
+func (m *Model) scheduleEQSave() {
+	m.eqSaveAfter = eqSaveDebounce
+}
+
 func (m *Model) tickPendingSpeedSave(dt time.Duration) {
 	if m.speedSaveAfter <= 0 {
 		return
@@ -110,4 +119,24 @@ func (m *Model) flushPendingSpeedSave() {
 	}
 	m.speedSaveAfter = 0
 	m.saveSpeed()
+}
+
+func (m *Model) tickPendingEQSave(dt time.Duration) {
+	if m.eqSaveAfter <= 0 {
+		return
+	}
+	m.eqSaveAfter -= dt
+	if m.eqSaveAfter > 0 {
+		return
+	}
+	m.eqSaveAfter = 0
+	m.saveEQ()
+}
+
+func (m *Model) flushPendingEQSave() {
+	if m.eqSaveAfter <= 0 {
+		return
+	}
+	m.eqSaveAfter = 0
+	m.saveEQ()
 }

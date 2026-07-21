@@ -133,6 +133,7 @@ type plManagerState struct {
 	confirmDel    bool
 	renameOldName string
 	renameName    string
+	inputErr      string
 	marked        map[int]bool // real track indices marked on the tracks screen
 	sortMode      int
 	undo          plManagerUndo
@@ -177,6 +178,7 @@ type playlistPickerState struct {
 	tracks    []playlist.Track
 	title     string
 	newName   string
+	inputErr  string
 }
 
 // fileBrowserState holds state for the file browser overlay.
@@ -194,28 +196,30 @@ type fileBrowserState struct {
 	search         string
 	filtered       []int // indices into entries
 	targetPlaylist string
+	confirmReplace bool
 }
 
 // navBrowserState holds state for the provider browser overlay.
 type navBrowserState struct {
-	prov         playlist.Provider
-	visible      bool
-	mode         navBrowseModeType
-	screen       navBrowseScreenType
-	cursor       int
-	scroll       int
-	artists      []provider.ArtistInfo
-	albums       []provider.AlbumInfo
-	tracks       []playlist.Track
-	selArtist    provider.ArtistInfo
-	selAlbum     provider.AlbumInfo
-	sortType     string
-	albumLoading bool
-	albumDone    bool
-	loading      bool
-	searching    bool
-	search       string
-	searchIdx    []int
+	prov           playlist.Provider
+	visible        bool
+	mode           navBrowseModeType
+	screen         navBrowseScreenType
+	cursor         int
+	scroll         int
+	artists        []provider.ArtistInfo
+	albums         []provider.AlbumInfo
+	tracks         []playlist.Track
+	selArtist      provider.ArtistInfo
+	selAlbum       provider.AlbumInfo
+	sortType       string
+	albumLoading   bool
+	albumDone      bool
+	loading        bool
+	searching      bool
+	search         string
+	searchIdx      []int
+	confirmReplace bool
 }
 
 // requestState tracks the latest request in each independently asynchronous UI
@@ -324,6 +328,16 @@ func (s *saveState) finishDownload() {
 	}
 }
 
+// feedbackKind determines feedback styling and lifecycle.
+type feedbackKind int
+
+const (
+	feedbackActivity feedbackKind = iota
+	feedbackSuccess
+	feedbackWarning
+	feedbackError
+)
+
 // statusTTL is how long a status line stays visible.
 type statusTTL time.Duration
 
@@ -331,8 +345,11 @@ func (t statusTTL) expiresAt(now time.Time) time.Time {
 	return now.Add(time.Duration(t))
 }
 
-// statusMsg holds a temporary status message shown at the bottom of the UI.
+// statusMsg holds structured feedback shown at the bottom of the UI. A zero
+// expiry is durable and remains until a later message replaces it or Clear is
+// called. Inline form errors use their own state so they remain beside retry.
 type statusMsg struct {
+	kind      feedbackKind
 	text      string
 	expiresAt time.Time // zero = no active message
 }
@@ -342,16 +359,57 @@ func (s statusMsg) Expired(now time.Time) bool {
 }
 
 func (s *statusMsg) Show(text string, ttl statusTTL) {
-	s.ShowAt(time.Now(), text, ttl)
+	s.Success(text, ttl)
 }
 
 func (s *statusMsg) Showf(ttl statusTTL, format string, args ...any) {
 	s.Show(fmt.Sprintf(format, args...), ttl)
 }
 
+func (s *statusMsg) Activityf(ttl statusTTL, format string, args ...any) {
+	s.Activity(fmt.Sprintf(format, args...), ttl)
+}
+
+func (s *statusMsg) Successf(ttl statusTTL, format string, args ...any) {
+	s.Success(fmt.Sprintf(format, args...), ttl)
+}
+
+func (s *statusMsg) Warningf(ttl statusTTL, format string, args ...any) {
+	s.Warning(fmt.Sprintf(format, args...), ttl)
+}
+
+func (s *statusMsg) Activity(text string, ttl statusTTL) {
+	s.show(feedbackActivity, text, ttl)
+}
+
+func (s *statusMsg) Success(text string, ttl statusTTL) {
+	s.show(feedbackSuccess, text, ttl)
+}
+
+func (s *statusMsg) Warning(text string, ttl statusTTL) {
+	s.show(feedbackWarning, text, ttl)
+}
+
+func (s *statusMsg) Error(text string) {
+	s.show(feedbackError, text, 0)
+}
+
+func (s *statusMsg) show(kind feedbackKind, text string, ttl statusTTL) {
+	s.ShowAtKind(time.Now(), kind, text, ttl)
+}
+
 func (s *statusMsg) ShowAt(now time.Time, text string, ttl statusTTL) {
+	s.ShowAtKind(now, feedbackSuccess, text, ttl)
+}
+
+func (s *statusMsg) ShowAtKind(now time.Time, kind feedbackKind, text string, ttl statusTTL) {
+	s.kind = kind
 	s.text = text
-	s.expiresAt = ttl.expiresAt(now)
+	if ttl > 0 {
+		s.expiresAt = ttl.expiresAt(now)
+	} else {
+		s.expiresAt = time.Time{}
+	}
 }
 
 func (s *statusMsg) Clear() {
