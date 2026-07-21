@@ -13,12 +13,11 @@ import (
 // before the volume control so the visualizer sees pre-volume amplitude.
 //
 // The write position is updated atomically, allowing the audio thread
-// (sole writer) and the UI thread (infrequent reader at 50ms intervals)
-// to operate without mutex contention. Minor sample tearing at the
-// read boundary is invisible in FFT-based spectrum visualization.
+// (sole writer) and the visualizer thread to operate without mutex contention.
+// Minor sample tearing at the read boundary is invisible in visualization.
 type tap struct {
 	s    beep.Streamer
-	buf  []float64
+	buf  [][2]float64
 	pos  atomic.Int64
 	size int
 }
@@ -27,17 +26,17 @@ type tap struct {
 func newTap(s beep.Streamer, bufSize int) *tap {
 	return &tap{
 		s:    s,
-		buf:  make([]float64, bufSize),
+		buf:  make([][2]float64, bufSize),
 		size: bufSize,
 	}
 }
 
-// Stream passes audio through while capturing a mono mix into the ring buffer.
+// Stream passes audio through while capturing stereo frames in the ring buffer.
 func (t *tap) Stream(samples [][2]float64) (int, bool) {
 	n, ok := t.s.Stream(samples)
 	p := int(t.pos.Load())
 	for i := range n {
-		t.buf[p] = (samples[i][0] + samples[i][1]) / 2
+		t.buf[p] = samples[i]
 		p = (p + 1) % t.size
 	}
 	t.pos.Store(int64(p))
@@ -49,19 +48,29 @@ func (t *tap) Err() error {
 	return t.s.Err()
 }
 
-// SamplesInto copies the last len(dst) samples into dst, avoiding allocation.
-// Uses two copy() calls for the ring buffer wraparound instead of per-element
-// modulo, which is significantly faster for large buffers (e.g. FFT size 2048).
+// SamplesInto copies a mono mix of the last len(dst) frames into dst without
+// allocating or using per-sample modulo in the ring-buffer read loop.
 func (t *tap) SamplesInto(dst []float64) int {
 	n := min(len(dst), t.size)
 	p := int(t.pos.Load())
 	start := (p - n + t.size) % t.size
-	if start+n <= t.size {
-		copy(dst, t.buf[start:start+n])
-	} else {
-		first := t.size - start
-		copy(dst[:first], t.buf[start:])
-		copy(dst[first:], t.buf[:n-first])
+	first := min(n, t.size-start)
+	for i, sample := range t.buf[start : start+first] {
+		dst[i] = (sample[0] + sample[1]) / 2
 	}
+	for i, sample := range t.buf[:n-first] {
+		dst[first+i] = (sample[0] + sample[1]) / 2
+	}
+	return n
+}
+
+// StereoSamplesInto copies the last len(dst) stereo frames into dst.
+func (t *tap) StereoSamplesInto(dst [][2]float64) int {
+	n := min(len(dst), t.size)
+	p := int(t.pos.Load())
+	start := (p - n + t.size) % t.size
+	first := min(n, t.size-start)
+	copy(dst[:first], t.buf[start:start+first])
+	copy(dst[first:n], t.buf[:n-first])
 	return n
 }

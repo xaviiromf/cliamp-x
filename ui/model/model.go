@@ -314,7 +314,7 @@ type Model struct {
 	pendingURLs []string
 	feedLoading bool
 
-	visVolumeLinked bool // when true, samples are scaled by volume gain before FFT
+	visVolumeLinked bool // when true, visualizer samples are scaled by volume gain
 
 	// Async stream buffering (true while HTTP connect is in progress)
 	buffering   bool

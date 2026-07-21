@@ -45,8 +45,8 @@ func TestFrameLayoutTiers(t *testing.T) {
 	}{
 		{name: "too small", width: 39, height: 9, wantTier: layoutTooSmall},
 		{name: "minimal", width: 40, height: 10, wantTier: layoutMinimal},
-		{name: "compact", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: 2},
-		{name: "full", width: 80, height: 24, wantTier: layoutFull, wantVisRows: ui.DefaultVisRows - 1},
+		{name: "compact", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: 3},
+		{name: "full", width: 80, height: 24, wantTier: layoutFull, wantVisRows: ui.DefaultVisRows},
 	}
 
 	for _, tt := range tests {

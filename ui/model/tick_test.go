@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +14,20 @@ import (
 )
 
 var sharedPlayer player.Engine
+
+type stereoFakeEngine struct {
+	*playbackFakeEngine
+	samples [][2]float64
+	volume  float64
+	mono    bool
+}
+
+func (f *stereoFakeEngine) StereoSamplesInto(dst [][2]float64) int {
+	return copy(dst, f.samples)
+}
+
+func (f *stereoFakeEngine) Volume() float64 { return f.volume }
+func (f *stereoFakeEngine) Mono() bool      { return f.mono }
 
 func TestMain(m *testing.M) {
 	os.Unsetenv("CLIAMP_CONFIG_DIR")
@@ -131,6 +146,33 @@ func TestInitialTickUsesFastCadence(t *testing.T) {
 	}
 	if !called {
 		t.Fatal("tickCmd() did not schedule teaTick")
+	}
+}
+
+func TestVisualizerTickContextProcessesStereoOutput(t *testing.T) {
+	player := &stereoFakeEngine{
+		playbackFakeEngine: &playbackFakeEngine{playing: true},
+		samples:            [][2]float64{{0.8, 0.4}},
+		volume:             -6.020599913279624,
+		mono:               true,
+	}
+	m := Model{
+		player:          player,
+		vis:             ui.NewVisualizer(44100),
+		visVolumeLinked: true,
+	}
+	m.vis.Mode = ui.VisStereo
+
+	dst := make([][2]float64, 1)
+	n := m.visualizerTickContext(time.Now()).StereoSamplesInto(dst)
+	if n != 1 {
+		t.Fatalf("StereoSamplesInto() = %d, want 1", n)
+	}
+	want := 0.3
+	for channel, got := range dst[0] {
+		if math.Abs(got-want) > 1e-9 {
+			t.Errorf("sample channel %d = %v, want %v", channel, got, want)
+		}
 	}
 }
 

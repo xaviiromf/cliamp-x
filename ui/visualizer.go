@@ -65,6 +65,7 @@ const (
 	VisSand                       // falling-sand cellular automaton
 	VisGeyser                     // bass-driven particle fountain
 	VisClassicLED                 // Winamp 2.9 LED matrix with falling peak caps
+	VisStereo                     // stereo L/R horizontal LED peak meters
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -232,11 +233,12 @@ func splitStyleAroundProbe(s lipgloss.Style) (prefix, suffix string) {
 }
 
 type VisTickContext struct {
-	Now           time.Time
-	Playing       bool
-	Paused        bool
-	OverlayActive bool
-	Analyze       func(VisAnalysisSpec) []float64
+	Now               time.Time
+	Playing           bool
+	Paused            bool
+	OverlayActive     bool
+	Analyze           func(VisAnalysisSpec) []float64
+	StereoSamplesInto func([][2]float64) int
 }
 
 type VisAnalysisSpec struct {
@@ -470,6 +472,7 @@ var visModes = [VisCount]visEntry{
 	VisSand:        {"Sand", newSandDriver},
 	VisGeyser:      {"Geyser", newGeyserDriver},
 	VisClassicLED:  {"ClassicLED", newClassicLEDDriver},
+	VisStereo:      {"Stereo", newStereoDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 

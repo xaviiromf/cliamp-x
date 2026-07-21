@@ -62,7 +62,7 @@ eq_preset = "Flat"
 eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # Visualizer mode (leave empty for default Bars)
-# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, ClassicPeakBricks, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, None
+# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, None
 visualizer = "Bars"
 
 # Visualizer volume linking (default: true)
@@ -87,14 +87,16 @@ log_level = "info"
 
 ```
 
+`Stereo` shows true left/right horizontal LED meters with held peak markers.
+
 ## Terminal Layout
 
 cliamp adapts its playback screen to the available terminal rectangle:
 
 | Terminal size | Layout |
 | --- | --- |
-| At least `80x24` | Full controls, four-row visualizer, and detailed source controls |
-| At least `56x16` | Compact controls and a two-row visualizer |
+| At least `80x24` | Full controls, five-row visualizer, and detailed source controls |
+| At least `56x16` | Compact controls and a three-row visualizer |
 | At least `40x10` | Minimal playback, list, seek bar, and help layout |
 | Smaller than `40x10` | A resize message only |
 

@@ -807,6 +807,18 @@ func (p *Player) SamplesInto(dst []float64) int {
 	return tap.SamplesInto(dst)
 }
 
+// StereoSamplesInto copies the latest stereo audio frames into dst.
+// Returns the number of frames written.
+func (p *Player) StereoSamplesInto(dst [][2]float64) int {
+	p.mu.Lock()
+	tap := p.tap
+	p.mu.Unlock()
+	if tap == nil {
+		return 0
+	}
+	return tap.StereoSamplesInto(dst)
+}
+
 // SampleRate returns the output sample rate in Hz.
 func (p *Player) SampleRate() int {
 	return int(p.sr)

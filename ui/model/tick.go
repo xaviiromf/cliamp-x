@@ -45,6 +45,26 @@ func (m *Model) visualizerTickContext(now time.Time) ui.VisTickContext {
 		Playing:       m.visualizerPlaying(),
 		Paused:        m.visualizerPaused(),
 		OverlayActive: m.isOverlayActive(),
+		StereoSamplesInto: func(dst [][2]float64) int {
+			if m.player == nil || m.vis == nil || m.vis.Mode == ui.VisNone {
+				return 0
+			}
+			n := m.player.StereoSamplesInto(dst)
+			gain := 1.0
+			if m.visVolumeLinked {
+				gain = math.Pow(10, m.player.Volume()/20)
+			}
+			mono := m.player.Mono()
+			for i := range n {
+				if mono {
+					mixed := (dst[i][0] + dst[i][1]) / 2
+					dst[i] = [2]float64{mixed, mixed}
+				}
+				dst[i][0] *= gain
+				dst[i][1] *= gain
+			}
+			return n
+		},
 		Analyze: func(spec ui.VisAnalysisSpec) []float64 {
 			spec = ui.NormalizeAnalysisSpec(spec)
 			if m.player == nil || m.vis == nil || m.vis.Mode == ui.VisNone {

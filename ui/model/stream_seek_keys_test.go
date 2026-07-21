@@ -52,6 +52,7 @@ func (f *fakeEngine) StreamErr() error                                    { retu
 func (f *fakeEngine) StreamTitle() string                                 { return "" }
 func (f *fakeEngine) StreamBytes() (downloaded, total int64)              { return 0, 0 }
 func (f *fakeEngine) SamplesInto([]float64) int                           { return 0 }
+func (f *fakeEngine) StereoSamplesInto([][2]float64) int                  { return 0 }
 func (f *fakeEngine) SampleRate() int                                     { return 44100 }
 
 func assertStreamSeekCmd(t *testing.T, eng *fakeEngine, cmd tea.Cmd, want time.Duration) {

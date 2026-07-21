@@ -56,12 +56,12 @@ func (m *Model) recomputeLayout() {
 		layout.tier = layoutTooSmall
 	case width >= 80 && height >= 24:
 		layout.tier = layoutFull
-		layout.visualizerRows = max(1, ui.DefaultVisRows-1)
-		layout.fixedRows = 15
+		layout.visualizerRows = ui.DefaultVisRows
+		layout.fixedRows = 16
 	case width >= 56 && height >= 16:
 		layout.tier = layoutCompact
-		layout.visualizerRows = 2
-		layout.fixedRows = 11
+		layout.visualizerRows = 3
+		layout.fixedRows = 12
 	default:
 		layout.tier = layoutMinimal
 		layout.fixedRows = 7
@@ -100,9 +100,9 @@ func (m *Model) recomputeLayout() {
 				// a valid canvas while their mode remains active in the background.
 				switch layout.tier {
 				case layoutFull:
-					rows = max(1, ui.DefaultVisRows-1)
+					rows = ui.DefaultVisRows
 				case layoutCompact:
-					rows = 2
+					rows = 3
 				default:
 					rows = 1
 				}
