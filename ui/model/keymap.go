@@ -27,18 +27,37 @@ func ReservedKeys() map[string]bool {
 	return out
 }
 
-// buildKeymapEntries returns the core keybindings plus any plugin-registered
-// binds that supplied a description. Plugins appear under a divider row.
-// Only called when the overlay is opened; the result is cached on keymap.entries
+// buildKeymapEntries starts with commands for the screen that opened Ctrl+K,
+// then lists global player and library commands. The result is cached on open
 // so navigation (which calls keymapCount many times per frame) is allocation-free.
 func (m Model) buildKeymapEntries() []keymapEntry {
-	out := make([]keymapEntry, 0, len(commandRegistry)+4)
+	out := make([]keymapEntry, 0, len(commandRegistry)+6)
+	seen := make(map[string]bool)
+	add := func(command commandSpec) {
+		id := command.KeyLabel + "\x00" + command.Label
+		if seen[id] {
+			return
+		}
+		seen[id] = true
+		out = append(out, keymapEntry{key: command.KeyLabel, action: command.Label})
+	}
+
+	mode, label := m.keymapContext()
+	if mode != commandModeMain {
+		out = append(out, keymapEntry{action: "— current: " + label + " —", divider: true})
+		for _, command := range commandRegistry {
+			if command.Mode != commandModeAny && (command.Keymap || command.ContextHelp) && command.enabled(m) && command.Mode&mode != 0 {
+				add(command)
+			}
+		}
+		out = append(out, keymapEntry{action: "— player & library —", divider: true})
+	}
 	for _, command := range commandRegistry {
 		if command.Keymap && command.enabled(m) {
-			out = append(out, keymapEntry{key: command.KeyLabel, action: command.Label})
+			add(command)
 		}
 	}
-	if m.luaMgr == nil {
+	if mode != commandModeMain || m.luaMgr == nil {
 		return out
 	}
 	binds := m.luaMgr.KeyBindings()
@@ -54,6 +73,75 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 		out = append(out, keymapEntry{key: b.Key, action: label})
 	}
 	return out
+}
+
+func (m Model) keymapContext() (commandMode, string) {
+	switch m.activeScreen() {
+	case screenDevicePicker:
+		return commandModeDevicePicker, "Audio Device"
+	case screenPlaylistPicker:
+		if m.plPicker.screen == plPickerNewName {
+			return commandModePlaylistPickerInput, "Playlist Name"
+		}
+		return commandModePlaylistPicker, "Save to Playlist"
+	case screenFileBrowser:
+		if m.fileBrowser.searching {
+			return commandModeFileBrowserSearch, "File Filter"
+		}
+		return commandModeFileBrowser, "Files"
+	case screenSpotSearch:
+		return commandModeSpotSearch, "Provider Search"
+	case screenNavBrowser:
+		if m.navBrowser.searching {
+			return commandModeNavSearch, "Browser Filter"
+		}
+		return commandModeNavBrowser, "Browse"
+	case screenThemePicker:
+		if m.themePicker.filtering {
+			return commandModeThemePickerFilter, "Theme Filter"
+		}
+		return commandModeThemePicker, "Themes"
+	case screenVisPicker:
+		if m.visPicker.filtering {
+			return commandModeVisPickerFilter, "Visualizer Filter"
+		}
+		return commandModeVisPicker, "Visualizers"
+	case screenPlaylistManager:
+		if m.plManager.screen == plMgrScreenNewName || m.plManager.screen == plMgrScreenRename {
+			return commandModePlaylistManagerInput, "Playlist Name"
+		}
+		return commandModePlaylistManager, "Playlists"
+	case screenQueue:
+		return commandModeQueue, "Queue"
+	case screenInfo:
+		return commandModeInfo, "Track Info"
+	case screenSearch:
+		return commandModeSearch, "Playlist Filter"
+	case screenNetSearch:
+		return commandModeNetSearch, "Online Search"
+	case screenURLInput:
+		return commandModeURL, "Load URL"
+	case screenLyrics:
+		return commandModeLyrics, "Lyrics"
+	case screenJump:
+		return commandModeJump, "Jump to Time"
+	}
+
+	switch m.focus {
+	case focusProvider:
+		if m.provSearch.active {
+			return commandModeProviderSearch, "Provider Filter"
+		}
+		return commandModeProvider, "Provider"
+	case focusEQ:
+		return commandModeEQ, "Equalizer"
+	case focusSpeed:
+		return commandModeSpeed, "Speed"
+	case focusProvPill:
+		return commandModeProviderPill, "Source"
+	default:
+		return commandModeMain, "Playlist"
+	}
 }
 
 func (m *Model) keymapCount() int {

@@ -57,13 +57,9 @@ func (m *Model) handleSpeedKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "[", "left", "h", "down", "j":
 		m.changeSpeed(-0.25)
 	case "tab":
-		m.focus = focusPlaylist
+		m.focus = m.nextMainFocus(focusSpeed)
 	case "esc", "backspace":
-		if len(m.providers) > 1 {
-			m.focus = focusProvPill
-		} else {
-			m.focus = focusEQ
-		}
+		m.focus = m.previousMainFocus(focusSpeed)
 	case "space":
 		return m.togglePlayPause()
 	}
@@ -348,7 +344,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 				return m.fetchProviderTracks(m.providerLists[m.provCursor].ID)
 			}
 		case "tab":
-			m.focus = focusEQ
+			m.focus = m.nextMainFocus(focusPlaylist)
 		case "esc", "backspace", "b":
 			// If viewing catalog search results, clear them first.
 			if cs, ok := m.provider.(provider.CatalogSearcher); ok && cs.IsSearching() {
@@ -441,9 +437,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		case "enter":
 			return m.switchProvider(m.provPillIdx)
 		case "tab":
-			m.focus = focusSpeed
+			m.focus = m.nextMainFocus(focusProvPill)
 		case "esc", "backspace":
-			m.focus = focusEQ
+			m.focus = m.previousMainFocus(focusProvPill)
 		case "space":
 			return m.togglePlayPause()
 		}
@@ -662,22 +658,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.preloadNext()
 
 	case "tab":
-		switch m.focus {
-		case focusPlaylist:
-			m.focus = focusEQ
-		case focusEQ:
-			if len(m.providers) > 1 {
-				m.focus = focusProvPill
-			} else {
-				m.focus = focusSpeed
-			}
-		case focusProvPill:
-			m.focus = focusSpeed
-		case focusSpeed:
-			m.focus = focusPlaylist
-		default:
-			m.focus = focusPlaylist
-		}
+		m.focus = m.nextMainFocus(m.focus)
 
 	case "h":
 		if m.focus == focusEQ && m.eqCursor > 0 {
@@ -690,6 +671,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 
 	case "e":
+		if m.layout.tier == layoutMinimal {
+			break
+		}
 		m.eqPresetIdx++
 		if m.eqPresetIdx >= len(eqPresets) {
 			m.eqPresetIdx = 0
@@ -1219,6 +1203,18 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 	if m.keymap.visible {
 		m.insertText("keymap", &m.keymap.search, content)
 		m.updateKeymapFilter()
+		return nil
+	}
+
+	if m.themePicker.visible && m.themePicker.filtering {
+		m.insertText("theme-picker-filter", &m.themePicker.filter, content)
+		m.themePickerRecomputeFilter()
+		return nil
+	}
+
+	if m.visPicker.visible && m.visPicker.filtering {
+		m.insertText("visualizer-picker-filter", &m.visPicker.filter, content)
+		m.visPickerRecomputeFilter()
 		return nil
 	}
 
@@ -2323,9 +2319,55 @@ func (m *Model) createPlaylistFromManager(name string) bool {
 	return true
 }
 
+func (m *Model) handleThemeFilterKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		m.themePickerCancel()
+		return m.quit()
+	case "esc":
+		m.themePicker.filtering = false
+		m.themePicker.filter = ""
+		m.themePicker.filtered = nil
+		m.themePicker.cursor = m.themePicker.savedCursor
+		m.themePicker.scroll = m.themePicker.savedScroll
+		return nil
+	case "enter":
+		m.themePicker.filtering = false
+		if m.themePicker.filter == "" {
+			m.themePicker.cursor = m.themePicker.savedCursor
+			m.themePicker.scroll = m.themePicker.savedScroll
+		}
+		return nil
+	case "down":
+		m.themePicker.filtering = false
+		if m.themePickerViewCount() > 0 {
+			m.themePicker.cursor = 0
+			m.themePickerApply()
+			m.themePickerMaybeAdjustScroll(m.themePickerVisible())
+		}
+		return nil
+	case "backspace":
+		if m.themePicker.filter == "" {
+			m.themePicker.filtering = false
+			m.themePicker.cursor = m.themePicker.savedCursor
+			m.themePicker.scroll = m.themePicker.savedScroll
+			return nil
+		}
+	}
+
+	if m.editText("theme-picker-filter", &m.themePicker.filter, msg) {
+		m.themePickerRecomputeFilter()
+	}
+	return nil
+}
+
 // handleThemeKey processes key presses while the theme picker is open.
 func (m *Model) handleThemeKey(msg tea.KeyPressMsg) tea.Cmd {
-	count := len(m.themes) + 1 // +1 for Default
+	if m.themePicker.filtering {
+		return m.handleThemeFilterKey(msg)
+	}
+
+	count := m.themePickerViewCount()
 	switch msg.String() {
 	case "ctrl+c":
 		m.themePickerCancel()
@@ -2384,15 +2426,69 @@ func (m *Model) handleThemeKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		m.themePickerSelect()
 
+	case "/":
+		m.themePicker.savedCursor = m.themePicker.cursor
+		m.themePicker.savedScroll = m.themePicker.scroll
+		m.themePicker.filtering = true
+		m.themePicker.filter = ""
+		m.themePickerRecomputeFilter()
+		return nil
+
 	case "esc", "q", "t":
 		m.themePickerCancel()
 	}
 	return nil
 }
 
+func (m *Model) handleVisPickerFilterKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		m.visPickerCancel()
+		return m.quit()
+	case "esc":
+		m.visPicker.filtering = false
+		m.visPicker.filter = ""
+		m.visPicker.filtered = nil
+		m.visPicker.cursor = m.visPicker.savedCursor
+		m.visPicker.scroll = m.visPicker.savedScroll
+		return nil
+	case "enter":
+		m.visPicker.filtering = false
+		if m.visPicker.filter == "" {
+			m.visPicker.cursor = m.visPicker.savedCursor
+			m.visPicker.scroll = m.visPicker.savedScroll
+		}
+		return nil
+	case "down":
+		m.visPicker.filtering = false
+		if m.visPickerViewCount() > 0 {
+			m.visPicker.cursor = 0
+			m.visPickerApply()
+			m.visPickerMaybeAdjustScroll(m.visPickerVisible())
+		}
+		return nil
+	case "backspace":
+		if m.visPicker.filter == "" {
+			m.visPicker.filtering = false
+			m.visPicker.cursor = m.visPicker.savedCursor
+			m.visPicker.scroll = m.visPicker.savedScroll
+			return nil
+		}
+	}
+
+	if m.editText("visualizer-picker-filter", &m.visPicker.filter, msg) {
+		m.visPickerRecomputeFilter()
+	}
+	return nil
+}
+
 // handleVisPickerKey processes key presses while the visualizer picker is open.
 func (m *Model) handleVisPickerKey(msg tea.KeyPressMsg) tea.Cmd {
-	count := len(m.visPicker.modes)
+	if m.visPicker.filtering {
+		return m.handleVisPickerFilterKey(msg)
+	}
+
+	count := m.visPickerViewCount()
 	switch msg.String() {
 	case "ctrl+c":
 		m.visPickerCancel()
@@ -2450,6 +2546,14 @@ func (m *Model) handleVisPickerKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "enter":
 		m.visPickerSelect()
+
+	case "/":
+		m.visPicker.savedCursor = m.visPicker.cursor
+		m.visPicker.savedScroll = m.visPicker.scroll
+		m.visPicker.filtering = true
+		m.visPicker.filter = ""
+		m.visPickerRecomputeFilter()
+		return nil
 
 	case "esc", "q", "ctrl+v":
 		m.visPickerCancel()

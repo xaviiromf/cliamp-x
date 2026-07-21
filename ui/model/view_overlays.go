@@ -19,6 +19,18 @@ func (m Model) renderVisPickerList() string {
 		return ""
 	}
 	items := m.visPicker.modes
+	if m.visPicker.filter != "" {
+		filtered := make([]string, 0, len(m.visPicker.filtered))
+		for _, rawIdx := range m.visPicker.filtered {
+			if rawIdx >= 0 && rawIdx < len(m.visPicker.modes) {
+				filtered = append(filtered, m.visPicker.modes[rawIdx])
+			}
+		}
+		items = filtered
+	}
+	if len(items) == 0 {
+		return bodyMessage("No matches.", budget)
+	}
 	scroll := m.visPicker.scroll
 
 	lines := make([]string, 0, budget)
@@ -26,6 +38,13 @@ func (m Model) renderVisPickerList() string {
 		lines = append(lines, cursorLine(items[i], i == m.visPicker.cursor))
 	}
 	return strings.Join(padLines(lines, budget, len(lines)), "\n")
+}
+
+func (m Model) visPickerHeaderLine() string {
+	if m.visPicker.filtering || m.visPicker.filter != "" {
+		return m.filterCountHeader("visualizer-picker-filter", m.visPicker.filter, fmt.Sprintf("%d/%d", m.visPickerViewCount(), len(m.visPicker.modes)))
+	}
+	return sepHeaderN("Visualizers", m.visPicker.cursor+1, m.visPickerViewCount())
 }
 
 // — playlist manager (inline) —

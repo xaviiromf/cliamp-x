@@ -46,6 +46,26 @@ func TestPlaylistStateMarkersStayVisibleWithoutColor(t *testing.T) {
 	}
 }
 
+func TestPlaylistShowsKnownTrackDuration(t *testing.T) {
+	oldPanelWidth := ui.PanelWidth
+	ui.PanelWidth = 80
+	t.Cleanup(func() { ui.PanelWidth = oldPanelWidth })
+
+	p := playlist.New()
+	p.Add(playlist.Track{Title: "Timed", DurationSecs: 222})
+	m := Model{
+		player:    &playbackFakeEngine{},
+		playlist:  p,
+		focus:     focusPlaylist,
+		plVisible: 1,
+	}
+
+	plain := ansi.Strip(m.renderPlaylist())
+	if !strings.Contains(plain, "3:42") {
+		t.Fatalf("playlist row = %q, want right-aligned duration", plain)
+	}
+}
+
 func TestNonSeekableStreamUsesLiveTime(t *testing.T) {
 	fake := &playbackFakeEngine{}
 	p := playlist.New()

@@ -52,6 +52,61 @@ func (f focusArea) label() string {
 	}
 }
 
+// mainFocusAreas returns only controls rendered in the current density tier.
+// Secondary screens own their input independently, so this applies to the
+// main playback screen and the provider playlist pane.
+func (m Model) mainFocusAreas() []focusArea {
+	areas := []focusArea{focusPlaylist}
+	if m.layout.tier == layoutMinimal || m.layout.tier == layoutTooSmall {
+		return areas
+	}
+	areas = append(areas, focusEQ)
+	if len(m.providers) > 1 {
+		areas = append(areas, focusProvPill)
+	}
+	return append(areas, focusSpeed)
+}
+
+func (m Model) mainFocusAllowed(focus focusArea) bool {
+	for _, area := range m.mainFocusAreas() {
+		if area == focus {
+			return true
+		}
+	}
+	return false
+}
+
+func (m Model) nextMainFocus(current focusArea) focusArea {
+	areas := m.mainFocusAreas()
+	for i, area := range areas {
+		if area == current {
+			return areas[(i+1)%len(areas)]
+		}
+	}
+	return areas[0]
+}
+
+func (m Model) previousMainFocus(current focusArea) focusArea {
+	areas := m.mainFocusAreas()
+	for i, area := range areas {
+		if area == current {
+			return areas[(i+len(areas)-1)%len(areas)]
+		}
+	}
+	return areas[0]
+}
+
+// normalizeMainFocus clears a focus restored from a wider terminal when its
+// control is not rendered at the current size.
+func (m *Model) normalizeMainFocus() {
+	if (m.focus == focusEQ || m.focus == focusSpeed || m.focus == focusProvPill) && !m.mainFocusAllowed(m.focus) {
+		m.focus = focusPlaylist
+	}
+	if (m.prevFocus == focusEQ || m.prevFocus == focusSpeed || m.prevFocus == focusProvPill) && !m.mainFocusAllowed(m.prevFocus) {
+		m.prevFocus = focusPlaylist
+	}
+}
+
 type topLevelScreen int
 
 const (
@@ -396,6 +451,30 @@ func (m Model) activeScreen() topLevelScreen {
 // is always false; it is kept as the single seam the tick loop gates on.
 func (m Model) isOverlayActive() bool {
 	return false
+}
+
+// usesContentFirstLayout gives list-heavy tasks more room while preserving a
+// compact now-playing summary. The visualizer picker deliberately keeps the
+// normal playback chrome for live previews.
+func (m Model) usesContentFirstLayout() bool {
+	if m.activeScreen() == screenMain && m.focus == focusProvider {
+		return true
+	}
+	if m.keymap.visible || m.devicePicker.visible || m.fileBrowser.visible ||
+		m.navBrowser.visible || m.themePicker.visible || m.queue.visible ||
+		m.search.active {
+		return true
+	}
+	if m.plPicker.visible && m.plPicker.screen == plPickerChoose {
+		return true
+	}
+	if m.spotSearch.visible && (m.spotSearch.screen == spotSearchResults || m.spotSearch.screen == spotSearchPlaylist) {
+		return true
+	}
+	if m.plManager.visible && (m.plManager.screen == plMgrScreenList || m.plManager.screen == plMgrScreenTracks) {
+		return true
+	}
+	return m.netSearch.active && m.netSearch.screen == netSearchResults
 }
 
 func (m Model) isPlaying() bool {

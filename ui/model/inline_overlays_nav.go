@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/bjarneo/cliamp/ui"
 )
 
@@ -46,44 +48,27 @@ func (m Model) navView() navViewKind {
 	}
 }
 
-func (m Model) navTrackBreadcrumb() string {
-	switch m.navBrowser.mode {
-	case navBrowseModeByArtist:
-		return "Artist: " + m.navBrowser.selArtist.Name
-	case navBrowseModeByAlbum:
-		return "Album: " + m.navBrowser.selAlbum.Name
-	case navBrowseModeByArtistAlbum:
-		return m.navBrowser.selArtist.Name + " / " + m.navBrowser.selAlbum.Name
-	}
-	return "Tracks"
-}
-
 func (m Model) navHeaderLine() string {
 	if m.navBrowser.confirmReplace {
 		return sepHeader("Replace current queue?")
 	}
 	if m.navBrowser.searching {
-		return m.filterPromptHeader("nav-search", m.navBrowser.search)
+		input := m.textWithCursor("nav-search", m.navBrowser.search)
+		prefix := "  / "
+		input = truncate(input, max(1, ui.PanelWidth-lipgloss.Width(prefix)-4))
+		suffix := " / " + input
+		pathWidth := max(1, ui.PanelWidth-lipgloss.Width(prefix)-lipgloss.Width(suffix))
+		return playlistSelectedStyle.Render(prefix + truncate(m.navBreadcrumb(), pathWidth) + suffix)
 	}
 	switch m.navView() {
 	case navViewArtists:
-		return sepHeaderN("Artists", m.navBrowser.cursor+1, len(m.navBrowser.artists))
+		return sepHeaderN(m.navBreadcrumb(), m.navBrowser.cursor+1, len(m.navBrowser.artists))
 	case navViewAlbums:
-		label := "Albums"
-		if m.navBrowser.mode == navBrowseModeByArtistAlbum {
-			label = "Albums: " + m.navBrowser.selArtist.Name
-		} else if s := m.navSortLabel(m.navBrowser.sortType); s != "" {
-			label += "  Sort: " + s
-		}
-		return sepHeaderN(label, m.navBrowser.cursor+1, len(m.navBrowser.albums))
+		return sepHeaderN(m.navBreadcrumb(), m.navBrowser.cursor+1, len(m.navBrowser.albums))
 	case navViewTracks:
-		return sepHeaderN(m.navTrackBreadcrumb(), m.navBrowser.cursor+1, len(m.navBrowser.tracks))
+		return sepHeaderN(m.navBreadcrumb(), m.navBrowser.cursor+1, len(m.navBrowser.tracks))
 	default:
-		name := "Browse"
-		if m.navBrowser.prov != nil {
-			name = m.navBrowser.prov.Name()
-		}
-		return sepHeader(name)
+		return sepHeader(m.navBreadcrumb())
 	}
 }
 

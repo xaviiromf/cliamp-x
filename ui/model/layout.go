@@ -66,12 +66,21 @@ func (m *Model) recomputeLayout() {
 		layout.tier = layoutMinimal
 		layout.fixedRows = 7
 	}
+	contentFirst := m.usesContentFirstLayout()
+	if contentFirst {
+		layout.visualizerRows = 0
+		if layout.tier == layoutMinimal {
+			layout.fixedRows = 6
+		} else {
+			layout.fixedRows = 7
+		}
+	}
 
 	layout.fullVisualizerRows = max(1, height-6-2*paddingV)
 	if !layout.tooSmall() {
 		layout.bodyRows = max(1, height-2*paddingV-layout.fixedRows-layout.footerRows)
 		limit := maxPlVisible
-		if m.heightExpanded {
+		if m.heightExpanded || contentFirst {
 			limit = maxPlExpandVisible
 		}
 		m.plVisible = min(limit, layout.bodyRows)
@@ -85,7 +94,20 @@ func (m *Model) recomputeLayout() {
 		if m.fullVis {
 			m.vis.Rows = layout.fullVisualizerRows
 		} else {
-			m.vis.Rows = layout.visualizerRows
+			rows := layout.visualizerRows
+			if contentFirst {
+				// The frame omits the visualizer, but plugin renderers still need
+				// a valid canvas while their mode remains active in the background.
+				switch layout.tier {
+				case layoutFull:
+					rows = max(1, ui.DefaultVisRows-1)
+				case layoutCompact:
+					rows = 2
+				default:
+					rows = 1
+				}
+			}
+			m.vis.Rows = rows
 		}
 	}
 }

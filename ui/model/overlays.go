@@ -11,9 +11,22 @@ import (
 // openThemePicker re-loads themes from disk (picking up new user files)
 // and opens the theme selector overlay.
 func (m *Model) openThemePicker() {
+	savedName := m.ThemeName()
 	m.themes = theme.LoadAll()
 	m.themePicker.visible = true
-	m.themePicker.savedIdx = m.themeIdx
+	m.themePicker.savedName = savedName
+	m.themePicker.filtering = false
+	m.themePicker.filter = ""
+	m.themePicker.filtered = nil
+	m.themePicker.savedCursor = 0
+	m.themePicker.savedScroll = 0
+	m.themeIdx = -1
+	for i, t := range m.themes {
+		if strings.EqualFold(t.Name, savedName) {
+			m.themeIdx = i
+			break
+		}
+	}
 	// Position cursor on the currently active theme.
 	// Picker list: 0 = Default, 1..N = themes[0..N-1]
 	m.themePicker.cursor = m.themeIdx + 1
@@ -22,34 +35,48 @@ func (m *Model) openThemePicker() {
 }
 
 // themePickerApply applies the theme under the cursor for live preview.
-func (m *Model) themePickerApply() {
-	if m.themePicker.cursor == 0 {
+func (m *Model) themePickerApply() bool {
+	rawIdx, ok := m.themePickerRawIndex(m.themePicker.cursor)
+	if !ok {
+		return false
+	}
+	if rawIdx == 0 {
 		m.themeIdx = -1
 		applyThemeAll(theme.Default())
 	} else {
-		m.themeIdx = m.themePicker.cursor - 1
+		m.themeIdx = rawIdx - 1
 		applyThemeAll(m.themes[m.themeIdx])
 	}
+	return true
 }
 
 // themePickerSelect confirms the current selection and closes the picker.
 func (m *Model) themePickerSelect() {
-	m.themePickerApply()
+	if !m.themePickerApply() {
+		return
+	}
 	m.themePicker.visible = false
+	m.themePicker.filtering = false
+	m.themePicker.filter = ""
+	m.themePicker.filtered = nil
 }
 
 // themePickerCancel restores the theme from before the picker was opened.
 func (m *Model) themePickerCancel() {
-	m.themeIdx = m.themePicker.savedIdx
-	if m.themeIdx < 0 {
+	if !m.SetTheme(m.themePicker.savedName) {
+		m.themeIdx = -1
 		applyThemeAll(theme.Default())
-	} else {
-		applyThemeAll(m.themes[m.themeIdx])
 	}
 	m.themePicker.visible = false
+	m.themePicker.filtering = false
+	m.themePicker.filter = ""
+	m.themePicker.filtered = nil
 }
 
 func (m *Model) themePickerHelpLine() string {
+	if m.themePicker.filtering {
+		return m.commandHelp(commandModeThemePickerFilter)
+	}
 	return m.commandHelp(commandModeThemePicker)
 }
 
@@ -58,7 +85,52 @@ func (m *Model) themePickerVisible() int {
 }
 
 func (m *Model) themePickerMaybeAdjustScroll(visible int) {
-	clampScroll(&m.themePicker.cursor, &m.themePicker.scroll, len(m.themes)+1, visible)
+	clampScroll(&m.themePicker.cursor, &m.themePicker.scroll, m.themePickerViewCount(), visible)
+}
+
+func (m Model) themePickerViewCount() int {
+	if m.themePicker.filter != "" {
+		return len(m.themePicker.filtered)
+	}
+	return m.themeCount()
+}
+
+func (m Model) themePickerRawIndex(viewIdx int) (int, bool) {
+	if m.themePicker.filter != "" {
+		if viewIdx < 0 || viewIdx >= len(m.themePicker.filtered) {
+			return 0, false
+		}
+		return m.themePicker.filtered[viewIdx], true
+	}
+	if viewIdx < 0 || viewIdx >= m.themeCount() {
+		return 0, false
+	}
+	return viewIdx, true
+}
+
+func (m Model) themePickerName(rawIdx int) string {
+	if rawIdx == 0 {
+		return theme.DefaultName
+	}
+	if rawIdx > 0 && rawIdx <= len(m.themes) {
+		return m.themes[rawIdx-1].Name
+	}
+	return ""
+}
+
+func (m *Model) themePickerRecomputeFilter() {
+	m.themePicker.filtered = nil
+	m.themePicker.cursor = 0
+	m.themePicker.scroll = 0
+	if m.themePicker.filter == "" {
+		return
+	}
+	query := strings.ToLower(m.themePicker.filter)
+	for rawIdx := range m.themeCount() {
+		if strings.Contains(strings.ToLower(m.themePickerName(rawIdx)), query) {
+			m.themePicker.filtered = append(m.themePicker.filtered, rawIdx)
+		}
+	}
 }
 
 // openVisPicker opens the visualizer picker, which renders the mode list in the
@@ -69,6 +141,11 @@ func (m *Model) openVisPicker() {
 	m.visPicker.savedMode = int(m.vis.Mode)
 	m.visPicker.cursor = int(m.vis.Mode)
 	m.visPicker.scroll = 0
+	m.visPicker.filtering = false
+	m.visPicker.filter = ""
+	m.visPicker.filtered = nil
+	m.visPicker.savedCursor = 0
+	m.visPicker.savedScroll = 0
 	// Capture the mode list once; it is stable while the picker is open (Lua
 	// visualizers are registered at startup), so callers avoid re-allocating it.
 	m.visPicker.modes = m.vis.AllModeNames()
@@ -83,19 +160,27 @@ func (m *Model) openVisPicker() {
 // cursor move so the live preview updates as the user scrolls. Only recompute
 // the layout when crossing the VisNone boundary, since that is the sole mode
 // change that adds/removes the spectrum block (all other modes share a height).
-func (m *Model) visPickerApply() {
+func (m *Model) visPickerApply() bool {
+	rawIdx, ok := m.visPickerRawIndex(m.visPicker.cursor)
+	if !ok {
+		return false
+	}
 	wasNone := m.vis.Mode == ui.VisNone
-	m.vis.SetMode(ui.VisMode(m.visPicker.cursor))
+	m.vis.SetMode(ui.VisMode(rawIdx))
 	if wasNone != (m.vis.Mode == ui.VisNone) {
 		m.refreshChrome()
 		m.applyHeightMode()
 	}
+	return true
 }
 
 // visPickerClose restores playlist sizing after the picker layout is dismissed.
 func (m *Model) visPickerClose() {
 	m.visPicker.visible = false
 	m.visPicker.modes = nil
+	m.visPicker.filtering = false
+	m.visPicker.filter = ""
+	m.visPicker.filtered = nil
 	m.refreshChrome()
 	m.applyHeightMode()
 	m.adjustScroll()
@@ -103,7 +188,9 @@ func (m *Model) visPickerClose() {
 
 // visPickerSelect confirms the current selection, persists it, and closes.
 func (m *Model) visPickerSelect() {
-	m.visPickerApply()
+	if !m.visPickerApply() {
+		return
+	}
 	if err := m.configSaver.Save("visualizer", fmt.Sprintf("%q", m.vis.ModeName())); err != nil {
 		m.status.Showf(statusTTLDefault, "Config save failed: %s", err)
 	}
@@ -117,6 +204,9 @@ func (m *Model) visPickerCancel() {
 }
 
 func (m *Model) visPickerHelpLine() string {
+	if m.visPicker.filtering {
+		return m.commandHelp(commandModeVisPickerFilter)
+	}
 	return m.commandHelp(commandModeVisPicker)
 }
 
@@ -125,7 +215,42 @@ func (m *Model) visPickerVisible() int {
 }
 
 func (m *Model) visPickerMaybeAdjustScroll(visible int) {
-	clampScroll(&m.visPicker.cursor, &m.visPicker.scroll, len(m.visPicker.modes), visible)
+	clampScroll(&m.visPicker.cursor, &m.visPicker.scroll, m.visPickerViewCount(), visible)
+}
+
+func (m Model) visPickerViewCount() int {
+	if m.visPicker.filter != "" {
+		return len(m.visPicker.filtered)
+	}
+	return len(m.visPicker.modes)
+}
+
+func (m Model) visPickerRawIndex(viewIdx int) (int, bool) {
+	if m.visPicker.filter != "" {
+		if viewIdx < 0 || viewIdx >= len(m.visPicker.filtered) {
+			return 0, false
+		}
+		return m.visPicker.filtered[viewIdx], true
+	}
+	if viewIdx < 0 || viewIdx >= len(m.visPicker.modes) {
+		return 0, false
+	}
+	return viewIdx, true
+}
+
+func (m *Model) visPickerRecomputeFilter() {
+	m.visPicker.filtered = nil
+	m.visPicker.cursor = 0
+	m.visPicker.scroll = 0
+	if m.visPicker.filter == "" {
+		return
+	}
+	query := strings.ToLower(m.visPicker.filter)
+	for rawIdx, name := range m.visPicker.modes {
+		if strings.Contains(strings.ToLower(name), query) {
+			m.visPicker.filtered = append(m.visPicker.filtered, rawIdx)
+		}
+	}
 }
 
 func (m *Model) devicePickerHelpLine() string {

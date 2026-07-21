@@ -116,6 +116,96 @@ func TestResizeClampsActiveOverlayCursor(t *testing.T) {
 	}
 }
 
+func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
+	playback := newLayoutTestModel(80, 24)
+	browse := newLayoutTestModel(80, 24)
+	browse.keymap.visible = true
+	browse.keymap.entries = browse.buildKeymapEntries()
+	browse.recomputeLayout()
+
+	if !browse.usesContentFirstLayout() {
+		t.Fatal("keymap must use the content-first layout")
+	}
+	if browse.layout.bodyRows <= playback.layout.bodyRows {
+		t.Fatalf("content-first body rows = %d, want more than playback rows %d", browse.layout.bodyRows, playback.layout.bodyRows)
+	}
+	if browse.layout.visualizerRows != 0 {
+		t.Fatalf("content-first visualizer rows = %d, want 0", browse.layout.visualizerRows)
+	}
+	if browse.vis.Rows < 1 {
+		t.Fatalf("content-first visualizer canvas rows = %d, want positive", browse.vis.Rows)
+	}
+
+	preview := newLayoutTestModel(80, 24)
+	preview.visPicker.visible = true
+	preview.visPicker.modes = preview.vis.AllModeNames()
+	preview.recomputeLayout()
+	if preview.usesContentFirstLayout() {
+		t.Fatal("visualizer picker must retain the live preview layout")
+	}
+	if preview.layout.visualizerRows == 0 {
+		t.Fatal("visualizer picker must retain visualizer rows")
+	}
+}
+
+func TestMinimalLayoutRejectsHiddenMainFocus(t *testing.T) {
+	m := newLayoutTestModel(80, 24)
+	m.focus = focusEQ
+	m.prevFocus = focusProvPill
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 10})
+	m = updated.(Model)
+	if m.focus != focusPlaylist {
+		t.Fatalf("focus = %v, want playlist at minimal size", m.focus)
+	}
+	if m.prevFocus != focusPlaylist {
+		t.Fatalf("previous focus = %v, want playlist at minimal size", m.prevFocus)
+	}
+
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if m.focus != focusPlaylist {
+		t.Fatalf("focus after Tab = %v, want playlist at minimal size", m.focus)
+	}
+	beforePreset := m.eqPresetIdx
+	m.handleKey(tea.KeyPressMsg{Text: "e"})
+	if m.eqPresetIdx != beforePreset {
+		t.Fatalf("EQ preset = %d after hidden shortcut, want %d", m.eqPresetIdx, beforePreset)
+	}
+}
+
+func TestCompactEqualizerShowsActiveBand(t *testing.T) {
+	m := newLayoutTestModel(56, 16)
+	m.focus = focusEQ
+	m.eqCursor = 4
+
+	if plain := lipgloss.NewStyle().Render(m.renderCompactControls()); !strings.Contains(plain, "1k") {
+		t.Fatalf("compact controls = %q, want active EQ band", plain)
+	}
+}
+
+func TestAsyncSearchResultLayoutUsesContentFirstRows(t *testing.T) {
+	m := newLayoutTestModel(80, 24)
+	m.netSearch.active = true
+	m.netSearch.screen = netSearchInput
+	m.netSearch.request = "ambient"
+	m.requests.netSearch = 1
+	m.recomputeLayout()
+	inputRows := m.layout.bodyRows
+
+	updated, _ := m.Update(netSearchResultsMsg{
+		gen:    1,
+		query:  "ambient",
+		tracks: []playlist.Track{{Title: "Result"}},
+	})
+	m = updated.(Model)
+	if !m.usesContentFirstLayout() {
+		t.Fatal("search results must use the content-first layout")
+	}
+	if m.layout.bodyRows <= inputRows {
+		t.Fatalf("result body rows = %d, want more than input rows %d", m.layout.bodyRows, inputRows)
+	}
+}
+
 func TestLayoutClampsConfiguredPadding(t *testing.T) {
 	previousStyle := ui.FrameStyle
 	previousPanelWidth := ui.PanelWidth

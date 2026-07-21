@@ -39,6 +39,9 @@ const (
 	commandModeVisPicker
 	commandModeDevicePicker
 	commandModeInfo
+	commandModeThemePickerFilter
+	commandModeVisPickerFilter
+	commandModeProviderSearch
 )
 
 const commandModeAny = ^commandMode(0)
@@ -91,7 +94,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Move track up/down", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"h", "l"}, KeyLabel: "h l", Label: "EQ cursor left/right", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Play selected track", Keymap: true, ContextHelp: true, Primary: true},
-	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"x"}, KeyLabel: "x", Label: "Remove selected track from playlist", Destructive: true, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"w"}, KeyLabel: "w", Label: "Write selected track/selection to playlist", Keymap: true},
@@ -110,15 +113,15 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"ctrl+j"}, KeyLabel: "Ctrl+J", Label: "Jump to time", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist manager", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"i"}, KeyLabel: "i", Label: "Track info / metadata", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+s"}, KeyLabel: "Ctrl+S", Label: "Save/download track to ~/Music", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"i"}, KeyLabel: "i", Label: "Track info / metadata", Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+s"}, KeyLabel: "Ctrl+S", Label: "Save/download track to ~/Music/cliamp", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand/collapse view", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand", ContextHelp: true, Enabled: func(m Model) bool {
+	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand", Enabled: func(m Model) bool {
 		return !m.heightExpanded && m.layout.bodyRows > m.plVisible
 	}},
-	{Mode: commandModeMain, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter/search list", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter/search list", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Toggle bookmark/favorite", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+f"}, KeyLabel: "Ctrl+F", Label: "Search active provider or YouTube", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+f"}, KeyLabel: "Ctrl+F", Label: "Search active provider or YouTube", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"u"}, KeyLabel: "u", Label: "Load URL (stream/playlist)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"d"}, KeyLabel: "d", Label: "Audio device picker", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Keymap: true},
@@ -132,7 +135,7 @@ var commandRegistry = []commandSpec{
 
 	// Shared text editing is reserved even though these are intentionally absent
 	// from the global keymap, where they would be misleading outside a field.
-	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL, Keys: []string{"left", "right", "home", "end", "ctrl+a", "ctrl+e", "backspace", "delete", "ctrl+w", "ctrl+u"}, KeyLabel: "Text editor", Label: "Move cursor and delete text"},
+	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL | commandModeThemePickerFilter | commandModeVisPickerFilter | commandModeProviderSearch, Keys: []string{"left", "right", "home", "end", "ctrl+a", "ctrl+e", "backspace", "delete", "ctrl+w", "ctrl+u"}, KeyLabel: "Text editor", Label: "Move cursor and delete text"},
 
 	{Mode: commandModeProvider, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Load", ContextHelp: true, Primary: true},
 	{Mode: commandModeProvider, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},
@@ -140,12 +143,22 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeSpeed, Keys: []string{"left", "right"}, KeyLabel: "Left Right", Label: "Speed", ContextHelp: true},
 	{Mode: commandModeProviderPill, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Open", ContextHelp: true, Primary: true},
 	{Mode: commandModeProviderPill, Keys: []string{"esc", "backspace"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},
-	{Mode: commandModeKeymap | commandModeFileBrowser | commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeQueue | commandModeThemePicker | commandModeVisPicker | commandModeDevicePicker, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},
-	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel", ContextHelp: true, Cancel: true},
-	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Confirm", ContextHelp: true, Primary: true},
-	{Mode: commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeQueue | commandModeThemePicker | commandModeVisPicker | commandModeDevicePicker, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Navigate", ContextHelp: true},
-	{Mode: commandModeFileBrowser | commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeThemePicker | commandModeVisPicker | commandModeDevicePicker, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Select", ContextHelp: true, Primary: true},
+	{Mode: commandModeKeymap | commandModeFileBrowser | commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeQueue | commandModeDevicePicker, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},
+	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL | commandModeProviderSearch, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel", ContextHelp: true, Cancel: true},
+	{Mode: commandModeKeymapSearch | commandModeFileBrowserSearch | commandModeNavSearch | commandModePlaylistManagerInput | commandModePlaylistPickerInput | commandModeSearch | commandModeNetSearch | commandModeSpotSearch | commandModeJump | commandModeURL | commandModeProviderSearch, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Confirm", ContextHelp: true, Primary: true},
+	{Mode: commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeQueue | commandModeDevicePicker | commandModeProviderSearch, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Navigate", ContextHelp: true},
+	{Mode: commandModeFileBrowser | commandModeNavBrowser | commandModePlaylistManager | commandModePlaylistPicker | commandModeDevicePicker, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Select", ContextHelp: true, Primary: true},
 	{Mode: commandModeKeymap, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", ContextHelp: true, Primary: true},
+	{Mode: commandModeThemePicker, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel preview", ContextHelp: true, Cancel: true},
+	{Mode: commandModeThemePicker, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Apply theme", ContextHelp: true, Primary: true},
+	{Mode: commandModeThemePicker, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Preview", ContextHelp: true},
+	{Mode: commandModeThemePicker, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", ContextHelp: true},
+	{Mode: commandModeVisPicker, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel preview", ContextHelp: true, Cancel: true},
+	{Mode: commandModeVisPicker, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Save", ContextHelp: true, Primary: true},
+	{Mode: commandModeVisPicker, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Preview", ContextHelp: true},
+	{Mode: commandModeVisPicker, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", ContextHelp: true},
+	{Mode: commandModeThemePickerFilter | commandModeVisPickerFilter, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel filter", ContextHelp: true, Cancel: true},
+	{Mode: commandModeThemePickerFilter | commandModeVisPickerFilter, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Finish filter", ContextHelp: true, Primary: true},
 	{Mode: commandModeQueue, Keys: []string{"d"}, KeyLabel: "d", Label: "Remove", Destructive: true, ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return m.playlist != nil && m.playlist.QueueLen() > 0 }},
 	{Mode: commandModeQueue, Keys: []string{"c"}, KeyLabel: "c", Label: "Clear", Destructive: true, ContextHelp: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true},

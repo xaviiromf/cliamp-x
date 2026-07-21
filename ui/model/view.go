@@ -124,7 +124,8 @@ func (m Model) View() tea.View {
 	}
 
 	screen := m.activeScreen()
-	if !screen.hidesVisualizer() {
+	contentFirst := m.usesContentFirstLayout()
+	if !screen.hidesVisualizer() && !contentFirst {
 		m.refreshVisualizerIfPending()
 	}
 
@@ -133,12 +134,12 @@ func (m Model) View() tea.View {
 	case screenFullVisualizer:
 		content = m.renderFullVisualizer()
 	default:
-		// Every overlay renders inline in the playlist region (renderMainBody),
-		// with its header/help supplied by renderPlaylistHeader / renderHelp, so
-		// the now-playing + visualizer chrome stays live above and the layout
-		// height never shifts when an overlay opens.
+		// Overlays render in the playlist region (renderMainBody), with their
+		// header/help supplied by renderPlaylistHeader / renderHelp. List-heavy
+		// tasks collapse to a compact now-playing summary so they can use the
+		// reclaimed rows for browsing.
 		body := ui.FitRect(m.renderMainBody(), m.layout.panelWidth, m.layout.bodyRows)
-		content = strings.Join(m.mainSections(body, true), "\n")
+		content = strings.Join(m.mainSections(body, true, contentFirst), "\n")
 	}
 
 	// Every screen now renders within the main frame, so frame and center
@@ -159,41 +160,60 @@ func trimTrailingEmpty(sections []string) []string {
 	return sections
 }
 
-func (m Model) mainSections(playlist string, includeTransient bool) []string {
+func (m Model) mainSections(playlist string, includeTransient, contentFirst bool) []string {
 	var sections []string
-	switch m.layout.tier {
-	case layoutCompact:
-		sections = []string{
-			m.renderTitle(),
-			m.renderTrackInfo(),
-			m.renderTimeStatus(),
-			m.renderSpectrum(),
-			m.renderSeekBar(),
-			m.renderCompactControls(),
-			m.renderCompactSource(),
-			m.renderPlaylistHeader(),
+	if contentFirst {
+		if m.layout.tier == layoutMinimal {
+			sections = []string{
+				m.renderTrackInfo(),
+				m.renderTimeStatus(),
+				m.renderSeekBar(),
+				m.renderPlaylistHeader(),
+			}
+		} else {
+			sections = []string{
+				m.renderTitle(),
+				m.renderTrackInfo(),
+				m.renderTimeStatus(),
+				m.renderSeekBar(),
+				m.renderPlaylistHeader(),
+			}
 		}
-	case layoutMinimal:
-		sections = []string{
-			m.renderTrackInfo(),
-			m.renderTimeStatus(),
-			m.renderSeekBar(),
-			m.renderPlaylistHeader(),
+	} else {
+		switch m.layout.tier {
+		case layoutCompact:
+			sections = []string{
+				m.renderTitle(),
+				m.renderTrackInfo(),
+				m.renderTimeStatus(),
+				m.renderSpectrum(),
+				m.renderSeekBar(),
+				m.renderCompactControls(),
+				m.renderCompactSource(),
+				m.renderPlaylistHeader(),
+			}
+		case layoutMinimal:
+			sections = []string{
+				m.renderTrackInfo(),
+				m.renderTimeStatus(),
+				m.renderSeekBar(),
+				m.renderPlaylistHeader(),
+			}
+		default:
+			sections = []string{
+				m.renderTitle(),
+				m.renderTrackInfo(),
+				m.renderTimeStatus(),
+				"",
+				m.renderSpectrum(),
+				m.renderSeekBar(),
+				m.renderControls(),
+			}
+			if source := m.renderProviderPill(); source != "" {
+				sections = append(sections, source)
+			}
+			sections = append(sections, m.renderPlaylistHeader())
 		}
-	default:
-		sections = []string{
-			m.renderTitle(),
-			m.renderTrackInfo(),
-			m.renderTimeStatus(),
-			"",
-			m.renderSpectrum(),
-			m.renderSeekBar(),
-			m.renderControls(),
-		}
-		if source := m.renderProviderPill(); source != "" {
-			sections = append(sections, source)
-		}
-		sections = append(sections, m.renderPlaylistHeader())
 	}
 	if playlist != "" {
 		sections = append(sections, playlist)
@@ -249,7 +269,15 @@ func (m Model) renderCompactControls() string {
 	if m.player.Mono() {
 		mono = " [M]"
 	}
-	return labelStyle.Render("EQ ") + activeToggle.Render("["+m.EQPresetName()+"]") +
+	eqLabel := labelStyle.Render("EQ ")
+	eqValue := activeToggle.Render("[" + m.EQPresetName() + "]")
+	if m.focus == focusEQ {
+		eqLabel = activeToggle.Render("EQ ▸ ")
+		bands := m.player.EQBands()
+		labels := [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k"}
+		eqValue += " " + eqActiveStyle.Render(fmt.Sprintf("%s %+.0fdB", labels[m.eqCursor], bands[m.eqCursor]))
+	}
+	return eqLabel + eqValue +
 		" " + labelStyle.Render("VOL ") + fmt.Sprintf("%+.0fdB", m.player.Volume()) + mono
 }
 
@@ -547,7 +575,11 @@ func (m Model) renderPlaylistHeader() string {
 		return ov.header(&m)
 	}
 	if m.focus == focusProvider {
-		return dimStyle.Render(labeledSeparator("", fmt.Sprintf("%s Playlists", m.provider.Name())))
+		label := m.provider.Name() + " / Playlists"
+		if m.provSearch.active {
+			label += " / Filter"
+		}
+		return dimStyle.Render(labeledSeparator("", label))
 	}
 
 	var shuffle string
@@ -813,22 +845,28 @@ func (m Model) renderPlaylist() string {
 			queueSuffix = fmt.Sprintf(" [Q%d]", queuePosition)
 		}
 		queueLen := lipgloss.Width(queueSuffix)
+		duration := formatTrackTime(t.DurationSecs)
+		durationLen := lipgloss.Width(duration)
+		durationGap := 0
+		if duration != "" {
+			durationGap = durationLen + 1
+		}
 
 		linePrefixWidth := lipgloss.Width(markers) + numWidth + 2 // 2 for ". "
 
 		// State markers always occupy the same cells; low-priority queue position,
 		// album, and unavailable labels appear only when the terminal has room.
-		name = truncate(name, ui.PanelWidth-linePrefixWidth-queueLen)
+		name = truncate(name, ui.PanelWidth-linePrefixWidth-queueLen-durationGap)
 		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
 		nameLen := lipgloss.Width(name)
 		if t.Unplayable && ui.PanelWidth >= 68 {
-			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen
+			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen - durationGap
 			if remaining >= len(" (unavailable)") {
 				albumSuffix = truncate(" (unavailable)", remaining)
 			}
 		} else if album := t.Album; album != "" && !m.showAlbumHeaders && ui.PanelWidth >= 56 {
-			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen - 3 // 3 = " · "
+			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen - durationGap - 3 // 3 = " · "
 			if remaining >= 4 {
 				albumSuffix = " · " + truncate(album, remaining)
 			}
@@ -844,6 +882,10 @@ func (m Model) renderPlaylist() string {
 		}
 		if queueSuffix != "" {
 			line += activeToggle.Render(queueSuffix)
+		}
+		if duration != "" {
+			padding := max(1, ui.PanelWidth-lipgloss.Width(line)-durationLen)
+			line += strings.Repeat(" ", padding) + dimStyle.Render(duration)
 		}
 		lines = append(lines, line)
 	}

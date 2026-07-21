@@ -1,6 +1,8 @@
 # Keybindings
 
-Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
+Press `Ctrl+K` from any mode, or `?` from the player, to see keybindings. The
+keymap starts with actions for the screen you opened it from, followed by player
+and library commands.
 
 ## Playback
 
@@ -22,7 +24,7 @@ Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 
 | Key | Action |
 |---|---|
-| `Tab` | Toggle focus (Playlist / EQ) |
+| `Tab` | Cycle visible controls (Playlist / EQ / Source / Speed on full and compact layouts) |
 | `j` `k` / `Up` `Down` | Playlist scroll / EQ band adjust (wraps around) |
 | `PageUp` `PageDown` / `Ctrl+U` `Ctrl+D` | Scroll playlist/file browser by page (outside text input) |
 | `Home` `End` / `g` `G` | Go to top/end of playlist/file browser |
@@ -34,6 +36,10 @@ Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 | `Ctrl+Z` | Undo the last playlist removal or queue clear |
 | `o` | Open file browser |
 | `b` `Esc` | Back to provider |
+
+At the minimal `40x10` layout, `Tab` keeps playback focus on the playlist, so
+EQ, source, and speed settings cannot be changed accidentally. `Esc` still
+opens the separate, visible provider-list view.
 
 ## Text Input
 
@@ -59,6 +65,11 @@ fields support these editor keys:
 | `V` | Full screen visualizer |
 | `Ctrl+H` | Toggle album headers |
 
+Theme and visualizer pickers support `/` filtering. While browsing, arrow keys
+preview the highlighted option, `Enter` keeps it, and `Esc` restores the option
+active when the picker opened. While typing a filter, `Enter` finishes it and
+`Esc` clears it.
+
 ## Features
 
 | Key | Action |
@@ -69,9 +80,9 @@ fields support these editor keys:
 | `y` | Show or close lyrics |
 | `r` | Retry lyrics lookup while lyrics are open |
 | `i` | Show track metadata (`↑`/`↓` scrolls) |
-| `Ctrl+S` | Save track to ~/Music |
+| `Ctrl+S` | Save track to `~/Music/cliamp` |
 | `w` | Write the highlighted track to a local playlist |
-| `N` | Navidrome browser |
+| `N` | Open the active provider browser when available |
 | `L` | Browse local playlists (with cliamp radio) |
 | `R` | Open radio provider |
 | `S` | Open Spotify provider |
@@ -147,7 +158,7 @@ When you press `N` to drill into a provider (Navidrome, Plex, Jellyfin, Emby, Sp
 | `S` `N` `P` `J` `E` `Y` `C` `M` `Q` `L` | Quick-switch to that provider without going back through the main pane. `R` replaces the queue on the track screen. |
 | `Esc` `b` | Walk back one level / close the browser |
 
-The track screen shows a `N tracks · 47:22` subtitle and right-aligned per-track durations when the provider returns them.
+The header shows a source breadcrumb such as `Navidrome / Miles Davis / Kind of Blue / Tracks`, so the current provider and drill-down location remain visible. Track rows show right-aligned durations when the provider returns them.
 
 ## Provider playlist list
 
@@ -165,7 +176,7 @@ The playlists pane (visible when focus is on a provider — Spotify, Navidrome, 
 | `Tab` | Switch focus to EQ |
 | `Esc` `b` | Back to the playlist pane |
 
-Playlist rows show `Name · N tracks · 1h 23m` when the provider returns track counts and total duration. The currently loaded playlist is marked with a `▶` prefix. Spotify groups its playlists under section headers (`── library ──`, `── your playlists ──`, `── followed playlists ──`).
+Playlist rows show `Name · N tracks · 1h 23m` when the provider returns track counts and total duration. The header identifies the scope as `Provider / Playlists`. The currently loaded playlist is marked with a `▶` prefix. Spotify groups its playlists under section headers (`── library ──`, `── your playlists ──`, `── followed playlists ──`).
 
 ## Search results overlays
 

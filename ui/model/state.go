@@ -75,19 +75,29 @@ type seekState struct {
 
 // themePickerState holds state for the theme picker overlay.
 type themePickerState struct {
-	visible  bool
-	cursor   int
-	scroll   int
-	savedIdx int // themeIdx before opening picker, for cancel/restore
+	visible     bool
+	cursor      int // view index into filtered when filter != "", otherwise raw theme index
+	scroll      int
+	savedName   string // theme name before opening picker, for cancel/restore after reload
+	filtering   bool
+	filter      string
+	filtered    []int // raw indices into [Default, themes...]
+	savedCursor int
+	savedScroll int
 }
 
 // visPickerState holds state for the visualizer picker overlay.
 type visPickerState struct {
-	visible   bool
-	cursor    int
-	scroll    int
-	savedMode int      // vis.Mode before opening, for cancel/restore
-	modes     []string // mode names captured at open (stable while open)
+	visible     bool
+	cursor      int // view index into filtered when filter != "", otherwise raw visualizer mode
+	scroll      int
+	savedMode   int      // vis.Mode before opening, for cancel/restore
+	modes       []string // mode names captured at open (stable while open)
+	filtering   bool
+	filter      string
+	filtered    []int // raw indices into modes
+	savedCursor int
+	savedScroll int
 }
 
 // lyricsState holds state for the lyrics display overlay.

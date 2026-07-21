@@ -28,6 +28,7 @@ func clampScroll(cursor, scroll *int, count, visible int) {
 // applyHeightMode sets plVisible based on the current heightExpanded state.
 func (m *Model) applyHeightMode() {
 	m.recomputeLayout()
+	m.normalizeMainFocus()
 }
 
 // adjustScroll ensures plCursor is visible in the playlist view.

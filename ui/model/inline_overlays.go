@@ -136,13 +136,9 @@ func (m Model) activeOverlay() (overlayView, bool) {
 	case m.navBrowser.visible:
 		return overlayView{(*Model).navHeaderLine, (*Model).navHelpLine, (*Model).renderNavBody}, true
 	case m.themePicker.visible:
-		return overlayView{
-			func(m *Model) string { return sepHeaderN("Themes", m.themePicker.cursor+1, m.themeCount()) },
-			(*Model).themePickerHelpLine, (*Model).renderThemeBody}, true
+		return overlayView{(*Model).themePickerHeaderLine, (*Model).themePickerHelpLine, (*Model).renderThemeBody}, true
 	case m.visPicker.visible:
-		return overlayView{
-			func(m *Model) string { return sepHeaderN("Visualizers", m.visPicker.cursor+1, len(m.visPicker.modes)) },
-			(*Model).visPickerHelpLine, (*Model).renderVisPickerList}, true
+		return overlayView{(*Model).visPickerHeaderLine, (*Model).visPickerHelpLine, (*Model).renderVisPickerList}, true
 	case m.plManager.visible:
 		return overlayView{(*Model).plMgrHeaderLine, (*Model).plMgrHelpLine, (*Model).renderPlMgrBody}, true
 	case m.queue.visible:
@@ -195,12 +191,31 @@ func (m Model) searchHeaderLine() string {
 
 func (m Model) themeCount() int { return len(m.themes) + 1 }
 
+func (m Model) themePickerHeaderLine() string {
+	if m.themePicker.filtering || m.themePicker.filter != "" {
+		return m.filterCountHeader("theme-picker-filter", m.themePicker.filter, fmt.Sprintf("%d/%d", m.themePickerViewCount(), m.themeCount()))
+	}
+	return sepHeaderN("Themes", m.themePicker.cursor+1, m.themePickerViewCount())
+}
+
 func (m Model) renderThemeBody() string {
 	budget := m.effectivePlaylistVisible()
 	items := make([]string, 0, m.themeCount())
 	items = append(items, theme.DefaultName)
 	for _, t := range m.themes {
 		items = append(items, t.Name)
+	}
+	if m.themePicker.filter != "" {
+		filtered := make([]string, 0, len(m.themePicker.filtered))
+		for _, rawIdx := range m.themePicker.filtered {
+			if rawIdx >= 0 && rawIdx < len(items) {
+				filtered = append(filtered, items[rawIdx])
+			}
+		}
+		items = filtered
+	}
+	if len(items) == 0 {
+		return bodyMessage("No matches.", budget)
 	}
 	return windowList(items, m.themePicker.cursor, m.themePicker.scroll, budget)
 }

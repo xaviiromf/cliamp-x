@@ -62,6 +62,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.recomputeLayout()
+		m.normalizeMainFocus()
 		m.clampActiveScrollState()
 		return m, nil
 
@@ -566,6 +567,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.tracks) == 0 {
 			m.netSearch.err = "No results found"
 		}
+		m.applyHeightMode()
+		m.clampActiveScrollState()
 		return m, nil
 
 	case lyricsLoadedMsg:
@@ -713,6 +716,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.tracks) == 0 {
 			m.spotSearch.err = "No results found"
 		}
+		m.applyHeightMode()
+		m.clampActiveScrollState()
 		return m, nil
 
 	case spotPlaylistsMsg:
@@ -729,6 +734,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spotSearch.playlists = msg.playlists
 		m.spotSearch.cursor = 0
 		m.spotSearch.screen = spotSearchPlaylist
+		m.applyHeightMode()
+		m.clampActiveScrollState()
 		return m, nil
 
 	case spotAddedMsg:
