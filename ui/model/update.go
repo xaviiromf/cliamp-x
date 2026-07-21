@@ -1216,8 +1216,3 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
-
-// restorePanelWidth resets PanelWidth to the correct value based on compact mode.
-func (m *Model) restorePanelWidth() {
-	m.recomputeLayout()
-}

@@ -88,16 +88,6 @@ func (m Model) effectivePlaylistVisible() int {
 	return min(m.plVisible, m.layout.bodyRows)
 }
 
-// recomputeChrome preserves the existing layout-refresh seam for callers that
-// change an overlay or visualizer mode.
-func (m *Model) recomputeChrome() {
-	m.recomputeLayout()
-}
-
-func (m *Model) invalidateChrome() {
-	m.recomputeLayout()
-}
-
 func (m *Model) refreshChrome() {
 	m.recomputeLayout()
 }

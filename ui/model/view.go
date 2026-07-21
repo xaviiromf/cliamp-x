@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math"
 	"slices"
 	"strings"
 	"time"
@@ -909,50 +908,6 @@ func (m Model) renderHelp() string {
 	default:
 		return m.commandHelp(commandModeMain)
 	}
-}
-
-// helpHint is a rendered help key with an associated display priority.
-type helpHint struct {
-	text     string
-	priority int
-}
-
-// fitHints drops lowest-priority hints until they fit within maxWidth.
-// Widths are pre-computed once to avoid repeated lipgloss.Width calls.
-func fitHints(hints []helpHint, maxWidth int) string {
-	active := make([]bool, len(hints))
-	widths := make([]int, len(hints))
-	var total int
-	for i, h := range hints {
-		active[i] = true
-		widths[i] = lipgloss.Width(h.text)
-		total += widths[i]
-	}
-
-	for total > maxWidth {
-		// Find lowest-priority active hint and drop it.
-		minPri := math.MaxInt
-		minIdx := -1
-		for i, h := range hints {
-			if active[i] && h.priority < minPri {
-				minPri = h.priority
-				minIdx = i
-			}
-		}
-		if minIdx < 0 {
-			break
-		}
-		active[minIdx] = false
-		total -= widths[minIdx]
-	}
-
-	var sb strings.Builder
-	for i, h := range hints {
-		if active[i] {
-			sb.WriteString(h.text)
-		}
-	}
-	return sb.String()
 }
 
 // renderBottomStatus renders the bottom status line: speed (left) and

@@ -9,8 +9,7 @@ import (
 )
 
 func TestSaveCopiesTemporaryDownload(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := setTestHome(t)
 	source, err := os.CreateTemp("", "cliamp-save-*.flac")
 	if err != nil {
 		t.Fatal(err)
@@ -38,8 +37,16 @@ func TestSaveCopiesTemporaryDownload(t *testing.T) {
 }
 
 func TestSaveRejectsUserLibraryFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 	if _, err := Save(playlist.Track{Path: "/var/lib/music/song.flac"}); err == nil {
 		t.Fatal("Save accepted a non-temporary library file")
 	}
+}
+
+func setTestHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	return home
 }
