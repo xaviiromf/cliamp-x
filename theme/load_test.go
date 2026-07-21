@@ -55,7 +55,11 @@ func TestLoadAllUserThemeOverridesBuiltin(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	overridden := `accent = "#ff00ff"
+bright_fg = "#f8f8f2"
 fg = "#123456"
+green = "#50fa7b"
+yellow = "#f1fa8c"
+red = "#ff5555"
 `
 	if err := os.WriteFile(filepath.Join(userDir, "dracula.toml"), []byte(overridden), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -88,7 +92,13 @@ func TestLoadAllAddsUserOnlyTheme(t *testing.T) {
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	custom := `accent = "#abcdef"`
+	custom := `accent = "#abcdef"
+bright_fg = "#ffffff"
+fg = "#112233"
+green = "#44aa55"
+yellow = "#ddcc44"
+red = "#cc4455"
+`
 	if err := os.WriteFile(filepath.Join(userDir, "mytheme.toml"), []byte(custom), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -105,6 +115,49 @@ func TestLoadAllAddsUserOnlyTheme(t *testing.T) {
 	}
 	if !found {
 		t.Error("user theme mytheme not loaded")
+	}
+}
+
+func TestLoadAllIgnoresInvalidUserTheme(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	if err := os.MkdirAll(userDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(userDir, "broken.toml"), []byte(`accent = "blue"`), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	for _, th := range LoadAll() {
+		if th.Name == "broken" {
+			t.Fatal("invalid custom theme was loaded")
+		}
+	}
+}
+
+func TestBuiltinThemesKeepStateColorsDistinct(t *testing.T) {
+	for _, th := range LoadAll() {
+		if th.IsDefault() {
+			continue
+		}
+		if err := th.Validate(); err != nil {
+			t.Fatalf("built-in theme %q is invalid: %v", th.Name, err)
+		}
+		for _, state := range []struct {
+			name  string
+			color string
+		}{
+			{"selection", th.Accent},
+			{"focus", th.BrightFG},
+			{"warning", th.Yellow},
+			{"error", th.Red},
+		} {
+			if state.color == th.FG {
+				t.Errorf("theme %q %s color matches disabled text", th.Name, state.name)
+			}
+		}
 	}
 }
 

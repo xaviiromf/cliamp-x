@@ -123,3 +123,25 @@ func TestParsedThemeNotDefault(t *testing.T) {
 		t.Error("theme with accent should not be IsDefault()")
 	}
 }
+
+func TestThemeValidate(t *testing.T) {
+	valid := Theme{
+		Name:     "valid",
+		Accent:   "#112233",
+		BrightFG: "#223344",
+		FG:       "#334455",
+		Green:    "#445566",
+		Yellow:   "#556677",
+		Red:      "#667788",
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	if err := (Theme{Name: "partial", Accent: "#112233"}).Validate(); err == nil {
+		t.Fatal("Validate() accepted incomplete custom theme")
+	}
+	valid.Red = "red"
+	if err := valid.Validate(); err == nil {
+		t.Fatal("Validate() accepted invalid color")
+	}
+}

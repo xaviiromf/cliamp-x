@@ -18,7 +18,9 @@ Create a `.toml` file in `~/.config/cliamp/themes/`:
 mkdir -p ~/.config/cliamp/themes
 ```
 
-Each file needs 6 hex color values. The filename (minus `.toml`) becomes the theme name.
+Each file needs all 6 colors as `#RRGGBB` hex values. Incomplete or malformed
+custom themes are ignored, so they cannot silently make focus, warning, error,
+or disabled states unreadable. The filename (minus `.toml`) becomes the theme name.
 
 ### Example: `~/.config/cliamp/themes/solarized.toml`
 
@@ -44,7 +46,11 @@ That's it. Press `t` and your theme appears in the list immediately.
 | `yellow`    | Spectrum middle                                   |
 | `red`       | Spectrum top, error messages                      |
 
-All values are hex strings (e.g. `"#ff5733"` or `"#F00"`).
+All values are six-digit hex strings (for example, `"#ff5733"`).
+
+Important UI states also use stable text markers such as `>`, `Q`, `★`, and `!`,
+so selection, queued, bookmarked, and unavailable tracks remain distinguishable
+in monochrome terminals.
 
 ## Overriding a built-in theme
 

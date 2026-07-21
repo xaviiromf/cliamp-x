@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -189,13 +188,12 @@ func (m Model) mainSections(playlist string, includeTransient bool) []string {
 			"",
 			m.renderSpectrum(),
 			m.renderSeekBar(),
-			"",
 			m.renderControls(),
 		}
 		if source := m.renderProviderPill(); source != "" {
 			sections = append(sections, source)
 		}
-		sections = append(sections, "", m.renderPlaylistHeader())
+		sections = append(sections, m.renderPlaylistHeader())
 	}
 	if playlist != "" {
 		sections = append(sections, playlist)
@@ -362,6 +360,9 @@ func (m Model) renderTimeStatus() string {
 	timeStr := fmt.Sprintf("%02d:%02d / %02d:%02d", posMin, posSec, durMin, durSec)
 
 	track, _ := m.currentPlaybackTrack()
+	if track.Stream && !m.player.Seekable() {
+		timeStr = fmt.Sprintf("%02d:%02d / LIVE", posMin, posSec)
+	}
 
 	var status string
 	switch {
@@ -517,23 +518,28 @@ func (m Model) renderProviderPill() string {
 		return ""
 	}
 
-	var pills []string
-	for i, pe := range m.providers {
-		name := pe.Name
-		if m.focus == focusProvPill && i == m.provPillIdx {
-			pills = append(pills, activeToggle.Render("["+name+"]"))
-		} else if i == m.provPillIdx {
-			pills = append(pills, dimStyle.Render("[")+trackStyle.Render(name)+dimStyle.Render("]"))
-		} else {
-			pills = append(pills, dimStyle.Render("["+name+"]"))
-		}
-	}
-
 	srcLabel := labelStyle.Render("SRC ")
 	if m.focus == focusProvPill {
 		srcLabel = activeToggle.Render("SRC ▸ ")
 	}
-	return srcLabel + strings.Join(pills, " ")
+	current := m.providers[m.provPillIdx].Name
+	indicator := dimStyle.Render("[") + trackStyle.Render(current) + dimStyle.Render("]") +
+		dimStyle.Render(fmt.Sprintf(" %d/%d", m.provPillIdx+1, len(m.providers)))
+	if m.focus == focusProvPill {
+		indicator = activeToggle.Render("["+current+"]") + dimStyle.Render(fmt.Sprintf(" %d/%d", m.provPillIdx+1, len(m.providers)))
+	}
+	if ui.PanelWidth < 110 {
+		return srcLabel + indicator
+	}
+
+	var neighbors []string
+	if m.provPillIdx > 0 {
+		neighbors = append(neighbors, dimStyle.Render("["+m.providers[m.provPillIdx-1].Name+"]"))
+	}
+	if m.provPillIdx+1 < len(m.providers) {
+		neighbors = append(neighbors, dimStyle.Render("["+m.providers[m.provPillIdx+1].Name+"]"))
+	}
+	return srcLabel + strings.Join(append([]string{indicator}, neighbors...), " ")
 }
 
 func (m Model) renderPlaylistHeader() string {
@@ -761,64 +767,77 @@ func (m Model) renderPlaylist() string {
 		}
 
 		i, t := row.Index, row.Track
-		prefix := "  "
 		style := playlistItemStyle
-
-		if i == currentIdx && m.player.IsPlaying() {
-			prefix = "▶ "
+		selected := m.focus == focusPlaylist && i == m.plCursor
+		playing := !m.playbackDetached && i == currentIdx && m.player.IsPlaying()
+		if playing {
 			style = playlistActiveStyle
-		} else if strings.HasPrefix(t.Path, "ssh://") {
-			prefix = "↗ "
 		}
-
-		if m.focus == focusPlaylist && i == m.plCursor {
+		if selected {
 			style = playlistSelectedStyle
 		}
 
 		if t.Unplayable {
-			if m.focus == focusPlaylist && i == m.plCursor {
+			if selected {
 				style = dimStyle
 			} else {
 				style = playlistUnavailableStyle
 			}
 		}
+		cursorMarker := " "
+		if selected {
+			cursorMarker = ">"
+		}
+		playingMarker := " "
+		if playing {
+			playingMarker = "▶"
+		}
+		queuePosition := m.playlist.QueuePosition(i)
+		queueMarker := " "
+		if queuePosition > 0 {
+			queueMarker = "Q"
+		}
+		bookmarkMarker := " "
+		if t.Bookmark {
+			bookmarkMarker = "★"
+		}
+		unavailableMarker := " "
+		if t.Unplayable {
+			unavailableMarker = "!"
+		}
+		markers := cursorMarker + playingMarker + queueMarker + bookmarkMarker + unavailableMarker + " "
 
 		name := t.DisplayName()
-		isBookmark := t.Bookmark
-		bookmarkBudget := 0
-		if isBookmark {
-			bookmarkBudget = 2 // "★ "
-		}
 		queueSuffix := ""
-		if qp := m.playlist.QueuePosition(i); qp > 0 {
-			queueSuffix = fmt.Sprintf(" [Q%d]", qp)
+		if queuePosition > 0 && ui.PanelWidth >= 64 {
+			queueSuffix = fmt.Sprintf(" [Q%d]", queuePosition)
 		}
-		queueLen := utf8.RuneCountInString(queueSuffix)
+		queueLen := lipgloss.Width(queueSuffix)
 
-		linePrefixWidth := utf8.RuneCountInString(prefix) + numWidth + 2 // 2 for ". "
+		linePrefixWidth := lipgloss.Width(markers) + numWidth + 2 // 2 for ". "
 
-		// Truncate the track name only against queue/bookmark overhead, never album.
-		name = truncate(name, ui.PanelWidth-linePrefixWidth-queueLen-bookmarkBudget)
+		// State markers always occupy the same cells; low-priority queue position,
+		// album, and unavailable labels appear only when the terminal has room.
+		name = truncate(name, ui.PanelWidth-linePrefixWidth-queueLen)
 		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
-		nameLen := utf8.RuneCountInString(name)
-		if t.Unplayable {
-			remaining := ui.PanelWidth - linePrefixWidth - bookmarkBudget - nameLen - queueLen
-			if remaining >= 4 {
+		nameLen := lipgloss.Width(name)
+		if t.Unplayable && ui.PanelWidth >= 68 {
+			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen
+			if remaining >= len(" (unavailable)") {
 				albumSuffix = truncate(" (unavailable)", remaining)
 			}
-		} else if album := t.Album; album != "" && !m.showAlbumHeaders {
-			remaining := ui.PanelWidth - linePrefixWidth - bookmarkBudget - nameLen - queueLen - 3 // 3 = " · "
+		} else if album := t.Album; album != "" && !m.showAlbumHeaders && ui.PanelWidth >= 56 {
+			remaining := ui.PanelWidth - linePrefixWidth - nameLen - queueLen - 3 // 3 = " · "
 			if remaining >= 4 {
 				albumSuffix = " · " + truncate(album, remaining)
 			}
 		}
 
-		numStr := fmt.Sprintf("%s%*d. ", prefix, numWidth, i+1)
-		line := style.Render(numStr)
-		if isBookmark {
-			line += activeToggle.Render("★ ")
-		}
+		numStr := fmt.Sprintf("%*d. ", numWidth, i+1)
+		line := dimStyle.Render(cursorMarker) + playlistActiveStyle.Render(playingMarker) +
+			activeToggle.Render(queueMarker+bookmarkMarker) + playlistUnavailableStyle.Render(unavailableMarker) +
+			" " + style.Render(numStr)
 		line += style.Render(name)
 		if albumSuffix != "" {
 			line += dimStyle.Render(albumSuffix)

@@ -56,15 +56,15 @@ func (m *Model) recomputeLayout() {
 		layout.tier = layoutTooSmall
 	case width >= 80 && height >= 24:
 		layout.tier = layoutFull
-		layout.visualizerRows = ui.DefaultVisRows
-		layout.fixedRows = 18
+		layout.visualizerRows = max(1, ui.DefaultVisRows-1)
+		layout.fixedRows = 15
 	case width >= 56 && height >= 16:
 		layout.tier = layoutCompact
 		layout.visualizerRows = 2
 		layout.fixedRows = 11
 	default:
 		layout.tier = layoutMinimal
-		layout.fixedRows = 5
+		layout.fixedRows = 7
 	}
 
 	layout.fullVisualizerRows = max(1, height-6-2*paddingV)

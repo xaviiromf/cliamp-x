@@ -5,9 +5,11 @@ import (
 	"bufio"
 	"cmp"
 	"embed"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -31,9 +33,38 @@ type Theme struct {
 	Red      string
 }
 
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
 // IsDefault returns true if this is the sentinel default theme (no hex values).
 func (t Theme) IsDefault() bool {
 	return t.Accent == "" && t.Green == "" && t.BrightFG == ""
+}
+
+// Validate ensures a custom theme supplies the complete six-color palette in
+// CSS hex notation. The terminal-default sentinel intentionally has no colors.
+func (t Theme) Validate() error {
+	if t.IsDefault() {
+		return nil
+	}
+	for _, color := range []struct {
+		name  string
+		value string
+	}{
+		{"accent", t.Accent},
+		{"bright_fg", t.BrightFG},
+		{"fg", t.FG},
+		{"green", t.Green},
+		{"yellow", t.Yellow},
+		{"red", t.Red},
+	} {
+		if color.value == "" {
+			return fmt.Errorf("theme %q: %s is required", t.Name, color.name)
+		}
+		if !hexColor.MatchString(color.value) {
+			return fmt.Errorf("theme %q: %s must be #RRGGBB", t.Name, color.name)
+		}
+	}
+	return nil
 }
 
 // Default returns a sentinel "Default" theme with empty hex values,
@@ -121,7 +152,7 @@ func loadBuiltin(themes map[string]Theme) {
 		}
 		t, err := Parse(name, f)
 		f.Close()
-		if err != nil {
+		if err != nil || t.Validate() != nil {
 			continue
 		}
 		themes[strings.ToLower(name)] = t
@@ -146,7 +177,7 @@ func loadUserDir(dir string, themes map[string]Theme) {
 		}
 		t, err := Parse(name, f)
 		f.Close()
-		if err != nil {
+		if err != nil || t.Validate() != nil {
 			continue
 		}
 		themes[strings.ToLower(name)] = t
