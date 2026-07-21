@@ -315,6 +315,18 @@ type Playlist struct {
 	queuedIdx int   // track index currently playing from queue, -1 if none
 }
 
+// Snapshot preserves the complete mutable playback state for later restoration.
+// Its fields are intentionally private so callers can only return it to Restore.
+type Snapshot struct {
+	tracks    []Track
+	order     []int
+	pos       int
+	shuffle   bool
+	repeat    RepeatMode
+	queue     []int
+	queuedIdx int
+}
+
 // New creates an empty Playlist.
 func New() *Playlist {
 	return &Playlist{queuedIdx: -1}
@@ -706,6 +718,34 @@ func (p *Playlist) ClearQueue() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.queue = nil
+}
+
+// Snapshot returns an independent copy of the playlist's mutable state.
+func (p *Playlist) Snapshot() Snapshot {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return Snapshot{
+		tracks:    slices.Clone(p.tracks),
+		order:     slices.Clone(p.order),
+		pos:       p.pos,
+		shuffle:   p.shuffle,
+		repeat:    p.repeat,
+		queue:     slices.Clone(p.queue),
+		queuedIdx: p.queuedIdx,
+	}
+}
+
+// Restore replaces the playlist's mutable state with a prior Snapshot.
+func (p *Playlist) Restore(snapshot Snapshot) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.tracks = slices.Clone(snapshot.tracks)
+	p.order = slices.Clone(snapshot.order)
+	p.pos = snapshot.pos
+	p.shuffle = snapshot.shuffle
+	p.repeat = snapshot.repeat
+	p.queue = slices.Clone(snapshot.queue)
+	p.queuedIdx = snapshot.queuedIdx
 }
 
 // RemoveQueueAt removes the entry at the given 0-based queue position.

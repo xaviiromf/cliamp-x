@@ -64,6 +64,26 @@ func TestQueueTracks(t *testing.T) {
 	}
 }
 
+func TestRestoreSnapshotRestoresTracksAndQueue(t *testing.T) {
+	p := makePlaylist(3, false)
+	p.Queue(0)
+	p.Queue(2)
+	snapshot := p.Snapshot()
+
+	p.Remove(0)
+	p.ClearQueue()
+	p.Restore(snapshot)
+
+	tracks := p.Tracks()
+	if len(tracks) != 3 || tracks[0].Title != "A" {
+		t.Fatalf("tracks after restore = %#v, want original tracks", tracks)
+	}
+	queued := p.QueueTracks()
+	if len(queued) != 2 || queued[0].Title != "A" || queued[1].Title != "C" {
+		t.Fatalf("queue after restore = %#v, want [A C]", queued)
+	}
+}
+
 func TestClearQueue(t *testing.T) {
 	p := makePlaylist(3, false)
 	p.Queue(0)

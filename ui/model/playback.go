@@ -189,37 +189,38 @@ func (m *Model) removeSelectedFromPlaylist() {
 	if idx < 0 || idx >= m.playlist.Len() {
 		return
 	}
+	snapshot := m.playlist.Snapshot()
 	track := m.playlist.Tracks()[idx]
 	loaded := m.loadedPlaylist
+	var saved []playlist.Track
+	persisted := false
 	if loaded != "" {
 		if saver, ok := m.localProvider.(provider.PlaylistSaver); ok {
-			saved, err := m.localProvider.Tracks(loaded)
+			var err error
+			saved, err = m.localProvider.Tracks(loaded)
 			if err != nil {
 				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
 				return
 			}
-			removed := false
-			for i := range saved {
-				if saved[i].Path == track.Path {
-					saved = append(saved[:i], saved[i+1:]...)
-					removed = true
-					break
-				}
-			}
-			if !removed {
-				m.status.Showf(statusTTLDefault, "Remove failed: %s is not in %q", track.DisplayName(), loaded)
+			if idx >= len(saved) {
+				m.status.Showf(statusTTLDefault, "Remove failed: selected track is not in %q", loaded)
 				return
 			}
+			original := cloneTracks(saved)
+			saved = append(saved[:idx:idx], saved[idx+1:]...)
 			if err := saver.SavePlaylist(loaded, saved); err != nil {
 				m.status.Showf(statusTTLDefault, "Remove failed: %s", err)
 				return
 			}
+			saved = original
+			persisted = true
 		}
 	}
 	wasActive := idx == m.playlist.Index()
 	if !m.playlist.Remove(idx) {
 		return
 	}
+	m.playlistUndo = playlistUndo{active: true, snapshot: snapshot, loaded: loaded, saved: saved, persisted: persisted}
 	if wasActive {
 		m.player.Stop()
 		m.player.ClearPreload()
@@ -232,11 +233,37 @@ func (m *Model) removeSelectedFromPlaylist() {
 	}
 	m.adjustScroll()
 	if loaded != "" {
-		m.status.Showf(statusTTLDefault, "Removed from %q: %s", loaded, track.DisplayName())
+		m.status.Showf(statusTTLDefault, "Removed from %q: %s (Ctrl+Z to undo)", loaded, track.DisplayName())
 	} else {
-		m.status.Showf(statusTTLDefault, "Removed from queue: %s", track.DisplayName())
+		m.status.Showf(statusTTLDefault, "Removed from queue: %s (Ctrl+Z to undo)", track.DisplayName())
 	}
 	m.notifyPlayback()
+}
+
+func (m *Model) undoPlaylistMutation() {
+	undo := m.playlistUndo
+	if !undo.active {
+		m.status.Show("Nothing to undo", statusTTLShort)
+		return
+	}
+	if undo.persisted {
+		saver := m.localSaver()
+		if saver == nil {
+			m.status.Show("Undo unavailable", statusTTLDefault)
+			return
+		}
+		if err := saver.SavePlaylist(undo.loaded, cloneTracks(undo.saved)); err != nil {
+			m.status.Showf(statusTTLDefault, "Undo failed: %s", err)
+			return
+		}
+	}
+	m.playlist.Restore(undo.snapshot)
+	m.playlistUndo = playlistUndo{}
+	if m.plCursor >= m.playlist.Len() {
+		m.plCursor = max(0, m.playlist.Len()-1)
+	}
+	m.adjustScroll()
+	m.status.Show("Restored previous playlist state", statusTTLDefault)
 }
 
 // playTrack plays a track, using async HTTP for streams and sync I/O for local files.

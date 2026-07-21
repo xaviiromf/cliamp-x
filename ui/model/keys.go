@@ -182,6 +182,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if msg.String() == "ctrl+c" {
 		return m.quit()
 	}
+	if msg.String() == "ctrl+z" {
+		m.undoPlaylistMutation()
+		return nil
+	}
 	if msg.String() == "ctrl+k" && !m.keymap.visible {
 		if m.fullVis {
 			m.exitFullVisualizer()
@@ -2469,14 +2473,20 @@ func (m *Model) handleQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.queueMaybeAdjustScroll(m.queueVisible())
 	case "d":
 		if qLen > 0 {
+			m.playlistUndo = playlistUndo{active: true, snapshot: m.playlist.Snapshot()}
 			m.playlist.RemoveQueueAt(m.queue.cursor)
 			if m.queue.cursor >= m.playlist.QueueLen() && m.queue.cursor > 0 {
 				m.queue.cursor--
 			}
+			m.status.Show("Removed queued track (Ctrl+Z to undo)", statusTTLDefault)
 		}
 		m.queueMaybeAdjustScroll(m.queueVisible())
 	case "c":
-		m.playlist.ClearQueue()
+		if qLen > 0 {
+			m.playlistUndo = playlistUndo{active: true, snapshot: m.playlist.Snapshot()}
+			m.playlist.ClearQueue()
+			m.status.Show("Cleared queue (Ctrl+Z to undo)", statusTTLDefault)
+		}
 		m.queue.visible = false
 	case "esc", "A":
 		m.queue.visible = false

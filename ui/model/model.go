@@ -201,6 +201,7 @@ type Model struct {
 	height          int
 	layout          frameLayout
 	textInput       textEditor
+	playlistUndo    playlistUndo
 
 	// Provider state
 	provider      playlist.Provider

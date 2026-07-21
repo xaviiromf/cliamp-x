@@ -24,6 +24,14 @@ type searchState struct {
 	scroll  int
 }
 
+type playlistUndo struct {
+	active    bool
+	snapshot  playlist.Snapshot
+	loaded    string
+	saved     []playlist.Track
+	persisted bool
+}
+
 // netSearchScreenType identifies which screen of the net search overlay is active.
 type netSearchScreenType int
 

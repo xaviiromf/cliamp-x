@@ -31,6 +31,7 @@ Press `Ctrl+K` from any mode, or `?` from the player, to see all keybindings.
 | `Enter` | Play selected track |
 | `/` | Search playlist (navigate results with `↑` `↓` / `Ctrl+N` `Ctrl+P`; `Ctrl+U` clears the query) |
 | `Ctrl+X` | Expand/collapse playlist |
+| `Ctrl+Z` | Undo the last playlist removal or queue clear |
 | `o` | Open file browser |
 | `b` `Esc` | Back to provider |
 

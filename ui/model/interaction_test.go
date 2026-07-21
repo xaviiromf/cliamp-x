@@ -53,3 +53,20 @@ func TestLyricsRetryStartsNewRequest(t *testing.T) {
 		t.Fatalf("lyrics.query = %q, want lookup key", m.lyrics.query)
 	}
 }
+
+func TestUndoRestoresClearedQueue(t *testing.T) {
+	p := playlist.New()
+	p.Add(playlist.Track{Title: "One"}, playlist.Track{Title: "Two"})
+	p.Queue(0)
+	p.Queue(1)
+	m := Model{playlist: p, queue: queueOverlay{visible: true}}
+
+	m.handleQueueKey(tea.KeyPressMsg{Text: "c"})
+	if got := p.QueueLen(); got != 0 {
+		t.Fatalf("queue length after clear = %d, want 0", got)
+	}
+	m.handleKey(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if got := p.QueueTracks(); len(got) != 2 || got[0].Title != "One" || got[1].Title != "Two" {
+		t.Fatalf("queue after undo = %#v, want original queue", got)
+	}
+}
