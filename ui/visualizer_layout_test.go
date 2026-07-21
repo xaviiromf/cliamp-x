@@ -36,3 +36,16 @@ func TestVisualizerFitsTinyRectangles(t *testing.T) {
 		})
 	}
 }
+
+func TestVisualizerFrameClipsPluginOutput(t *testing.T) {
+	frame := fitVisualizerFrame(strings.Repeat("界", 20)+"\n"+strings.Repeat("plugin output ", 20), 8, 2)
+	lines := strings.Split(frame, "\n")
+	if len(lines) != 2 {
+		t.Fatalf("line count = %d, want 2", len(lines))
+	}
+	for _, line := range lines {
+		if width := lipgloss.Width(line); width != 8 {
+			t.Fatalf("line width = %d, want 8: %q", width, line)
+		}
+	}
+}

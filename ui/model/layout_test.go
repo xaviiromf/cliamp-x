@@ -137,6 +137,52 @@ func TestLayoutClampsConfiguredPadding(t *testing.T) {
 	}
 }
 
+func TestViewsFitConfiguredPaddingExtremes(t *testing.T) {
+	previousStyle := ui.FrameStyle
+	previousPanelWidth := ui.PanelWidth
+	previousPaddingH := ui.PaddingH
+	previousPaddingV := ui.VerticalPadding()
+	t.Cleanup(func() {
+		ui.SetPadding(previousPaddingH, previousPaddingV)
+		ui.FrameStyle = previousStyle
+		ui.PanelWidth = previousPanelWidth
+	})
+
+	for _, tt := range []struct {
+		name     string
+		paddingH int
+		paddingV int
+	}{
+		{name: "zero", paddingH: 0, paddingV: 0},
+		{name: "default", paddingH: 2, paddingV: 1},
+		{name: "maximum", paddingH: 10, paddingV: 5},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ui.SetPadding(tt.paddingH, tt.paddingV)
+			m := newLayoutTestModel(80, 24)
+			assertViewFits(t, m.View().Content, 80, 24)
+		})
+	}
+}
+
+func TestLongUnicodeContentFitsTerminal(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{40, 10}, {80, 24}, {120, 40}} {
+		t.Run(fmt.Sprintf("%dx%d", size.width, size.height), func(t *testing.T) {
+			m := newLayoutTestModel(size.width, size.height)
+			track := m.playlist.Tracks()[0]
+			track.Title = strings.Repeat("界e\u0301", 48)
+			track.Album = strings.Repeat("https://provider.example/playlist/", 8)
+			m.playlist.SetTrack(0, track)
+			m.providers = []ProviderEntry{
+				{Name: strings.Repeat("Very Long Provider ", 8)},
+				{Name: "Local"},
+			}
+			m.status.Warning(strings.Repeat("https://stream.example/very/long/error/", 8), statusTTLDefault)
+			assertViewFits(t, m.View().Content, size.width, size.height)
+		})
+	}
+}
+
 func TestTooSmallLayoutBlocksHiddenMutations(t *testing.T) {
 	m := newLayoutTestModel(39, 9)
 	before := m.playlist.Len()
