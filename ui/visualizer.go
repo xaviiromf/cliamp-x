@@ -12,7 +12,7 @@ import (
 const (
 	DefaultSpectrumBands = 10
 	defaultFFTSize       = 2048
-	DefaultVisRows       = 5
+	DefaultVisRows       = 6
 	minSpectrumHz        = 20.0
 	maxSpectrumHz        = 20000.0
 	// Cap on dt fed into smoothing easing — long gaps (sleep, paused, stalled
