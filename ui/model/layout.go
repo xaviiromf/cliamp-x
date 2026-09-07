@@ -84,7 +84,7 @@ const (
 	// blank spacers and uses one-line controls.
 	compactBaseRows = 9
 	// compactVisRows is the compact tier's fixed visualizer height.
-	compactVisRows = 4
+	compactVisRows = 5
 )
 
 // fullChromeRows is the full tier's chrome height at the default visualizer
