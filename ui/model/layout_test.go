@@ -102,8 +102,13 @@ func TestResponsiveViewsFitTerminal(t *testing.T) {
 
 func TestExpandedPlaylistUsesAvailableRows(t *testing.T) {
 	m := newLayoutTestModel(80, 50)
-	if m.plVisible != maxPlVisible {
-		t.Fatalf("collapsed playlist rows = %d, want %d", m.plVisible, maxPlVisible)
+	// The two-column body hands the playlist the rows its settings pane freed.
+	wantCollapsed := maxPlVisible
+	if m.layout.twoColumn {
+		wantCollapsed += twoColumnChromeRows
+	}
+	if m.plVisible != wantCollapsed {
+		t.Fatalf("collapsed playlist rows = %d, want %d", m.plVisible, wantCollapsed)
 	}
 
 	m.heightExpanded = true
@@ -141,8 +146,14 @@ func TestExpandedPlaylistWithoutVisualizerFillsTerminal(t *testing.T) {
 			m.heightExpanded = true
 			m.recomputeLayout()
 
-			if m.layout.fixedRows != size.wantFixed {
-				t.Fatalf("fixed rows = %d, want %d", m.layout.fixedRows, size.wantFixed)
+			wantFixed := size.wantFixed
+			if m.layout.twoColumn {
+				// EQ/volume, source, and the status line moved into the
+				// settings pane beside the playlist.
+				wantFixed -= twoColumnChromeRows
+			}
+			if m.layout.fixedRows != wantFixed {
+				t.Fatalf("fixed rows = %d, want %d", m.layout.fixedRows, wantFixed)
 			}
 			if m.layout.bodyRows != bodyRowsWithVis+size.extraBodyRows {
 				t.Fatalf("body rows = %d, want %d (%d more than with visualizer)", m.layout.bodyRows, bodyRowsWithVis+size.extraBodyRows, size.extraBodyRows)

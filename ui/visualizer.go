@@ -781,9 +781,7 @@ func (v *Visualizer) Render() string {
 	if cols <= 0 {
 		return ""
 	}
-	previousWidth := PanelWidth
-	PanelWidth = cols
-	defer func() { PanelWidth = previousWidth }()
+	defer WithPanelWidth(cols)()
 
 	driver := v.syncDriverMode()
 	if driver == nil {
@@ -884,9 +882,7 @@ func (v *Visualizer) Tick(ctx VisTickContext) {
 	if cols <= 0 {
 		return
 	}
-	previousWidth := PanelWidth
-	PanelWidth = cols
-	defer func() { PanelWidth = previousWidth }()
+	defer WithPanelWidth(cols)()
 
 	driver := v.syncDriverMode()
 	if driver == nil {
