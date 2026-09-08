@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -695,8 +696,12 @@ func TestProviderSubscriptionPersistence(t *testing.T) {
 			t.Errorf("stored subscriptions = %+v, %v; want %+v", stored, err, tt.want)
 		}
 		info, err := os.Stat(p.subscriptionPath)
-		if err != nil || info.Mode().Perm() != 0o600 {
-			t.Fatalf("subscription file info = %v, %v; want mode 0600", info, err)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Windows does not expose Unix owner/group permission bits.
+		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+			t.Fatalf("subscription file mode = %o; want 0600", info.Mode().Perm())
 		}
 		restored := New("us")
 		restored.client = p.client
