@@ -140,6 +140,12 @@ func (m *Model) SetHideSettingsPane(v bool) {
 	m.refreshChrome()
 }
 
+// SetShowMetadata expands the highlighted-track details below Settings.
+func (m *Model) SetShowMetadata(v bool) {
+	m.showMetadata = v
+	m.refreshChrome()
+}
+
 // SetInitialDirectory sets the initial directory for the file browser.
 func (m *Model) SetInitialDirectory(dir string) { m.initialDir = dir }
 

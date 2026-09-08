@@ -23,6 +23,7 @@ import (
 	"github.com/bjarneo/cliamp/external/navidrome"
 	"github.com/bjarneo/cliamp/external/netease"
 	"github.com/bjarneo/cliamp/external/plex"
+	"github.com/bjarneo/cliamp/external/podcast"
 	"github.com/bjarneo/cliamp/external/qobuz"
 	"github.com/bjarneo/cliamp/external/radio"
 	"github.com/bjarneo/cliamp/external/radiometa"
@@ -86,7 +87,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 		applog.Info("cliamp starting (version=%s level=%s)", appmeta.Version(), appliedLevel)
 	}
 
-	// Build provider list: Radio is always available, Navidrome and Spotify if configured.
+	// Public providers are always available; account providers register when configured.
 	radioProv := radio.New(radio.Options{
 		Country:     cfg.Radio.Country,
 		SaveCountry: config.SaveRadioCountry,
@@ -98,6 +99,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	if localProv != nil {
 		providers = append(providers, model.ProviderEntry{Key: "local", Name: "Local", Provider: localProv})
 	}
+	providers = append(providers, model.ProviderEntry{Key: "podcast", Name: "Podcasts", Provider: podcast.New(cfg.Podcast.Country)})
 
 	var navClient *navidrome.NavidromeClient
 	if c := navidrome.NewFromConfig(cfg.Navidrome); c != nil {
@@ -508,6 +510,9 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	}
 	if cfg.HideSettingsPane {
 		m.SetHideSettingsPane(true)
+	}
+	if cfg.ShowMetadata {
+		m.SetShowMetadata(true)
 	}
 
 	if rs := resume.Load(); rs.Path != "" && rs.PositionSec > 0 {

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -107,6 +108,10 @@ func (m Model) navMenuItems() []navMenuItem {
 	}
 	if _, ok := m.navBrowser.prov.(provider.GenreBrowser); ok {
 		items = append(items, navMenuItem{label: labels.genresTitle(), mode: provider.BrowseGenres})
+	}
+	if restricted, ok := m.navBrowser.prov.(provider.BrowseModeProvider); ok {
+		modes := restricted.BrowseModes()
+		items = slices.DeleteFunc(items, func(item navMenuItem) bool { return !slices.Contains(modes, item.mode) })
 	}
 	return items
 }
@@ -437,6 +442,14 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 			return fetchNavAlbumTracksCmd(l, album.ID, m.nextNavRequest())
 		}
 		return nil
+	case "f":
+		if m.navBrowser.loading || m.navBrowser.albumLoading {
+			return nil
+		}
+		idx := m.selectedNavRawIndex(len(m.navBrowser.albums))
+		if idx >= 0 && m.toggleFavorite(m.navBrowser.prov, m.navBrowser.albums[idx].ID) && m.isActiveProvider(m.navBrowser.prov.Name()) {
+			return m.fetchProviderPlaylists()
+		}
 	case "s":
 		if artistAlbums {
 			return nil // Sort only applies to global album list.

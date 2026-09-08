@@ -2,6 +2,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/bjarneo/cliamp/history"
@@ -36,9 +37,12 @@ type focusArea int
 
 const (
 	focusPlaylist focusArea = iota
-	focusEQ
-	focusSpeed
 	focusProvPill
+	focusVolume
+	focusEQ
+	focusShuffle
+	focusRepeat
+	focusSpeed
 	focusSearch
 	focusProvider
 	focusNetSearch
@@ -48,8 +52,14 @@ func (f focusArea) label() string {
 	switch f {
 	case focusPlaylist:
 		return "Playlist"
+	case focusVolume:
+		return "Volume"
 	case focusEQ:
 		return "Equalizer"
+	case focusShuffle:
+		return "Shuffle"
+	case focusRepeat:
+		return "Repeat"
 	case focusSpeed:
 		return "Speed"
 	case focusProvPill:
@@ -73,19 +83,38 @@ func (m Model) mainFocusAreas() []focusArea {
 	if m.simplified || m.layout.tier == layoutMinimal || m.layout.tier == layoutTooSmall {
 		return areas
 	}
-	// The closed-pane layout draws no EQ or speed readout, so Tab must not
-	// stop on a control the listener cannot see. Both stay reachable by key.
-	if m.layout.closedSettings {
-		if len(m.providers) > 1 {
-			areas = append(areas, focusProvPill)
+	if m.layout.twoColumn {
+		rows := m.effectivePlaylistVisible()
+		for _, row := range m.settingsPaneRows(rows - m.metadataPaneRows(rows)) {
+			if row.focus != focusPlaylist {
+				areas = append(areas, row.focus)
+			}
 		}
 		return areas
 	}
-	areas = append(areas, focusEQ)
 	if len(m.providers) > 1 {
 		areas = append(areas, focusProvPill)
 	}
-	return append(areas, focusSpeed)
+	areas = append(areas, focusVolume)
+	// The closed pane keeps source/volume and the playlist mode badges, but
+	// draws no EQ or speed readout. Both stay reachable by their global keys.
+	if !m.layout.closedSettings {
+		areas = append(areas, focusEQ)
+	}
+	if m.playlist != nil {
+		// Probe each focused badge: its extra label must fit too, independent
+		// of the current focus or an overlay temporarily replacing the header.
+		for _, area := range []focusArea{focusShuffle, focusRepeat} {
+			m.focus = area
+			if strings.Contains(m.renderPlaybackHeader(), "["+area.label()+" ") {
+				areas = append(areas, area)
+			}
+		}
+	}
+	if !m.layout.closedSettings {
+		areas = append(areas, focusSpeed)
+	}
+	return areas
 }
 
 func (m Model) mainFocusAllowed(focus focusArea) bool {
@@ -120,11 +149,13 @@ func (m Model) previousMainFocus(current focusArea) focusArea {
 // normalizeMainFocus clears a focus restored from a wider terminal when its
 // control is not rendered at the current size.
 func (m *Model) normalizeMainFocus() {
-	if (m.focus == focusEQ || m.focus == focusSpeed || m.focus == focusProvPill) && !m.mainFocusAllowed(m.focus) {
-		m.focus = focusPlaylist
-	}
-	if (m.prevFocus == focusEQ || m.prevFocus == focusSpeed || m.prevFocus == focusProvPill) && !m.mainFocusAllowed(m.prevFocus) {
-		m.prevFocus = focusPlaylist
+	for _, focus := range []*focusArea{&m.focus, &m.prevFocus} {
+		switch *focus {
+		case focusProvPill, focusVolume, focusEQ, focusShuffle, focusRepeat, focusSpeed:
+			if !m.mainFocusAllowed(*focus) {
+				*focus = focusPlaylist
+			}
+		}
 	}
 }
 
@@ -433,6 +464,7 @@ type Model struct {
 	simplified      bool // simplified playback view: track summary and time strip
 	hideHelpBar     bool // hide the key-binding hint bar above the status line
 	hideSettings    bool // close the two-column settings pane beside the playlist
+	showMetadata    bool // expand highlighted-track metadata below settings
 	heightExpanded  bool // tracks whether manual 'x' expansion is active
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
