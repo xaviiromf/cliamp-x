@@ -118,6 +118,11 @@ See the [Mixcloud provider guide](docs/mixcloud.md) for discovery, account,
 creator/show, genre search, local genre favorites, authentication, signed-in
 playback, resume, seeking, and limitations.
 
+For podcast discovery and subscriptions, run `cliamp --provider podcast`.
+Browse Apple's top 100 shows and 19 categories, search with `/` then `Enter`,
+and subscribe with `f`. No account or API key is needed.
+See the [Podcasts guide](docs/podcasts.md).
+
 ## Radio
 
 Press `R` in the player to browse about 58,000 online radio stations in the [Radio Browser](https://www.radio-browser.info/) directory.

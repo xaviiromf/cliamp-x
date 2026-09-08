@@ -18,6 +18,9 @@ const (
 )
 
 func (m *Model) replacePlaylist(tracks []playlist.Track) {
+	if m.resumeSaver != nil {
+		tracks = playlist.WithPlaybackContext(tracks)
+	}
 	m.playlist.Replace(tracks)
 	m.normalizeQueueOverlay()
 }
@@ -31,18 +34,32 @@ func trackIndexByPath(tracks []playlist.Track, path string) int {
 	return -1
 }
 
-func (m *Model) setPlaybackContext(tracks []playlist.Track) {
+func (m *Model) setPlaybackContext(tracks []playlist.Track, index int) {
 	m.playbackContext = cloneTracks(tracks)
+	m.playbackContextIndex = index
 }
 
 func (m *Model) playbackContextFor(track playlist.Track) ([]playlist.Track, int) {
-	context := m.playbackContext
-	index := trackIndexByPath(context, track.Path)
-	if index < 0 && m.playlist != nil {
-		context = m.playlist.Tracks()
-		index = trackIndexByPath(context, track.Path)
+	if context, index := track.PlaybackContext(); index >= 0 {
+		return context, index
 	}
-	return context, index
+	context := m.playbackContext
+	index := m.playbackContextIndex
+	if index >= 0 && index < len(context) && context[index].Path == track.Path {
+		return context, index
+	}
+	if m.playlist != nil {
+		context = m.playlist.Tracks()
+		index = m.playlist.Index()
+		if index >= 0 && index < len(context) && context[index].Path == track.Path {
+			return context, index
+		}
+	}
+	// Path lookup is only a fallback when the source entry's index is unknown.
+	if index := trackIndexByPath(m.playbackContext, track.Path); index >= 0 {
+		return m.playbackContext, index
+	}
+	return context, trackIndexByPath(context, track.Path)
 }
 
 func (m *Model) persistPlaybackContext(track playlist.Track, positionSec int, now time.Time) {
@@ -61,6 +78,9 @@ func (m *Model) tickResumeSave(now time.Time) {
 	if m.resumeSaver == nil || m.player == nil || !m.player.IsPlaying() {
 		return
 	}
+	if m.buffering || m.seek.active || m.seek.inFlight || m.seek.pending {
+		return
+	}
 	if !m.lastResumeSave.IsZero() && now.Sub(m.lastResumeSave) < resumeSaveInterval {
 		return
 	}
@@ -68,7 +88,8 @@ func (m *Model) tickResumeSave(now time.Time) {
 	if index < 0 {
 		return
 	}
-	m.persistPlaybackContext(track, max(0, int(m.cachedPos.Seconds())), now)
+	// cachedPos can still contain a seek preview rather than decoder progress.
+	m.persistPlaybackContext(track, max(0, int(m.player.Position().Seconds())), now)
 }
 
 // nextTrack advances to the next playlist track and starts playing it.
@@ -519,9 +540,15 @@ func (m *Model) beginPlaybackTrack(track playlist.Track) (playlist.Track, tea.Cm
 	m.preloading = false
 	nextRequest(&m.requests.lyrics)
 	track = playlist.RefreshEmbeddedMetadata(track)
-	if trackIndexByPath(m.playbackContext, track.Path) < 0 && m.playlist != nil {
-		m.setPlaybackContext(m.playlist.Tracks())
+	context, index := track.PlaybackContext()
+	if index < 0 && m.playlist != nil {
+		context = m.playlist.Tracks()
+		index = m.playlist.Index()
+		if index < 0 || index >= len(context) || context[index].Path != track.Path {
+			index = trackIndexByPath(context, track.Path)
+		}
 	}
+	m.setPlaybackContext(context, index)
 	m.setPlaybackTrack(track)
 	positionSec := 0
 	if m.resume.path == track.Path {

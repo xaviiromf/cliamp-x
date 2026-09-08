@@ -132,6 +132,20 @@ func (m *Model) SetHideHelpBar(v bool) {
 	m.refreshChrome()
 }
 
+// SetHideSettingsPane closes the settings pane beside the playlist, returning
+// the playback screen to its single-column layout where the same settings are
+// drawn as stacked rows.
+func (m *Model) SetHideSettingsPane(v bool) {
+	m.hideSettings = v
+	m.refreshChrome()
+}
+
+// SetShowMetadata expands the highlighted-track details below Settings.
+func (m *Model) SetShowMetadata(v bool) {
+	m.showMetadata = v
+	m.refreshChrome()
+}
+
 // SetInitialDirectory sets the initial directory for the file browser.
 func (m *Model) SetInitialDirectory(dir string) { m.initialDir = dir }
 
@@ -203,6 +217,12 @@ func (m *Model) SetResume(path string, secs int) {
 // SetResumeSaver enables continuous playback-context persistence.
 func (m *Model) SetResumeSaver(save ResumeSaver) {
 	m.resumeSaver = save
+	if save != nil && m.playlist != nil {
+		// Updating entries preserves selection, shuffle order, and queued playback.
+		for i, track := range playlist.WithPlaybackContext(m.playlist.Tracks()) {
+			m.playlist.SetTrack(i, track)
+		}
+	}
 }
 
 // SetInitialTrack selects the restored track without starting playback.
@@ -213,7 +233,7 @@ func (m *Model) SetInitialTrack(index int) {
 	m.playlist.SetIndex(index)
 	m.plCursor = index
 	tracks := m.playlist.Tracks()
-	m.setPlaybackContext(tracks)
+	m.setPlaybackContext(tracks, index)
 	m.setHeaderStateFromTracks(tracks)
 }
 

@@ -499,6 +499,19 @@ func (c *Client) StreamItemID(rawURL string) (string, bool) {
 	return itemID, true
 }
 
+// ResolveSource refreshes this server's download URLs at play time. Other
+// sources pass through unchanged without authentication.
+func (c *Client) ResolveSource(rawURL string) (string, error) {
+	itemID, ok := c.StreamItemID(rawURL)
+	if !ok {
+		return rawURL, nil
+	}
+	if err := c.ensureAuth(); err != nil {
+		return "", err
+	}
+	return c.streamURL(itemID, c.authToken()), nil
+}
+
 // StreamURLFromCurrentAuth returns an authenticated stream URL without doing
 // network I/O. It reports false when password authentication has not run yet.
 func (c *Client) StreamURLFromCurrentAuth(itemID string) (string, bool) {

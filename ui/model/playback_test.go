@@ -339,6 +339,7 @@ func TestNavTrackPlaybackKeepsCompleteAlbumContext(t *testing.T) {
 			cursor: 1,
 		},
 	}
+	m.SetResumeSaver(func(playlist.Track, int, []playlist.Track, int) {})
 
 	if cmd := m.handleNavTrackListKey(tea.KeyPressMsg{Code: tea.KeyEnter}); cmd == nil {
 		t.Fatal("handleNavTrackListKey(Enter) = nil, want playback command")
@@ -358,9 +359,7 @@ func TestBeginPlaybackPersistsActualTrackAndCompleteContextImmediately(t *testin
 	for i := range album {
 		album[i] = playlist.Track{Title: fmt.Sprintf("Track %d", i+1), Path: fmt.Sprintf("https://example.com/%d", i+1), Stream: true}
 	}
-	pl.Add(album[11])
-	pl.SetIndex(0)
-	m := Model{player: player, playlist: pl, playbackContext: album}
+	m := Model{player: player, playlist: pl}
 	var savedTrack playlist.Track
 	var savedContext []playlist.Track
 	var savedIndex, savedPosition int
@@ -370,6 +369,8 @@ func TestBeginPlaybackPersistsActualTrackAndCompleteContextImmediately(t *testin
 		savedContext = context
 		savedIndex = contextIndex
 	})
+	album = playlist.WithPlaybackContext(album)
+	pl.Add(album[11])
 
 	m.beginPlaybackTrack(album[11])
 
@@ -392,12 +393,12 @@ func TestTickResumeSavePersistsPositionAndThrottlesWrites(t *testing.T) {
 		positions = append(positions, positionSec)
 	})
 	base := time.Now()
-	m.cachedPos = 42 * time.Second
+	player.position = 42 * time.Second
 
 	m.tickResumeSave(base)
-	m.cachedPos = 43 * time.Second
+	player.position = 43 * time.Second
 	m.tickResumeSave(base.Add(time.Second))
-	m.cachedPos = 47 * time.Second
+	player.position = 47 * time.Second
 	m.tickResumeSave(base.Add(resumeSaveInterval))
 
 	if !slices.Equal(positions, []int{42, 47}) {

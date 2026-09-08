@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/bjarneo/cliamp/config"
@@ -53,5 +54,53 @@ func TestRestoreJellyfinContextRejectsSingularLegacyResume(t *testing.T) {
 
 	if tracks, _, _, ok := restoreJellyfinContext(state, prov); ok || len(tracks) != 0 {
 		t.Fatalf("restoreJellyfinContext() = (%+v, %v), want no singular restore", tracks, ok)
+	}
+}
+
+func TestRestoreJellyfinContextPreservesMixedPlaylistAndDuplicate(t *testing.T) {
+	prov := jellyfin.NewFromConfig(config.JellyfinConfig{
+		URL: "http://jf.example.com:8096/media", Token: "new-token", UserID: "user-1",
+	})
+	path := "http://jf.example.com:8096/media/Items/one/Download?api_key=old-token"
+	local := playlist.Track{Path: "/music/local.mp3", Title: "Local"}
+	foreign := playlist.Track{Path: "https://other.example/Items/two/Download?api_key=foreign-token", Stream: true}
+	state := resume.State{
+		Path: path, ContextIndex: 2,
+		Context: []playlist.Track{{Path: path}, local, {Path: path}, foreign},
+	}
+	tracks, index, activePath, ok := restoreJellyfinContext(state, prov)
+	if !ok || len(tracks) != 4 || index != 2 {
+		t.Fatalf("restore = (%+v, %d, %v), want mixed playlist and second duplicate", tracks, index, ok)
+	}
+	if !reflect.DeepEqual(tracks[1], local) || !reflect.DeepEqual(tracks[3], foreign) {
+		t.Fatal("restoration changed unrelated tracks")
+	}
+	if activePath != tracks[2].Path || tracks[0].Path != tracks[2].Path || activePath == path {
+		t.Fatalf("restoration did not refresh both duplicate URLs: %+v", tracks)
+	}
+	if state.Context[2].Path != path {
+		t.Fatal("restoration mutated saved context")
+	}
+}
+
+func TestRestoreJellyfinContextValidatesActiveEntry(t *testing.T) {
+	prov := jellyfin.NewFromConfig(config.JellyfinConfig{
+		URL: "https://jf.example.com", Token: "token", UserID: "user-1",
+	})
+	path := "https://jf.example.com/Items/one/Download?api_key=token"
+	for _, tt := range []struct {
+		name  string
+		state resume.State
+		want  bool
+	}{
+		{name: "invalid index recovered", state: resume.State{Path: path, ContextIndex: -1, Context: []playlist.Track{{Path: path}}}, want: true},
+		{name: "missing active path", state: resume.State{Path: "missing", Context: []playlist.Track{{Path: path}}}},
+		{name: "foreign active server", state: resume.State{Path: "/music/local.mp3", Context: []playlist.Track{{Path: "/music/local.mp3"}, {Path: path}}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, _, _, ok := restoreJellyfinContext(tt.state, prov); ok != tt.want {
+				t.Fatalf("restored = %v, want %v", ok, tt.want)
+			}
+		})
 	}
 }

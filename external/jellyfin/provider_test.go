@@ -2,6 +2,7 @@ package jellyfin
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -163,7 +164,7 @@ func TestProviderRestoreTrack(t *testing.T) {
 	}
 }
 
-func TestProviderRestoreTrackDoesNotAuthenticateDuringStartup(t *testing.T) {
+func TestProviderRestoreTrackDefersAuthenticationUntilSourceResolution(t *testing.T) {
 	p := newProvider(NewClient("https://jf.example.com", "", "", "user", "password"))
 	p.client.SetHTTPClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		t.Fatalf("unexpected startup request: %s", req.URL)
@@ -176,6 +177,34 @@ func TestProviderRestoreTrackDoesNotAuthenticateDuringStartup(t *testing.T) {
 	}
 	if got.Path != oldURL {
 		t.Fatalf("RestoreTrack() path = %q, want saved URL before password authentication", got.Path)
+	}
+	p.client.SetHTTPClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/Users/AuthenticateByName" {
+			t.Fatalf("unexpected request: %s", req.URL)
+		}
+		return jsonResponse(`{"User":{"Id":"user-1"},"AccessToken":"new-token"}`), nil
+	})})
+	source, err := p.ResolveSource(got.Path)
+	if err != nil {
+		t.Fatalf("ResolveSource() error: %v", err)
+	}
+	if want := "https://jf.example.com/Items/track-1/Download?api_key=new-token"; source != want {
+		t.Fatalf("ResolveSource() = %q, want %q", source, want)
+	}
+	if got.Path != oldURL || got.Title != "Song" || got.Meta(provider.MetaJellyfinID) != "track-1" || !got.Stream {
+		t.Fatalf("source resolution changed the logical restored track: %+v", got)
+	}
+}
+
+func TestProviderResolveSourcePropagatesAuthenticationFailure(t *testing.T) {
+	p := newProvider(NewClient("https://jf.example.com", "", "", "user", "password"))
+	authErr := errors.New("authentication unavailable")
+	p.client.SetHTTPClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, authErr
+	})})
+	got, err := p.ResolveSource("https://jf.example.com/Items/track-1/Download?api_key=old-token")
+	if !errors.Is(err, authErr) || got != "" {
+		t.Fatalf("ResolveSource() = (%q, %v), want no source and authentication error", got, err)
 	}
 }
 
