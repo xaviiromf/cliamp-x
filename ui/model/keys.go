@@ -278,7 +278,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			return m.quit()
 		case "esc", "i":
 			m.showInfo = false
-		case "I":
+		case "ctrl+i":
 			m.showInfo = false
 			m.toggleMetadata()
 		case "up", "k":
@@ -342,7 +342,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	if m.focus != focusProvider {
 		switch msg.String() {
-		case "I":
+		case "ctrl+i":
 			m.toggleMetadata()
 			return nil
 		case "i":

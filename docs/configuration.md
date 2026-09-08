@@ -95,7 +95,7 @@ hide_help_bar = false
 # Close the Settings pane beside the playlist (Ctrl+B toggles and saves).
 hide_settings_pane = false
 
-# Show highlighted-playlist metadata below Settings (Shift+I toggles and saves).
+# Show highlighted-playlist metadata below Settings (Ctrl+I toggles and saves).
 show_metadata = false
 
 # UI theme name (see available themes in ~/.config/cliamp/themes/)
@@ -177,10 +177,14 @@ more rows for navigation. The visualizer picker keeps its live preview.
 ### Metadata
 
 The read-only `Metadata` section sits below Settings and is hidden by default.
-In the main playback view, `I` (`Shift+I`, uppercase I) toggles it and saves the
+In the main playback view, `Ctrl+I` toggles it and saves the
 top-level `show_metadata` preference. The default is `show_metadata = false`,
 so the existing layout stays unchanged until you enable it. Metadata is not a
-separate Tab stop, and `I` remains text while an input field is active.
+separate Tab stop, and the toggle is inactive while an input field is active.
+
+`Ctrl+I` requires enhanced keyboard reporting to distinguish it from `Tab`.
+On terminals that send both keys identically, `Tab` navigation takes precedence;
+use lowercase `i` for full info or set `show_metadata = true` in the config.
 
 Metadata describes the **highlighted playlist item**, not necessarily the item
 currently playing: a song, podcast episode, or radio stream. Moving the highlight
@@ -207,7 +211,7 @@ the full, scrollable info view for the same highlighted item, including Path.
 Use `Up`/`Down` or `j`/`k` to scroll, and `i` or `Esc` to close it.
 
 When enabling Metadata in a narrow or simplified layout, with Settings closed,
-or with a sidebar too short for details, `Shift+I` opens that full info overlay
+or with a sidebar too short for details, `Ctrl+I` opens that full info overlay
 instead. The preference remains saved so the section appears when you return
 to a wide playback layout with enough room and Settings open.
 

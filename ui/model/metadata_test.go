@@ -194,43 +194,59 @@ func TestMetadataMissingSelectionAndPathPrivacy(t *testing.T) {
 }
 
 func TestMetadataToggleDefaultsAndPersistence(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		key  tea.KeyPressMsg
-	}{
-		{"uppercase text", tea.KeyPressMsg{Text: "I"}},
-		{"enhanced Shift+I", tea.KeyPressMsg{Code: 'i', ShiftedCode: 'I', Mod: tea.ModShift}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			m := newColumnTestModel(80, 24)
-			saver := &recordingConfigSaver{}
-			m.configSaver = saver
-			before := m.layout
-			if m.showMetadata || m.metadataPaneRows(20) != 0 || strings.Contains(ansi.Strip(m.View().Content), "Metadata [I]") {
-				t.Fatal("metadata is not collapsed by default")
-			}
-			for _, want := range []bool{true, false} {
-				updated, cmd := m.Update(tt.key)
-				m = updated.(Model)
-				if cmd != nil || m.showMetadata != want || m.showInfo {
-					t.Fatalf("toggle: shown=%v info=%v command=%v, want shown=%v without overlay or command", m.showMetadata, m.showInfo, cmd != nil, want)
-				}
-				if len(saver.values) != 1 || saver.values["show_metadata"] != strconv.FormatBool(want) {
-					t.Fatalf("saved config = %v, want only show_metadata=%v", saver.values, want)
-				}
-				if got := strings.Contains(ansi.Strip(m.View().Content), "Metadata [I]"); got != want {
-					t.Fatalf("metadata header visible = %v, want %v", got, want)
-				}
-			}
-			if m.layout != before {
-				t.Fatalf("closing metadata changed layout: %+v, want %+v", m.layout, before)
-			}
-		})
+	m := newColumnTestModel(80, 24)
+	saver := &recordingConfigSaver{}
+	m.configSaver = saver
+	before := m.layout
+	if m.showMetadata || m.metadataPaneRows(20) != 0 || strings.Contains(ansi.Strip(m.View().Content), "Metadata [Ctrl+I]") {
+		t.Fatal("metadata is not collapsed by default")
 	}
-	for _, key := range []string{"i", "I"} {
+	for _, want := range []bool{true, false} {
+		updated, cmd := m.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
+		m = updated.(Model)
+		if cmd != nil || m.showMetadata != want || m.showInfo {
+			t.Fatalf("toggle: shown=%v info=%v command=%v, want shown=%v without overlay or command", m.showMetadata, m.showInfo, cmd != nil, want)
+		}
+		if len(saver.values) != 1 || saver.values["show_metadata"] != strconv.FormatBool(want) {
+			t.Fatalf("saved config = %v, want only show_metadata=%v", saver.values, want)
+		}
+		if got := strings.Contains(ansi.Strip(m.View().Content), "Metadata [Ctrl+I]"); got != want {
+			t.Fatalf("metadata header visible = %v, want %v", got, want)
+		}
+	}
+	if m.layout != before {
+		t.Fatalf("closing metadata changed layout: %+v, want %+v", m.layout, before)
+	}
+	for _, key := range []string{"i", "ctrl+i"} {
 		if !ReservedKeys()[key] {
 			t.Errorf("metadata key %q is not reserved", key)
 		}
+	}
+	if ReservedKeys()["I"] {
+		t.Error("the removed Shift+I shortcut is still reserved")
+	}
+}
+
+func TestMetadataShortcutLeavesTabNavigationIntact(t *testing.T) {
+	for _, tt := range []struct {
+		key  tea.KeyPressMsg
+		want focusArea
+	}{
+		{tea.KeyPressMsg{Code: tea.KeyTab}, focusProvPill},
+		{tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}, focusSpeed},
+		{tea.KeyPressMsg{Text: "I"}, focusPlaylist},
+		{tea.KeyPressMsg{Code: 'i', ShiftedCode: 'I', Mod: tea.ModShift}, focusPlaylist},
+	} {
+		t.Run(tt.key.String(), func(t *testing.T) {
+			m := newColumnTestModel(80, 24)
+			saver := &recordingConfigSaver{}
+			m.configSaver = saver
+			updated, _ := m.Update(tt.key)
+			m = updated.(Model)
+			if m.focus != tt.want || m.showMetadata || m.showInfo || len(saver.values) != 0 {
+				t.Fatalf("%s: focus=%s metadata=%v info=%v saves=%v", tt.key.String(), m.focus.label(), m.showMetadata, m.showInfo, saver.values)
+			}
+		})
 	}
 }
 
@@ -261,7 +277,7 @@ func TestMetadataLayoutAndFocusBudget(t *testing.T) {
 			}
 			rows := m.effectivePlaylistVisible()
 			pane := m.renderSettingsPane(rows)
-			if !strings.Contains(ansi.Strip(pane), "Metadata [I]") {
+			if !strings.Contains(ansi.Strip(pane), "Metadata [Ctrl+I]") {
 				t.Fatalf("metadata absent from sidebar:\n%s", ansi.Strip(pane))
 			}
 			assertViewFits(t, pane, m.layout.settingsWidth, rows)
@@ -316,7 +332,7 @@ func TestMetadataTinyRowBudgets(t *testing.T) {
 				}
 				return
 			}
-			if len(strings.Split(pane, "\n")) != tt.rows || strings.Contains(pane, "Metadata [I]") != (tt.metadata > 0) {
+			if len(strings.Split(pane, "\n")) != tt.rows || strings.Contains(pane, "Metadata [Ctrl+I]") != (tt.metadata > 0) {
 				t.Fatalf("sidebar does not respect %d rows:\n%s", tt.rows, pane)
 			}
 			for _, setting := range []struct {
@@ -350,7 +366,7 @@ func TestMetadataFallbackAndPreference(t *testing.T) {
 			saver := &recordingConfigSaver{}
 			m.configSaver = saver
 			for _, want := range []bool{true, false, true} {
-				updated, _ := m.Update(tea.KeyPressMsg{Text: "I"})
+				updated, _ := m.Update(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
 				m = updated.(Model)
 				if m.showMetadata != want || m.showInfo != want || saver.values["show_metadata"] != strconv.FormatBool(want) {
 					t.Fatalf("fallback toggle: metadata=%v info=%v saved=%v, want %v", m.showMetadata, m.showInfo, saver.values, want)
@@ -362,14 +378,14 @@ func TestMetadataFallbackAndPreference(t *testing.T) {
 			if m.showInfo || !m.showMetadata || saver.values["show_metadata"] != "true" || m.layout != before || m.visRows != 12 {
 				t.Fatal("Esc did not retain preference and restore the non-sidebar layout")
 			}
-			if strings.Contains(ansi.Strip(m.View().Content), "Metadata [I]") {
+			if strings.Contains(ansi.Strip(m.View().Content), "Metadata [Ctrl+I]") {
 				t.Fatal("metadata sidebar appeared outside the full two-column layout")
 			}
 			updated, _ = m.Update(tea.WindowSizeMsg{Width: 160, Height: 48})
 			m = updated.(Model)
 			m.SetSimplified(false)
 			m.SetHideSettingsPane(false)
-			if m.showInfo || !m.showMetadata || !strings.Contains(ansi.Strip(m.View().Content), "Metadata [I]") {
+			if m.showInfo || !m.showMetadata || !strings.Contains(ansi.Strip(m.View().Content), "Metadata [Ctrl+I]") {
 				t.Fatal("saved preference did not restore metadata in the wide sidebar")
 			}
 		})
@@ -383,9 +399,9 @@ func TestMetadataMoreDetailsFromSettingsFocus(t *testing.T) {
 			m.focus, m.plCursor = focus, 1
 			m.playlist.SetTrack(1, playlist.Track{Path: "/selected.mp3", Title: "Selected", Artist: "Artist", Album: "Album",
 				Genre: "Genre", Year: 2026, TrackNumber: 2, DurationSecs: 123})
-			m.handleKey(tea.KeyPressMsg{Text: "I"})
+			m.handleKey(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
 			if !m.showMetadata || m.showInfo || m.focus != focus {
-				t.Fatal("Shift+I failed to open metadata without changing setting focus")
+				t.Fatal("Ctrl+I failed to open metadata without changing setting focus")
 			}
 			if pane := ansi.Strip(m.renderSettingsPane(m.effectivePlaylistVisible())); !strings.Contains(pane, "i: more details") {
 				t.Fatalf("truncated sidebar omitted the full-info hint:\n%s", pane)
@@ -451,6 +467,7 @@ func TestMetadataKeyStaysLiteralInTextInputs(t *testing.T) {
 					t.Fatal("typing I scheduled a command")
 				}
 			}
+			m.handleKey(tea.KeyPressMsg{Code: 'i', Mod: tea.ModCtrl})
 			if *input != "II" || m.showMetadata || m.showInfo || len(saver.values) != 0 {
 				t.Fatalf("input=%q metadata=%v info=%v saves=%v", *input, m.showMetadata, m.showInfo, saver.values)
 			}

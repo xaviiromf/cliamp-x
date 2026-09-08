@@ -67,7 +67,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # hide_settings_pane = true
 
 # Show read-only metadata below Settings for the highlighted playlist item.
-# Hidden by default; Shift+I toggles and saves. Enabling it without room for the
+# Hidden by default; Ctrl+I toggles and saves. Enabling it without room for the
 # section opens full info instead. Closing Settings preserves this preference.
 # show_metadata = false
 

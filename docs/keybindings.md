@@ -72,7 +72,7 @@ fields support these editor keys:
 | `Ctrl+W` | Delete previous word |
 | `Ctrl+U` | Clear text before cursor |
 
-Uppercase `I` remains text in input fields; it does not toggle Metadata.
+The Metadata shortcut is inactive while a text input is active.
 
 ## EQ and Appearance
 
@@ -103,7 +103,7 @@ and `Esc` clears it.
 | `y` | Show or close lyrics |
 | `r` | Retry lyrics lookup while lyrics are open |
 | `i` | From the playlist, open full info for the highlighted item, including Path (`Up`/`Down` or `j`/`k` scroll; `i`/`Esc` closes) |
-| `I` (`Shift+I`) | Toggle Metadata below Settings for the highlighted playlist item (remembered in `show_metadata`) |
+| `Ctrl+I` | Toggle Metadata below Settings for the highlighted playlist item (remembered in `show_metadata`; requires a terminal that distinguishes Ctrl+I from Tab) |
 | `Ctrl+S` | Save track to `~/Music/cliamp` |
 | `w` | Write the highlighted track to a local playlist |
 | `N` | Open the active provider browser. On a selected Mixcloud show, open that creator's Uploads/Favorites. In the radio pane, open the country browser. |

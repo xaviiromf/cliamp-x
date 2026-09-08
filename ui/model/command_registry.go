@@ -145,7 +145,7 @@ var commandRegistry = []commandSpec{
 		return !m.simplified && m.layout.tier == layoutFull
 	}, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"i"}, KeyLabel: "i", Label: "Track info / metadata", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain | commandModeInfo, Keys: []string{"I"}, KeyLabel: "Shift+I", Label: "Metadata", Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain | commandModeInfo, Keys: []string{"ctrl+i"}, KeyLabel: "Ctrl+I", Label: "Metadata", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+s"}, KeyLabel: "Ctrl+S", Label: "Save/download track to ~/Music/cliamp", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand/collapse view", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand", Enabled: func(m Model) bool {
