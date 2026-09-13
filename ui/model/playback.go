@@ -453,8 +453,6 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		}
 		return playYTDLStreamCmd(m.player, track.Path, dur, m.requests.stream)
 	}
-	// Fire now-playing notification for Navidrome tracks.
-	m.nowPlaying(track)
 	dur := time.Duration(track.DurationSecs) * time.Second
 	if track.Stream {
 		m.buffering = true
@@ -477,6 +475,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		// yt-dlp streams resume after streamPlayedMsg; local playback reaches
 		// this branch, where applyResume performs the seek synchronously.
 		m.applyResume()
+		m.nowPlaying(track)
 		m.backfillLoadedPlaylistDuration(track)
 		if fetchCmd != nil {
 			return tea.Batch(m.preloadNext(), fetchCmd)
