@@ -161,6 +161,7 @@ type markerColumns struct {
 	queue    bool
 	bookmark bool
 	favorite bool
+	played   bool
 }
 
 // markerColumns decides the reserved marker columns for one render pass. It is
@@ -172,6 +173,7 @@ func (m Model) markerColumns() markerColumns {
 		queue:    m.playlist.QueueLen() > 0,
 		bookmark: m.playlistStarCount() > 0,
 		favorite: len(m.favSet) > 0,
+		played:   m.hasPlaybackState(),
 	}
 }
 
