@@ -179,6 +179,40 @@ func TestProgressStoreCorruptFileStartsEmpty(t *testing.T) {
 	}
 }
 
+// A feed with no GUIDs keys its episodes by audio URL, which the CDN rewrites
+// per request. The position recorded under the first URL must be found again
+// under the second, through the title alias, and must not be duplicated.
+func TestProgressStoreFollowsRewrittenPathKeys(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	s := newProgressStore()
+	before := episodeTrack("", "https://cdn.example.com/a.mp3?token=1")
+	before.Album = "Some Show"
+	after := episodeTrack("", "https://cdn.example.com/a.mp3?token=2")
+	after.Album = "Some Show"
+
+	s.record(before, 20*time.Minute, time.Hour)
+
+	state, ok := s.state(after)
+	if !ok || state.Position != 20*time.Minute {
+		t.Fatalf("state(after) = %+v, %v; want the 20m recorded under the first URL", state, ok)
+	}
+	s.record(after, 30*time.Minute, time.Hour)
+	if len(s.episodes) != 1 {
+		t.Errorf("episodes = %d, want the rewritten URL to update the one record", len(s.episodes))
+	}
+	if state, _ := s.state(before); state.Position != 30*time.Minute {
+		t.Errorf("state(before) = %+v, want 30m shared with the second URL", state)
+	}
+
+	// A publisher GUID binds tighter: a different GUID under the same title
+	// is a different episode, even when the stored one's URL matches.
+	other := episodeTrack("guid-2", "https://cdn.example.com/a.mp3?token=1")
+	other.Album = "Some Show"
+	if _, ok := s.state(other); ok {
+		t.Error("state(other) = ok for a new GUID that only shares a title")
+	}
+}
+
 func TestProgressStoreLeavesNewerVersionUntouched(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CLIAMP_CONFIG_DIR", dir)

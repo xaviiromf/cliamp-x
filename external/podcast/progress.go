@@ -180,11 +180,28 @@ func titleKey(track playlist.Track) string {
 }
 
 // resolveLocked returns the episode key for a track: its own when it carries
-// metadata, otherwise the one its title aliases. The caller holds s.mu.
+// metadata, otherwise the one its title aliases. A key built from the audio
+// URL, because the feed gave the episode no GUID of its own, is only as
+// stable as that URL; when nothing is stored under it, the title alias is
+// consulted before a fresh record starts, so a CDN rewrite does not orphan
+// the position. The caller holds s.mu.
 func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
-	if key := episodeKey(track); key != "" {
+	key := episodeKey(track)
+	if key == "" {
+		return s.aliasTargetLocked(track)
+	}
+	if _, ok := s.episodes[key]; ok || !pathDerivedGUID(track) {
 		return key, true
 	}
+	if target, ok := s.aliasTargetLocked(track); ok {
+		return target, true
+	}
+	return key, true
+}
+
+// aliasTargetLocked returns the episode a track's title names, when it names
+// exactly one that the store still holds. The caller holds s.mu.
+func (s *progressStore) aliasTargetLocked(track playlist.Track) (string, bool) {
 	target, ok := s.aliases[titleKey(track)]
 	if !ok || target == ambiguousAlias {
 		return "", false
@@ -193,6 +210,14 @@ func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
 		return "", false
 	}
 	return target, true
+}
+
+// pathDerivedGUID reports whether a track's GUID is its audio URL: the feed
+// reader puts the URL there when the feed has no GUID, and some feeds do the
+// same themselves. Either way the key changes whenever the URL does.
+func pathDerivedGUID(track playlist.Track) bool {
+	guid := strings.TrimSpace(track.Meta(provider.MetaPodcastGUID))
+	return guid == "" || guid == strings.TrimSpace(track.Path)
 }
 
 // record stores a position for an episode, marking it played when position

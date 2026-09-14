@@ -55,15 +55,16 @@ an episode shorter than two minutes counts as played past its midpoint
 instead. Playing a played episode again clears the mark.
 
 Each episode has one record, keyed by its feed and GUID; a feed that gives an
-episode no GUID gets its audio URL in that place, as the feed reader does.
-Playlists saved by this version keep both, so their tracks are recognized
-directly. A track that arrives without a feed, from a playlist saved by an
-older version or from any other source, is matched by show and episode title
-instead, and only when the store already holds an episode under that title. An
-enclosure URL alone cannot stand in for the metadata: podcast CDNs rewrite
-those per request, so the same episode arrives under a different address every
-time. A title that two episodes share identifies neither, and a radio stream or
-a library track is never mistaken for an episode.
+episode no GUID gets its audio URL in that place, as the feed reader does, and
+the show and title carry its record across a rewrite of that URL. Playlists
+saved by this version keep both, so their tracks are recognized directly. A
+track that arrives without a feed, from a playlist saved by an older version or
+from any other source, is matched by show and episode title instead, and only
+when the store already holds an episode under that title. An enclosure URL
+alone cannot stand in for the metadata: podcast CDNs rewrite those per request,
+so the same episode arrives under a different address every time. A title that
+two episodes share identifies neither, and a radio stream or a library track is
+never mistaken for an episode.
 
 If the file cannot be read at startup, or was written by a newer cliamp,
 cliamp leaves it untouched and does not save positions for that session; the
