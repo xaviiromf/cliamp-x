@@ -47,7 +47,11 @@ const (
 
 // episodeState is one episode's stored listening state.
 type episodeState struct {
-	Feed        string `json:"feed,omitempty"`
+	Feed string `json:"feed,omitempty"`
+	// Published is the episode's publication date as YYYY-MM-DD. It tells
+	// two episodes apart when their titles match and the feed gave neither
+	// a GUID, the one case where the key alone cannot.
+	Published   string `json:"published,omitempty"`
 	PositionSec int    `json:"position_sec"`
 	DurationSec int    `json:"duration_sec,omitempty"`
 	Played      bool   `json:"played,omitempty"`
@@ -184,7 +188,9 @@ func titleKey(track playlist.Track) string {
 // URL, because the feed gave the episode no GUID of its own, is only as
 // stable as that URL; when nothing is stored under it, the title alias is
 // consulted before a fresh record starts, so a CDN rewrite does not orphan
-// the position. The caller holds s.mu.
+// the position. The alias is refused when the publication dates disagree:
+// that is a second episode with the same title, and it gets its own record,
+// which marks the title ambiguous. The caller holds s.mu.
 func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
 	key := episodeKey(track)
 	if key == "" {
@@ -193,10 +199,19 @@ func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
 	if _, ok := s.episodes[key]; ok || !pathDerivedGUID(track) {
 		return key, true
 	}
-	if target, ok := s.aliasTargetLocked(track); ok {
+	if target, ok := s.aliasTargetLocked(track); ok && s.samePublicationLocked(target, track) {
 		return target, true
 	}
 	return key, true
+}
+
+// samePublicationLocked reports whether a stored episode and a track could
+// be the same episode, judged by publication date. A date missing on either
+// side cannot contradict the other. The caller holds s.mu.
+func (s *progressStore) samePublicationLocked(key string, track playlist.Track) bool {
+	stored := s.episodes[key].Published
+	got := strings.TrimSpace(track.Meta(provider.MetaPodcastPublished))
+	return stored == "" || got == "" || stored == got
 }
 
 // aliasTargetLocked returns the episode a track's title names, when it names
@@ -238,12 +253,16 @@ func (s *progressStore) record(track playlist.Track, position, duration time.Dur
 	}
 	state := episodeState{
 		Feed:        track.Meta(provider.MetaPodcastFeed),
+		Published:   strings.TrimSpace(track.Meta(provider.MetaPodcastPublished)),
 		PositionSec: int(position / time.Second),
 		DurationSec: int(duration / time.Second),
 		UpdatedUnix: time.Now().Unix(),
 	}
 	if state.Feed == "" {
 		state.Feed = s.episodes[key].Feed
+	}
+	if state.Published == "" {
+		state.Published = s.episodes[key].Published
 	}
 	// An episode shorter than the tail would otherwise count as played from
 	// its first report, so a short one has to reach at least its midpoint.

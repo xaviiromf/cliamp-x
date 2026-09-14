@@ -187,8 +187,10 @@ func TestProgressStoreFollowsRewrittenPathKeys(t *testing.T) {
 	s := newProgressStore()
 	before := episodeTrack("", "https://cdn.example.com/a.mp3?token=1")
 	before.Album = "Some Show"
+	before.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-10"
 	after := episodeTrack("", "https://cdn.example.com/a.mp3?token=2")
 	after.Album = "Some Show"
+	after.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-10"
 
 	s.record(before, 20*time.Minute, time.Hour)
 
@@ -210,6 +212,44 @@ func TestProgressStoreFollowsRewrittenPathKeys(t *testing.T) {
 	other.Album = "Some Show"
 	if _, ok := s.state(other); ok {
 		t.Error("state(other) = ok for a new GUID that only shares a title")
+	}
+}
+
+// Two episodes of one show with the same title and no GUIDs are still two
+// episodes: their publication dates differ, so the second must not inherit
+// the first's record through the title alias, and the title goes ambiguous.
+func TestProgressStoreKeepsSameTitledNoGUIDEpisodesApart(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	s := newProgressStore()
+	first := episodeTrack("", "https://cdn.example.com/1.mp3?token=1")
+	first.Album, first.Title = "Some Show", "Weekly Roundup"
+	first.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-03"
+	second := episodeTrack("", "https://cdn.example.com/2.mp3?token=1")
+	second.Album, second.Title = "Some Show", "Weekly Roundup"
+	second.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-10"
+
+	s.record(first, 20*time.Minute, time.Hour)
+	if _, ok := s.state(second); ok {
+		t.Fatal("state(second) = ok before it was ever played; it borrowed the first episode's record")
+	}
+	s.record(second, 5*time.Minute, time.Hour)
+
+	if len(s.episodes) != 2 {
+		t.Fatalf("episodes = %d, want one record per episode", len(s.episodes))
+	}
+	if state, _ := s.state(first); state.Position != 20*time.Minute {
+		t.Errorf("state(first) = %+v, want its own 20m untouched", state)
+	}
+	if got := s.aliases[titleKey(first)]; got != ambiguousAlias {
+		t.Errorf("alias = %q, want ambiguous once two episodes claim the title", got)
+	}
+	// After the URLs rotate, neither can be told from the other by title, so
+	// neither resumes: the documented rule for a shared title.
+	rotated := episodeTrack("", "https://cdn.example.com/1.mp3?token=2")
+	rotated.Album, rotated.Title = "Some Show", "Weekly Roundup"
+	rotated.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-03"
+	if _, ok := s.state(rotated); ok {
+		t.Error("state(rotated) = ok through an ambiguous title")
 	}
 }
 
