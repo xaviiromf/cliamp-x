@@ -179,6 +179,33 @@ func TestProgressStoreCorruptFileStartsEmpty(t *testing.T) {
 	}
 }
 
+func TestProgressStoreLeavesNewerVersionUntouched(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CLIAMP_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "podcast_progress.json")
+	future := []byte(`{"version": 3, "episodes": {}, "aliases": {}, "chapters": {"x": 1}}` + "\n")
+	if err := os.WriteFile(path, future, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := newProgressStore()
+
+	if s.loadErr == nil {
+		t.Fatal("loadErr = nil for a version 3 file, want an error")
+	}
+	s.record(episodeTrack("guid-1", "https://cdn.example.com/a.mp3"), 10*time.Minute, time.Hour)
+	if err := s.flush(); err != nil {
+		t.Fatalf("flush() error = %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(future) {
+		t.Errorf("file after flush = %s, want the version 3 file left as written", got)
+	}
+}
+
 func TestProgressStorePrunesOldestFirst(t *testing.T) {
 	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
 	s := newProgressStore()

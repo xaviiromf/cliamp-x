@@ -51,20 +51,23 @@ Each episode's position is stored in `podcast_progress.json` in the
 resumes five seconds before where you stopped, unless you stopped inside the
 first fifteen seconds, in which case it starts over. Finishing one, or stopping
 within its last minute, marks it played, shown as a tick in the track list;
-playing it again clears the mark.
+an episode shorter than two minutes counts as played past its midpoint
+instead. Playing a played episode again clears the mark.
 
-Each episode has one record, keyed by its feed and GUID. Playlists saved by
-this version keep both, so their tracks are recognized directly. A track that
-arrives without them, from a playlist saved by an older version or from any
-other source, is matched by show and episode title instead, and only when the
-store already holds an episode under that title. An enclosure URL cannot stand
-in for the metadata: podcast CDNs rewrite those per request, so the same
-episode arrives under a different address every time. A title that two
-episodes share identifies neither, and a radio stream or a library track is
-never mistaken for an episode.
+Each episode has one record, keyed by its feed and GUID; a feed that gives an
+episode no GUID gets its audio URL in that place, as the feed reader does.
+Playlists saved by this version keep both, so their tracks are recognized
+directly. A track that arrives without a feed, from a playlist saved by an
+older version or from any other source, is matched by show and episode title
+instead, and only when the store already holds an episode under that title. An
+enclosure URL alone cannot stand in for the metadata: podcast CDNs rewrite
+those per request, so the same episode arrives under a different address every
+time. A title that two episodes share identifies neither, and a radio stream or
+a library track is never mistaken for an episode.
 
-If the file cannot be read at startup, cliamp leaves it untouched and does not
-save positions for that session; the reason is in the log.
+If the file cannot be read at startup, or was written by a newer cliamp,
+cliamp leaves it untouched and does not save positions for that session; the
+reason is in the log.
 
 ## Subscriptions
 

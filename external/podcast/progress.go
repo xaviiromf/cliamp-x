@@ -112,9 +112,15 @@ func newProgressStore() *progressStore {
 // GUID; its entries carry the feed, so they migrate to feed-scoped keys. The
 // title keys version 1 wrote for restored tracks name no episode and are
 // dropped; the listener earns them back the next time the episode plays.
+//
+// A file from a newer cliamp is an error, not a partial read: whatever this
+// version cannot decode would be lost on the next flush, and the error keeps
+// the file untouched instead.
 func (s *progressStore) load(data []byte) error {
 	var file progressFile
-	if err := json.Unmarshal(data, &file); err == nil && file.Version >= progressFormat {
+	if err := json.Unmarshal(data, &file); err == nil && file.Version > progressFormat {
+		return fmt.Errorf("unsupported podcast progress version %d (this build writes %d)", file.Version, progressFormat)
+	} else if err == nil && file.Version == progressFormat {
 		if file.Episodes == nil {
 			file.Episodes = map[string]episodeState{}
 		}
