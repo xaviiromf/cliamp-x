@@ -44,7 +44,15 @@ func (m *Model) openSubsOverlay() bool {
 		m.status.Warning("No subscribed shows. Press f on a show to subscribe.", statusTTLDefault)
 		return false
 	}
-	m.subs = subsOverlay{visible: true, shows: shows, loader: subscriptionLoader(sl)}
+	// A load started before the overlay was closed is still running; keep
+	// its state so the guards refuse a second request until it lands.
+	m.subs = subsOverlay{
+		visible: true,
+		shows:   shows,
+		loader:  subscriptionLoader(sl),
+		loading: m.subs.loading,
+		status:  m.subs.status,
+	}
 	return true
 }
 
@@ -220,7 +228,7 @@ func (m *Model) appendSubscriptionTracks(tracks []playlist.Track, mode subsLoadM
 
 // selectedProviderShow returns the ID and name of the show highlighted in the
 // provider list, and false when the row is a section entry, a browse entry, or
-// a provider that has no shows.
+// the provider lists albums rather than shows.
 func (m Model) selectedProviderShow() (id, name string, ok bool) {
 	if m.provLoading || m.provCursor < 0 || m.provCursor >= len(m.providerLists) {
 		return "", "", false
@@ -228,11 +236,12 @@ func (m Model) selectedProviderShow() (id, name string, ok bool) {
 	if m.selectedProviderListIsBrowseEntry() {
 		return "", "", false
 	}
-	entry := m.providerLists[m.provCursor]
-	if sl, ok := m.provider.(provider.SectionedList); ok && !sl.IsFavoritableID(entry.ID) {
+	sl, ok := m.provider.(provider.ShowLister)
+	if !ok {
 		return "", "", false
 	}
-	if _, ok := m.provider.(provider.AlbumTrackLoader); !ok {
+	entry := m.providerLists[m.provCursor]
+	if !sl.IsShowID(entry.ID) {
 		return "", "", false
 	}
 	return entry.ID, entry.Name, true

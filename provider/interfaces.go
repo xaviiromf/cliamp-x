@@ -172,6 +172,18 @@ type SubscriptionLister interface {
 	Subscriptions() []SubscriptionInfo
 }
 
+// ShowLister is implemented by providers whose list rows are shows: the
+// tracks AlbumTracks returns for such a row are episodes, dated by
+// MetaPodcastPublished, so the newest of them is a meaningful thing to ask
+// for. An album's first track is not, which is why AlbumTrackLoader alone
+// does not qualify.
+type ShowLister interface {
+	AlbumTrackLoader
+	// IsShowID reports whether id names a show in the provider's list, as
+	// opposed to a section heading or a browse entry.
+	IsShowID(id string) bool
+}
+
 // PlaybackState is a track's stored listening state.
 type PlaybackState struct {
 	// Played marks an episode listened to the end.

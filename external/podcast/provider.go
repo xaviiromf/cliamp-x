@@ -29,6 +29,7 @@ var (
 	_ provider.SectionTitler       = (*Provider)(nil)
 	_ provider.ArtistBrowser       = (*Provider)(nil)
 	_ provider.AlbumTrackLoader    = (*Provider)(nil)
+	_ provider.ShowLister          = (*Provider)(nil)
 	_ provider.BrowseLabeler       = (*Provider)(nil)
 	_ provider.BrowseEntryProvider = (*Provider)(nil)
 	_ provider.BrowseModeProvider  = (*Provider)(nil)
@@ -397,6 +398,10 @@ func (*Provider) IDPrefix(id string) string {
 }
 
 func (*Provider) IsFavoritableID(id string) bool { return showFeedURL(id) != "" }
+
+// IsShowID reports whether id names a show; those are the rows whose
+// AlbumTracks are episodes.
+func (*Provider) IsShowID(id string) bool { return showFeedURL(id) != "" }
 
 func (p *Provider) SectionTitle(prefix string) string {
 	switch prefix {

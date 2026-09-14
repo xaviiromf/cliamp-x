@@ -95,6 +95,30 @@ func TestOpenSubsOverlay(t *testing.T) {
 	}
 }
 
+// Closing and reopening the overlay while a load is in flight must not clear
+// the loading flag, or the guards would let a second request start and the
+// two responses would race to clear each other's state.
+func TestOpenSubsOverlayKeepsInFlightLoad(t *testing.T) {
+	m := stubSubsModel()
+	m.openSubsOverlay()
+	if cmd := m.loadSubscription(subsLoadAppend); cmd == nil {
+		t.Fatal("no load command")
+	}
+	if !m.subs.loading {
+		t.Fatal("loading = false after starting a load")
+	}
+	m.subs.visible = false
+
+	m.openSubsOverlay()
+
+	if !m.subs.loading {
+		t.Error("reopening the overlay cleared the in-flight load")
+	}
+	if cmd := m.loadSubscription(subsLoadAppend); cmd != nil {
+		t.Error("a second load started while the first was in flight")
+	}
+}
+
 func TestOpenSubsOverlayWithoutSubscriptions(t *testing.T) {
 	m := &Model{provider: &subProv{}, playlist: playlist.New()}
 
@@ -311,6 +335,8 @@ func (p *sectionedSubProv) IDPrefix(string) string { return "" }
 
 func (p *sectionedSubProv) IsFavoritableID(id string) bool { return p.favoritable[id] }
 
+func (p *sectionedSubProv) IsShowID(id string) bool { return p.favoritable[id] }
+
 func TestSelectedProviderShow(t *testing.T) {
 	prov := &sectionedSubProv{
 		subProv:     subProv{episodes: map[string][]playlist.Track{"f:feed-a": {published("a", "2026-09-10")}}},
@@ -395,6 +421,30 @@ func TestLoadLatestFromProviderListIgnoresSectionRows(t *testing.T) {
 
 	if cmd := m.loadLatestFromProviderList(); cmd != nil {
 		t.Error("a section row produced a load command")
+	}
+}
+
+// A provider that loads albums is not one that lists shows: the l and a keys
+// must stay inert on its rows rather than treat an album as a show.
+func TestProviderListShowActionsNeedAShowLister(t *testing.T) {
+	prov := &albumOnlyProv{}
+	if _, ok := any(prov).(provider.AlbumTrackLoader); !ok {
+		t.Fatal("albumOnlyProv must load albums for this test to mean anything")
+	}
+	m := &Model{
+		provider:      prov,
+		playlist:      playlist.New(),
+		providerLists: []playlist.PlaylistInfo{{ID: "album-1", Name: "An Album"}},
+	}
+
+	if _, _, ok := m.selectedProviderShow(); ok {
+		t.Error("selectedProviderShow() = ok for an album row")
+	}
+	if cmd := m.loadLatestFromProviderList(); cmd != nil {
+		t.Error("l on an album row produced a load command")
+	}
+	if cmd := m.appendShowFromProviderList(); cmd != nil {
+		t.Error("a on an album row produced a load command")
 	}
 }
 
