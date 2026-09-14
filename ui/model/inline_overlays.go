@@ -311,7 +311,11 @@ func (m Model) renderQueueBody() string {
 			break
 		}
 		if row.Index < 0 {
-			lines = append(lines, m.albumSeparator(row.Album, row.Year))
+			// A header on the last row would hide the track under it, and the
+			// track is what the row is for.
+			if len(lines)+1 < budget {
+				lines = append(lines, m.albumSeparator(row.Album, row.Year))
+			}
 			continue
 		}
 		lines = append(lines, m.queueRow(row.Track, row.Index, numWidth, stateReporters))

@@ -123,6 +123,26 @@ func TestQueueKeepsTheNormalLayout(t *testing.T) {
 
 // Album headers take rows of their own, so with the cursor near the bottom of
 // a short budget the view has to scroll past a header to keep it visible.
+// With one row of budget, an album header would take it and leave the selected
+// track unrendered. The track wins.
+func TestRenderQueueBodyOneRowShowsTheTrackNotTheHeader(t *testing.T) {
+	old := ui.PanelWidth
+	ui.PanelWidth = 80
+	t.Cleanup(func() { ui.PanelWidth = old })
+	m := &Model{playlist: playlist.New(), plVisible: 1, showAlbumHeaders: true}
+	m.playlist.Replace([]playlist.Track{{Path: "/t0.mp3", Title: "Track 0", Album: "One Album"}})
+	m.playlist.Queue(0)
+
+	body := stripAnsi(m.renderQueueBody())
+
+	if got := strings.Count(body, "\n") + 1; got != 1 {
+		t.Fatalf("rows = %d, want 1:\n%s", got, body)
+	}
+	if !strings.Contains(body, "> ") || !strings.Contains(body, "1. Track 0") {
+		t.Errorf("the selected track is not the one row:\n%q", body)
+	}
+}
+
 func TestRenderQueueBodyKeepsCursorVisiblePastHeaders(t *testing.T) {
 	old := ui.PanelWidth
 	ui.PanelWidth = 80
