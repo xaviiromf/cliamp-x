@@ -316,6 +316,37 @@ func TestIPCProviderLoadRetiresAnInFlightPagedLoad(t *testing.T) {
 	}
 }
 
+// Any wholesale replacement retires a paged load, not just provider.load.
+func TestWholesaleReplacementRetiresAnInFlightPagedLoad(t *testing.T) {
+	prov := &pagerProv{name: "Pager", pages: [][]playlist.Track{
+		pageOf("a", "b"), pageOf("c", "d"),
+	}}
+	m := newPagingModel(prov)
+
+	updated, _ := m.Update(tracksLoadedMsg{
+		tracks: prov.pages[0], playlistID: "list", providerName: "Pager", offset: 0, next: 1, gen: 1,
+	})
+	m = updated.(Model)
+	if !m.tracksPaging {
+		t.Fatal("setup: expected a paged load in flight")
+	}
+
+	m.ResumePlaylist("saved", pageOf("saved-1", "saved-2"))
+
+	if m.tracksPaging {
+		t.Error("a wholesale replacement left the paged load marked in flight")
+	}
+
+	updated, _ = m.Update(tracksLoadedMsg{
+		tracks: prov.pages[1], playlistID: "list", providerName: "Pager", offset: 1, next: 0, gen: 1,
+	})
+	m = updated.(Model)
+
+	if got := m.playlist.Len(); got != 2 {
+		t.Errorf("queue has %d tracks, want the 2 the replacement installed: a retired page appended", got)
+	}
+}
+
 // m.err has no expiry and renders ahead of the status line, so a list that
 // changed mid-load must not land there: the message would sit on screen for
 // the rest of the session and mask every later status.

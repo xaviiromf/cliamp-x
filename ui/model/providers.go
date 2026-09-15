@@ -143,6 +143,17 @@ func (m *Model) refreshPaneAfterLocalWrite() tea.Cmd {
 	return m.fetchProviderPlaylists()
 }
 
+// retireTracksPaging drops any in-flight paged load. A wholesale playlist
+// replacement makes its later pages stale: they would otherwise still pass
+// the generation guard and append onto the list loaded here.
+func (m *Model) retireTracksPaging() {
+	if !m.tracksPaging {
+		return
+	}
+	nextRequest(&m.requests.tracks)
+	m.tracksPaging = false
+}
+
 func (m *Model) fetchProviderTracks(playlistID string) tea.Cmd {
 	if m.provider == nil {
 		return nil

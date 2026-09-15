@@ -13,6 +13,7 @@ import (
 	"github.com/bjarneo/cliamp/ipc"
 	"github.com/bjarneo/cliamp/player"
 	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/provider"
 	"github.com/bjarneo/cliamp/theme"
 	"github.com/bjarneo/cliamp/ui"
 )
@@ -548,6 +549,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status.Warning("No tracks found", statusTTLDefault)
 				return m, nil
 			}
+			m.retireTracksPaging()
 			m.replacePlayerPlaylist(msg.tracks)
 			m.activeProviderPlaylistID = ""
 			if pr, ok := m.navBrowser.prov.(playlist.RefreshablePlaylist); ok &&
@@ -642,6 +644,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status.Warning("No episodes found in feed.", statusTTLDefault)
 			return m, nil
 		}
+		m.retireTracksPaging()
 		m.replacePlaylist(msg.tracks)
 		m.loadedPlaylist = ""
 		m.setHeaderStateFromTracks(msg.tracks)
@@ -752,6 +755,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.player.Stop()
 			m.player.ClearPreload()
 			m.resetYTDLBatch()
+			m.retireTracksPaging()
 			m.replacePlaylist(msg.tracks)
 			m.loadedPlaylist = ""
 			m.setHeaderStateFromTracks(msg.tracks)
@@ -1083,6 +1087,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		m.retireTracksPaging()
 		m.replacePlaylist(tracks)
 		m.setHeaderStateFromTracks(tracks)
 		if msg.Playlist != history.PlaylistName {

@@ -303,6 +303,7 @@ func (m *Model) handleV2QueueRequest(ctx context.Context, jobs *ipc.JobStore, jo
 		m.normalizeQueueOverlay()
 	case "queue.clear":
 		m.stopPlayback()
+		m.retireTracksPaging()
 		m.replacePlaylist(nil)
 		m.loadedPlaylist = ""
 		m.setHeaderStateFromTracks(nil)
