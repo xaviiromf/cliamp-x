@@ -3,7 +3,43 @@ package model
 import (
 	"testing"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/bjarneo/cliamp/lyrics"
+	"github.com/bjarneo/cliamp/playlist"
 )
+
+// A positive offset must advance the position used for highlighting, so `]`
+// moves the highlight earlier when a source's timestamps run late.
+func TestLyricsOffsetAdvancesTheHighlightPosition(t *testing.T) {
+	eng := &playbackFakeEngine{position: 10 * time.Second}
+	m := Model{player: eng}
+
+	m.lyrics.offset = 500 * time.Millisecond
+	if got, want := m.lyricsPlaybackPosition(), 10*time.Second+500*time.Millisecond; got != want {
+		t.Fatalf("lyricsPlaybackPosition() = %v, want %v", got, want)
+	}
+	m.lyrics.offset = -500 * time.Millisecond
+	if got, want := m.lyricsPlaybackPosition(), 10*time.Second-500*time.Millisecond; got != want {
+		t.Fatalf("lyricsPlaybackPosition() = %v, want %v", got, want)
+	}
+}
+
+// The offset keys must do nothing for plain lyrics: the registry disables them,
+// and the key handler enforces the same rule.
+func TestLyricsOffsetKeysIgnoreUnsyncedLyrics(t *testing.T) {
+	m := Model{playlist: playlist.New()}
+	m.lyrics.visible = true
+	m.lyrics.lines = []lyrics.Line{{Text: "plain"}}
+
+	m.handleKey(tea.KeyPressMsg{Text: "]"})
+	m.handleKey(tea.KeyPressMsg{Text: "["})
+
+	if m.lyrics.offset != 0 {
+		t.Fatalf("offset = %v, want 0 for lyrics without timestamps", m.lyrics.offset)
+	}
+}
 
 func TestSetLyricsOffset(t *testing.T) {
 	m := Model{}

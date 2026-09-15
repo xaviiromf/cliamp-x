@@ -65,7 +65,7 @@ func (s *Session) trackLyrics(ctx context.Context, trackID string) ([]lyrics.Lin
 	u := "https://spclient.wg.spotify.com/color-lyrics/v2/track/" + url.PathEscape(trackID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u+"?format=json&market=from_token", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build spotify lyrics request: %w", err)
 	}
 	// The color-lyrics endpoint rejects tokens without this platform marker.
 	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)

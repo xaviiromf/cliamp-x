@@ -125,6 +125,13 @@ func (m *Model) lyricsHaveTimestamps() bool {
 // maxLyricsOffset bounds the user-adjustable synced-lyrics drift correction.
 const maxLyricsOffset = 10 * time.Second
 
+// lyricsPlaybackPosition returns the playback position adjusted by the
+// user's synced-lyrics offset. A positive offset advances the position, so
+// a later lyric line becomes active sooner.
+func (m Model) lyricsPlaybackPosition() time.Duration {
+	return m.player.Position() + m.lyrics.offset
+}
+
 // SetLyricsOffset loads a persisted lyric timestamp offset (ms) at startup.
 func (m *Model) SetLyricsOffset(ms int) {
 	d := time.Duration(ms) * time.Millisecond
@@ -137,10 +144,11 @@ func (m *Model) SetLyricsOffset(ms int) {
 	m.lyrics.offset = d
 }
 
-// nudgeLyricsOffset shifts synced-lyrics timestamps by delta and persists the
-// result. Positive offsets delay highlighting (late timestamp correction);
-// negative offsets pull it earlier. Spotify/Musixmatch timestamps are often
-// offset from the master by a constant amount on a per-track basis.
+// nudgeLyricsOffset shifts the synced-lyrics position by delta and persists
+// the result. A positive offset advances the active lyric line, correcting
+// timestamps that run late; a negative offset delays it. Spotify and
+// Musixmatch timestamps are often offset from the master by a constant
+// amount per track.
 func (m *Model) nudgeLyricsOffset(delta time.Duration) tea.Cmd {
 	offset := m.lyrics.offset + delta
 	if offset > maxLyricsOffset {
@@ -150,12 +158,8 @@ func (m *Model) nudgeLyricsOffset(delta time.Duration) tea.Cmd {
 		offset = -maxLyricsOffset
 	}
 	m.lyrics.offset = offset
-	if m.configSaver != nil {
-		if err := m.configSaver.Save("lyrics_offset_ms", strconv.Itoa(int(offset.Milliseconds()))); err != nil {
-			m.status.Errorf(statusTTLDefault, "Config save failed: %s", err)
-		}
-	}
 	m.status.Warningf(statusTTLDefault, "Lyrics offset: %s", formatLyricsOffset(offset))
+	m.saveConfigKey("lyrics_offset_ms", strconv.Itoa(int(offset.Milliseconds())))
 	return nil
 }
 

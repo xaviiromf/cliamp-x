@@ -313,9 +313,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		case "r":
 			return m.retryLyrics()
 		case "[":
-			return m.nudgeLyricsOffset(-250 * time.Millisecond)
+			if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
+				return m.nudgeLyricsOffset(-250 * time.Millisecond)
+			}
 		case "]":
-			return m.nudgeLyricsOffset(250 * time.Millisecond)
+			if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
+				return m.nudgeLyricsOffset(250 * time.Millisecond)
+			}
 		case "up", "k":
 			if !(m.lyricsSyncable() && m.lyricsHaveTimestamps()) && m.lyrics.scroll > 0 {
 				m.lyrics.scroll--
