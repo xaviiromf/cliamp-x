@@ -28,13 +28,14 @@ import (
 func buildApp() *cli.Command {
 	rootFlags := []cli.Flag{
 		&cli.Float64Flag{Name: "vol", Usage: "startup volume in dB [-30, +6]"},
-		&cli.BoolFlag{Name: "shuffle", Usage: "shuffle playback"},
+		&cli.BoolWithInverseFlag{Name: "shuffle", Usage: "shuffle playback"},
 		&cli.StringFlag{Name: "repeat", Usage: "repeat mode: off, all, one"},
-		&cli.BoolFlag{Name: "mono", Usage: "mono output"},
-		&cli.BoolFlag{Name: "no-mono", Usage: "disable mono output"},
-		&cli.BoolFlag{Name: "auto-play", Usage: "start playback immediately"},
-		&cli.BoolFlag{Name: "simplified", Usage: "simplified playback view (no visualizer or playlist)"},
-		&cli.StringFlag{Name: "provider", Usage: "default provider: radio, navidrome, lyrion, plex, jellyfin, emby, spotify, qobuz, tidal, soundcloud, mixcloud, netease, audiobookshelf, abs, yt, youtube, ytmusic"},
+		&cli.BoolWithInverseFlag{Name: "mono", Usage: "mono output"},
+		&cli.BoolWithInverseFlag{Name: "auto-play", Usage: "start playback immediately"},
+		&cli.BoolWithInverseFlag{Name: "simplified", Usage: "simplified playback view (no visualizer or playlist)"},
+		&cli.BoolWithInverseFlag{Name: "help-bar", Usage: "show the key-binding hint bar (? still opens the full keymap)", Value: true},
+		&cli.BoolWithInverseFlag{Name: "expanded", Usage: "start with the playlist expanded (the Ctrl+X state)"},
+		&cli.StringFlag{Name: "provider", Usage: "default provider: radio, podcast, navidrome, lyrion, plex, jellyfin, emby, spotify, qobuz, tidal, soundcloud, mixcloud, netease, yandex, audiobookshelf, abs, yt, youtube, ytmusic"},
 		&cli.StringFlag{Name: "start-theme", Usage: "UI theme name"},
 		&cli.StringFlag{Name: "visualizer", Usage: "visualizer mode"},
 		&cli.BoolFlag{Name: "visualizer-60fps", Usage: "render visualizer at 60 FPS (higher CPU use)"},
@@ -46,9 +47,8 @@ func buildApp() *cli.Command {
 		&cli.StringFlag{Name: "audio-device", Usage: "audio output device (use 'list' to show)"},
 		&cli.StringFlag{Name: "playlist", Usage: "load a local TOML playlist by name and start playing"},
 		&cli.StringFlag{Name: "log-level", Usage: "log level: debug, info, warn, error"},
-		&cli.BoolFlag{Name: "expand-playlist", Usage: "expand YouTube Music playlists from list= URLs"},
-		&cli.BoolFlag{Name: "no-expand-playlist", Usage: "disable playlist expansion for YouTube Music URLs"},
-		&cli.BoolFlag{Name: "low-power", Usage: "low-power mode: reduce CPU by lowering UI cadence and disabling visualization"},
+		&cli.BoolWithInverseFlag{Name: "expand-playlist", Usage: "expand YouTube Music playlists from list= URLs"},
+		&cli.BoolWithInverseFlag{Name: "low-power", Usage: "low-power mode: reduce CPU by lowering UI cadence and disabling visualization"},
 		&cli.BoolFlag{Name: "daemon", Aliases: []string{"d"}, Usage: "run headless (no TUI), serving IPC for scripts/Waybar"},
 	}
 
@@ -73,6 +73,7 @@ func buildApp() *cli.Command {
 			pluginsCommand(),
 			playlistCommand(),
 			historyCommand(),
+			radioCommand(),
 			setupCommand(),
 			spotifyCommand(),
 			qobuzCommand(),
@@ -98,6 +99,8 @@ func buildApp() *cli.Command {
 			eqCommand(),
 			deviceCommand(),
 			remoteCommand(),
+			openCommand(),
+			protocolCommand(),
 		},
 	}
 }
@@ -141,20 +144,24 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 		}
 	}
 	if c.IsSet("mono") {
-		v := true
-		ov.Mono = &v
-	}
-	if c.IsSet("no-mono") {
-		v := false
+		v := c.Bool("mono")
 		ov.Mono = &v
 	}
 	if c.IsSet("auto-play") {
-		v := true
+		v := c.Bool("auto-play")
 		ov.Play = &v
 	}
 	if c.IsSet("simplified") {
-		v := true
+		v := c.Bool("simplified")
 		ov.Simplified = &v
+	}
+	if c.IsSet("help-bar") {
+		v := !c.Bool("help-bar")
+		ov.HideHelpBar = &v
+	}
+	if c.IsSet("expanded") {
+		v := c.Bool("expanded")
+		ov.Expanded = &v
 	}
 	if c.IsSet("provider") {
 		v := strings.ToLower(c.String("provider"))
@@ -162,10 +169,10 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 			v = "audiobookshelf"
 		}
 		switch v {
-		case "radio", "navidrome", "lyrion", "spotify", "qobuz", "tidal", "plex", "jellyfin", "emby", "audiobookshelf", "soundcloud", "mixcloud", "netease", "yt", "youtube", "ytmusic":
+		case "radio", "podcast", "navidrome", "lyrion", "spotify", "qobuz", "tidal", "plex", "jellyfin", "emby", "audiobookshelf", "soundcloud", "mixcloud", "netease", "yandex", "yt", "youtube", "ytmusic":
 			ov.Provider = &v
 		default:
-			return ov, fmt.Errorf("--provider must be radio, navidrome, lyrion, spotify, qobuz, tidal, plex, jellyfin, emby, audiobookshelf, soundcloud, mixcloud, netease, yt, youtube, or ytmusic (got %q)", v)
+			return ov, fmt.Errorf("--provider must be radio, podcast, navidrome, lyrion, spotify, qobuz, tidal, plex, jellyfin, emby, audiobookshelf, soundcloud, mixcloud, netease, yandex, yt, youtube, or ytmusic (got %q)", v)
 		}
 	}
 	if c.IsSet("start-theme") {
@@ -216,11 +223,7 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 		ov.LowPower = &v
 	}
 	if c.IsSet("expand-playlist") {
-		v := true
-		ov.ExpandPlaylist = &v
-	}
-	if c.IsSet("no-expand-playlist") {
-		v := false
+		v := c.Bool("expand-playlist")
 		ov.ExpandPlaylist = &v
 	}
 	return ov, nil
@@ -331,6 +334,72 @@ func pluginsCommand() *cli.Command {
 					return nil
 				},
 			},
+		},
+	}
+}
+
+func protocolCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "protocol",
+		Usage: "register cliamp:// links with the desktop",
+		Description: "Makes cliamp the handler for cliamp:// links, so clicking one plays\n" +
+			"or queues its target. install.sh already registers the scheme; use\n" +
+			"these commands after a go install build, to point the scheme at a\n" +
+			"different binary, or to remove the registration.",
+		Commands: []*cli.Command{
+			{
+				Name:  "register",
+				Usage: "make cliamp the handler for cliamp:// links",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					return cmd.ProtocolRegister(os.Stdout)
+				},
+			},
+			{
+				Name:  "unregister",
+				Usage: "remove the cliamp:// handler registration",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					return cmd.ProtocolUnregister(os.Stdout)
+				},
+			},
+			{
+				Name:  "status",
+				Usage: "report whether cliamp:// is registered",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					return cmd.ProtocolStatus(os.Stdout)
+				},
+			},
+		},
+	}
+}
+
+// radioCommand is an easter egg: the "who's listening" globe from
+// cliamp.stream, in the terminal. The website's stats card shows the command
+// as a prompt; it is left out of the help listing so that stays the only hint.
+func radioCommand() *cli.Command {
+	return &cli.Command{
+		Name:   "radio",
+		Usage:  "who is listening to the cliamp radio channels",
+		Hidden: true,
+		Description: "Shows live listener statistics for the cliamp radio channels from\n" +
+			"radio.cliamp.stream: listeners now, by country and by channel, plus the\n" +
+			"all-time totals. --globe draws them on a spinning globe, like the one\n" +
+			"on cliamp.stream.",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "stats", Usage: "print live listener statistics"},
+			&cli.BoolFlag{Name: "globe", Usage: "show the statistics on an animated globe (implies --stats)"},
+			&cli.BoolFlag{Name: "json", Usage: "print the raw statistics document (implies --stats)"},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			switch {
+			case c.Bool("globe") && c.Bool("json"):
+				return fmt.Errorf("--globe and --json cannot be combined")
+			case c.Bool("globe"):
+				return cmd.RadioGlobe(ctx, c.Root().String("start-theme"))
+			case c.Bool("stats") || c.Bool("json"):
+				return cmd.RadioStats(ctx, os.Stdout, c.Bool("json"))
+			default:
+				return cli.ShowSubcommandHelp(c)
+			}
 		},
 	}
 }
@@ -748,7 +817,7 @@ func volumeCommand() *cli.Command {
 func seekCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "seek",
-		Usage:     "seek to position in seconds",
+		Usage:     "seek by a relative offset in seconds",
 		ArgsUsage: "<seconds>",
 		Action: func(ctx context.Context, c *cli.Command) error {
 			if c.Args().Len() == 0 {

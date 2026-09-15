@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	_ provider.ArtistBrowser    = (*Provider)(nil)
-	_ provider.AlbumBrowser     = (*Provider)(nil)
-	_ provider.AlbumTrackLoader = (*Provider)(nil)
-	_ provider.PlaybackReporter = (*Provider)(nil)
-	_ provider.Searcher         = (*Provider)(nil)
+	_ provider.ArtistBrowser             = (*Provider)(nil)
+	_ provider.AlbumBrowser              = (*Provider)(nil)
+	_ provider.AlbumTrackLoader          = (*Provider)(nil)
+	_ provider.DefaultBrowseModeProvider = (*Provider)(nil)
+	_ provider.PlaybackReporter          = (*Provider)(nil)
+	_ provider.Searcher                  = (*Provider)(nil)
 )
 
 // Provider implements playlist.Provider for a Jellyfin server.
@@ -43,6 +44,11 @@ func NewFromConfig(cfg config.JellyfinConfig) *Provider {
 
 // Name returns the display name used in the provider selector.
 func (p *Provider) Name() string { return "Jellyfin" }
+
+// DefaultBrowseMode always opens Jellyfin as artist → album → songs.
+func (p *Provider) DefaultBrowseMode() provider.BrowseMode {
+	return provider.BrowseArtistAlbums
+}
 
 // Refresh clears cached playlist, track, and album data so the next call
 // re-fetches from the server. Implements playlist.Refresher.
@@ -80,6 +86,26 @@ func (p *Provider) AlbumTracks(albumID string) ([]playlist.Track, error) {
 
 func (p *Provider) CanReportPlayback(track playlist.Track) bool {
 	return track.Meta(provider.MetaJellyfinID) != ""
+}
+
+// RestoreTrack recognizes a previously played track from this Jellyfin server.
+// A configured token refreshes its URL without making startup wait on the network.
+func (p *Provider) RestoreTrack(track playlist.Track) (playlist.Track, bool) {
+	itemID, ok := p.client.StreamItemID(track.Path)
+	if !ok {
+		return playlist.Track{}, false
+	}
+	track.ProviderMeta = map[string]string{provider.MetaJellyfinID: itemID}
+	if streamURL, ok := p.client.StreamURLFromCurrentAuth(itemID); ok {
+		track.Path = streamURL
+	}
+	track.Stream = true
+	return track, true
+}
+
+// ResolveSource refreshes matching Jellyfin URLs when the engine opens them.
+func (p *Provider) ResolveSource(rawURL string) (string, error) {
+	return p.client.ResolveSource(rawURL)
 }
 
 func (p *Provider) ReportNowPlaying(track playlist.Track, position time.Duration, canSeek bool) error {

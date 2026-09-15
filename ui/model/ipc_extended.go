@@ -30,6 +30,17 @@ type ipcURLLoadResult struct {
 	err     error
 }
 
+type ipcFeedLoadResult struct {
+	ctx      context.Context
+	request  ipc.QueueRequestMsg
+	feed     playlist.Track
+	jobs     *ipc.JobStore
+	jobID    string
+	revision uint64
+	tracks   []playlist.Track
+	err      error
+}
+
 func (m *Model) handleIPCURL(request ipc.URLRequestMsg) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := resolve.URL(request.URL)
@@ -49,11 +60,24 @@ func (m *Model) handleIPCURLResult(result ipcURLLoadResult) tea.Cmd {
 		result.request.Reply <- ipc.Response{OK: false, Error: "no tracks found at URL"}
 		return nil
 	}
+	// A Play request jumps to the first newly added track, so a caller that
+	// asked to play a URL hears it even when something is already playing.
+	// Without it the tracks are appended and only start when the player is
+	// idle, which is the right default for a plain append.
+	start := m.playlist.Len()
 	wasStopped := !m.player.IsPlaying()
 	m.playlist.Add(result.tracks...)
 	m.loadedPlaylist = ""
 	m.addToHeaderState(result.tracks)
 	result.request.Reply <- ipc.Response{OK: true, Tracks: ipcTrackInfos(result.tracks), Total: len(result.tracks)}
+	if result.request.Play {
+		m.player.Stop()
+		m.player.ClearPreload()
+		m.playlist.SetIndex(start)
+		m.plCursor = start
+		m.adjustScroll()
+		return m.playCurrentTrack()
+	}
 	if wasStopped {
 		return m.playCurrentTrack()
 	}
@@ -101,8 +125,7 @@ func (m *Model) handleIPCQueue(request ipc.QueueRequestMsg) tea.Cmd {
 		return m.rearmPreload()
 	case "queue.remove":
 		if request.Index == m.playlist.Index() {
-			m.player.Stop()
-			m.clearPlaybackTrack()
+			m.stopPlayback()
 		}
 		if !m.playlist.Remove(request.Index) {
 			request.Reply <- ipc.Response{OK: false, Error: "queue index out of range"}
@@ -120,9 +143,9 @@ func (m *Model) handleIPCQueue(request ipc.QueueRequestMsg) tea.Cmd {
 		request.Reply <- m.ipcQueueResponse()
 		return m.rearmPreload()
 	case "queue.clear":
-		m.player.Stop()
+		m.stopPlayback()
+		m.retireTracksPaging()
 		m.replacePlaylist(nil)
-		m.clearPlaybackTrack()
 		m.loadedPlaylist = ""
 		request.Reply <- m.ipcQueueResponse()
 	case "track.play", "track.queue":
@@ -131,6 +154,9 @@ func (m *Model) handleIPCQueue(request ipc.QueueRequestMsg) tea.Cmd {
 			return nil
 		}
 		track := ipcTrackFromInfo(*request.Track)
+		if track.Feed {
+			return ipcFeedLoadCmd(context.Background(), request, track, nil, "", 0)
+		}
 		request.Reply <- ipc.Response{OK: true}
 		if request.Op == "track.play" {
 			return m.playTrackImmediate(track)
@@ -140,6 +166,66 @@ func (m *Model) handleIPCQueue(request ipc.QueueRequestMsg) tea.Cmd {
 		request.Reply <- ipc.Response{OK: false, Error: "unknown queue operation"}
 	}
 	return nil
+}
+
+func ipcFeedLoadCmd(ctx context.Context, request ipc.QueueRequestMsg, feed playlist.Track, jobs *ipc.JobStore, jobID string, revision uint64) tea.Cmd {
+	return func() tea.Msg {
+		resolveCtx, cancel := context.WithTimeout(requestContext(ctx), 30*time.Second)
+		defer cancel()
+		tracks, err := resolve.Feed(resolveCtx, feed.Path)
+		if err == nil {
+			err = resolveCtx.Err()
+		}
+		return ipcFeedLoadResult{
+			ctx: ctx, request: request, feed: feed, jobs: jobs, jobID: jobID, revision: revision,
+			tracks: tracks, err: err,
+		}
+	}
+}
+
+func (m *Model) handleIPCFeedLoad(result ipcFeedLoadResult) tea.Cmd {
+	if result.jobs != nil {
+		ctx, ok := result.jobs.Context(result.jobID)
+		if !ok || ctx.Err() != nil {
+			return nil
+		}
+	} else if result.ctx != nil && result.ctx.Err() != nil {
+		result.request.Reply <- ipcResponseError(result.ctx.Err())
+		return nil
+	}
+	if result.err == nil && len(result.tracks) == 0 {
+		result.err = fmt.Errorf("no playable episodes found in feed")
+	}
+	if result.err != nil {
+		if result.jobs != nil {
+			err := v2InternalError()
+			err.Detail = result.err.Error()
+			m.failV2Job(result.jobs, result.jobID, err)
+		} else {
+			result.request.Reply <- ipcResponseError(result.err)
+		}
+		return nil
+	}
+	if result.jobs != nil && result.revision != 0 && result.revision != m.playlist.Revision() {
+		m.failV2Job(result.jobs, result.jobID, v2ConflictError())
+		return nil
+	}
+	// Expand before touching the playlist: playing a feed placeholder would
+	// invoke the legacy feed resolver, which replaces the entire playlist.
+	var cmd tea.Cmd
+	if result.request.Op == "track.play" {
+		cmd = m.playAlbumImmediate(result.feed, result.tracks)
+	} else {
+		cmd = m.queueAlbumNext(result.feed, result.tracks)
+	}
+	response := m.v2PlaylistResponse()
+	if result.jobs != nil {
+		// Capture completion with this mutation, not in a later waiter update.
+		m.completeV2Job(result.jobs, result.jobID, response)
+	} else {
+		result.request.Reply <- response
+	}
+	return cmd
 }
 
 func (m *Model) ipcQueueResponse() ipc.Response {
@@ -515,6 +601,10 @@ func (m *Model) handleIPCProviderLoad(result ipcProviderLoadResult) tea.Cmd {
 		result.request.Reply <- ipc.Response{OK: false, Error: result.err.Error()}
 		return nil
 	}
+	// This replaces the queue wholesale, so retire any in-flight paged load:
+	// its later pages would otherwise still pass the generation guard and
+	// append onto the list loaded here.
+	m.retireTracksPaging()
 	m.replacePlaylist(result.tracks)
 	m.loadedPlaylist = result.loaded
 	m.setHeaderStateFromTracks(result.tracks)

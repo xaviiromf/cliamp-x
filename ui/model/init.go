@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/bjarneo/cliamp/external/radio"
 	"github.com/bjarneo/cliamp/favorites"
 	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/luaplugin"
@@ -15,6 +16,8 @@ import (
 	"github.com/bjarneo/cliamp/theme"
 	"github.com/bjarneo/cliamp/ui"
 )
+
+type openDefaultProviderBrowserMsg struct{}
 
 // applyThemeAll updates colors, spectrum styles, and model-specific styles.
 func applyThemeAll(t theme.Theme) {
@@ -80,6 +83,14 @@ func (m *Model) SetVisVolumeLinked(linked bool) {
 	m.visVolumeLinked = linked
 }
 
+// SetVisRows sets the visualizer height in rows for the full layout tier.
+// Zero keeps the built-in default. The layout caps it at what the terminal
+// can spare.
+func (m *Model) SetVisRows(rows int) {
+	m.visRows = rows
+	m.recomputeLayout()
+}
+
 // findProviderWith returns the first registered provider that satisfies the
 // given capability check. This is used for cross-provider shortcuts like "N"
 // (browse) and "F" (search) which should work regardless of the active provider.
@@ -113,6 +124,39 @@ func (m *Model) SetSimplified(v bool) {
 	}
 	m.refreshChrome()
 	m.normalizeMainFocus()
+}
+
+// SetHideHelpBar hides the key-binding hint bar and gives the row back to the
+// body. The full keymap stays reachable with "?".
+func (m *Model) SetHideHelpBar(v bool) {
+	m.hideHelpBar = v
+	m.refreshChrome()
+}
+
+// SetHideSettingsPane closes the settings pane beside the playlist, returning
+// the playback screen to its single-column layout where the same settings are
+// drawn as stacked rows.
+func (m *Model) SetHideSettingsPane(v bool) {
+	m.hideSettings = v
+	m.refreshChrome()
+}
+
+// SetShowMetadata expands the highlighted-track details below Settings.
+func (m *Model) SetShowMetadata(v bool) {
+	m.showMetadata = v
+	m.refreshChrome()
+}
+
+// SetExpanded starts the UI in the expanded playlist height, the state the
+// Ctrl+X binding toggles. It sets the same field toggleExpandedView does and
+// takes no view into account: usesSimplifiedLayout() is transient (it drops as
+// soon as the provider or an overlay takes focus), and recomputeLayout already
+// ignores the height while it holds, so a guard here would only make the flag
+// differ from the key.
+func (m *Model) SetExpanded(v bool) {
+	m.heightExpanded = v
+	m.applyHeightMode()
+	m.adjustScroll()
 }
 
 // SetInitialDirectory sets the initial directory for the file browser.
@@ -183,8 +227,32 @@ func (m *Model) SetResume(path string, secs int) {
 	m.resume.secs = secs
 }
 
+// SetResumeSaver enables continuous playback-context persistence.
+func (m *Model) SetResumeSaver(save ResumeSaver) {
+	m.resumeSaver = save
+	if save != nil && m.playlist != nil {
+		// Updating entries preserves selection, shuffle order, and queued playback.
+		for i, track := range playlist.WithPlaybackContext(m.playlist.Tracks()) {
+			m.playlist.SetTrack(i, track)
+		}
+	}
+}
+
+// SetInitialTrack selects the restored track without starting playback.
+func (m *Model) SetInitialTrack(index int) {
+	if m.playlist == nil || index < 0 || index >= m.playlist.Len() {
+		return
+	}
+	m.playlist.SetIndex(index)
+	m.plCursor = index
+	tracks := m.playlist.Tracks()
+	m.setPlaybackContext(tracks, index)
+	m.setHeaderStateFromTracks(tracks)
+}
+
 // ResumePlaylist loads a playlist into the model for session resume.
 func (m *Model) ResumePlaylist(name string, tracks []playlist.Track) {
+	m.retireTracksPaging()
 	m.replacePlaylist(tracks)
 	m.setHeaderStateFromTracks(tracks)
 	m.loadedPlaylist = name
@@ -194,6 +262,11 @@ func (m *Model) ResumePlaylist(name string, tracks []playlist.Track) {
 // Called after prog.Run() returns (player already closed).
 func (m Model) ResumeState() (path string, secs int, playlist string) {
 	return m.exitResume.path, m.exitResume.secs, m.exitResume.playlist
+}
+
+// ResumeContext returns the complete list the active track was selected from.
+func (m Model) ResumeContext() ([]playlist.Track, int) {
+	return cloneTracks(m.exitResume.context), m.exitResume.contextIndex
 }
 
 // ThemeName returns the current theme name.
@@ -215,6 +288,9 @@ func (m Model) Init() tea.Cmd {
 		// on its private model copy. The initial zero generation is current until
 		// the user starts another provider request.
 		cmds = append(cmds, fetchPlaylistsCmd(m.provider, m.requests.provider))
+	}
+	if m.openDefaultProviderOnce {
+		cmds = append(cmds, func() tea.Msg { return openDefaultProviderBrowserMsg{} })
 	}
 	if len(m.pendingURLs) > 0 {
 		cmds = append(cmds, resolveRemoteCmd(m.pendingURLs, m.autoPlay))
@@ -241,4 +317,10 @@ func (m *Model) refreshFavSet() {
 	for _, t := range tracks {
 		m.favSet[t.Path] = struct{}{}
 	}
+}
+
+// SetRadioFavorites shares the Radio provider's local station favorites store.
+func (m *Model) SetRadioFavorites(favorites *radio.Favorites) {
+	m.radioFavorites = favorites
+	m.radioMarkers = &radioMarkerCache{}
 }

@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/bjarneo/cliamp/provider"
 	"github.com/bjarneo/cliamp/ui"
 )
 
@@ -94,6 +95,7 @@ func (m Model) navHelpLine() string {
 	return m.commandHelp(commandModeNavBrowser)
 }
 
+// renderNavBody renders the list for the active provider-browser route.
 func (m Model) renderNavBody() string {
 	labels := m.navLabels()
 	budget := m.effectivePlaylistVisible()
@@ -142,20 +144,25 @@ func (m Model) renderNavBody() string {
 	case navViewTracks:
 		return m.renderNavTrackBody(budget)
 	case navViewGenres:
+		genres := m.navLabels().genresLower()
 		if m.navBrowser.loading && len(m.navBrowser.genres) == 0 {
-			return bodyLines([]string{loadingLine("Loading genres…")}, budget)
+			return bodyLines([]string{loadingLine("Loading " + genres + "…")}, budget)
 		}
 		if m.navBrowser.search != "" && len(m.navBrowser.searchIdx) == 0 {
 			return bodyMessage("No matches.", budget)
 		}
 		if len(m.navBrowser.genres) == 0 {
-			return bodyMessage("No genres found.", budget)
+			return bodyMessage("No "+genres+" found.", budget)
 		}
+		_, canFavorite := m.navGenreBrowser().(provider.GenreFavoriteToggler)
 		items := m.navScrollItems(len(m.navBrowser.genres), func(i int) string {
 			genre := m.navBrowser.genres[i]
-			mark := "☆ "
-			if genre.Favorite {
-				mark = "★ "
+			mark := ""
+			if canFavorite {
+				mark = "☆ "
+				if genre.Favorite {
+					mark = "★ "
+				}
 			}
 			label := mark + genre.Name
 			if genre.Group != "" && !strings.EqualFold(genre.Group, "music") {
@@ -166,7 +173,7 @@ func (m Model) renderNavBody() string {
 		return strings.Join(items, "\n")
 	case navViewGenreSorts:
 		if len(m.navBrowser.genreSorts) == 0 {
-			return bodyMessage("No genre views found.", budget)
+			return bodyMessage("No views found.", budget)
 		}
 		items := m.navScrollItems(len(m.navBrowser.genreSorts), func(i int) string {
 			return truncate(m.navBrowser.genreSorts[i].Label, ui.PanelWidth-6)

@@ -36,13 +36,22 @@ Live HLS uses timed metadata, not inline ICY. cliamp does not update the now-pla
 
 ## Podcasts
 
-Play a podcast by passing its RSS feed URL:
+Discover shows with `cliamp --provider podcast`: browse Apple's top 100 chart
+and 19 categories, search shows with `/` then `Enter`, and subscribe with `f`.
+No account or API key is needed. With `ffmpeg` installed, episodes served with
+a finite `Content-Length` are seekable, and their length is measured from the
+file rather than taken from the feed. See the
+[Podcasts guide](podcasts.md) for controls, subscriptions, direct RSS search,
+and chart-country configuration.
+
+You can also play a podcast by passing its RSS feed URL:
 
 ```sh
 cliamp https://example.com/podcast/feed.xml
 ```
 
-cliamp reads episode titles and the podcast name from the feed and shows them in the playlist.
+cliamp loads the first 300 playable episodes in feed order, retaining episode
+titles, show names, durations, artwork, and episode numbers when available.
 
 ### Xiaoyuzhou (小宇宙)
 
@@ -54,7 +63,11 @@ cliamp https://www.xiaoyuzhoufm.com/episode/xxxx
 
 ## Radio Catalog
 
-Press `R` in the player to browse and search more than 30,000 online radio stations in the [Radio Browser](https://www.radio-browser.info/) directory. Use `/` to search by name, `Enter` to play, and `a` to add a station to the playlist.
+Press `R` in the player to browse about 58,000 online radio stations in the [Radio Browser](https://www.radio-browser.info/) directory. Use `/` to search by name, `Enter` to play, and `a` to add a station to the playlist.
+
+To cut the list down, browse by country (`N`), pin the countries you listen to
+(`f`), or open **Browse genres & tags** in the radio pane and filter the full
+tag index with `/`. See [radio.md](radio.md).
 
 ## Track Info
 
@@ -76,5 +89,7 @@ Press `u` during playback to load a stream or playlist URL without restarting. I
 ## Run Your Own Radio Station
 
 Run an internet radio station with [cliamp-server](https://github.com/bjarneo/cliamp-server). Point it to a directory of audio files to start broadcasting. It supports multiple stations, live metadata, and on-the-fly transcoding.
+
+See [radio.md](radio.md) for the radio provider in full.
 
 See [playlists.md](playlists.md) for M3U playlist details.

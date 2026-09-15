@@ -61,9 +61,11 @@ After authentication, Tidal appears in the provider list. Press `T` to select Ti
 The provider shows your Tidal library:
 
 - **Favorite Tracks**: your liked songs (up to 500).
+- **Favorite Artists**: browse a favorite artist to see their albums and tracks.
+- **Favorite Albums**: browse your favorite albums and their tracks.
 - **Your playlists**: playlists you created or subscribed to.
-- **Favorite albums**: browsable in the album view.
-- **Favorite artists**: browse an artist to see their albums.
+
+`Favorite Artists` and `Favorite Albums` open the hierarchical browser, also reachable with `N`.
 
 Press `Ctrl+F` while Tidal is active to search the Tidal catalog for tracks and albums. Album results appear first. When you select an album, it expands to its track list. Enter plays, `a` appends, and `q` queues the next track.
 
@@ -77,7 +79,7 @@ When focused on the provider panel:
 | `Enter` | Load the selected playlist/album or play the selected track |
 | `Ctrl+F` | Search Tidal (tracks and albums) |
 | `Ctrl+R` | Refresh (re-resolves stream URLs) |
-| `Tab` | Switch between provider and playlist focus |
+| `Tab` | Return to playback controls, starting at Source when visible ([navigation](keybindings.md#navigation)) |
 | `Esc` / `b` | Open provider browser |
 
 After you load a playlist or album, cliamp returns to the standard playlist view. Use the usual controls for seek, volume, EQ, shuffle, repeat, queue, search, and lyrics.

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -17,6 +18,15 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	key := msg.String()
+
+	// Providers with a preferred route use N as the mode chooser while their
+	// hierarchy is open. Other providers retain N as the Navidrome quick-switch.
+	if !m.navBrowser.searching && key == "N" {
+		if _, ok := m.navBrowser.prov.(provider.DefaultBrowseModeProvider); ok {
+			m.openNavBrowserWith(m.navBrowser.prov)
+			return nil
+		}
+	}
 
 	if !m.navBrowser.searching && key == "ctrl+f" {
 		m.openProviderSearchWith(m.navBrowser.prov)
@@ -81,15 +91,27 @@ type navMenuItem struct {
 	mode  provider.BrowseMode
 }
 
+// navMenuItems lists only the routes the browsed provider can actually serve.
+// Offering a level the provider does not implement is not a harmless extra
+// row: selecting it closes the browser with no explanation.
 func (m Model) navMenuItems() []navMenuItem {
 	labels := m.navLabels()
-	items := []navMenuItem{
-		{label: "By " + labels.album, mode: provider.BrowseAlbums},
-		{label: "By " + labels.artist, mode: provider.BrowseArtists},
-		{label: "By " + labels.artist + " / " + labels.album, mode: provider.BrowseArtistAlbums},
+	var items []navMenuItem
+	if _, ok := m.navBrowser.prov.(provider.AlbumBrowser); ok {
+		items = append(items, navMenuItem{label: "By " + labels.album, mode: provider.BrowseAlbums})
+	}
+	if _, ok := m.navBrowser.prov.(provider.ArtistBrowser); ok {
+		items = append(items,
+			navMenuItem{label: "By " + labels.artist, mode: provider.BrowseArtists},
+			navMenuItem{label: "By " + labels.artist + " / " + labels.album, mode: provider.BrowseArtistAlbums},
+		)
 	}
 	if _, ok := m.navBrowser.prov.(provider.GenreBrowser); ok {
-		items = append(items, navMenuItem{label: "Genres", mode: provider.BrowseGenres})
+		items = append(items, navMenuItem{label: labels.genresTitle(), mode: provider.BrowseGenres})
+	}
+	if restricted, ok := m.navBrowser.prov.(provider.BrowseModeProvider); ok {
+		modes := restricted.BrowseModes()
+		items = slices.DeleteFunc(items, func(item navMenuItem) bool { return !slices.Contains(modes, item.mode) })
 	}
 	return items
 }
@@ -200,8 +222,8 @@ func (m *Model) handleNavGenreListKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.navBrowser.loading || !ok {
 			return nil
 		}
-		browser, ok := m.navBrowser.prov.(provider.GenreBrowser)
-		if !ok {
+		browser := m.navGenreBrowser()
+		if browser == nil {
 			return nil
 		}
 		m.navBrowser.selGenre = genre
@@ -213,7 +235,7 @@ func (m *Model) handleNavGenreListKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.navBrowser.loading || !ok {
 			return nil
 		}
-		browser, ok := m.navBrowser.prov.(provider.GenreFavoriteToggler)
+		browser, ok := m.navGenreBrowser().(provider.GenreFavoriteToggler)
 		if !ok {
 			return nil
 		}
@@ -270,8 +292,8 @@ func (m *Model) handleNavGenreSortKey(msg tea.KeyPressMsg) tea.Cmd {
 		if rawIdx < 0 {
 			return nil
 		}
-		browser, ok := m.navBrowser.prov.(provider.GenreBrowser)
-		if !ok {
+		browser := m.navGenreBrowser()
+		if browser == nil {
 			return nil
 		}
 		m.navBrowser.selGenreSort = m.navBrowser.genreSorts[rawIdx]
@@ -420,6 +442,14 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 			return fetchNavAlbumTracksCmd(l, album.ID, m.nextNavRequest())
 		}
 		return nil
+	case "f":
+		if m.navBrowser.loading || m.navBrowser.albumLoading {
+			return nil
+		}
+		idx := m.selectedNavRawIndex(len(m.navBrowser.albums))
+		if idx >= 0 && m.toggleFavorite(m.navBrowser.prov, m.navBrowser.albums[idx].ID) && m.isActiveProvider(m.navBrowser.prov.Name()) {
+			return m.fetchProviderPlaylists()
+		}
 	case "s":
 		if artistAlbums {
 			return nil // Sort only applies to global album list.
@@ -506,25 +536,13 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		if listLen == 0 {
 			return nil
 		}
-		rawIdx := m.navBrowser.cursor
-		if m.navBrowser.search != "" && m.navBrowser.cursor < len(m.navBrowser.searchIdx) {
-			rawIdx = m.navBrowser.searchIdx[m.navBrowser.cursor]
-		}
-		if rawIdx < len(m.navBrowser.tracks) {
+		tracks := m.navPlaybackTracks()
+		if index := m.navBrowser.cursor; index >= 0 && index < len(tracks) {
 			const maxAdd = 500
 			m.player.Stop()
 			m.player.ClearPreload()
 
-			var toAdd []playlist.Track
-			if m.navBrowser.search != "" {
-				for j := m.navBrowser.cursor; j < len(m.navBrowser.searchIdx) && len(toAdd) < maxAdd; j++ {
-					toAdd = append(toAdd, m.navBrowser.tracks[m.navBrowser.searchIdx[j]])
-				}
-			} else {
-				for i := rawIdx; i < len(m.navBrowser.tracks) && len(toAdd) < maxAdd; i++ {
-					toAdd = append(toAdd, m.navBrowser.tracks[i])
-				}
-			}
+			toAdd := tracks[index:min(index+maxAdd, len(tracks))]
 
 			m.playlist.Add(toAdd...)
 			m.loadedPlaylist = ""
@@ -550,14 +568,7 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.replacePlaylistFromNav()
 	case "a":
 		// Append all displayed tracks to the playlist (keep current playback).
-		tracks := m.navBrowser.tracks
-		if m.navBrowser.search != "" {
-			filtered := make([]playlist.Track, 0, len(m.navBrowser.searchIdx))
-			for _, i := range m.navBrowser.searchIdx {
-				filtered = append(filtered, m.navBrowser.tracks[i])
-			}
-			tracks = filtered
-		}
+		tracks := m.navPlaybackTracks()
 		if len(tracks) > 0 {
 			wasEmpty := m.playlist.Len() == 0
 			m.playlist.Add(tracks...)
@@ -576,12 +587,9 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		if listLen == 0 {
 			return nil
 		}
-		rawIdx := m.navBrowser.cursor
-		if m.navBrowser.search != "" && m.navBrowser.cursor < len(m.navBrowser.searchIdx) {
-			rawIdx = m.navBrowser.searchIdx[m.navBrowser.cursor]
-		}
-		if rawIdx < len(m.navBrowser.tracks) {
-			t := m.navBrowser.tracks[rawIdx]
+		tracks := m.navPlaybackTracks()
+		if index := m.navBrowser.cursor; index >= 0 && index < len(tracks) {
+			t := tracks[index]
 			m.playlist.Add(t)
 			m.loadedPlaylist = ""
 			m.addToHeaderState([]playlist.Track{t})
@@ -626,6 +634,14 @@ func (m *Model) navDisplayedTracks() []playlist.Track {
 	return tracks
 }
 
+func (m *Model) navPlaybackTracks() []playlist.Track {
+	tracks := m.navDisplayedTracks()
+	if m.resumeSaver != nil {
+		tracks = playlist.WithPlaybackContext(tracks)
+	}
+	return tracks
+}
+
 // replacePlaylistFromNav discards the live queue. Its caller confirms whenever
 // that queue is non-empty because this browser replacement has no undo snapshot.
 func (m *Model) replacePlaylistFromNav() tea.Cmd {
@@ -636,6 +652,7 @@ func (m *Model) replacePlaylistFromNav() tea.Cmd {
 	m.player.Stop()
 	m.player.ClearPreload()
 	m.resetYTDLBatch()
+	m.retireTracksPaging()
 	m.replacePlaylist(tracks)
 	m.loadedPlaylist = ""
 	m.setHeaderStateFromTracks(tracks)
@@ -660,7 +677,7 @@ func (m *Model) handleNavSearchKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.navBrowser.searching = false
 		if m.navBrowser.mode == navBrowseModeByGenre && m.navBrowser.screen == navBrowseScreenList {
 			query := strings.TrimSpace(m.navBrowser.search)
-			searcher, ok := m.navBrowser.prov.(provider.GenreSearcher)
+			searcher, ok := m.navGenreBrowser().(provider.GenreSearcher)
 			if ok && query != "" {
 				m.navBrowser.genreQuery = query
 				m.navBrowser.search = ""

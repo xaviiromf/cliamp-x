@@ -16,6 +16,10 @@ import (
 	"github.com/bjarneo/cliamp/internal/fileutil"
 )
 
+// maxVisRows caps the configurable visualizer height. The layout shrinks the
+// value further when the terminal cannot spare the rows.
+const maxVisRows = 40
+
 // configPath returns the path to the config file.
 func configPath() (string, error) {
 	dir, err := appdir.Dir()
@@ -70,6 +74,7 @@ type NavidromeConfig struct {
 	URL              string // e.g. "https://music.example.com"
 	User             string
 	Password         string
+	Format           string // requested stream format; empty lets the server decide, "raw" requests the original
 	BrowseSort       string // album browse sort order, e.g. "alphabeticalByName"
 	ScrobbleDisabled bool   // true only when "scrobble = false" is explicitly set
 }
@@ -203,6 +208,22 @@ func (y YouTubeMusicConfig) ResolveCredentials(fallbackFn func() (string, string
 	return "", ""
 }
 
+// RadioConfig holds settings for the built-in Radio provider. Radio is always
+// enabled, so this block only tunes it.
+type RadioConfig struct {
+	// Country is the listener's home country as an ISO 3166-1 alpha-2 code.
+	// It puts a "near you" row at the top of the radio pane, offers that
+	// country's regions in the country browser, and is the first stop of the
+	// catalog country filter. Unset means "detect from the system timezone,
+	// then the locale"; set it to "none" to turn detection off.
+	Country string
+}
+
+// PodcastConfig tunes the always-available public podcast directory.
+type PodcastConfig struct {
+	Country string // two-letter country code for Apple charts (default "us")
+}
+
 // SoundCloudConfig holds settings for the SoundCloud provider.
 // SoundCloud is opt-in: requires enabled = true in [soundcloud] before the
 // provider registers. Setting User exposes that profile's Tracks/Likes/Reposts
@@ -246,6 +267,17 @@ type NetEaseConfig struct {
 
 // IsSet reports whether the NetEase provider should be shown.
 func (n NetEaseConfig) IsSet() bool { return n.Enabled }
+
+// YandexConfig holds settings for the Yandex Music provider.
+// The provider is opt-in and authenticates with a personal OAuth token
+// obtained from https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d
+type YandexConfig struct {
+	Enabled bool   // true only when user explicitly sets enabled = true
+	Token   string // personal OAuth token
+}
+
+// IsSet reports whether the Yandex provider should be shown.
+func (y YandexConfig) IsSet() bool { return y.Enabled && strings.TrimSpace(y.Token) != "" }
 
 // PlexConfig holds credentials for a Plex Media Server.
 // Both URL and Token must be non-empty for a client to be constructed.
@@ -320,14 +352,19 @@ type Config struct {
 	Speed            float64                      // playback speed ratio: 0.25–2.0 (default 1.0)
 	AutoPlay         bool                         // start playback automatically on launch (radio streams, CLI tracks)
 	SeekStepLarge    int                          // seconds for Shift+Left/Right seek jumps
-	Provider         string                       // default provider: "radio", "navidrome", "lyrion", "spotify", "qobuz", "tidal", "plex", "jellyfin", "emby", "audiobookshelf", "soundcloud", "mixcloud", "netease", "ytmusic" (default "radio")
+	Provider         string                       // default provider: "radio", "podcast", "navidrome", "lyrion", "spotify", "qobuz", "tidal", "plex", "jellyfin", "emby", "audiobookshelf", "soundcloud", "mixcloud", "netease", "yandex", "ytmusic" (default "radio")
 	Theme            string                       // theme name, or "" for ANSI default
 	Visualizer       string                       // visualizer mode name, or "" for default (Bars)
+	VisRows          int                          // visualizer height in rows at the full layout tier, or 0 for the built-in default
 	SampleRate       int                          // output sample rate: 22050, 44100, 48000, 96000, 192000
 	BufferMs         int                          // speaker buffer in milliseconds (50-5000)
 	ResampleQuality  int                          // beep resample quality factor (1–4)
 	BitDepth         int                          // PCM bit depth for FFmpeg output: 16 or 32
 	Simplified       bool                         // simplified playback view: track summary and time strip
+	HideHelpBar      bool                         // hide the key-binding hint bar above the status line
+	HideSettingsPane bool                         // close the settings pane beside the playlist
+	ShowMetadata     bool                         // expand highlighted-track metadata below settings (default false)
+	Expanded         bool                         // start with the playlist expanded (the Ctrl+X state)
 	PaddingH         int                          // horizontal padding for the UI frame (default 3)
 	PaddingV         int                          // vertical padding for the UI frame (default 1)
 	AudioDevice      string                       // preferred audio output device name (empty = system default)
@@ -344,9 +381,12 @@ type Config struct {
 	Jellyfin         JellyfinConfig               // optional Jellyfin server credentials
 	Emby             EmbyConfig                   // optional Emby server credentials
 	Audiobookshelf   AudiobookshelfConfig         // optional Audiobookshelf server credentials
+	Radio            RadioConfig                  // built-in Radio provider settings
+	Podcast          PodcastConfig                // built-in podcast directory settings
 	SoundCloud       SoundCloudConfig             // SoundCloud provider (opt-in via enabled = true)
 	Mixcloud         MixcloudConfig               // Mixcloud provider (opt-in via enabled = true)
 	NetEase          NetEaseConfig                // NetEase Cloud Music provider (opt-in via enabled = true)
+	Yandex           YandexConfig                 // Yandex Music provider (opt-in via enabled = true)
 	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
 	LogLevel         string                       // log level: debug, info, warn, error (default "info")
 	LowPower         bool                         // reduce CPU by lowering UI cadence and disabling visualization
@@ -453,6 +493,8 @@ func Load() (Config, error) {
 				cfg.Navidrome.Password = parseString(val)
 			case "browse_sort":
 				cfg.Navidrome.BrowseSort = parseString(val)
+			case "format":
+				cfg.Navidrome.Format = parseString(val)
 			case "scrobble":
 				// Opt-out: only mark disabled when the value is explicitly "false".
 				cfg.Navidrome.ScrobbleDisabled = strings.ToLower(val) == "false"
@@ -522,6 +564,15 @@ func Load() (Config, error) {
 			case "libraries":
 				cfg.Plex.Libraries = parseStringSlice(val)
 			}
+		case "radio":
+			switch key {
+			case "country":
+				cfg.Radio.Country = strings.TrimSpace(parseString(val))
+			}
+		case "podcast":
+			if key == "country" {
+				cfg.Podcast.Country = strings.TrimSpace(parseString(val))
+			}
 		case "soundcloud":
 			switch key {
 			case "enabled":
@@ -561,6 +612,13 @@ func Load() (Config, error) {
 				cfg.NetEase.CookiesFrom = strings.TrimSpace(parseString(val))
 			case "user_id":
 				cfg.NetEase.UserID = parseString(val)
+			}
+		case "yandex":
+			switch key {
+			case "enabled":
+				cfg.Yandex.Enabled = strings.ToLower(val) == "true"
+			case "token":
+				cfg.Yandex.Token = parseString(val)
 			}
 		case "jellyfin":
 			switch key {
@@ -658,6 +716,10 @@ func Load() (Config, error) {
 				cfg.Provider = strings.ToLower(parseString(val))
 			case "visualizer":
 				cfg.Visualizer = parseString(val)
+			case "vis_rows":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.VisRows = v
+				}
 			case "sample_rate":
 				if v, err := strconv.Atoi(val); err == nil {
 					cfg.SampleRate = v
@@ -680,6 +742,14 @@ func Load() (Config, error) {
 				}
 			case "simplified":
 				cfg.Simplified = val == "true"
+			case "hide_help_bar":
+				cfg.HideHelpBar = val == "true"
+			case "hide_settings_pane":
+				cfg.HideSettingsPane = val == "true"
+			case "show_metadata":
+				cfg.ShowMetadata = val == "true"
+			case "expanded":
+				cfg.Expanded = strings.ToLower(val) == "true"
 			case "audio_device":
 				cfg.AudioDevice = parseString(val)
 			case "initial_directory":
@@ -777,6 +847,16 @@ func Save(key, value string) error {
 // If no [navidrome] section exists, one is appended along with the key.
 func SaveNavidromeSort(sortType string) error {
 	return saveSectionValue("navidrome", "browse_sort", strconv.Quote(sortType))
+}
+
+// SaveRadioCountry persists the listener's home country in the [radio] section
+// so the choice survives a restart. Pass "" to record that detection should be
+// turned off.
+func SaveRadioCountry(code string) error {
+	if code == "" {
+		code = "none"
+	}
+	return saveSectionValue("radio", "country", strconv.Quote(code))
 }
 
 // SaveMixcloudStyles persists the selected discovery styles in the [mixcloud]
@@ -932,6 +1012,9 @@ func (c *Config) clamp() {
 	c.Spotify.Bitrate = clampSpotifyBitrate(c.Spotify.Bitrate)
 	c.PaddingH = max(min(c.PaddingH, 10), 0)
 	c.PaddingV = max(min(c.PaddingV, 5), 0)
+	if c.VisRows != 0 {
+		c.VisRows = max(min(c.VisRows, maxVisRows), 1)
+	}
 	if c.LowPower {
 		c.Visualizer = "none"
 	}

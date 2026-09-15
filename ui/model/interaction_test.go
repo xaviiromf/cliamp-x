@@ -39,6 +39,49 @@ type sharedModeBrowseProvider struct {
 	providerPaneBrowseProvider
 }
 
+type preferredBrowseProvider struct {
+	providerPaneBrowseProvider
+}
+
+type routedGenreBrowser struct{}
+
+func (*routedGenreBrowser) Genres() ([]provider.GenreInfo, error) {
+	return []provider.GenreInfo{{ID: "jazz", Name: "jazz (100)"}}, nil
+}
+
+func (*routedGenreBrowser) GenreSortTypes() []provider.SortType {
+	return []provider.SortType{{ID: "votes", Label: "Most Voted"}}
+}
+
+func (*routedGenreBrowser) GenreTracks(string, string) ([]playlist.Track, error) {
+	return nil, nil
+}
+
+func (*routedGenreBrowser) GenreLabel() string { return "Genres & Tags" }
+
+type routedGenreProvider struct {
+	providerPaneBrowseProvider
+	tags routedGenreBrowser
+}
+
+func (p *routedGenreProvider) BrowseEntries() []provider.BrowseEntry {
+	return []provider.BrowseEntry{
+		{ID: "browse:countries", Name: "Countries", Mode: provider.BrowseGenres},
+		{ID: "browse:tags", Name: "Genres & Tags", Mode: provider.BrowseGenres},
+	}
+}
+
+func (p *routedGenreProvider) GenreBrowserFor(entryID string) provider.GenreBrowser {
+	if entryID == "browse:tags" {
+		return &p.tags
+	}
+	return p
+}
+
+func (p *preferredBrowseProvider) DefaultBrowseMode() provider.BrowseMode {
+	return provider.BrowseArtistAlbums
+}
+
 type favoriteBrowseProvider struct {
 	commandsTestProvider
 }
@@ -163,6 +206,88 @@ func TestHandleKeyEnhancedShiftNOpensProviderBrowser(t *testing.T) {
 	}
 	if got := m.navBrowser.prov.Name(); got != "Navidrome" {
 		t.Fatalf("browser provider = %q, want Navidrome", got)
+	}
+}
+
+func TestSwitchProviderOpensPreferredBrowseMode(t *testing.T) {
+	jellyfin := &preferredBrowseProvider{
+		providerPaneBrowseProvider: providerPaneBrowseProvider{
+			interactionBrowseProvider{commandsTestProvider{name: "Jellyfin"}},
+		},
+	}
+	m := keybindingTestModel()
+	m.providers = append(m.providers, ProviderEntry{Key: "jellyfin", Name: "Jellyfin", Provider: jellyfin})
+
+	cmd := m.switchToProvider("jellyfin")
+
+	if cmd == nil {
+		t.Fatal("switchToProvider returned no load command")
+	}
+	if !m.navBrowser.visible || m.navBrowser.prov != jellyfin {
+		t.Fatalf("preferred browser not opened: %+v", m.navBrowser)
+	}
+	if m.navBrowser.mode != navBrowseModeByArtistAlbum || !m.navBrowser.loading {
+		t.Fatalf("browser mode/loading = %d/%v, want artist-album/true", m.navBrowser.mode, m.navBrowser.loading)
+	}
+}
+
+func TestStartInProviderQueuesPreferredBrowser(t *testing.T) {
+	jellyfin := &preferredBrowseProvider{
+		providerPaneBrowseProvider: providerPaneBrowseProvider{
+			interactionBrowseProvider{commandsTestProvider{name: "Jellyfin"}},
+		},
+	}
+	m := keybindingTestModel()
+	m.provider = jellyfin
+
+	m.StartInProvider()
+	if !m.openDefaultProviderOnce {
+		t.Fatal("StartInProvider did not queue the preferred browser")
+	}
+	updated, cmd := m.Update(openDefaultProviderBrowserMsg{})
+	got := updated.(Model)
+	if cmd == nil || !got.navBrowser.visible || got.navBrowser.mode != navBrowseModeByArtistAlbum {
+		t.Fatalf("startup browser = visible:%v mode:%d cmd:%v", got.navBrowser.visible, got.navBrowser.mode, cmd != nil)
+	}
+}
+
+func TestPreferredProviderNOpensModeChooser(t *testing.T) {
+	jellyfin := &preferredBrowseProvider{
+		providerPaneBrowseProvider: providerPaneBrowseProvider{
+			interactionBrowseProvider{commandsTestProvider{name: "Jellyfin"}},
+		},
+	}
+	m := keybindingTestModel()
+	m.navBrowser = navBrowserState{
+		prov: jellyfin, visible: true, mode: navBrowseModeByArtistAlbum,
+	}
+
+	m.handleNavBrowserKey(tea.KeyPressMsg{Text: "N"})
+
+	if !m.navBrowser.visible || m.navBrowser.mode != navBrowseModeMenu {
+		t.Fatalf("N left browser in mode %d, want mode chooser", m.navBrowser.mode)
+	}
+}
+
+func TestBrowseModeSelectionDoesNotChangeProviderDefault(t *testing.T) {
+	jellyfin := &preferredBrowseProvider{
+		providerPaneBrowseProvider: providerPaneBrowseProvider{
+			interactionBrowseProvider{commandsTestProvider{name: "Jellyfin"}},
+		},
+	}
+	m := keybindingTestModel()
+	m.navBrowser = navBrowserState{prov: jellyfin, visible: true, mode: navBrowseModeMenu}
+
+	cmd := m.handleNavBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("mode selection returned no album-load command")
+	}
+	if m.navBrowser.mode != navBrowseModeByAlbum {
+		t.Fatalf("active mode = %d, want album mode", m.navBrowser.mode)
+	}
+	if jellyfin.DefaultBrowseMode() != provider.BrowseArtistAlbums {
+		t.Fatalf("default mode = %d, want BrowseArtistAlbums", jellyfin.DefaultBrowseMode())
 	}
 }
 
@@ -462,6 +587,30 @@ func TestProviderPaneUsesExactBrowseEntryLeafBehavior(t *testing.T) {
 	}
 	if !m.navBrowser.openInPlaylist {
 		t.Fatalf("second entry inherited first entry behavior: %+v", m.navBrowser)
+	}
+}
+
+func TestProviderPaneRoutesSameModeEntriesToDistinctGenreBrowsers(t *testing.T) {
+	browse := &routedGenreProvider{providerPaneBrowseProvider: providerPaneBrowseProvider{
+		interactionBrowseProvider{commandsTestProvider{name: "Radio"}},
+	}}
+	m := keybindingTestModel()
+	m.provider = browse
+	m.providerLists = providerListsWithBrowse(browse, nil)
+
+	cmd := m.openProviderList(1)
+	if cmd == nil {
+		t.Fatal("tag browse entry returned no genre-load command")
+	}
+	if m.navGenreBrowser() != &browse.tags {
+		t.Fatalf("genre browser = %T, want routed tag browser", m.navGenreBrowser())
+	}
+	if got := m.navLabels().genresTitle(); got != "Genres & Tags" {
+		t.Fatalf("genre label = %q, want route-specific label", got)
+	}
+	msg, ok := cmd().(navGenresLoadedMsg)
+	if !ok || len(msg.genres) != 1 || msg.genres[0].ID != "jazz" {
+		t.Fatalf("genre load = %#v, want routed jazz catalogue", msg)
 	}
 }
 

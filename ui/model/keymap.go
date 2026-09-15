@@ -114,10 +114,13 @@ func (m Model) keymapContext() (commandMode, string) {
 		return commandModePlaylistManager, "Playlists"
 	case screenQueue:
 		return commandModeQueue, "Queue"
+	case screenSubs:
+		if m.subs.filtering {
+			return commandModeSubsFilter, "Subscription Filter"
+		}
+		return commandModeSubs, "Subscriptions"
 	case screenInfo:
 		return commandModeInfo, "Track Info"
-	case screenRadioStats:
-		return commandModeRadioStats, "Radio Stats"
 	case screenSearch:
 		return commandModeSearch, "Playlist Filter"
 	case screenNetSearch:
@@ -138,6 +141,12 @@ func (m Model) keymapContext() (commandMode, string) {
 		return commandModeProvider, "Provider"
 	case focusEQ:
 		return commandModeEQ, "Equalizer"
+	case focusVolume:
+		return commandModeVolume, "Volume"
+	case focusShuffle:
+		return commandModeShuffle, "Shuffle"
+	case focusRepeat:
+		return commandModeRepeat, "Repeat"
 	case focusSpeed:
 		return commandModeSpeed, "Speed"
 	case focusProvPill:

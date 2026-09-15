@@ -2,8 +2,10 @@
 package model
 
 import (
+	"strings"
 	"time"
 
+	"github.com/bjarneo/cliamp/external/radio"
 	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/internal/playback"
 	"github.com/bjarneo/cliamp/luaplugin"
@@ -20,13 +22,31 @@ type ConfigSaver interface {
 	Save(key, value string) error
 }
 
+// ResumeSaver persists the active track, timeline position, and source context.
+type ResumeSaver func(track playlist.Track, positionSec int, context []playlist.Track, contextIndex int)
+
+// saveConfigKey persists a top-level config key, surfacing a write failure in
+// the status line. It is a no-op when no saver is wired, so headless callers
+// and tests can toggle settings without touching the config file.
+func (m *Model) saveConfigKey(key, value string) {
+	if m.configSaver == nil {
+		return
+	}
+	if err := m.configSaver.Save(key, value); err != nil {
+		m.status.Errorf(statusTTLDefault, "Config save failed: %s", err)
+	}
+}
+
 type focusArea int
 
 const (
 	focusPlaylist focusArea = iota
-	focusEQ
-	focusSpeed
 	focusProvPill
+	focusVolume
+	focusEQ
+	focusShuffle
+	focusRepeat
+	focusSpeed
 	focusSearch
 	focusProvider
 	focusNetSearch
@@ -36,8 +56,14 @@ func (f focusArea) label() string {
 	switch f {
 	case focusPlaylist:
 		return "Playlist"
+	case focusVolume:
+		return "Volume"
 	case focusEQ:
 		return "Equalizer"
+	case focusShuffle:
+		return "Shuffle"
+	case focusRepeat:
+		return "Repeat"
 	case focusSpeed:
 		return "Speed"
 	case focusProvPill:
@@ -61,11 +87,38 @@ func (m Model) mainFocusAreas() []focusArea {
 	if m.simplified || m.layout.tier == layoutMinimal || m.layout.tier == layoutTooSmall {
 		return areas
 	}
-	areas = append(areas, focusEQ)
+	if m.layout.twoColumn {
+		rows := m.effectivePlaylistVisible()
+		for _, row := range m.settingsPaneRows(rows - m.metadataPaneRows(rows)) {
+			if row.focus != focusPlaylist {
+				areas = append(areas, row.focus)
+			}
+		}
+		return areas
+	}
 	if len(m.providers) > 1 {
 		areas = append(areas, focusProvPill)
 	}
-	return append(areas, focusSpeed)
+	areas = append(areas, focusVolume)
+	// The closed pane keeps source/volume and the playlist mode badges, but
+	// draws no EQ or speed readout. Both stay reachable by their global keys.
+	if !m.layout.closedSettings {
+		areas = append(areas, focusEQ)
+	}
+	if m.playlist != nil {
+		// Probe each focused badge: its extra label must fit too, independent
+		// of the current focus or an overlay temporarily replacing the header.
+		for _, area := range []focusArea{focusShuffle, focusRepeat} {
+			m.focus = area
+			if strings.Contains(m.renderPlaybackHeader(), "["+area.label()+" ") {
+				areas = append(areas, area)
+			}
+		}
+	}
+	if !m.layout.closedSettings {
+		areas = append(areas, focusSpeed)
+	}
+	return areas
 }
 
 func (m Model) mainFocusAllowed(focus focusArea) bool {
@@ -100,11 +153,13 @@ func (m Model) previousMainFocus(current focusArea) focusArea {
 // normalizeMainFocus clears a focus restored from a wider terminal when its
 // control is not rendered at the current size.
 func (m *Model) normalizeMainFocus() {
-	if (m.focus == focusEQ || m.focus == focusSpeed || m.focus == focusProvPill) && !m.mainFocusAllowed(m.focus) {
-		m.focus = focusPlaylist
-	}
-	if (m.prevFocus == focusEQ || m.prevFocus == focusSpeed || m.prevFocus == focusProvPill) && !m.mainFocusAllowed(m.prevFocus) {
-		m.prevFocus = focusPlaylist
+	for _, focus := range []*focusArea{&m.focus, &m.prevFocus} {
+		switch *focus {
+		case focusProvPill, focusVolume, focusEQ, focusShuffle, focusRepeat, focusSpeed:
+			if !m.mainFocusAllowed(*focus) {
+				*focus = focusPlaylist
+			}
+		}
 	}
 }
 
@@ -122,6 +177,7 @@ const (
 	screenPlaylistManager
 	screenSpotSearch
 	screenQueue
+	screenSubs
 	screenInfo
 	screenSearch
 	screenNetSearch
@@ -129,7 +185,6 @@ const (
 	screenLyrics
 	screenJump
 	screenFullVisualizer
-	screenRadioStats
 )
 
 func (s topLevelScreen) label() string {
@@ -154,6 +209,8 @@ func (s topLevelScreen) label() string {
 		return "Search"
 	case screenQueue:
 		return "Queue"
+	case screenSubs:
+		return "Subscriptions"
 	case screenInfo:
 		return "Track Info"
 	case screenSearch:
@@ -166,8 +223,6 @@ func (s topLevelScreen) label() string {
 		return "Jump to Time"
 	case screenFullVisualizer:
 		return "Visualizer"
-	case screenRadioStats:
-		return "Radio Stats"
 	default:
 		return ""
 	}
@@ -250,7 +305,6 @@ type Model struct {
 	plVisible       int       // desired max visible playlist lines
 	titleOff        int       // scroll offset for the now-playing marquee
 	titleLastScroll time.Time // last time the title scrolled
-	titleScrolled   bool      // whether the current title completed its single pass
 	err             error
 	quitting        bool
 	width           int
@@ -260,19 +314,21 @@ type Model struct {
 	playlistUndo    playlistUndo
 
 	// Provider state
-	provider      playlist.Provider
-	localProvider playlist.Provider // local playlist provider for file-based playlist management (always available)
-	providerLists []playlist.PlaylistInfo
-	provCursor    int
-	provScroll    int
-	provLoading   bool
-	provSignIn    bool            // true when provider needs interactive sign-in
-	provAuthURL   string          // OAuth URL to display while interactive auth is in flight
-	providers     []ProviderEntry // all available providers
-	provPillIdx   int             // selected pill index
-	eqPresetIdx   int             // -1 = custom, 0+ = index into eqPresets
-	eqCustomLabel string          // non-empty = plugin-defined preset label (shown instead of "Custom")
-	eqCustomBands [eqBandCount]float64
+	provider                playlist.Provider
+	localProvider           playlist.Provider // local playlist provider for file-based playlist management (always available)
+	providerLists           []playlist.PlaylistInfo
+	provCursor              int
+	provScroll              int
+	provLoading             bool
+	provSignIn              bool            // true when provider needs interactive sign-in
+	provAskLoc              bool            // true while the location question is on screen
+	provAuthURL             string          // OAuth URL to display while interactive auth is in flight
+	openDefaultProviderOnce bool            // open the provider's preferred hierarchy after Init
+	providers               []ProviderEntry // all available providers
+	provPillIdx             int             // selected pill index
+	eqPresetIdx             int             // -1 = custom, 0+ = index into eqPresets
+	eqCustomLabel           string          // non-empty = plugin-defined preset label (shown instead of "Custom")
+	eqCustomBands           [eqBandCount]float64
 
 	// Overlay / feature state (see state.go for struct definitions)
 	search         searchState
@@ -284,13 +340,13 @@ type Model struct {
 	lyrics         lyricsState
 	keymap         keymapOverlay
 	queue          queueOverlay
+	subs           subsOverlay
 	plManager      plManagerState
 	plPicker       playlistPickerState
 	spotSearch     spotSearchState
 	fileBrowser    fileBrowserState
 	navBrowser     navBrowserState
 	catalogBatch   catalogBatchState
-	radioStats     radioStatsState
 	ytdlBatch      ytdlBatchState
 	reconnect      reconnectState
 	save           saveState
@@ -317,6 +373,7 @@ type Model struct {
 	feedLoading bool
 
 	visVolumeLinked bool // when true, visualizer samples are scaled by volume gain
+	visRows         int  // configured visualizer height at the full tier; 0 uses ui.DefaultVisRows
 
 	// Async stream buffering (true while HTTP connect is in progress)
 	buffering   bool
@@ -328,6 +385,13 @@ type Model struct {
 		path string
 		secs int
 	}
+
+	// playbackContext is the complete list the active track was chosen from,
+	// such as every track in an album opened through provider navigation.
+	playbackContext      []playlist.Track
+	playbackContextIndex int
+	resumeSaver          ResumeSaver
+	lastResumeSave       time.Time
 
 	lastProgressReport time.Time // last interim provider progress report
 
@@ -341,9 +405,11 @@ type Model struct {
 	// exitResume holds the playback state captured just before player.Close()
 	// so ResumeState() can read it after the player is shut down.
 	exitResume struct {
-		path     string
-		secs     int
-		playlist string
+		path         string
+		secs         int
+		playlist     string
+		context      []playlist.Track
+		contextIndex int
 	}
 
 	// preloading is true while a preloadStreamCmd goroutine is in-flight.
@@ -358,6 +424,10 @@ type Model struct {
 	playingTrack       playlist.Track
 	playingTrackActive bool
 	playbackDetached   bool
+	// playingProvider names the provider that was active when the playing
+	// track started, so a label for it stays right after the listener
+	// switches providers while it keeps playing.
+	playingProvider string
 
 	notifier playback.Notifier
 
@@ -380,6 +450,11 @@ type Model struct {
 	// call when nil). Cached here to avoid a type assertion per rendered track.
 	favMgr provider.FavoritesManager
 
+	// Local station favorites, independent of bookmarks and heart favorites.
+	radioFavorites *radio.Favorites
+	// Shared across Model value copies; keyed by input revisions, not handlers.
+	radioMarkers *radioMarkerCache
+
 	// favSet is a cached set of favorited paths for O(1) lookup during
 	// rendering. Refreshed on init and after every toggle.
 	favSet map[string]struct{}
@@ -397,6 +472,10 @@ type Model struct {
 
 	showAlbumHeaders bool
 	headerManual     bool
+	// tracksPaging is true while a progressive track load still has pages in
+	// flight. Each page remixes the upcoming order, so preloading is held off
+	// until the order settles. A frontier-EOF deferral would use this too.
+	tracksPaging bool
 	// Running counters for the cohesion heuristic so Add can update header
 	// visibility in O(k) instead of walking the whole playlist on each call.
 	headerLastAlbum string
@@ -413,6 +492,10 @@ type Model struct {
 	lowPower        bool // lower UI/render cadences in low-power mode
 	visualizer60FPS bool // render a visible visualizer at the animation cadence
 	simplified      bool // simplified playback view: track summary and time strip
+	hideTrackInfo   bool // full-screen visualizer: show the source instead of the track
+	hideHelpBar     bool // hide the key-binding hint bar above the status line
+	hideSettings    bool // close the two-column settings pane beside the playlist
+	showMetadata    bool // expand highlighted-track metadata below settings
 	heightExpanded  bool // tracks whether manual 'x' expansion is active
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
@@ -446,8 +529,8 @@ func (m Model) activeScreen() topLevelScreen {
 		return screenPlaylistManager
 	case m.queue.visible:
 		return screenQueue
-	case m.radioStats.visible:
-		return screenRadioStats
+	case m.subs.visible:
+		return screenSubs
 	case m.showInfo:
 		return screenInfo
 	case m.lyrics.visible:
@@ -479,9 +562,11 @@ func (m Model) usesContentFirstLayout() bool {
 	if m.activeScreen() == screenMain && m.focus == focusProvider {
 		return true
 	}
+	// The queue is deliberately absent: it holds the same tracks as the
+	// playlist and reads as a view of it, so it keeps the playback chrome and
+	// the settings pane rather than taking the frame.
 	if m.keymap.visible || m.devicePicker.visible || m.fileBrowser.visible ||
-		m.navBrowser.visible || m.themePicker.visible || m.queue.visible ||
-		m.radioStats.visible || m.search.active {
+		m.navBrowser.visible || m.themePicker.visible || m.subs.visible || m.search.active {
 		return true
 	}
 	if m.plPicker.visible && m.plPicker.screen == plPickerChoose {
@@ -500,6 +585,10 @@ func (m Model) usesContentFirstLayout() bool {
 // playlist view. Provider browsing and overlays retain their normal space.
 func (m Model) usesSimplifiedLayout() bool {
 	return m.simplified && m.activeScreen() == screenMain && m.focus != focusProvider
+}
+
+func (m Model) visualizerDisabled() bool {
+	return m.vis == nil || m.vis.Mode == ui.VisNone
 }
 
 func (m Model) isPlaying() bool {

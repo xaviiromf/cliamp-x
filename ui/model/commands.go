@@ -3,10 +3,12 @@ package model
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/bjarneo/cliamp/external/radio"
 	"github.com/bjarneo/cliamp/external/spotify"
 	"github.com/bjarneo/cliamp/history"
 	"github.com/bjarneo/cliamp/internal/playback"
@@ -59,6 +61,8 @@ type tracksLoadedMsg struct {
 	gen           uint64
 	resumeIdx     int
 	resumeOffset  time.Duration
+	offset        int // TrackPager: offset this page was fetched at
+	next          int // TrackPager: next offset to fetch, 0 when fully loaded
 	err           error
 }
 
@@ -211,7 +215,14 @@ func authenticateProviderCmd(auth playlist.Authenticator, providerName string, g
 	}
 }
 
+// radioListsRefreshMsg requests a projection of current in-memory Radio state.
+// Unlike remote provider results it never carries a potentially stale row snapshot.
+type radioListsRefreshMsg struct{ gen uint64 }
+
 func fetchPlaylistsCmd(prov playlist.Provider, gen uint64) tea.Cmd {
+	if _, ok := prov.(*radio.Provider); ok {
+		return func() tea.Msg { return radioListsRefreshMsg{gen: gen} }
+	}
 	return func() tea.Msg {
 		pls, err := prov.Playlists()
 		return playlistsLoadedMsg{playlists: pls, providerName: prov.Name(), gen: gen, err: err}
@@ -332,6 +343,18 @@ func saveYTDLCmd(pageURL string, saveDir string) tea.Cmd {
 	}
 }
 
+// fetchTracksPageCmd fetches one page of a paged provider's tracks. The chain is
+// driven from the message loop rather than from a goroutine: the handler for the
+// resulting message issues the command for the next offset, so pages stay
+// strictly sequential and a superseded load stops as soon as one of its messages
+// is dropped by the generation guard.
+func fetchTracksPageCmd(pager provider.TrackPager, name, playlistID string, offset int, gen uint64) tea.Cmd {
+	return func() tea.Msg {
+		tracks, next, err := pager.TracksPage(playlistID, offset)
+		return tracksLoadedMsg{tracks: tracks, playlistID: playlistID, providerName: name, offset: offset, next: next, gen: gen, err: err}
+	}
+}
+
 func fetchTracksCmd(prov playlist.Provider, playlistID string, gen uint64) tea.Cmd {
 	return func() tea.Msg {
 		tracks, err := prov.Tracks(playlistID)
@@ -361,8 +384,14 @@ func resolveWrapperURLs(tracks []playlist.Track) ([]playlist.Track, bool) {
 			resolved, err := resolve.Remote([]string{t.Path})
 			if err == nil && len(resolved) > 0 {
 				expanded = true
-				// Preserve the original title/artist on resolved tracks.
+				// Preserve station identity separately from the resolved playback
+				// URL. Do not turn arbitrary provider wrappers into radio stations.
+				_, radioStation := radio.StationFromTrack(t)
 				for i := range resolved {
+					if radioStation {
+						resolved[i].ProviderMeta = maps.Clone(t.ProviderMeta)
+						resolved[i].Genre = t.Genre
+					}
 					if resolved[i].Title == "" || resolved[i].Title == resolved[i].Path {
 						resolved[i].Title = t.Title
 					}
@@ -465,20 +494,6 @@ type catalogSearchMsg struct {
 	providerName string
 	gen          uint64
 	err          error
-}
-
-// radioStatsLoadedMsg carries listener statistics from cliamp radio.
-type radioStatsLoadedMsg struct {
-	stats provider.RadioStats
-	gen   uint64
-	err   error
-}
-
-func fetchRadioStatsCmd(loader provider.RadioStatsLoader, gen uint64) tea.Cmd {
-	return func() tea.Msg {
-		stats, err := loader.RadioStats()
-		return radioStatsLoadedMsg{stats: stats, gen: gen, err: err}
-	}
 }
 
 func fetchCatalogSearchCmd(s provider.CatalogSearcher, providerName, query string, gen uint64) tea.Cmd {

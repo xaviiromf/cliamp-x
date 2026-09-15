@@ -27,6 +27,7 @@ cliamp --bit-depth 32 track.m4a           # PCM bit depth: 16 (default) or 32 (l
 
 ```sh
 cliamp --simplified ~/Music                  # no visualizer or playlist
+cliamp --expanded ~/Music                    # start with the playlist expanded (Ctrl+X state)
 cliamp --eq-preset "Bass Boost" ~/Music
 cliamp --visualizer-60fps ~/Music            # smoother visualizer animation (higher CPU use)
 ```
@@ -121,11 +122,13 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | Flag | Type | Default | Range / Values |
 |------|------|---------|----------------|
 | `--vol` | float | 0 | -30 to +6 dB |
-| `--shuffle` | bool | false | |
+| `--shuffle` / `--no-shuffle` | bool | false | |
 | `--repeat` | string | off | off, all, one |
 | `--mono` / `--no-mono` | bool | false | |
-| `--auto-play` | bool | false | |
-| `--simplified` | bool | false | artist/title and time strip; no visualizer or playlist |
+| `--auto-play` / `--no-auto-play` | bool | false | |
+| `--simplified` / `--no-simplified` | bool | false | artist/title and time strip; no visualizer or playlist |
+| `--help-bar` / `--no-help-bar` | bool | true | show or hide the key-binding hint bar; `?` still opens the full keymap |
+| `--expanded` / `--no-expanded` | bool | false | start with the playlist expanded (the `Ctrl+X` state) |
 | `--visualizer-60fps` | bool | false | render a visible visualizer at about 60 FPS |
 | `--start-theme` | string | | theme name |
 | `--eq-preset` | string | | preset name |
@@ -135,10 +138,10 @@ cliamp track.mp3 --repeat all --mono ~/Music
 | `--bit-depth` | int | 16 | 16, 32 |
 | `--playlist` | string | | local TOML playlist name |
 | `--log-level` | string | info | debug, info, warn, error |
-| `--low-power` | bool | false | lower UI cadence; disable visualization |
+| `--low-power` / `--no-low-power` | bool | false | lower UI cadence; disable visualization |
 | `--daemon` / `-d` | bool | false | run headless; IPC only, no TUI |
 
-CLI flags override config file values for the current session only. cliamp does not save them.
+CLI flags override config file values for the current session only. Persisted boolean options accept matching `--no-*` flags, such as `--no-shuffle` and `--no-low-power`. cliamp does not save them.
 
 ## Setup wizard
 
@@ -204,7 +207,23 @@ entry. See [history.md](history.md).
 cliamp spotify reset                          # clear stored Spotify credentials
 ```
 
-Use `spotify reset` for persistent `rate-limited on /v1/me` warnings or stale authentication errors. Then restart cliamp and select Spotify to sign in again. See [spotify.md](spotify.md) for the setup guide.
+Use `spotify reset` for stale authentication errors, such as `401 Unauthorized` or a repeated sign-in prompt. Then restart cliamp and select Spotify to sign in again. It does not fix `rate-limited on /v1/me` warnings: those are `429` responses to an accepted token, so the app is out of quota rather than unauthorized. See [spotify.md](spotify.md) for the setup guide.
+
+## cliamp:// Links
+
+Open a song from a browser, a script, or anything that can open a URL:
+
+```sh
+cliamp open 'cliamp://play?url=https://example.com/s.mp3'    # play a stream
+cliamp open 'cliamp://play?provider=navidrome&album=a1b2c3'  # play an album
+cliamp open 'cliamp://queue?provider=ytmusic&q=aphex+twin'   # queue a search hit
+cliamp protocol status                                       # where it is registered
+cliamp protocol register                                     # register the scheme
+cliamp protocol unregister                                   # remove it
+```
+
+install.sh registers the scheme. See [url-scheme.md](url-scheme.md) for the
+URI format and what links cannot do.
 
 ## Remote Control (IPC)
 
@@ -217,6 +236,7 @@ cliamp status                          # current state
 cliamp status --json                   # machine-readable state
 cliamp volume -5                       # adjust volume (dB)
 cliamp seek 30                         # seek relative to current position (seconds)
+cliamp remote call seek.absolute --params '{"value":90}'   # seek to 90s exactly
 cliamp load "Playlist Name"            # load a playlist
 cliamp queue /path/to/file.mp3         # queue a track
 cliamp shuffle [on|off|toggle]         # toggle or set shuffle

@@ -65,11 +65,33 @@ type BrowseEntryProvider interface {
 	BrowseEntries() []BrowseEntry
 }
 
+// BrowseModeProvider limits the routes inferred from a provider's capabilities.
+// For example, podcast categories use artist/album browsing but cannot sensibly
+// load every track from every show in a category through BrowseArtists.
+type BrowseModeProvider interface {
+	BrowseModes() []BrowseMode
+}
+
+// DefaultBrowseModeProvider is implemented by providers that should open a
+// hierarchical browse route immediately when selected instead of landing on
+// their flat playlist pane.
+type DefaultBrowseModeProvider interface {
+	DefaultBrowseMode() BrowseMode
+}
+
 // GenreBrowser is implemented by providers that expose a category catalogue.
 type GenreBrowser interface {
 	Genres() ([]GenreInfo, error)
 	GenreSortTypes() []SortType
 	GenreTracks(genreID, sortType string) ([]playlist.Track, error)
+}
+
+// GenreBrowseRouter lets one provider-pane entry select a different category
+// catalogue from the provider's default GenreBrowser. This is useful when a
+// provider exposes more than one independent category axis, such as countries
+// and tags for an internet-radio directory.
+type GenreBrowseRouter interface {
+	GenreBrowserFor(entryID string) GenreBrowser
 }
 
 // GenreFavoriteToggler is implemented by genre browsers that can persist
@@ -133,6 +155,58 @@ type TrackPosition interface {
 	TrackPosition(track playlist.Track) time.Duration
 }
 
+// SubscriptionInfo names one show a provider is subscribed to.
+type SubscriptionInfo struct {
+	// ID addresses the show in AlbumTracks and Tracks.
+	ID string
+	// Name is the show title.
+	Name string
+	// Author is the publisher, or empty when the provider has none.
+	Author string
+}
+
+// SubscriptionLister is implemented by providers that keep a subscription list
+// locally and can return it without a network call.
+type SubscriptionLister interface {
+	// Subscriptions returns the subscribed shows, in the provider's own order.
+	Subscriptions() []SubscriptionInfo
+}
+
+// ShowLister is implemented by providers whose list rows are shows: the
+// tracks AlbumTracks returns for such a row are episodes, dated by
+// MetaPodcastPublished, so the newest of them is a meaningful thing to ask
+// for. An album's first track is not, which is why AlbumTrackLoader alone
+// does not qualify.
+type ShowLister interface {
+	AlbumTrackLoader
+	// IsShowID reports whether id names a show in the provider's list, as
+	// opposed to a section heading or a browse entry.
+	IsShowID(id string) bool
+}
+
+// PlaybackState is a track's stored listening state.
+type PlaybackState struct {
+	// Played marks an episode listened to the end.
+	Played bool
+	// Position is where the listener stopped. It is zero for a played track.
+	Position time.Duration
+}
+
+// PlaybackStateReporter is implemented by providers that keep listening state
+// locally and can answer for it without I/O.
+//
+// The UI calls this while rendering every visible row, so an implementation
+// must not reach the network or the disk. A provider whose state lives on a
+// server implements TrackPosition instead.
+type PlaybackStateReporter interface {
+	// HasPlaybackState reports whether any state is stored at all, so the UI
+	// can decide whether to reserve a marker column.
+	HasPlaybackState() bool
+	// PlaybackState returns the stored state for track. ok is false when the
+	// track is not this provider's, or nothing is stored for it.
+	PlaybackState(track playlist.Track) (state PlaybackState, ok bool)
+}
+
 // ResumeTarget is implemented by providers that track listening position
 // server-side and can point the UI at where to continue.
 type ResumeTarget interface {
@@ -160,6 +234,17 @@ type PlaylistWriter interface {
 // tracks to existing playlists in one operation.
 type PlaylistBatchWriter interface {
 	AddTracksToPlaylist(ctx context.Context, playlistID string, tracks []playlist.Track) (added, skipped int, err error)
+}
+
+// PlaylistPrepender is implemented by providers that can insert tracks at the
+// front of a saved playlist.
+type PlaylistPrepender interface {
+	// PrependTracksToPlaylist puts tracks at the start of the playlist, in the
+	// order given. A track already listed in the playlist moves to the front
+	// rather than being duplicated, and is counted in moved. A track that the
+	// playlist only holds through a directory source cannot be reordered, so
+	// it is counted in skipped and left alone.
+	PrependTracksToPlaylist(ctx context.Context, playlistID string, tracks []playlist.Track) (added, moved, skipped int, err error)
 }
 
 // PlaylistSaver is implemented by providers that can overwrite a playlist's
@@ -247,26 +332,28 @@ type CatalogSearcher interface {
 	IsSearching() bool
 }
 
-// RadioStatsLoader is implemented by radio providers that expose aggregate
-// listener statistics for their built-in stations.
-type RadioStatsLoader interface {
-	RadioStats() (RadioStats, error)
-}
-
-// RadioStats summarizes listener activity across a radio provider's stations.
-type RadioStats struct {
-	TotalSessions    int                          `json:"total_sessions"`
-	TotalListenHours float64                      `json:"total_listen_hours"`
-	PeakListeners    int                          `json:"peak_listeners"`
-	Stations         map[string]RadioStationStats `json:"stations"`
-}
-
-// RadioStationStats summarizes listener activity for one radio station.
-type RadioStationStats struct {
-	TotalSessions    int     `json:"total_sessions"`
-	TotalListenHours float64 `json:"total_listen_hours"`
-	PeakListeners    int     `json:"peak_listeners"`
-	ActiveListeners  int     `json:"active_listeners"`
+// LocationConsenter is implemented by providers that can make use of the
+// listener's approximate location. Working out where someone is counts as
+// using their location whether or not a network lookup is involved, so a
+// provider must not do it until the listener has said yes.
+type LocationConsenter interface {
+	// NeedsLocationConsent reports whether the listener has yet to answer.
+	// It is false once they have answered either way, and false when the
+	// answer is already recorded in configuration.
+	NeedsLocationConsent() bool
+	// LocationConsentID is the provider-list row that raises the question, or
+	// "" when the provider is offering no such row. Selecting that row must
+	// ask rather than load anything.
+	LocationConsentID() string
+	// LocationPrompt returns the question to put to the listener. It should
+	// say what the provider would do with the answer and where the location
+	// would come from.
+	LocationPrompt() string
+	// SetLocationConsent records the answer and persists it, so the listener
+	// is asked once rather than every launch. On true the provider may work
+	// out and use the location, and returns what it found ("" when it could
+	// not tell). On false it must not.
+	SetLocationConsent(allowed bool) (place string, err error)
 }
 
 // SectionedList is implemented by providers whose playlist list has
@@ -276,6 +363,21 @@ type SectionedList interface {
 	IDPrefix(id string) string
 	// IsFavoritableID reports whether the given ID can be favorited.
 	IsFavoritableID(id string) bool
+}
+
+// SectionTitler is implemented by SectionedList providers whose section
+// headings change at runtime, such as a radio catalog narrowed to one country.
+// Returning "" leaves the heading to the UI's built-in name for that prefix.
+type SectionTitler interface {
+	SectionTitle(prefix string) string
+}
+
+// GenreLabeler is implemented by GenreBrowser providers whose categories are
+// not genres, so the browse overlay can name them correctly (for example
+// "Countries" for a radio directory).
+type GenreLabeler interface {
+	// GenreLabel returns the plural noun for the category level, e.g. "Countries".
+	GenreLabel() string
 }
 
 // Closer is implemented by providers that hold resources (sessions,
@@ -295,4 +397,14 @@ type FavoritesManager interface {
 	IsFavorited(path string) bool
 	// FavoritesCount returns the number of favorited tracks.
 	FavoritesCount() int
+}
+
+// TrackPager is implemented by providers that can return a playlist's tracks
+// one page at a time so the UI can populate the queue progressively. Pages are
+// requested sequentially: the caller feeds each returned next back in until it
+// is 0. Unlike the Tracks path, paged results are not run through PLS/M3U
+// wrapper resolution and skip the ResumeTarget probe, so only implement this
+// for providers returning direct, already-resolved track URIs.
+type TrackPager interface {
+	TracksPage(playlistID string, offset int) (tracks []playlist.Track, next int, err error)
 }

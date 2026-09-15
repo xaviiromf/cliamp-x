@@ -6,6 +6,11 @@ import "errors"
 // before they can be used.
 var ErrNeedsAuth = errors.New("sign-in required")
 
+// ErrListChanged is returned when a list changed underneath a load that was
+// reading it in pages, so the pages already read can no longer be combined
+// into one coherent result. Reopening the list starts a clean load.
+var ErrListChanged = errors.New("list changed while loading")
+
 // PlaylistInfo describes a playlist with its name and track count.
 //
 // DurationSecs is optional: providers that can compute it cheaply should
@@ -51,4 +56,14 @@ type Authenticator interface {
 // Tracks() call re-fetches from the source.
 type Refresher interface {
 	Refresh()
+}
+
+// RefreshablePlaylist is optionally implemented by Refresher providers whose
+// specific playlist IDs remain valid across Refresh() and can be reloaded in
+// place (ctrl+r). Providers with positional or index-based IDs (e.g. radio
+// catalog stations) must not implement it: refreshing then falls back to
+// reloading the playlist list.
+type RefreshablePlaylist interface {
+	Refresher
+	CanRefreshPlaylist(id string) bool
 }
