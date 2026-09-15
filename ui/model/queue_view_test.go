@@ -143,6 +143,31 @@ func TestRenderQueueBodyOneRowShowsTheTrackNotTheHeader(t *testing.T) {
 	}
 }
 
+func TestRenderQueueBodyScrollsALongQueue(t *testing.T) {
+	old := ui.PanelWidth
+	ui.PanelWidth = 80
+	t.Cleanup(func() { ui.PanelWidth = old })
+	m := &Model{playlist: playlist.New(), plVisible: 8, showAlbumHeaders: true}
+	tracks := make([]playlist.Track, 1000)
+	for i := range tracks {
+		tracks[i] = playlist.Track{Path: fmt.Sprintf("/t%d.mp3", i), Title: fmt.Sprintf("Track %d", i), Album: "One Album"}
+	}
+	m.playlist.Replace(tracks)
+	for i := range tracks {
+		m.playlist.Queue(i)
+	}
+	m.queue.cursor = 999
+
+	body := stripAnsi(m.renderQueueBody())
+
+	if !strings.Contains(body, "1000. Track 999") {
+		t.Errorf("track under the cursor is missing:\n%s", body)
+	}
+	if got := strings.Count(body, "\n") + 1; got > 8 {
+		t.Errorf("rows = %d, want at most the budget of 8", got)
+	}
+}
+
 func TestRenderQueueBodyKeepsCursorVisiblePastHeaders(t *testing.T) {
 	old := ui.PanelWidth
 	ui.PanelWidth = 80

@@ -294,21 +294,25 @@ func (m Model) renderQueueBody() string {
 		return bodyMessage("(empty)", budget)
 	}
 
-	tracks := m.playlist.QueueWindow(0, total)
 	var stateReporters []provider.PlaybackStateReporter
 	if m.hasPlaybackState() {
 		stateReporters = m.playbackStateReporters()
 	}
 	numWidth := len(fmt.Sprintf("%d", total))
-	scroll := clampedScroll(m.queue.scroll, m.queue.cursor, len(tracks), budget)
+	scroll := clampedScroll(m.queue.scroll, m.queue.cursor, total, budget)
+	// The window only needs the tracks around the cursor, so a long queue is
+	// not cloned on every frame.
+	windowStart := max(0, scroll-1)
+	tracks := m.playlist.QueueWindow(windowStart, 2*budget+2)
+	localScroll, localCursor := scroll-windowStart, m.queue.cursor-windowStart
 	// clampedScroll counts tracks, but album headers take rows too. Advance
 	// past headers until the rows from scroll through the cursor fit.
-	for scroll < m.queue.cursor && m.albumSeparatorRows(tracks, scroll, m.queue.cursor, m.showAlbumHeaders) > budget {
-		scroll++
+	for localScroll < localCursor && m.albumSeparatorRows(tracks, localScroll, localCursor, m.showAlbumHeaders) > budget {
+		localScroll++
 	}
 
 	lines := make([]string, 0, budget)
-	for row := range m.playlistRows(tracks, scroll, m.showAlbumHeaders) {
+	for row := range m.playlistRows(tracks, localScroll, m.showAlbumHeaders) {
 		if len(lines) >= budget {
 			break
 		}
@@ -320,7 +324,7 @@ func (m Model) renderQueueBody() string {
 			}
 			continue
 		}
-		lines = append(lines, m.queueRow(row.Track, row.Index, numWidth, stateReporters))
+		lines = append(lines, m.queueRow(row.Track, windowStart+row.Index, numWidth, stateReporters))
 	}
 	return strings.Join(padLines(lines, budget, len(lines)), "\n")
 }
