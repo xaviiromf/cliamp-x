@@ -40,4 +40,18 @@ func (m *Model) clearPlaybackTrack() {
 	m.playingTrack = playlist.Track{}
 	m.playingTrackActive = false
 	m.playbackDetached = false
+	m.playingProvider = ""
+}
+
+// stopPlayback stops audio and clears the active track. It also advances the
+// stream generation so a yt-dlp or HTTP stream still spinning up for the
+// previous track is refused when it becomes ready, instead of starting to play
+// seconds after the user stopped or ran past the end of the queue.
+func (m *Model) stopPlayback() {
+	nextRequest(&m.requests.stream)
+	m.player.SetPlaybackGeneration(m.requests.stream)
+	m.player.Stop()
+	// The refused stream result would have cleared this; nothing else will.
+	m.buffering = false
+	m.clearPlaybackTrack()
 }

@@ -82,7 +82,7 @@ The Metadata shortcut is inactive while a text input is active.
 | `t` | Choose theme |
 | `v` | Cycle visualizer |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
-| `V` | Full screen visualizer |
+| `V` | Full screen visualizer. Inside it, `v` cycles modes, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. |
 | `Ctrl+H` | Toggle album headers |
 | `Ctrl+G` | Toggle the key-binding hint bar (remembered in `hide_help_bar`) |
 | `Ctrl+B` | Open/close the settings pane (remembered in `hide_settings_pane`) |
@@ -96,8 +96,8 @@ and `Esc` clears it.
 
 | Key | Action |
 |---|---|
-| `f` | Toggle bookmark ★ on the selected track. In the radio browser, favorite the selected station. In the country browser, pin the selected country or region. On a podcast show, subscribe or unsubscribe. |
-| `n` | Toggle favorite ♥ on the selected track. Favorited tracks appear in the cross-playlist "Favorites" virtual playlist. |
+| `f` | Toggle bookmark ★ on the selected track. For directory radio stations outside saved local playlists, toggle Radio Favorites from the browser or playback playlist, including country and genre results. In the country browser, pin the selected country or region. On a podcast show, subscribe or unsubscribe. |
+| `n` | Toggle favorite ♥ on the selected track while the playback playlist has focus. Favorited tracks appear in the cross-playlist "Favorites" virtual playlist. |
 | `Ctrl+F` | Search with the active provider (Podcasts, Spotify, Qobuz, Tidal, Navidrome, Lyrion, Jellyfin, Emby, Plex, Audiobookshelf, Mixcloud, NetEase, Local), or search YouTube. Available in playlist and provider-browser views. |
 | `u` | Load URL (stream/playlist) |
 | `y` | Show or close lyrics |
@@ -197,9 +197,14 @@ commits pending selections before it closes the browser.
 
 ## Provider browser (`N` key)
 
-Press `N` to open a provider. These providers use the same album, artist, and
-track screen keys: Navidrome, Lyrion, Plex, Jellyfin, Emby, Audiobookshelf,
-Spotify, Qobuz, Tidal, Mixcloud, Podcasts, and YouTube Music.
+Press `N` to open a provider. These providers share the browser keys below:
+Navidrome, Lyrion, Plex, Jellyfin, Emby, Audiobookshelf, Spotify, Qobuz,
+Tidal, Mixcloud, Podcasts, and YouTube Music. Artist and album screens exist
+only where the provider implements them: Navidrome, Lyrion, Jellyfin, Emby,
+Audiobookshelf, Qobuz, Tidal, and Mixcloud. Podcasts reuses those screens for
+categories and shows. Plex, Spotify, and YouTube Music have no artist or album
+screens; their playlists — and, for Plex and Spotify, saved albums — appear in
+the provider pane.
 
 | Key | Action |
 |---|---|

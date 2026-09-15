@@ -98,8 +98,7 @@ func (m *Model) nextTrack() tea.Cmd {
 	if m.playbackDetached {
 		m.playbackDetached = false
 		if m.playlist.Len() == 0 {
-			m.player.Stop()
-			m.clearPlaybackTrack()
+			m.stopPlayback()
 			return nil
 		}
 		return m.playCurrentTrack()
@@ -107,8 +106,7 @@ func (m *Model) nextTrack() tea.Cmd {
 	track, ok := m.playlist.Next()
 	m.normalizeQueueOverlay()
 	if !ok {
-		m.player.Stop()
-		m.clearPlaybackTrack()
+		m.stopPlayback()
 		return nil
 	}
 	m.plCursor = m.playlist.Index()
@@ -162,8 +160,7 @@ func (m *Model) playCurrentTrack() tea.Cmd {
 	}
 	activation, ok := m.playlist.ActivateSelected()
 	if !ok {
-		m.player.Stop()
-		m.clearPlaybackTrack()
+		m.stopPlayback()
 		m.status.Warning("No available tracks", statusTTLDefault)
 		return nil
 	}
@@ -385,9 +382,8 @@ func (m *Model) removeSelectedFromPlaylist() {
 	m.normalizeQueueOverlay()
 	m.playlistUndo = playlistUndo{active: true, snapshot: snapshot, loaded: loaded, saved: saved, persisted: persisted}
 	if wasActive {
-		m.player.Stop()
+		m.stopPlayback()
 		m.player.ClearPreload()
-		m.clearPlaybackTrack()
 	}
 	if newLen := m.playlist.Len(); newLen == 0 {
 		m.plCursor = 0
@@ -440,6 +436,9 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		m.status.Activity("Loading feed...", statusTTLLong)
 		return resolveFeedTrackCmd(track.Path)
 	}
+	if m.provider != nil {
+		m.playingProvider = m.provider.Name()
+	}
 	track, fetchCmd := m.beginPlaybackTrack(track)
 
 	// Stream yt-dlp URLs (YouTube, SoundCloud, Bandcamp, etc.) via pipe chain.
@@ -453,8 +452,6 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		}
 		return playYTDLStreamCmd(m.player, track.Path, dur, m.requests.stream)
 	}
-	// Fire now-playing notification for Navidrome tracks.
-	m.nowPlaying(track)
 	dur := time.Duration(track.DurationSecs) * time.Second
 	if track.Stream {
 		m.buffering = true
@@ -477,6 +474,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		// yt-dlp streams resume after streamPlayedMsg; local playback reaches
 		// this branch, where applyResume performs the seek synchronously.
 		m.applyResume()
+		m.nowPlaying(track)
 		m.backfillLoadedPlaylistDuration(track)
 		if fetchCmd != nil {
 			return tea.Batch(m.preloadNext(), fetchCmd)

@@ -118,7 +118,9 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	}
 
 	// Public providers are always available; account providers register when configured.
+	radioFavorites := radio.LoadFavorites()
 	radioProv := radio.New(radio.Options{
+		Favorites:   radioFavorites,
 		Country:     cfg.Radio.Country,
 		SaveCountry: config.SaveRadioCountry,
 	})
@@ -134,7 +136,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	var navClient *navidrome.NavidromeClient
 	if c := navidrome.NewFromConfig(cfg.Navidrome); c != nil {
 		navClient = c
-	} else if c := navidrome.NewFromEnv(); c != nil {
+	} else if c := navidrome.NewFromEnv(cfg.Navidrome); c != nil {
 		navClient = c
 	}
 	if navClient != nil {
@@ -473,6 +475,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	}
 
 	m := model.New(p, pl, providers, defaultProvider, localProv, themes, luaMgr, config.SaveFunc{})
+	m.SetRadioFavorites(radioFavorites)
 	if defaultProvider == "jellyfin" && jellyProv != nil {
 		m.SetResumeSaver(func(track playlist.Track, positionSec int, context []playlist.Track, contextIndex int) {
 			if _, ok := jellyProv.RestoreTrack(track); !ok {
@@ -523,6 +526,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 			TrackDuration: func() int { t, _ := pl.Current(); return t.DurationSecs },
 			PlaylistCount: func() int { return pl.Len() },
 			CurrentIndex:  func() int { return pl.Index() },
+			HasNext:       pl.HasNext,
 			QueueList: func() []luaplugin.QueueEntry {
 				tracks := pl.Tracks()
 				out := make([]luaplugin.QueueEntry, len(tracks))
@@ -533,7 +537,7 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 						Album:  t.Album,
 						Path:   t.Path,
 						Index:  i,
-						Queued: pl.QueuePosition(i) >= 0,
+						Queued: pl.QueuePosition(i) > 0, // 1-based; 0 means not queued
 					}
 				}
 				return out
@@ -582,6 +586,9 @@ func run(overrides config.Overrides, positional []string, daemon, visualizer60FP
 	}
 	if cfg.ShowMetadata {
 		m.SetShowMetadata(true)
+	}
+	if cfg.Expanded {
+		m.SetExpanded(true)
 	}
 
 	if resumeState.Path != "" && resumeState.PositionSec > 0 {
