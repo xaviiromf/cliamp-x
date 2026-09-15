@@ -253,6 +253,49 @@ func TestProgressStoreKeepsSameTitledNoGUIDEpisodesApart(t *testing.T) {
 	}
 }
 
+// A feed can publish a later episode under an enclosure URL it used before.
+// The new episode must not overwrite the first one's record.
+func TestProgressStoreKeepsReusedURLApart(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	s := newProgressStore()
+	first := episodeTrack("", "https://cdn.example.com/1.mp3")
+	first.Album, first.Title = "Some Show", "Episode One"
+	first.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-03"
+	s.record(first, 20*time.Minute, time.Hour)
+
+	second := episodeTrack("", "https://cdn.example.com/1.mp3")
+	second.Album, second.Title = "Some Show", "Episode Two"
+	second.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-10"
+	s.record(second, 5*time.Minute, time.Hour)
+
+	if state, ok := s.state(first); !ok || state.Position != 20*time.Minute {
+		t.Errorf("state(first) = %+v, %v; want the 20m record untouched", state, ok)
+	}
+	if _, ok := s.state(second); ok {
+		t.Error("state(second) = ok; the reused URL claimed the first episode's record")
+	}
+}
+
+// The title alias is scoped to a feed: a second show with the same show and
+// episode titles must not read the first show's record.
+func TestProgressStoreKeepsFeedsApart(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	s := newProgressStore()
+	first := episodeTrack("", "https://cdn.example.com/a.mp3")
+	first.Album, first.Title = "Some Show", "Weekly Roundup"
+	first.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-03"
+	s.record(first, 20*time.Minute, time.Hour)
+
+	second := episodeTrack("", "https://cdn.example.com/b.mp3")
+	second.Album, second.Title = "Some Show", "Weekly Roundup"
+	second.ProviderMeta[provider.MetaPodcastFeed] = "https://example.com/other-feed"
+	second.ProviderMeta[provider.MetaPodcastPublished] = "2026-09-03"
+
+	if _, ok := s.state(second); ok {
+		t.Fatal("state(second) = ok; the title alias ignored the feed")
+	}
+}
+
 func TestProgressStoreLeavesNewerVersionUntouched(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CLIAMP_CONFIG_DIR", dir)
@@ -360,6 +403,29 @@ func TestProviderNowPlayingKeepsStoredPosition(t *testing.T) {
 	}
 	if state.Position != 20*time.Minute {
 		t.Errorf("Position = %v, want 20m0s", state.Position)
+	}
+}
+
+func TestProviderNowPlayingClearsPlayedMark(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	p := New("us")
+	track := episodeTrack("guid-1", "https://cdn.example.com/a.mp3")
+
+	if err := p.ReportScrobble(track, time.Hour, time.Hour, true); err != nil {
+		t.Fatalf("ReportScrobble: %v", err)
+	}
+	if state, _ := p.PlaybackState(track); !state.Played {
+		t.Fatal("PlaybackState() before the restart = not played, want played")
+	}
+	if err := p.ReportNowPlaying(track, 0, true); err != nil {
+		t.Fatalf("ReportNowPlaying: %v", err)
+	}
+	state, ok := p.PlaybackState(track)
+	if !ok {
+		t.Fatal("PlaybackState() returned no entry")
+	}
+	if state.Played {
+		t.Error("Played = true after the listener restarted the episode")
 	}
 }
 
