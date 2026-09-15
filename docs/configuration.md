@@ -484,7 +484,7 @@ By default, TUI `Ctrl+S` saves yt-dlp downloads and temporary audio files in
 directory = "/media/usb/CLAPt/Music"
 ```
 
-An empty value keeps the default. Use an absolute path; literal `~` is not
+An empty value keeps the default. Relative paths are rejected; literal `~` is not
 expanded. Missing directories are created. Mount external drives first because
 cliamp does not check mount status. This also applies to IPC Save handled by the
 TUI; headless daemon saving is unchanged. Files remain ordinary local audio

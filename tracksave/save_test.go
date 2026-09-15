@@ -63,3 +63,14 @@ func TestDirectory(t *testing.T) {
 		t.Fatalf("directory=%q err=%v", got, err)
 	}
 }
+
+func TestDirectoryRejectsRelativePaths(t *testing.T) {
+	for _, directory := range []string{"Music", ".", "..", "../Music", "~/Music"} {
+		t.Run(directory, func(t *testing.T) {
+			got, err := Directory(directory)
+			if err == nil || got != "" {
+				t.Fatalf("Directory(%q) = %q, %v; want empty path and error", directory, got, err)
+			}
+		})
+	}
+}

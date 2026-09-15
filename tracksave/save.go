@@ -20,7 +20,14 @@ func Save(track playlist.Track) (string, error) {
 // Directory resolves the configured directory, falling back to ~/Music/cliamp.
 func Directory(directory string) (string, error) {
 	if directory != "" {
-		return filepath.Abs(directory)
+		if !filepath.IsAbs(directory) {
+			return "", fmt.Errorf("download directory must be an absolute path")
+		}
+		resolved, err := filepath.Abs(directory)
+		if err != nil {
+			return "", fmt.Errorf("resolve download directory: %w", err)
+		}
+		return resolved, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
