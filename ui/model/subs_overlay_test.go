@@ -259,8 +259,21 @@ func TestAddSubscriptionEpisodesEmptyFeed(t *testing.T) {
 	if m.subs.err == "" {
 		t.Error("no error surfaced for an empty feed")
 	}
+	if m.status.text == "" {
+		t.Error("no status warning for an empty feed requested from the provider list")
+	}
 	if m.playlist.Len() != 0 {
 		t.Errorf("playlist length = %d, want 0", m.playlist.Len())
+	}
+
+	// With the overlay open the message stays in the overlay.
+	m = stubSubsModel()
+	m.openSubsOverlay()
+	if got := m.addSubscriptionEpisodes(nil, subsLoadAppend, "Empty Show"); got != -1 {
+		t.Errorf("start = %d, want -1", got)
+	}
+	if m.status.text != "" {
+		t.Errorf("status = %q, want no status warning while the overlay is open", m.status.text)
 	}
 }
 

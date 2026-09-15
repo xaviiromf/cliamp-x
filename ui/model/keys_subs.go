@@ -184,6 +184,11 @@ func (m *Model) handleSubsFilterKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *Model) addSubscriptionEpisodes(tracks []playlist.Track, mode subsLoadMode, showName string) int {
 	if len(tracks) == 0 {
 		m.subs.err = "No playable episodes in " + showName
+		// The provider list can ask for episodes with the overlay closed, so
+		// report the empty show on the status line too.
+		if !m.subs.visible {
+			m.status.Warning(m.subs.err, statusTTLDefault)
+		}
 		return -1
 	}
 	start := m.playlist.Len()
