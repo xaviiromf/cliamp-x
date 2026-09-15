@@ -177,6 +177,7 @@ const (
 	screenPlaylistManager
 	screenSpotSearch
 	screenQueue
+	screenSubs
 	screenInfo
 	screenSearch
 	screenNetSearch
@@ -208,6 +209,8 @@ func (s topLevelScreen) label() string {
 		return "Search"
 	case screenQueue:
 		return "Queue"
+	case screenSubs:
+		return "Subscriptions"
 	case screenInfo:
 		return "Track Info"
 	case screenSearch:
@@ -337,6 +340,7 @@ type Model struct {
 	lyrics         lyricsState
 	keymap         keymapOverlay
 	queue          queueOverlay
+	subs           subsOverlay
 	plManager      plManagerState
 	plPicker       playlistPickerState
 	spotSearch     spotSearchState
@@ -525,6 +529,8 @@ func (m Model) activeScreen() topLevelScreen {
 		return screenPlaylistManager
 	case m.queue.visible:
 		return screenQueue
+	case m.subs.visible:
+		return screenSubs
 	case m.showInfo:
 		return screenInfo
 	case m.lyrics.visible:
@@ -556,8 +562,11 @@ func (m Model) usesContentFirstLayout() bool {
 	if m.activeScreen() == screenMain && m.focus == focusProvider {
 		return true
 	}
+	// The queue is deliberately absent: it holds the same tracks as the
+	// playlist and reads as a view of it, so it keeps the playback chrome and
+	// the settings pane rather than taking the frame.
 	if m.keymap.visible || m.devicePicker.visible || m.fileBrowser.visible ||
-		m.navBrowser.visible || m.themePicker.visible || m.queue.visible || m.search.active {
+		m.navBrowser.visible || m.themePicker.visible || m.subs.visible || m.search.active {
 		return true
 	}
 	if m.plPicker.visible && m.plPicker.screen == plPickerChoose {

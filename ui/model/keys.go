@@ -269,6 +269,11 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.handlePlaylistManagerKey(msg)
 	}
 
+	// Subscribed-shows overlay
+	if m.subs.visible {
+		return m.handleSubsKey(msg)
+	}
+
 	// Queue manager overlay
 	if m.queue.visible {
 		return m.handleQueueKey(msg)
@@ -374,6 +379,14 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m.quit()
+		case "F":
+			if !m.openSubsOverlay() && m.luaMgr != nil {
+				m.luaMgr.EmitKey(msg.String())
+			}
+		case "l":
+			return m.loadLatestFromProviderList()
+		case "a":
+			return m.appendShowFromProviderList()
 		case "p":
 			if m.isActiveProvider("Local") && m.localProvider != nil {
 				m.openPlaylistManager()
@@ -835,6 +848,13 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.queue.visible = true
 			m.queue.cursor = 0
 			m.queue.scroll = 0
+		}
+
+	case "F":
+		// Keep plugin key bindings working: when the overlay does not open,
+		// F is no longer an unhandled key here, so forward it explicitly.
+		if !m.openSubsOverlay() && m.luaMgr != nil {
+			m.luaMgr.EmitKey(msg.String())
 		}
 
 	case "ctrl+s":
@@ -1875,6 +1895,8 @@ func (m *Model) handlePlMgrListKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.plManager.screen = plMgrScreenNewName
 		m.plManager.newName = ""
 		m.plManager.inputErr = ""
+	case "A":
+		return m.plMgrAppendPlaylist()
 	case "D":
 		// Choose directories for the highlighted playlist: the file browser
 		// opens targeted at it, where D/Enter adds folders as [[dir]] sources.
@@ -2090,6 +2112,8 @@ func (m *Model) handlePlMgrTracksKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	case "a":
 		m.plMgrToggleMarkAll()
+	case "A":
+		return m.plMgrAppendSelectedTracks()
 	case "s":
 		m.plMgrSortTracks()
 	case "w":
