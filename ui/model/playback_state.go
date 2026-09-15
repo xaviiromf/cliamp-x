@@ -40,6 +40,7 @@ func (m *Model) clearPlaybackTrack() {
 	m.playingTrack = playlist.Track{}
 	m.playingTrackActive = false
 	m.playbackDetached = false
+	m.playingProvider = ""
 }
 
 // stopPlayback stops audio and clears the active track. It also advances the
