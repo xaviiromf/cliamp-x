@@ -164,15 +164,20 @@ func providers() []providerSpec {
 			fields: []fieldSpec{
 				{key: "url", label: "Server URL", help: "e.g. http://192.168.1.10:32400", required: true},
 				{key: "token", label: "X-Plex-Token", required: true, secret: true},
+				{key: "libraries", label: "Music libraries (optional)", help: "comma-separated names to include; blank loads every music library"},
 			},
 			validate: func(v map[string]string) error {
 				return plex.NewClient(v["url"], v["token"]).Ping()
 			},
 			body: func(v map[string]string) string {
-				return strings.Join([]string{
+				lines := []string{
 					fmt.Sprintf("url   = %q", v["url"]),
 					fmt.Sprintf("token = %q", v["token"]),
-				}, "\n")
+				}
+				if libraries := setupStringList(v["libraries"]); libraries != "" {
+					lines = append(lines, "libraries = "+libraries)
+				}
+				return strings.Join(lines, "\n")
 			},
 		},
 		{
@@ -1008,6 +1013,7 @@ func (m *setupModel) persistAndDone(warn bool) tea.Cmd {
 	}
 	m.stage = stageResult
 	m.awaitingSave = false
+	m.resultErr = nil
 	m.resultWarning = warn
 	m.resultText = fmt.Sprintf("Saved [%s] section.", spec.section)
 	return nil
@@ -1016,6 +1022,8 @@ func (m *setupModel) persistAndDone(warn bool) tea.Cmd {
 func (m *setupModel) resultKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.awaitingSave {
 		switch strings.ToLower(msg.String()) {
+		case "q":
+			return m, tea.Quit
 		case "y":
 			m.persistAndDone(true)
 			return m, nil
@@ -1029,7 +1037,9 @@ func (m *setupModel) resultKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "enter", "esc", "q", " ":
+	case "q":
+		return m, tea.Quit
+	case "enter", "esc", " ":
 		m.stage = stageMenu
 		return m, nil
 	}
@@ -1225,7 +1235,7 @@ func (m *setupModel) viewResult() string {
 		b.WriteString("\n\n")
 		b.WriteString(m.saveFailed.Error())
 		b.WriteString("\n\n")
-		b.WriteString(hintStyle.Render("Press any key to return to the menu."))
+		b.WriteString(hintStyle.Render("Press Enter or Esc to return to the menu, or q to quit."))
 		return m.card(b.String())
 	}
 
@@ -1236,7 +1246,7 @@ func (m *setupModel) viewResult() string {
 		b.WriteString("\n\n")
 		b.WriteString(hintStyle.Render("The config will still load on next launch — useful when the server is offline now."))
 		b.WriteString("\n\n")
-		b.WriteString(accentStyle.Render("Save anyway?  ") + "[y/N]")
+		b.WriteString(accentStyle.Render("Save anyway?  ") + "[y/N]  q quit")
 		return m.card(b.String())
 	}
 
@@ -1244,7 +1254,7 @@ func (m *setupModel) viewResult() string {
 		b.WriteString(errStyle.Render("✗ "))
 		b.WriteString(m.resultErr.Error())
 		b.WriteString("\n\n")
-		b.WriteString(hintStyle.Render("Press any key to return to the menu."))
+		b.WriteString(hintStyle.Render("Press Enter or Esc to return to the menu, or q to quit."))
 		return m.card(b.String())
 	}
 
@@ -1256,7 +1266,7 @@ func (m *setupModel) viewResult() string {
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render(m.cfgPath))
 	b.WriteString("\n\n")
-	b.WriteString(hintStyle.Render("Press any key to configure another provider, or q to quit."))
+	b.WriteString(hintStyle.Render("Press Enter or Esc to configure another provider, or q to quit."))
 	return m.card(b.String())
 }
 
@@ -1273,9 +1283,9 @@ func (m *setupModel) viewFooter() string {
 		keys = "ctrl+c cancel"
 	case stageResult:
 		if m.awaitingSave {
-			keys = "y save anyway   n cancel"
+			keys = "y save anyway   n cancel  q quit"
 		} else {
-			keys = "any key continue   q quit"
+			keys = "enter/esc continue   q quit"
 		}
 	}
 	return dimStyle.Render(keys)

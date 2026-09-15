@@ -12,7 +12,7 @@ import (
 const (
 	DefaultSpectrumBands = 10
 	defaultFFTSize       = 2048
-	DefaultVisRows       = 5
+	DefaultVisRows       = 7
 	minSpectrumHz        = 20.0
 	maxSpectrumHz        = 20000.0
 	// Cap on dt fed into smoothing easing — long gaps (sleep, paused, stalled
@@ -72,6 +72,8 @@ const (
 	VisClassicLED                 // Winamp 2.9 LED matrix with falling peak caps
 	VisStereo                     // stereo L/R horizontal LED peak meters
 	VisMirror                     // Braille spectrum bars mirrored about a horizontal axis
+	VisOmarchy                    // dithered pixel field with the Omarchy mark (omarchy.org style)
+	VisRedSector                  // tumbling wireframe equalizer over a drifting starfield
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -198,10 +200,11 @@ func averageSpectrumRangeLinear(magnitudes []float64, loPos, hiPos float64) floa
 }
 
 // Pre-built styles for spectrum bar colors to avoid per-frame allocation.
+// Built by ApplyThemeColors (styles.go), never here.
 var (
-	specLowStyle  = lipgloss.NewStyle().Foreground(SpectrumLow)
-	specMidStyle  = lipgloss.NewStyle().Foreground(SpectrumMid)
-	specHighStyle = lipgloss.NewStyle().Foreground(SpectrumHigh)
+	specLowStyle  lipgloss.Style
+	specMidStyle  lipgloss.Style
+	specHighStyle lipgloss.Style
 )
 
 // Raw ANSI wrappers for the spectrum styles. Caching these once lets every
@@ -214,14 +217,11 @@ var (
 	specHighPrefix, specHighSuffix string
 )
 
-func init() {
-	refreshSpecANSI()
-}
-
 func refreshSpecANSI() {
 	specLowPrefix, specLowSuffix = splitStyleAroundProbe(specLowStyle)
 	specMidPrefix, specMidSuffix = splitStyleAroundProbe(specMidStyle)
 	specHighPrefix, specHighSuffix = splitStyleAroundProbe(specHighStyle)
+	refreshRedSectorANSI()
 }
 
 // splitStyleAroundProbe renders a rare marker through the style and splits the
@@ -488,6 +488,8 @@ var visModes = [VisCount]visEntry{
 	VisClassicLED:  {"ClassicLED", newClassicLEDDriver},
 	VisStereo:      {"Stereo", newStereoDriver},
 	VisMirror:      {"Mirror", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderMirror)},
+	VisOmarchy:     {"Omarchy", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderOmarchy)},
+	VisRedSector:   {"RedSector", newRedSectorDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 
@@ -779,9 +781,7 @@ func (v *Visualizer) Render() string {
 	if cols <= 0 {
 		return ""
 	}
-	previousWidth := PanelWidth
-	PanelWidth = cols
-	defer func() { PanelWidth = previousWidth }()
+	defer WithPanelWidth(cols)()
 
 	driver := v.syncDriverMode()
 	if driver == nil {
@@ -882,9 +882,7 @@ func (v *Visualizer) Tick(ctx VisTickContext) {
 	if cols <= 0 {
 		return
 	}
-	previousWidth := PanelWidth
-	PanelWidth = cols
-	defer func() { PanelWidth = previousWidth }()
+	defer WithPanelWidth(cols)()
 
 	driver := v.syncDriverMode()
 	if driver == nil {

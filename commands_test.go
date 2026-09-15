@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
 	cli "github.com/urfave/cli/v3"
@@ -25,6 +27,8 @@ func TestInverseBoolFlags(t *testing.T) {
 		{"--no-simplified", func(ov config.Overrides) *bool { return ov.Simplified }, false},
 		{"--help-bar", func(ov config.Overrides) *bool { return ov.HideHelpBar }, false},
 		{"--no-help-bar", func(ov config.Overrides) *bool { return ov.HideHelpBar }, true},
+		{"--expanded", func(ov config.Overrides) *bool { return ov.Expanded }, true},
+		{"--no-expanded", func(ov config.Overrides) *bool { return ov.Expanded }, false},
 		{"--expand-playlist", func(ov config.Overrides) *bool { return ov.ExpandPlaylist }, true},
 		{"--no-expand-playlist", func(ov config.Overrides) *bool { return ov.ExpandPlaylist }, false},
 		{"--low-power", func(ov config.Overrides) *bool { return ov.LowPower }, true},
@@ -49,5 +53,39 @@ func TestInverseBoolFlags(t *testing.T) {
 				t.Errorf("value = %v, want %t", value, tt.want)
 			}
 		})
+	}
+}
+
+func TestPodcastProviderFlag(t *testing.T) {
+	app := buildApp()
+	var got config.Overrides
+	app.Action = func(_ context.Context, c *cli.Command) error {
+		var err error
+		got, err = overridesFromFlags(c)
+		return err
+	}
+	if err := app.Run(t.Context(), []string{"cliamp", "--provider", "podcast"}); err != nil {
+		t.Fatal(err)
+	}
+	if got.Provider == nil || *got.Provider != "podcast" {
+		t.Fatalf("provider = %v, want podcast", got.Provider)
+	}
+}
+
+func TestRadioCommandFlags(t *testing.T) {
+	app := buildApp()
+	radioCmd := app.Command("radio")
+	if radioCmd == nil {
+		t.Fatal("radio command not registered")
+	}
+	for _, name := range []string{"stats", "globe", "json"} {
+		if !slices.ContainsFunc(radioCmd.Flags, func(f cli.Flag) bool { return slices.Contains(f.Names(), name) }) {
+			t.Errorf("radio command lacks --%s", name)
+		}
+	}
+	// --globe --json is contradictory and must fail before any network call.
+	err := app.Run(context.Background(), []string{"cliamp", "radio", "--globe", "--json"})
+	if err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Errorf("--globe --json error = %v", err)
 	}
 }

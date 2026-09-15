@@ -1,8 +1,10 @@
 [![Docs on contextowl.co](https://contextowl.co/uploads/_brand/badge-docs.svg)](https://contextowl.co)
 
-A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, YouTube Music, SoundCloud, Mixcloud, Bilibili, Spotify, NetEase Cloud Music, Xiaoyuzhou (小宇宙), Navidrome, Lyrion, Plex, Jellyfin, and Audiobookshelf. Use the spectrum visualizer, parametric EQ, and playlist manager.
+A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, YouTube Music, SoundCloud, Mixcloud, Bilibili, Spotify, NetEase Cloud Music, Yandex Music, Xiaoyuzhou (小宇宙), Navidrome, Lyrion, Plex, Jellyfin, and Audiobookshelf. Use the spectrum visualizer, parametric EQ, and playlist manager.
 
-**[cliamp.stream](https://cliamp.stream)** | **[docs](https://whiterose.org.contextowl.co/docs/cliamp)**
+**[cliamp.stream](https://cliamp.stream)** | **[docs](https://whiterose.org.contextowl.co/docs/cliamp)** | **[android](https://github.com/cliamp/cliamp-mobile)**
+
+On a phone, run [cliamp mobile](https://github.com/cliamp/cliamp-mobile). It is a native Android client for radio, podcasts, and the same servers this player talks to.
 
 cliamp uses [Bubbletea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss), [Beep](https://github.com/gopxl/beep), and [go-librespot](https://github.com/devgianlu/go-librespot).
 
@@ -16,7 +18,7 @@ https://github.com/user-attachments/assets/fbc33d20-e3ac-4a62-a991-8a2f0243c8ea
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bjarneo/cliamp/HEAD/install.sh | sh
+curl -fsSL https://cliamp.stream/install.sh | sh
 ```
 
 **Homebrew**
@@ -118,6 +120,11 @@ See the [Mixcloud provider guide](docs/mixcloud.md) for discovery, account,
 creator/show, genre search, local genre favorites, authentication, signed-in
 playback, resume, seeking, and limitations.
 
+For podcast discovery and subscriptions, run `cliamp --provider podcast`.
+Browse Apple's top 100 shows and 19 categories, search with `/` then `Enter`,
+and subscribe with `f`. No account or API key is needed.
+See the [Podcasts guide](docs/podcasts.md).
+
 ## Radio
 
 Press `R` in the player to browse about 58,000 online radio stations in the [Radio Browser](https://www.radio-browser.info/) directory.
@@ -158,7 +165,11 @@ sudo dnf install alsa-lib-devel flac-devel libvorbis-devel libogg-devel mpg123-d
 sudo pacman -S alsa-lib flac libvorbis libogg mpg123
 ```
 
-**macOS:** `brew install flac libvorbis libogg mpg123 pkg-config`
+**macOS:**
+
+```sh
+brew install flac libvorbis libogg mpg123 pkg-config
+```
 
 **Windows:** The core player needs no extra SDKs. It uses pure-Go audio decoding. `ffmpeg.exe` and `yt-dlp.exe` remain optional runtime dependencies for the same formats and providers as other platforms.
 
@@ -166,19 +177,40 @@ Spotify support uses `go-librespot`. It needs CGO and a MinGW toolchain:
 
 1. Install [MSYS2](https://www.msys2.org/).
 2. Open the **MSYS2 MinGW64** terminal, not the standard MSYS2 terminal. Install the toolchain and codec libraries:
+
    ```sh
-   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config \
+   pacman -S make \
+     mingw-w64-x86_64-gcc mingw-w64-x86_64-go mingw-w64-x86_64-pkg-config \
      mingw-w64-x86_64-libogg mingw-w64-x86_64-libvorbis \
      mingw-w64-x86_64-flac mingw-w64-x86_64-mpg123
    ```
+
+   To check if Go was installed correctly, run
+
+   ```sh
+   go env GOROOT
+   ```
+
+   If the command causes the error `go: cannot find GOROOT directory: 'go' binary is trimmed and GOROOT is not set`,
+   it means that the enviroment `GOROOT` variable has to be manually set:
+
+   ```sh
+   export GOROOT=/mingw64/lib/go
+   ```
+
+   Now, when running `go env GOROOT`, the output should be: `<mtsys2-install-folder>/mingw64/lib/go`
 3. In that MinGW64 terminal, build with CGO enabled. This keeps `gcc` and `pkg-config` on `PATH`:
+
    ```sh
    CGO_ENABLED=1 go build -o cliamp.exe .
    ```
+
    Some MSYS2 `libogg` builds provide `libogg-0.dll` without `ogg_stream_iovecin` in its export table. The static `libogg.a` has this symbol. If linking fails with `undefined reference to 'ogg_stream_iovecin'`, use static linking for this library only:
+
    ```sh
    CGO_LDFLAGS="-Wl,-Bstatic -logg -Wl,-Bdynamic" CGO_ENABLED=1 go build -o cliamp.exe .
    ```
+
 4. `cliamp.exe` links dynamically to codec and MinGW runtime DLLs. Keep `C:\msys64\mingw64\bin` on `PATH` at runtime, or copy each `/mingw64/bin/*.dll` that `ldd cliamp.exe` shows next to `cliamp.exe`.
 
 **Clone and build:**
@@ -204,12 +236,14 @@ Full documentation is hosted at **[whiterose.org.contextowl.co/docs/cliamp](http
 
 ## Troubleshooting
 
-**No audio output (silence with no errors)**
+**No audio output**
 
-On Linux systems that use PipeWire or PulseAudio, the cliamp ALSA backend needs a bridge package to route audio through the sound server:
+cliamp reports `audio output unavailable` when it cannot open an output
+device. On Linux systems that use PipeWire or PulseAudio, the cliamp ALSA
+backend needs a bridge package to route audio through the sound server:
 
 - **PipeWire:** `pipewire-alsa`
-- **PulseAudio:** `pulseaudio-alsa`
+- **PulseAudio:** `pulseaudio-alsa` (`libasound2-plugins` on Debian/Ubuntu)
 
 Install the package for your system:
 
@@ -222,7 +256,13 @@ sudo pacman -S pulseaudio-alsa
 
 # Debian/Ubuntu (PipeWire)
 sudo apt install pipewire-alsa
+
+# Debian/Ubuntu (PulseAudio, including WSL2)
+sudo apt install libasound2-plugins
 ```
+
+On WSL2 see [WSL2 setup](docs/configuration.md#wsl2-windows-subsystem-for-linux)
+for the extra ALSA routing step.
 
 ## Author
 
