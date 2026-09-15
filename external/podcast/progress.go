@@ -196,7 +196,16 @@ func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
 	if key == "" {
 		return s.aliasTargetLocked(track)
 	}
-	if _, ok := s.episodes[key]; ok || !pathDerivedGUID(track) {
+	if _, ok := s.episodes[key]; ok {
+		// A URL-derived key is reused when the feed republishes under the
+		// same enclosure URL. Refuse the collision instead of overwriting
+		// the first episode's record.
+		if pathDerivedGUID(track) && !s.samePublicationLocked(key, track) {
+			return "", false
+		}
+		return key, true
+	}
+	if !pathDerivedGUID(track) {
 		return key, true
 	}
 	if target, ok := s.aliasTargetLocked(track); ok && s.samePublicationLocked(target, track) {
@@ -206,12 +215,16 @@ func (s *progressStore) resolveLocked(track playlist.Track) (string, bool) {
 }
 
 // samePublicationLocked reports whether a stored episode and a track could
-// be the same episode, judged by publication date. A date missing on either
-// side cannot contradict the other. The caller holds s.mu.
+// be the same episode, judged by feed and publication date. A feed or date
+// missing on either side cannot contradict the other. The caller holds s.mu.
 func (s *progressStore) samePublicationLocked(key string, track playlist.Track) bool {
-	stored := s.episodes[key].Published
+	stored := s.episodes[key]
+	feed := strings.TrimSpace(track.Meta(provider.MetaPodcastFeed))
+	if stored.Feed != "" && feed != "" && stored.Feed != feed {
+		return false
+	}
 	got := strings.TrimSpace(track.Meta(provider.MetaPodcastPublished))
-	return stored == "" || got == "" || stored == got
+	return stored.Published == "" || got == "" || stored.Published == got
 }
 
 // aliasTargetLocked returns the episode a track's title names, when it names
@@ -277,7 +290,9 @@ func (s *progressStore) record(track playlist.Track, position, duration time.Dur
 	s.aliasLocked(titleKey(track), key)
 	s.prune()
 	s.dirty = true
-	s.flushLocked(false)
+	if err := s.flushLocked(false); err != nil {
+		applog.Warn("podcast progress: %v", err)
+	}
 }
 
 // aliasLocked points a title at an episode. A title that already names a
@@ -420,10 +435,39 @@ func (p *Provider) CanReportPlayback(track playlist.Track) bool {
 	return p.progress.knows(track)
 }
 
-// ReportNowPlaying records nothing. It fires at the start of a track, where
-// the position is either zero or the offset TrackPosition just supplied, and
-// storing that would overwrite the position it came from.
-func (*Provider) ReportNowPlaying(playlist.Track, time.Duration, bool) error { return nil }
+// ReportNowPlaying clears the played mark when the listener starts an
+// episode again. It stores no position of its own: it fires where the
+// position is either zero or the offset TrackPosition just supplied, and
+// writing that would overwrite the position it came from.
+func (p *Provider) ReportNowPlaying(track playlist.Track, _ time.Duration, _ bool) error {
+	if !p.recordable(track) {
+		return nil
+	}
+	p.progress.clearPlayed(track)
+	return nil
+}
+
+// clearPlayed drops the played mark for an episode the listener restarted.
+// The stored position stays as it was; TrackPosition already decides where
+// playback begins. The caller holds no lock.
+func (s *progressStore) clearPlayed(track playlist.Track) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key, ok := s.resolveLocked(track)
+	if !ok {
+		return
+	}
+	entry, ok := s.episodes[key]
+	if !ok || !entry.Played {
+		return
+	}
+	entry.Played = false
+	s.episodes[key] = entry
+	s.dirty = true
+	if err := s.flushLocked(false); err != nil {
+		applog.Warn("podcast progress: %v", err)
+	}
+}
 
 // recordable reports whether a position may be written for track. A track with
 // no podcast metadata is only tracked once the store already knows it, so
