@@ -17,6 +17,10 @@ To open it by default, set the top-level `provider = "podcast"` in
 - In the main Podcasts provider list, press `/`, type a show name, and press `Enter` to search Apple for up to 100 shows. Typing alone does not send search requests. `Esc` clears the search and restores discovery and subscriptions.
 - Open **Browse Categories**, then choose a **Genre**, then a **Show**. The 19 categories use Apple's genre-name search, not genre charts. Inside these lists, `/` filters the visible entries.
 
+Press `a` on a show in the provider list to append every episode, or `l` to
+append only its newest episode and add it to the end of the queue. Both leave the playlist and the
+queue intact, which is what separates them from `Enter`.
+
 Press `Enter` on a show in the provider list or category browser to replace the
 main playlist with its episodes, without starting playback. Then select an
 episode and press `Enter` to play, or `a` to toggle its play-next queue entry.
@@ -71,6 +75,28 @@ track is never mistaken for an episode.
 If the file cannot be read at startup, or was written by a newer cliamp,
 cliamp leaves it untouched and does not save positions for that session; the
 reason is in the log.
+
+## Subscribed Shows Overlay
+
+Press `F` to list your subscriptions. The list comes from the local store, so
+it opens without a network call and works for shows Apple's directory does not
+carry.
+
+Every action appends rather than replacing, which is the difference that
+matters: `Enter` on a show in the provider list calls a playlist replace and
+drops the queue, while this overlay adds to what you already have.
+
+| Key | Action |
+| --- | --- |
+| `/` | Filter by title or author |
+| `Enter` | Append the episodes and play the first appended |
+| `a` | Append the episodes without disturbing playback |
+| `q` | Append the episodes and queue them in feed order |
+| `l` | Append the newest episode and add it to the end of the queue |
+| `L` | Append the newest episode of every subscribed show |
+
+`l` and `L` pick the newest episode by `podcast.published` when a feed supplies
+dates, falling back to feed order.
 
 ## Subscriptions
 
