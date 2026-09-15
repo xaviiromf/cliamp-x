@@ -50,3 +50,16 @@ func setTestHome(t *testing.T) string {
 	t.Setenv("USERPROFILE", home)
 	return home
 }
+
+func TestDirectory(t *testing.T) {
+	home := setTestHome(t)
+	got, err := Directory("")
+	if err != nil || got != filepath.Join(home, "Music", "cliamp") {
+		t.Fatalf("directory=%q err=%v", got, err)
+	}
+	custom := t.TempDir()
+	got, err = Directory(custom)
+	if err != nil || got != custom {
+		t.Fatalf("directory=%q err=%v", got, err)
+	}
+}
