@@ -2,7 +2,7 @@
 
 A retro terminal music player inspired by Winamp. Play local files, streams, podcasts, YouTube, YouTube Music, SoundCloud, Mixcloud, Bilibili, Spotify, NetEase Cloud Music, Yandex Music, Xiaoyuzhou (小宇宙), Navidrome, Lyrion, Plex, Jellyfin, and Audiobookshelf. Use the spectrum visualizer, parametric EQ, and playlist manager.
 
-**[cliamp.stream](https://cliamp.stream)** | **[docs](https://whiterose.org.contextowl.co/docs/cliamp)** | **[android](https://github.com/cliamp/cliamp-mobile)**
+**[cliamp.stream](https://cliamp.stream)** | **[docs](https://whiterose.org.contextowl.co/docs/cliamp)** | **[android](https://github.com/cliamp/cliamp-mobile)** | **[discord](https://discord.gg/4VpCzXPuj2)**
 
 On a phone, run [cliamp mobile](https://github.com/cliamp/cliamp-mobile). It is a native Android client for radio, podcasts, and the same servers this player talks to.
 
