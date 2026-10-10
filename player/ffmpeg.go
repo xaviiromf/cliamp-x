@@ -189,6 +189,12 @@ func (p *ffmpegProcess) wait() error {
 	}
 	p.waitOnce.Do(func() {
 		err := p.cmd.Wait()
+		if err != nil && p.cmd.ProcessState != nil && p.cmd.ProcessState.Success() {
+			// ffmpeg finished its work. The error comes from feeding its
+			// stdin, such as a response body closed at the same time as the
+			// process ended, and changes nothing about the decoded audio.
+			err = nil
+		}
 		if err != nil {
 			stderr := strings.TrimSpace(p.stderr.String())
 			if stderr != "" {
