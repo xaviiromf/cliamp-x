@@ -102,6 +102,7 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | `V` | Full screen visualizer. Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
 | `Ctrl+H` | Toggle album headers |
 | `Ctrl+G` | Toggle the key-binding hint bar (remembered in `hide_help_bar`) |
+| `R` | Toggle the auto radio: when the queue ends, keep playing songs similar to the last one (remembered in `[ytmusic] auto_radio`) |
 | `Ctrl+B` | Open/close the settings pane (remembered in `hide_settings_pane`) |
 
 Theme and visualizer pickers support `/` filtering. While you browse, arrow

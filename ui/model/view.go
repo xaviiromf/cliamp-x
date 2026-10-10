@@ -511,7 +511,7 @@ func (m Model) centerFrame(frame string) string {
 }
 
 func (m Model) renderTitle() string {
-	title := titleStyle.Render("C L I A M P")
+	title := titleStyle.Render("C L I A M P - X")
 	label := m.focus.label()
 	if screen := m.activeScreen(); screen != screenMain {
 		label = screen.label()
@@ -537,6 +537,12 @@ func (m Model) renderTimeStatus() string {
 	pos := m.cachedPos
 	dur := m.cachedDur
 
+	track, _ := m.currentPlaybackTrack()
+	// A YouTube song has a known length before the engine reports one.
+	if dur <= 0 && track.DurationSecs > 0 {
+		dur = time.Duration(track.DurationSecs) * time.Second
+	}
+
 	posMin := int(pos.Minutes())
 	posSec := int(pos.Seconds()) % 60
 	durMin := int(dur.Minutes())
@@ -544,8 +550,7 @@ func (m Model) renderTimeStatus() string {
 
 	timeStr := fmt.Sprintf("%02d:%02d / %02d:%02d", posMin, posSec, durMin, durSec)
 
-	track, _ := m.currentPlaybackTrack()
-	if track.Stream && !m.player.Seekable() {
+	if track.Stream && !m.player.Seekable() && (track.Realtime || dur <= 0) {
 		timeStr = fmt.Sprintf("%02d:%02d / LIVE", posMin, posSec)
 	}
 

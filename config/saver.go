@@ -26,6 +26,11 @@ func (SaveFunc) SaveFloat(key string, value float64, prec int) error {
 }
 
 // SaveFloats delegates to the package-level config.SaveFloats.
+// SaveSectionBool writes key = value in the named [section].
+func (SaveFunc) SaveSectionBool(section, key string, value bool) error {
+	return SaveSection(section, []KeyValue{{key, strconv.FormatBool(value)}}, nil)
+}
+
 func (SaveFunc) SaveFloats(key string, values []float64) error {
 	return SaveFloats(key, values)
 }

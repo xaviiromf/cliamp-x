@@ -691,6 +691,9 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.toggleHelpBar()
 		m.adjustScroll()
 
+	case "R":
+		m.toggleAutoRadio()
+
 	case "ctrl+b":
 		m.toggleSettingsPane()
 		m.adjustScroll()

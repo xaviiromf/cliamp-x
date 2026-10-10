@@ -374,7 +374,7 @@ func TestSimplifiedLayoutShowsTrackSummaryAndTimeStrip(t *testing.T) {
 	if !strings.Contains(plain, "Artist - Title") || !strings.Contains(plain, "01:01 / 03:42") {
 		t.Fatalf("simplified view = %q, want artist, title, and playback time", plain)
 	}
-	if strings.Contains(plain, "C L I A M P") || strings.Contains(plain, "EQ ") || strings.Contains(plain, "Playlist") {
+	if strings.Contains(plain, "C L I A M P - X") || strings.Contains(plain, "EQ ") || strings.Contains(plain, "Playlist") {
 		t.Fatalf("simplified view = %q, contains full playback chrome", plain)
 	}
 }

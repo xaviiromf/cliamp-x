@@ -284,6 +284,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	m.SetLyricsOffset(cfg.LyricsOffsetMs)
 	m.SetInitialDirectory(cfg.InitialDirectory)
 	m.SetDownloadsDirectory(cfg.Downloads.Directory)
+	m.SetAutoRadio(cfg.YouTubeMusic.AutoRadioEnabled())
 	if cfg.EQPreset != "" && cfg.EQPreset != "Custom" {
 		m.SetEQPreset(cfg.EQPreset, nil)
 	}

@@ -160,6 +160,7 @@ var commandRegistry = []commandSpec{
 	}},
 	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+g"}, KeyLabel: "Ctrl+G", Label: "Toggle key-binding hint bar", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"R"}, KeyLabel: "R", Label: "Toggle auto radio (similar songs after the queue)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
 		return !m.simplified && m.layout.tier == layoutFull
 	}, Keymap: true},

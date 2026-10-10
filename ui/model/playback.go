@@ -106,8 +106,13 @@ func (m *Model) tickResumeSave(now time.Time) {
 // nextTrack advances to the next playlist track and starts playing it.
 // Unplayable tracks are skipped automatically.
 func (m *Model) nextTrack() tea.Cmd {
+	seed, seedIdx := m.playlist.Current()
 	track, ok := m.advanceToNext()
 	if !ok {
+		// The queue ran out: the auto radio continues with related songs.
+		if seedIdx >= 0 {
+			return m.autoRadioCmd(seed)
+		}
 		return nil
 	}
 	return m.playTrack(track)

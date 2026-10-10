@@ -108,6 +108,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.openDefaultProviderBrowser()
 		return m, cmd
 
+	case autoRadioLoadedMsg:
+		cmd := m.handleAutoRadioLoaded(msg)
+		return m, cmd
+
 	case playlistsLoadedMsg:
 		cmd := m.handlePlaylistsLoaded(msg)
 		return m, cmd

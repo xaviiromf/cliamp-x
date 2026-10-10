@@ -319,6 +319,8 @@ type Model struct {
 	playlist      *playlist.Playlist
 	configSaver   ConfigSaver
 	vis           *ui.Visualizer
+	// autoRadio keeps playing related songs when the queue runs out.
+	autoRadio bool
 	seekStepLarge time.Duration
 	pausedAt      time.Time
 
