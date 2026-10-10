@@ -40,6 +40,9 @@ type trackPipeline struct {
 	// (non-seekable HTTP sources and yt-dlp pages). close() stops its fill
 	// goroutine.
 	livePrefetch *livePrefetchStreamer
+
+	// level is the loudness normalization stage in front of stream, or nil.
+	level *levelStreamer
 }
 
 // positionAndDuration is the clock of the pipeline. The caller holds the
@@ -78,8 +81,12 @@ func (cr *countingReader) Close() error {
 	return cr.inner.Close()
 }
 
-// close releases the pipeline's resources.
+// close releases the pipeline's resources. A long enough loudness
+// measurement of a track left early is still saved.
 func (tp *trackPipeline) close() {
+	if tp.level != nil {
+		tp.level.finish(60)
+	}
 	if tp.livePrefetch != nil {
 		tp.livePrefetch.Close()
 	}
@@ -206,8 +213,17 @@ func (p *Player) localFFmpegPipeline(path string) (*trackPipeline, error) {
 // knownDuration is the metadata duration (use 0 if unknown). With
 // probeDuration, a yt-dlp source with no known duration asks yt-dlp for one.
 func (p *Player) buildSource(path string, knownDuration, offset time.Duration, probeDuration bool) (*trackPipeline, error) {
+	tp, err := p.buildUnleveledSource(path, knownDuration, offset, probeDuration)
+	if err != nil {
+		return nil, err
+	}
+	p.levelPipeline(tp, nil)
+	return tp, nil
+}
+
+func (p *Player) buildUnleveledSource(path string, knownDuration, offset time.Duration, probeDuration bool) (*trackPipeline, error) {
 	if p.isYTDLURL(path) {
-		return p.buildYTDLSource(path, knownDuration, probeDuration)
+		return p.buildYTDLSource(path, knownDuration, offset, probeDuration)
 	}
 	tp, err := p.buildPipeline(path, knownDuration)
 	if err != nil {

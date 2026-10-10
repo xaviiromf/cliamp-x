@@ -104,6 +104,21 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # where the terminal supports it.
 # preview_images = "auto"
 
+# Loudness normalization plays every song at about the same level, so a loud
+# remix does not jump out after a quiet track. "track" levels each song,
+# "album" keeps the balance inside an album (local files with ReplayGain
+# album tags), "off" plays songs as they are. Local files use their
+# ReplayGain tags; other songs are measured while they play and remembered.
+# "n" cycles the modes while playing. Default: "track".
+# normalize = "track"
+# Target level in LUFS, from -30 to -5 (default -14, like YouTube).
+# normalize_target = -14
+
+# Crossfade: seconds the end of a song overlaps the start of the next, 0-12.
+# Songs of the same album play back to back, so live albums and continuous
+# mixes stay seamless. Default: 0 (off).
+# crossfade = 6
+
 # Show read-only metadata below Settings for the highlighted playlist item.
 # Hidden by default; Ctrl+I toggles and saves. Enabling it without room for the
 # section opens full info instead. Closing Settings preserves this preference.
@@ -158,6 +173,15 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Add the songs you play to your YouTube Music history, which improves
 # your recommendations. Off by default.
 # report_history = false
+
+# SponsorBlock skips the parts of YouTube videos that the community marked:
+# intros, outros, sponsor reads, self-promotion and the non-music parts of
+# music videos. Only a hash prefix of the video ID is sent to the server.
+# [sponsorblock]
+# enabled = true
+# Categories to skip: music_offtopic, intro, outro, sponsor, selfpromo,
+# interaction, preview, filler.
+# categories = ["music_offtopic", "intro", "outro", "sponsor", "selfpromo"]
 
 [downloads]
 directory = ""

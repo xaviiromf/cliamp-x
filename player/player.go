@@ -87,6 +87,8 @@ type Player struct {
 
 	streamMetaResolver StreamMetadataResolver // optional: API-based now-playing for streams without ICY
 	metaCancel         context.CancelFunc     // cancels the active metadata poller; guarded by mu
+
+	normFields // loudness normalization, see loudness.go
 }
 
 // StreamMetadataResolver matches a stream URL to a now-playing fetcher for
@@ -132,7 +134,8 @@ func New(q Quality) (*Player, error) {
 	}
 	p.volMin.Store(math.Float64bits(-50))
 	p.speed.Store(math.Float64bits(1.0))
-	p.gapless = &gaplessStreamer{}
+	p.normTarget.Store(math.Float64bits(DefaultNormalizeTarget))
+	p.gapless = &gaplessStreamer{remaining: p.currentRemainingFrames}
 	// Suspend the speaker immediately; the ALSA audio callback goroutine
 	// burns ~2% CPU even on silence. Resume is called on every track start.
 	//
@@ -325,7 +328,13 @@ func (p *Player) BeginPreload() uint64 {
 // knownDuration is the metadata duration (use 0 if unknown). buildSource
 // picks the pipeline.
 func (p *Player) PreloadForGeneration(path string, knownDuration time.Duration, generation uint64) error {
-	tp, err := p.buildSource(path, knownDuration, 0, false)
+	return p.PreloadAtForGeneration(path, knownDuration, 0, generation)
+}
+
+// PreloadAtForGeneration is PreloadForGeneration for a next track that
+// starts at offset, such as one whose intro is skipped.
+func (p *Player) PreloadAtForGeneration(path string, knownDuration, offset time.Duration, generation uint64) error {
+	tp, err := p.buildSource(path, knownDuration, offset, false)
 	if err != nil {
 		return err
 	}
@@ -620,6 +629,7 @@ func (p *Player) SeekYTDL(d time.Duration) error {
 	}
 	tp.knownDuration = cur.knownDuration
 	tp.ytdlSeek = true
+	p.levelPipeline(tp, cur.level)
 
 	if !p.commitYTDLSeek(cur, tp, gen) {
 		// The seek was cancelled or another track started while the new pipeline
@@ -1124,4 +1134,33 @@ func (p *Player) resumeSpeaker() {
 func (p *Player) Close() {
 	p.Stop()
 	speaker.Clear()
+}
+
+// currentRemainingFrames returns the frames left in the current track at
+// the output rate, for the crossfade. It runs on the audio goroutine under
+// the speaker lock, which positionAndDuration needs.
+func (p *Player) currentRemainingFrames() (int, bool) {
+	p.mu.Lock()
+	cur := p.current
+	p.mu.Unlock()
+	if cur == nil || cur.live {
+		return 0, false
+	}
+	pos, dur := cur.positionAndDuration()
+	if dur <= 0 || pos >= dur {
+		return 0, false
+	}
+	return p.sr.N(dur - pos), true
+}
+
+// SetCrossfade sets how long the end of a track overlaps the start of the
+// preloaded next one; 0 plays them back to back. It applies to the next
+// transition that has not started yet.
+func (p *Player) SetCrossfade(d time.Duration) {
+	p.gapless.fadeFrames.Store(int64(p.sr.N(max(0, d))))
+}
+
+// Crossfade returns the crossfade length.
+func (p *Player) Crossfade() time.Duration {
+	return p.sr.D(int(p.gapless.fadeFrames.Load()))
 }

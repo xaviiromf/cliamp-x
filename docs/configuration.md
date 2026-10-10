@@ -129,6 +129,14 @@ preview_images = "auto"
 # Show highlighted-playlist metadata below Settings (Ctrl+I toggles and saves).
 show_metadata = false
 
+# Loudness normalization: "track", "album" or "off" ("n" cycles and saves).
+normalize = "track"
+# Normalization target in LUFS (-30 to -5).
+normalize_target = -14
+
+# Seconds the end of a song overlaps the start of the next (0-12, 0 = off).
+crossfade = 0
+
 # Empty space around the UI: columns on the left and right (0-10, default 3)
 # and rows above and below (0-5, default 1).
 padding_horizontal = 3
@@ -284,6 +292,58 @@ When enabling Metadata in a narrow or simplified layout, with Settings closed,
 or with a sidebar too short for details, `Ctrl+I` opens that full info overlay
 instead. The preference remains saved so the section appears when you return
 to a wide playback layout with enough room and Settings open.
+
+## Playback: normalization, crossfade and SponsorBlock
+
+### Loudness normalization
+
+`normalize` plays every song at about the same perceived level, so a loud
+remix does not jump out after a quiet track:
+
+- `"track"` (the default) levels each song to `normalize_target` LUFS
+  (default -14, the level YouTube plays at).
+- `"album"` keeps the balance inside an album: a local file with a ReplayGain
+  album tag is leveled by its album gain.
+- `"off"` plays songs as they are.
+
+`n` cycles the three modes while playing and saves the choice. Local files
+use their ReplayGain tags (`REPLAYGAIN_TRACK_GAIN` and
+`REPLAYGAIN_ALBUM_GAIN`). Any other song, such as a YouTube Music track, is
+measured while it plays (ITU-R BS.1770 integrated loudness): the gain moves
+gently to the target during the first seconds and settles as the measurement
+does, so it never pumps. The measurement is saved in
+`~/.local/share/cliamp-x/loudness.json`, and the next play of the song starts
+at the right level. Gains are limited to -15 dB and +6 dB, and a soft clipper
+keeps boosted peaks from distorting.
+
+### Crossfade
+
+`crossfade = N` overlaps the last N seconds of a song with the first N of the
+next one (0-12; 0 turns it off). The outgoing song fades along a cosine curve
+and the incoming one along a sine, which keeps the combined level steady.
+Consecutive songs of the same album play back to back instead, so live albums
+and continuous mixes stay seamless. Crossfading needs the next song ready
+early, so the player starts loading it N seconds sooner than usual.
+
+### SponsorBlock
+
+The `[sponsorblock]` section skips the parts of YouTube videos that the
+[SponsorBlock](https://sponsor.ajay.app) community marked. It is on by
+default:
+
+```toml
+[sponsorblock]
+enabled = true
+categories = ["music_offtopic", "intro", "outro", "sponsor", "selfpromo"]
+```
+
+The other categories are `interaction`, `preview` and `filler`. Lookups send
+only the first four characters of the SHA-256 hash of the video ID. The
+segments of the playing song and of the next one are looked up ahead, so an
+intro is skipped by starting the song after it. A segment that runs to the
+end of the song moves to the next one, and the status line names each skip.
+Marked parts show on the seek bar in the warning color. Each segment is
+skipped once per play, so seeking back into it plays it.
 
 ## Audio output device
 

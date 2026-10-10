@@ -288,6 +288,10 @@ type Config struct {
 	MusicDir         string                       // local music folder for the YouTube Music menus: "" = ~/Music, "off" = none
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
+	SponsorBlock     SponsorBlockConfig           // skipping of marked YouTube segments
+	Normalize        string                       // loudness normalization: "track", "album" or "off" (default "track")
+	NormalizeTarget  float64                      // normalization target in LUFS, or 0 for the default (-14)
+	Crossfade        int                          // seconds a track overlaps the next, 0-12 (default 0)
 	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
 	LogLevel         string                       // log level: debug, info, warn, error (default "info")
 	LowPower         bool                         // reduce CPU by lowering UI cadence and disabling visualization
@@ -372,6 +376,8 @@ func Load() (Config, error) {
 			cfg.Downloads.set(key, val)
 		case "ytmusic":
 			cfg.YouTubeMusic.set(key, val)
+		case "sponsorblock":
+			cfg.SponsorBlock.set(key, val)
 		default:
 			// Keys of a plugin section go to the plugin. Any other section,
 			// such as one left over from cliamp, is ignored.
@@ -538,6 +544,23 @@ func (c *Config) setTopLevel(key, val string) {
 	case "vis_sensitivity":
 		if v, ok := parseInt(val); ok {
 			c.VisSensitivity = max(1, min(10, v))
+		}
+	case "normalize":
+		switch mode := strings.ToLower(parseString(val)); mode {
+		case "track", "album", "off":
+			c.Normalize = mode
+		case "true", "on":
+			c.Normalize = "track"
+		case "false":
+			c.Normalize = "off"
+		}
+	case "normalize_target":
+		if v, ok := parseFloat(val); ok && v >= -30 && v <= -5 {
+			c.NormalizeTarget = v
+		}
+	case "crossfade":
+		if v, ok := parseInt(val); ok {
+			c.Crossfade = max(0, min(12, v))
 		}
 	case "preview_images":
 		mode := strings.ToLower(parseString(val))
@@ -998,4 +1021,44 @@ func parseEQ(val string) [10]float64 {
 		}
 	}
 	return bands
+}
+
+// SponsorBlockConfig is the [sponsorblock] section.
+type SponsorBlockConfig struct {
+	Disabled   bool     // true only when the user sets enabled = false
+	Categories []string // segment categories to skip, or nil for the defaults
+}
+
+func (s *SponsorBlockConfig) set(key, val string) {
+	switch key {
+	case "enabled":
+		if v, ok := parseBool(val); ok {
+			s.Disabled = !v
+		}
+	case "categories":
+		s.Categories = parseStringList(val)
+	}
+}
+
+// parseStringList reads a TOML array of strings such as ["a", "b"]. A bare
+// comma-separated list works too.
+func parseStringList(val string) []string {
+	val = strings.TrimSpace(val)
+	if strings.HasPrefix(val, "[") {
+		// Drop a # comment after the closing bracket.
+		if end := strings.IndexByte(val, ']'); end > 0 {
+			val = val[:end+1]
+		}
+	} else if i := strings.Index(val, " #"); i >= 0 {
+		val = val[:i]
+	}
+	val = strings.TrimSuffix(strings.TrimPrefix(val, "["), "]")
+	var out []string
+	for _, part := range strings.Split(val, ",") {
+		part = strings.Trim(strings.TrimSpace(part), `"'`)
+		if part != "" {
+			out = append(out, strings.ToLower(part))
+		}
+	}
+	return out
 }

@@ -282,6 +282,8 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.openEQPanel()
 	case "R":
 		m.toggleAutoRadio()
+	case "n":
+		m.cycleNormalize()
 	case "F":
 		m.openSubsOverlay()
 	case "l":
@@ -756,6 +758,9 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "{":
 		m.adjustVisSensitivity(-1)
+
+	case "n":
+		m.cycleNormalize()
 
 	case "?":
 		m.openKeymap()

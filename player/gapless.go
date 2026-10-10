@@ -1,6 +1,7 @@
 package player
 
 import (
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -22,6 +23,36 @@ type gaplessStreamer struct {
 	nextTokenSeq   uint64
 	drained        atomic.Bool  // true when current exhausts with no next
 	onSwap         func(uint64) // called on the audio goroutine, under the speaker lock, on a valid gapless transition
+
+	// Crossfade. fadeFrames is the configured overlap. remaining reports the
+	// frames left in the current track; it runs under the speaker lock. fade
+	// and buf belong to the audio goroutine: only Stream touches them.
+	fadeFrames atomic.Int64
+	remaining  func() (int, bool)
+	fade       fadeState
+	buf        [][2]float64
+}
+
+// fadeState tracks one crossfade. version ties it to the current track, so
+// a manual replacement drops it. Over the overlap the outgoing track falls
+// along a cosine and the incoming one rises along a sine, which keeps the
+// summed power of two unrelated tracks constant.
+type fadeState struct {
+	version uint64
+	active  bool // both tracks are mixing
+	pos     int  // frames of the overlap played
+	total   int  // frames in the overlap
+	// incoming is true after the outgoing track ended before the overlap
+	// did: the new current track keeps rising until pos reaches total.
+	incoming bool
+}
+
+func fadeGains(pos, total int) (out, in float64) {
+	t := 1.0
+	if total > 0 {
+		t = min(1, float64(pos)/float64(total))
+	}
+	return math.Cos(t * math.Pi / 2), math.Sin(t * math.Pi / 2)
 }
 
 // Stream reads samples from the current track. On exhaustion, it seamlessly
@@ -30,8 +61,14 @@ type gaplessStreamer struct {
 func (g *gaplessStreamer) Stream(samples [][2]float64) (int, bool) {
 	g.mu.Lock()
 	cur := g.current
+	next := g.next
 	currentVersion := g.currentVersion
 	g.mu.Unlock()
+
+	if g.fade.version != currentVersion {
+		// A manual replacement ends any crossfade of the old track.
+		g.fade = fadeState{version: currentVersion}
+	}
 
 	if cur == nil {
 		// No active track — fill silence
@@ -39,7 +76,33 @@ func (g *gaplessStreamer) Stream(samples [][2]float64) (int, bool) {
 		return len(samples), true
 	}
 
+	if next == nil {
+		// The preload went away (a queue change): the outgoing track plays
+		// on at full level.
+		g.fade.active = false
+	} else if !g.fade.active && !g.fade.incoming && g.remaining != nil {
+		if frames := int(g.fadeFrames.Load()); frames > 0 {
+			if rem, ok := g.remaining(); ok {
+				if rem <= frames {
+					g.fade = fadeState{version: currentVersion, active: true, total: rem}
+				} else if pre := rem - frames; pre < len(samples) {
+					// The overlap starts inside this buffer: play up to it,
+					// then mix the rest.
+					g.Stream(samples[:pre])
+					g.Stream(samples[pre:])
+					return len(samples), true
+				}
+			}
+		}
+	}
+	if g.fade.active {
+		return g.streamCrossfade(samples, cur, next, currentVersion)
+	}
+
 	n, ok := cur.Stream(samples)
+	if g.fade.incoming {
+		g.applyFadeIn(samples[:n])
+	}
 
 	if !ok || n < len(samples) {
 		// Current track exhausted — try to seamlessly continue with next
@@ -83,6 +146,66 @@ func (g *gaplessStreamer) Stream(samples [][2]float64) (int, bool) {
 		samples[i] = [2]float64{}
 	}
 	return len(samples), true
+}
+
+// streamCrossfade mixes the end of cur with the start of next. When the
+// overlap is over, or cur runs out first, next becomes the current track.
+func (g *gaplessStreamer) streamCrossfade(samples [][2]float64, cur, next beep.Streamer, version uint64) (int, bool) {
+	n := len(samples)
+	if cap(g.buf) < n {
+		g.buf = make([][2]float64, n)
+	}
+	in := g.buf[:n]
+	cn, cok := cur.Stream(samples)
+	clear(samples[cn:])
+	nn, _ := next.Stream(in)
+	clear(in[nn:])
+	for i := range n {
+		gOut, gIn := fadeGains(g.fade.pos+i, g.fade.total)
+		samples[i][0] = samples[i][0]*gOut + in[i][0]*gIn
+		samples[i][1] = samples[i][1]*gOut + in[i][1]*gIn
+	}
+	g.fade.pos += n
+	if cok && cn == n && g.fade.pos < g.fade.total {
+		return n, true
+	}
+
+	// The outgoing track is done; whatever it has left was at zero gain.
+	g.mu.Lock()
+	if version != g.currentVersion || g.next != next {
+		// A replacement or a new preload won the race; it owns the stream.
+		g.mu.Unlock()
+		g.fade = fadeState{}
+		return n, true
+	}
+	nextToken := g.nextToken
+	g.current = next
+	g.next = nil
+	g.nextToken = 0
+	g.currentVersion++
+	newVersion := g.currentVersion
+	swapFn := g.onSwap
+	g.mu.Unlock()
+	g.fade = fadeState{version: newVersion, incoming: g.fade.pos < g.fade.total, pos: g.fade.pos, total: g.fade.total}
+	if swapFn != nil {
+		swapFn(nextToken)
+	}
+	g.drained.Store(false)
+	return n, true
+}
+
+// applyFadeIn finishes the rise of a track that took over before its
+// crossfade was over.
+func (g *gaplessStreamer) applyFadeIn(samples [][2]float64) {
+	for i := range samples {
+		_, gIn := fadeGains(g.fade.pos+i, g.fade.total)
+		samples[i][0] *= gIn
+		samples[i][1] *= gIn
+	}
+	g.fade.pos += len(samples)
+	if g.fade.pos >= g.fade.total {
+		g.fade.incoming = false
+	}
 }
 
 // Err always returns nil — errors are handled per-track at decode time.

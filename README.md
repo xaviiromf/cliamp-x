@@ -31,6 +31,13 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
   géneros locales aparecen junto a los de YouTube Music (marcados "· local"), y
   Favoritos e Historial mezclan ambos.
+- **Volumen parejo** (`n`): normaliza el volumen de cada canción (o de cada
+  álbum) para que un remix fuerte no salte después de una canción suave. Usa
+  las etiquetas ReplayGain de tus archivos y mide el resto mientras suena.
+- **Crossfade** opcional entre canciones (`crossfade = 6`), sin cortar los
+  álbumes continuos.
+- **SponsorBlock**: salta intros, finales, patrocinios y partes sin música de
+  los videos de YouTube, según las marcas de la comunidad.
 - **Ecualizador visual** (`E`): curva de 10 bandas agrupadas en graves, medios y
   agudos, presets por género (Rock, Metal, Pop, Electronic, Hip-Hop,
   Reggaeton, Cumbia, Jazz, Classical, Lo-Fi, Soundtrack...), vista previa al
@@ -157,6 +164,7 @@ cliamp-x https://example.com/stream  # una URL
 | `R` | Activar o desactivar la radio automática |
 | `v` | Cambiar de visualizador |
 | `}` / `{` | Subir / bajar la sensibilidad del visualizador |
+| `n` | Normalización de volumen: desactivada, por canción, por álbum |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
 | `Ctrl+K` / `?` | Ver todas las teclas |

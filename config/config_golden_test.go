@@ -188,6 +188,10 @@ func TestLoadGolden(t *testing.T) {
 	allWant.HideSettingsPane = true
 	allWant.HidePreview = true
 	allWant.PreviewImages = "auto"
+	allWant.Normalize = "track"
+	allWant.NormalizeTarget = -14
+	allWant.Crossfade = 6
+	allWant.SponsorBlock = SponsorBlockConfig{Categories: []string{"music_offtopic", "intro", "outro", "sponsor", "selfpromo"}}
 	allWant.Expanded = true
 	allWant.Theme = "Tokyo Night"
 	allWant.Visualizer = "Bars"

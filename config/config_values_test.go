@@ -54,6 +54,13 @@ func TestLoadBoolKeysIgnoreLetterCase(t *testing.T) {
 		{"hide_settings_pane", "hide_settings_pane = True", func(c Config) bool { return c.HideSettingsPane }, true},
 		{"hide_preview", "hide_preview = True", func(c Config) bool { return c.HidePreview }, true},
 		{"preview_images", `preview_images = "Kitty"`, func(c Config) bool { return c.PreviewImages == "kitty" }, true},
+		{"normalize album", `normalize = "album"`, func(c Config) bool { return c.Normalize == "album" }, true},
+		{"normalize false", `normalize = false`, func(c Config) bool { return c.Normalize == "off" }, true},
+		{"normalize_target out of range", `normalize_target = -60`, func(c Config) bool { return c.NormalizeTarget == 0 }, true},
+		{"crossfade clamps", `crossfade = 40`, func(c Config) bool { return c.Crossfade == 12 }, true},
+		{"sponsorblock section", "[sponsorblock]\nenabled = false\ncategories = [\"intro\", \"Outro\"] # comment", func(c Config) bool {
+			return c.SponsorBlock.Disabled && len(c.SponsorBlock.Categories) == 2 && c.SponsorBlock.Categories[1] == "outro"
+		}, true},
 		{"preview_images rejects unknown", `preview_images = "sixel"`, func(c Config) bool { return c.PreviewImages == "" }, true},
 		{"show_metadata", "show_metadata = True", func(c Config) bool { return c.ShowMetadata }, true},
 		{"expanded", "expanded = True", func(c Config) bool { return c.Expanded }, true},

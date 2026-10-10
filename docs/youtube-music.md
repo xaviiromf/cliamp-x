@@ -109,6 +109,17 @@ gráfico de kitty); en otras terminales, o dentro de tmux, se dibuja con
 bloques de colores, con menos detalle. `preview_images = "blocks"` fuerza los
 bloques y `hide_preview = true` en `config.toml` oculta la vista previa.
 
+## SponsorBlock
+
+Muchos videos musicales de YouTube traen una intro hablada, un final con
+créditos o un patrocinio. cliamp-x los salta solo, usando las marcas de la
+comunidad de [SponsorBlock](https://sponsor.ajay.app): la intro se salta
+empezando la canción después de ella, y un final que llega hasta el término
+de la canción pasa directo a la siguiente. La barra de progreso muestra las
+partes marcadas en otro color y la barra de estado avisa cada salto. Se
+configura en la sección `[sponsorblock]` de `config.toml` (ver
+[Configuración](configuration.md#sponsorblock)).
+
 ## Radio automática
 
 Cuando la cola termina, cliamp-x sigue con canciones parecidas a la última.

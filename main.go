@@ -21,8 +21,10 @@ import (
 	"github.com/xaviiromf/cliamp-x/config"
 	"github.com/xaviiromf/cliamp-x/internal/appdir"
 	"github.com/xaviiromf/cliamp-x/internal/appmeta"
+	"github.com/xaviiromf/cliamp-x/internal/loudstore"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/internal/resume"
+	"github.com/xaviiromf/cliamp-x/internal/sponsorblock"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
 	"github.com/xaviiromf/cliamp-x/mediactl"
@@ -268,9 +270,18 @@ func newPlayer(cfg config.Config) (p *player.Player, closePlayer func(), err err
 		releaseDevice()
 		return nil, nil, fmt.Errorf("player: %w", err)
 	}
+	// Loudness normalization remembers measured songs in the data directory.
+	var loud *loudstore.Store
+	if dir, derr := appdir.DataDir(); derr == nil {
+		loud = loudstore.Open(filepath.Join(dir, "loudness.json"))
+		p.SetLoudnessStore(loud)
+	}
 	return p, func() {
 		p.Close()
 		releaseDevice()
+		if loud != nil {
+			_ = loud.Save()
+		}
 	}, nil
 }
 
@@ -299,6 +310,11 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	}
 	m.SetVisRows(cfg.VisRows)
 	m.SetVisSensitivity(cfg.VisSensitivity)
+	m.SetNormalize(cfg.Normalize, cfg.NormalizeTarget)
+	m.SetCrossfade(cfg.Crossfade)
+	if !cfg.SponsorBlock.Disabled {
+		m.SetSponsorBlock(sponsorblock.New(cfg.SponsorBlock.Categories))
+	}
 	m.SetVisualizer60FPS(visualizer60FPS)
 	if cfg.Visualizer != "" {
 		m.SetVisualizer(cfg.Visualizer)

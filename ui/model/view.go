@@ -666,7 +666,7 @@ func (m Model) renderSeekBar() string {
 	var b strings.Builder
 	b.WriteString(seekFillStyle.Render(strings.Repeat(seekFillGlyph, filled)))
 	b.WriteString(seekFillStyle.Render(seekHeadGlyph))
-	b.WriteString(seekDimStyle.Render(strings.Repeat(seekEmptyGlyph, w-filled-1)))
+	b.WriteString(m.renderSeekRest(filled+1, w, dur))
 	return b.String()
 }
 
@@ -1294,4 +1294,41 @@ func (m Model) networkStatsText() string {
 		}
 	}
 	return text
+}
+
+// renderSeekRest draws the unplayed cells from..w of the seek bar. Parts that
+// SponsorBlock will skip show in the warning colour.
+func (m Model) renderSeekRest(from, w int, dur time.Duration) string {
+	if from >= w {
+		return ""
+	}
+	track, _ := m.currentPlaybackTrack()
+	segs := m.sponsorSegments(track)
+	if len(segs) == 0 || dur <= 0 {
+		return seekDimStyle.Render(strings.Repeat(seekEmptyGlyph, w-from))
+	}
+	cellSecs := dur.Seconds() / float64(w)
+	marked := func(cell int) bool {
+		lo, hi := float64(cell)*cellSecs, float64(cell+1)*cellSecs
+		for _, s := range segs {
+			if s.Start < hi && s.End > lo {
+				return true
+			}
+		}
+		return false
+	}
+	var b strings.Builder
+	for cell := from; cell < w; {
+		run, skip := cell, marked(cell)
+		for run < w && marked(run) == skip {
+			run++
+		}
+		style := seekDimStyle
+		if skip {
+			style = seekSkipStyle
+		}
+		b.WriteString(style.Render(strings.Repeat(seekEmptyGlyph, run-cell)))
+		cell = run
+	}
+	return b.String()
 }

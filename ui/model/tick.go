@@ -348,6 +348,9 @@ func (m *Model) handleTick(msg tickMsg) tea.Cmd {
 		cmds = append(cmds, gaplessCmds...)
 	}
 	m.tickResumeSave(now)
+	if cmd := m.tickSponsor(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	if !gaplessAdvanced {
 		cmds = append(cmds, m.tickDrain(now))
 	}

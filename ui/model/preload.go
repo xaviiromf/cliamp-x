@@ -52,18 +52,22 @@ func (m *Model) preloadNext() tea.Cmd {
 		return nil
 	}
 	isYTDL := playlist.IsYTDL(next.Path)
+	// A crossfade needs the next song before the overlap starts, so it
+	// moves the deferred preloads earlier by its length.
+	m.armCrossfade(next)
+	lead := m.crossfade
 	// Preload yt-dlp tracks with the same lead-time deferral as HTTP streams.
 	if isYTDL {
 		dur := m.player.Duration()
 		if dur > 0 {
 			remaining := dur - m.player.Position()
-			if remaining > ytdlPreloadLeadTime {
+			if remaining > ytdlPreloadLeadTime+lead {
 				return nil
 			}
 		}
 		nextDur := time.Duration(next.DurationSecs) * time.Second
 		m.preloading, m.preloadFor = true, next.Path
-		return preloadStreamCmd(m.player, next.Path, nextDur, nextRequest(&m.requests.preload), m.player.BeginPreload())
+		return m.preloadCmd(next, nextDur)
 	}
 	if next.Stream || m.hasSourceResolver(next.Path) {
 		// For streams, only arm gapless if we're within the lead-time window.
@@ -75,7 +79,7 @@ func (m *Model) preloadNext() tea.Cmd {
 		}
 		pos := m.player.Position()
 		remaining := dur - pos
-		if remaining > streamPreloadLeadTime {
+		if remaining > streamPreloadLeadTime+lead {
 			// Too early — caller should retry from the tick loop.
 			return nil
 		}
@@ -83,11 +87,27 @@ func (m *Model) preloadNext() tea.Cmd {
 		// Mark in-flight so the tick loop doesn't dispatch a second concurrent
 		// preload before this goroutine has finished arming gapless.SetNext.
 		m.preloading, m.preloadFor = true, next.Path
-		return preloadStreamCmd(m.player, next.Path, nextDur, nextRequest(&m.requests.preload), m.player.BeginPreload())
+		return m.preloadCmd(next, nextDur)
 	}
 	nextDur := time.Duration(next.DurationSecs) * time.Second
 	m.preloading, m.preloadFor = true, next.Path
-	return preloadStreamCmd(m.player, next.Path, nextDur, nextRequest(&m.requests.preload), m.player.BeginPreload())
+	return m.preloadCmd(next, nextDur)
+}
+
+// preloadCmd preloads next, starting after a SponsorBlock intro when one is
+// known and the engine can start a preload at an offset.
+func (m *Model) preloadCmd(next playlist.Track, nextDur time.Duration) tea.Cmd {
+	gen, preloadGen := nextRequest(&m.requests.preload), m.player.BeginPreload()
+	if op, ok := m.player.(offsetPreloader); ok {
+		if offset := m.sponsorStartOffset(next); offset > 0 {
+			path := next.Path
+			return func() tea.Msg {
+				err := op.PreloadAtForGeneration(path, nextDur, offset, preloadGen)
+				return streamPreloadedMsg{path: path, gen: gen, err: err}
+			}
+		}
+	}
+	return preloadStreamCmd(m.player, next.Path, nextDur, gen, preloadGen)
 }
 
 // preloadTarget returns the track the gapless pipeline should hold next. It is

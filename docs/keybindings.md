@@ -24,6 +24,7 @@ entries, a status message tells you which key to press.
 | `+` `-` | Volume up/down |
 | `]` `[` | Change speed by 0.25x |
 | `m` | Toggle mono |
+| `n` | Volume normalization: off, by song, by album (saved in `normalize`) |
 | `Ctrl+J` | Jump to time |
 
 ## Navigation

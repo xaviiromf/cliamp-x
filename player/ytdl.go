@@ -368,17 +368,17 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 	}
 }
 
-// buildYTDLSource starts the yt-dlp | ffmpeg chain for pageURL at 0. With
-// probe and no known duration, it asks yt-dlp for the duration while the chain
-// starts.
-func (p *Player) buildYTDLSource(pageURL string, knownDuration time.Duration, probe bool) (*trackPipeline, error) {
+// buildYTDLSource starts the yt-dlp | ffmpeg chain for pageURL at offset
+// (whole seconds). With probe and no known duration, it asks yt-dlp for the
+// duration while the chain starts.
+func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Duration, probe bool) (*trackPipeline, error) {
 	probe = probe && knownDuration == 0
 	// Probe duration concurrently with pipeline setup so it doesn't delay playback.
 	probeCh := make(chan time.Duration, 1)
 	if probe {
 		go func() { probeCh <- probeYTDLDuration(pageURL) }()
 	}
-	tp, err := p.buildYTDLPipeline(pageURL, 0)
+	tp, err := p.buildYTDLPipeline(pageURL, max(0, int(offset.Seconds())))
 	if err != nil {
 		return nil, err
 	}

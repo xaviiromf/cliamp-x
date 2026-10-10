@@ -431,16 +431,18 @@ printf 'page bytes'
 			wantPrefetch: true,
 		},
 		{
-			name:  "yt-dlp page ignores the offset",
+			name:  "yt-dlp page starts at the offset",
 			path:  page,
 			known: time.Minute,
-			// The chain starts at 0. A resume seeks by restart later.
+			// The chain starts at the offset, so a resume or a skipped intro
+			// needs no restart.
 			offset:       30 * time.Second,
 			register:     func(_ *testing.T, p *Player) { claimPage(p) },
 			wantDecoder:  "*player.ytdlPipeStreamer",
 			wantYTDL:     true,
 			wantPrefetch: true,
 			wantDuration: time.Minute,
+			wantPosition: 30 * time.Second,
 		},
 		{
 			name: "yt-dlp matcher wins over an http source resolver",

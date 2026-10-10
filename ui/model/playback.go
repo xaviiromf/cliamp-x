@@ -677,6 +677,10 @@ func (m *Model) startPosition(track playlist.Track) func() time.Duration {
 		hint = time.Duration(m.resume.secs) * time.Second
 	}
 	if positioner == nil {
+		if hint == 0 {
+			// A known SponsorBlock intro is skipped by starting after it.
+			hint = m.sponsorStartOffset(track)
+		}
 		return func() time.Duration { return hint }
 	}
 	return func() time.Duration { return positioner.TrackPosition(track) }

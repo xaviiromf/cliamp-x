@@ -568,6 +568,9 @@ type Model struct {
 	previewDetails map[string]provider.PreviewDetails
 	previewPending map[string]bool
 
+	crossfade time.Duration // overlap between songs of different albums
+	sponsor   sponsorState  // SponsorBlock lookups and skips
+
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration
 	cachedDur  time.Duration

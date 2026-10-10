@@ -31,6 +31,7 @@ var (
 
 	seekFillStyle lipgloss.Style
 	seekDimStyle  lipgloss.Style
+	seekSkipStyle lipgloss.Style
 	volBarStyle   lipgloss.Style
 	activeToggle  lipgloss.Style
 	// favMarkerStyle paints the favorite heart in the theme's red so it
@@ -69,6 +70,7 @@ func rebuildModelStyles() {
 
 	seekFillStyle = lipgloss.NewStyle().Foreground(ui.ColorSeekBar)
 	seekDimStyle = lipgloss.NewStyle().Foreground(ui.ColorDim)
+	seekSkipStyle = lipgloss.NewStyle().Foreground(ui.ColorWarning)
 	volBarStyle = lipgloss.NewStyle().Foreground(ui.ColorVolume)
 	activeToggle = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 	favMarkerStyle = lipgloss.NewStyle().Foreground(ui.ColorError)
