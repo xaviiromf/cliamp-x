@@ -121,6 +121,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"E"}, KeyLabel: "E", Label: "Open the equalizer panel", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"t"}, KeyLabel: "t", Label: "Choose theme", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"}", "{"}, KeyLabel: "} {", Label: "Visualizer sensitivity up/down", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+v"}, KeyLabel: "Ctrl+V", Label: "Choose visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"V"}, KeyLabel: "V", Label: "Full-screen visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Playlist scroll / EQ adjust (wraps around)", Keymap: true},
@@ -392,6 +393,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeFullVis, Keys: []string{"shift+left", "shift+right"}, KeyLabel: "Shift+Left Right", Label: "Seek +/-large step", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"+", "=", "-"}, KeyLabel: "+ -", Label: "Volume up/down", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Keymap: true},
+	{Mode: commandModeFullVis, Keys: []string{"}", "{"}, KeyLabel: "} {", Label: "Visualizer sensitivity up/down", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"t"}, KeyLabel: "t", Label: "Hide track info", Keymap: true, ContextHelp: true},
 	{Mode: commandModeFullVis, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
 }

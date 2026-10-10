@@ -99,6 +99,9 @@ vis_volume_linked = true
 # The full screen visualizer (V) is unaffected: it always fills the terminal.
 vis_rows = 7
 
+# Visualizer sensitivity, 1 (calm) to 10 (very sensitive); "}" / "{" change it.
+vis_sensitivity = 7
+
 # Reduce CPU usage by lowering UI cadence and disabling visualization.
 # This has the same effect as starting with --low-power.
 low_power = false

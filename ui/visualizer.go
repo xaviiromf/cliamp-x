@@ -18,6 +18,8 @@ const (
 
 // Visualizer performs FFT analysis and renders spectrum bars.
 type Visualizer struct {
+	// sensitivity is the spectrum gain level, 1-10; 0 means DefaultVisSensitivity.
+	sensitivity     int
 	prevBySpec      map[VisAnalysisSpec][]float64
 	edgeCache       map[int][]float64
 	fftBufCache     map[int][]float64
@@ -368,4 +370,35 @@ func (v *Visualizer) syncDriverMode() visModeDriver {
 		v.activeMode = v.Mode
 	}
 	return driver
+}
+
+const (
+	// MinVisSensitivity and MaxVisSensitivity bound the sensitivity level.
+	MinVisSensitivity = 1
+	MaxVisSensitivity = 10
+	// DefaultVisSensitivity reacts to quiet passages and soft instruments
+	// without pinning loud masters to the top.
+	DefaultVisSensitivity = 7
+	// visSensitivityStepDB is the spectrum gain of one sensitivity level.
+	visSensitivityStepDB = 3
+)
+
+// Sensitivity returns the spectrum gain level, MinVisSensitivity to
+// MaxVisSensitivity.
+func (v *Visualizer) Sensitivity() int {
+	if v.sensitivity == 0 {
+		return DefaultVisSensitivity
+	}
+	return v.sensitivity
+}
+
+// SetSensitivity sets the spectrum gain level, clamped to its range.
+func (v *Visualizer) SetSensitivity(level int) {
+	v.sensitivity = max(MinVisSensitivity, min(MaxVisSensitivity, level))
+}
+
+// sensitivityGainDB is the gain the level adds to every band. Level 5 is
+// the original response.
+func (v *Visualizer) sensitivityGainDB() float64 {
+	return float64((v.Sensitivity() - 5) * visSensitivityStepDB)
 }

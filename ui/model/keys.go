@@ -751,6 +751,12 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "[":
 		m.changeSpeed(-0.25)
 
+	case "}":
+		m.adjustVisSensitivity(1)
+
+	case "{":
+		m.adjustVisSensitivity(-1)
+
 	case "?":
 		m.openKeymap()
 
@@ -846,6 +852,10 @@ func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.adjustVolume(-1)
 	case "v":
 		_ = m.cycleVisualizer()
+	case "}":
+		m.adjustVisSensitivity(1)
+	case "{":
+		m.adjustVisSensitivity(-1)
 	case "t":
 		// Hide the episode name so the full-screen visualizer can be put on a
 		// shared screen without naming what is playing.

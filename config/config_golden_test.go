@@ -72,6 +72,7 @@ volume = -12.5
 volume_min = -60
 vis_volume_linked = false
 vis_rows = 12
+vis_sensitivity = 9
 repeat = 'ALL'
 shuffle = true
 mono = true
@@ -143,6 +144,7 @@ func TestLoadGolden(t *testing.T) {
 	topWant.VolumeMin = -60
 	topWant.VisVolumeLinked = false
 	topWant.VisRows = 12
+	topWant.VisSensitivity = 9
 	topWant.Repeat = "all"
 	topWant.Shuffle = true
 	topWant.Mono = true
@@ -176,6 +178,7 @@ func TestLoadGolden(t *testing.T) {
 	// after sample_rate and the other audio numbers.
 	allWant := exampleWant
 	allWant.VisRows = 7
+	allWant.VisSensitivity = 7
 	allWant.InitialDirectory = "~/Music"
 	allWant.MusicDir = "~/Music"
 	allWant.AudioDevice = "alsa_output.usb-FiiO_K5_Pro-00.analog-stereo"

@@ -99,6 +99,7 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | `E` | Open the equalizer panel (see below) |
 | `t` | Choose theme |
 | `v` | Cycle visualizer and save the choice in `config.toml` |
+| `}` / `{` | Visualizer sensitivity up / down (1-10, saved in `vis_sensitivity`). Also works in the full screen visualizer |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
 | `V` | Full screen visualizer. Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
 | `Ctrl+H` | Toggle album headers |

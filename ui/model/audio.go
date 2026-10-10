@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 	"time"
+
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 const (
@@ -163,4 +165,24 @@ func (m *Model) flushPendingEQSave() {
 	}
 	m.eqSaveAfter = 0
 	m.saveEQ()
+}
+
+// SetVisSensitivity sets the visualizer sensitivity level (1-10) without
+// saving it; 0 keeps the default.
+func (m *Model) SetVisSensitivity(level int) {
+	if m.vis != nil && level != 0 {
+		m.vis.SetSensitivity(level)
+	}
+}
+
+// adjustVisSensitivity steps the visualizer sensitivity, shows the new level
+// and saves it as vis_sensitivity.
+func (m *Model) adjustVisSensitivity(delta int) {
+	if m.vis == nil {
+		return
+	}
+	m.vis.SetSensitivity(m.vis.Sensitivity() + delta)
+	level := m.vis.Sensitivity()
+	m.status.Showf(statusTTLMedium, "%s: %d/%d", tr("Sensibilidad del visualizador", "Visualizer sensitivity"), level, ui.MaxVisSensitivity)
+	_ = m.saveConfigFloat("vis_sensitivity", float64(level), 0)
 }

@@ -276,6 +276,7 @@ type Config struct {
 	HideHelpBar      bool                         // hide the key-binding hint bar above the status line
 	HideSettingsPane bool                         // close the settings pane beside the playlist
 	HidePreview      bool                         // hide the artwork preview pane under the lists
+	VisSensitivity   int                          // visualizer sensitivity 1-10, or 0 for the default (7)
 	PreviewImages    string                       // preview pictures: "auto", "kitty" or "blocks" (default "auto")
 	ShowMetadata     bool                         // expand highlighted-track metadata below settings (default false)
 	Expanded         bool                         // start with the playlist expanded (the Ctrl+X state)
@@ -533,6 +534,10 @@ func (c *Config) setTopLevel(key, val string) {
 	case "hide_preview":
 		if v, ok := parseBool(val); ok {
 			c.HidePreview = v
+		}
+	case "vis_sensitivity":
+		if v, ok := parseInt(val); ok {
+			c.VisSensitivity = max(1, min(10, v))
 		}
 	case "preview_images":
 		mode := strings.ToLower(parseString(val))

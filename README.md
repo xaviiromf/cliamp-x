@@ -156,6 +156,7 @@ cliamp-x https://example.com/stream  # una URL
 | `E` | Abrir el panel del ecualizador |
 | `R` | Activar o desactivar la radio automática |
 | `v` | Cambiar de visualizador |
+| `}` / `{` | Subir / bajar la sensibilidad del visualizador |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
 | `Ctrl+K` / `?` | Ver todas las teclas |

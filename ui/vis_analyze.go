@@ -229,20 +229,22 @@ func (v *Visualizer) Analyze(samples []float64, spec VisAnalysisSpec) []float64 
 	binHz := v.sr / float64(spec.FFTSize)
 	edges := v.spectrumEdges(spec.BandCount)
 
+	gainDB := v.sensitivityGainDB()
 	for b := range spec.BandCount {
 		sum := averageSpectrumRangeLinear(powers, edges[b]/binHz, edges[b+1]/binHz)
 
 		// Convert to dB-like scale. 10*log10(power) == 20*log10(magnitude).
 		if sum > 0 {
-			bands[b] = (10*math.Log10(sum) + 10) / 50
+			bands[b] = (10*math.Log10(sum) + 10 + gainDB) / 50
 		}
 		bands[b] = max(0, min(1, bands[b]))
 
-		// Temporal smoothing: fast attack, slow decay.
+		// Temporal smoothing: fast attack, quick decay, so beats and
+		// transients show instead of blurring into a plateau.
 		if bands[b] > prev[b] {
-			bands[b] = bands[b]*0.6 + prev[b]*0.4
+			bands[b] = bands[b]*0.8 + prev[b]*0.2
 		} else {
-			bands[b] = bands[b]*0.25 + prev[b]*0.75
+			bands[b] = bands[b]*0.4 + prev[b]*0.6
 		}
 		prev[b] = bands[b]
 	}

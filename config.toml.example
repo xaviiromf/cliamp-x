@@ -16,6 +16,11 @@ volume = 0
 # when the terminal cannot spare them. Range 1-40.
 # vis_rows = 7
 
+# How strongly the visualizers react to the music, 1 (calm) to 10 (very
+# sensitive). Each step is 3 dB of gain. "}" and "{" change it while playing
+# and save it here. Default: 7.
+# vis_sensitivity = 7
+
 # Repeat mode: "off", "all", or "one"
 repeat = "off"
 
