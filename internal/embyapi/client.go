@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
-	"github.com/bjarneo/cliamp/internal/netdiag"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/netdiag"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 var defaultHTTPClient = httpclient.NewAPI(30 * time.Second)

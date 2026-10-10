@@ -12,8 +12,8 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/bjarneo/cliamp/internal/appdir"
-	"github.com/bjarneo/cliamp/ipc"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
+	"github.com/xaviiromf/cliamp-x/ipc"
 )
 
 // cachedWriteRules holds the write rules for this process. The paths they

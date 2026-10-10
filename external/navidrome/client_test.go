@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/internal/netdiag"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/internal/netdiag"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // subsonicHandler serves fake Subsonic API responses for testing.
@@ -553,7 +553,7 @@ func TestAPIUserAgent(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				const want = "cliamp/1.0 (https://github.com/bjarneo/cliamp)"
+				const want = "cliamp/1.0 (https://github.com/xaviiromf/cliamp-x)"
 				if got := r.UserAgent(); got != want {
 					t.Errorf("User-Agent = %q, want %q", got, want)
 				}

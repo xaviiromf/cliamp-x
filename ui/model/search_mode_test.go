@@ -7,7 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // TestSearchInputsShowModeAndExitKey checks that every search or filter input

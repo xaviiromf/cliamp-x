@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/ui"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +48,7 @@ func TestTickPendingSpeedSaveUsesElapsedTime(t *testing.T) {
 	m := Model{player: &playbackFakeEngine{}, configSaver: config.SaveFunc{}}
 	m.changeSpeed(0.5)
 
-	configPath := filepath.Join(home, ".config", "cliamp", "config.toml")
+	configPath := filepath.Join(home, ".config", "cliamp-x", "config.toml")
 	for i := range 4 {
 		m.tickPendingSpeedSave(ui.TickSlow)
 		if _, err := os.Stat(configPath); !os.IsNotExist(err) {
@@ -79,7 +79,7 @@ func TestFlushPendingSpeedSavePersistsImmediately(t *testing.T) {
 	m.changeSpeed(0.25)
 	m.flushPendingSpeedSave()
 
-	configPath := filepath.Join(home, ".config", "cliamp", "config.toml")
+	configPath := filepath.Join(home, ".config", "cliamp-x", "config.toml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("ReadFile(%q) error = %v", configPath, err)

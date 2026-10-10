@@ -17,8 +17,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
 )
 
 //go:embed themes/*.toml

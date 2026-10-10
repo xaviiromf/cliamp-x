@@ -6,7 +6,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // Searcher is implemented by providers that support searching for tracks.

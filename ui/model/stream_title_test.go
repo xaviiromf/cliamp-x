@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // TestResolveTrackDisplayStreamTitle covers the ICY override a radio stream

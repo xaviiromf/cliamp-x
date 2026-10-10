@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestTrackArtist(t *testing.T) {

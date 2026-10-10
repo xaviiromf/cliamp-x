@@ -3,9 +3,9 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/internal/fuzzy"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/internal/fuzzy"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // subscriptionProvider returns the first provider that lists subscriptions

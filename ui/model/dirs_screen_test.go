@@ -12,11 +12,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // dirSourceTestProvider is a local provider that also implements

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bjarneo/cliamp/internal/appmeta"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/internal/appmeta"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // dialect captures the handful of behaviors that differ between Emby and

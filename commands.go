@@ -13,21 +13,21 @@ import (
 
 	cli "github.com/urfave/cli/v3"
 
-	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/cmd"
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/external/qobuz"
-	"github.com/bjarneo/cliamp/external/spotify"
-	"github.com/bjarneo/cliamp/external/tidal"
-	"github.com/bjarneo/cliamp/external/ytmusic"
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/player"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/pluginmgr"
-	"github.com/bjarneo/cliamp/resolve"
-	"github.com/bjarneo/cliamp/theme"
-	"github.com/bjarneo/cliamp/ui"
-	"github.com/bjarneo/cliamp/upgrade"
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/cmd"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/external/qobuz"
+	"github.com/xaviiromf/cliamp-x/external/spotify"
+	"github.com/xaviiromf/cliamp-x/external/tidal"
+	"github.com/xaviiromf/cliamp-x/external/ytmusic"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/player"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/pluginmgr"
+	"github.com/xaviiromf/cliamp-x/resolve"
+	"github.com/xaviiromf/cliamp-x/theme"
+	"github.com/xaviiromf/cliamp-x/ui"
+	"github.com/xaviiromf/cliamp-x/upgrade"
 )
 
 func buildApp() *cli.Command {
@@ -58,7 +58,7 @@ func buildApp() *cli.Command {
 	}
 
 	return &cli.Command{
-		Name:                  "cliamp",
+		Name:                  "cliamp-x",
 		Usage:                 "retro terminal music player",
 		Version:               buildVersion(),
 		EnableShellCompletion: true,
@@ -342,29 +342,29 @@ func pluginsCommand() *cli.Command {
 func protocolCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "protocol",
-		Usage: "register cliamp:// links with the desktop",
-		Description: "Makes cliamp the handler for cliamp:// links, so clicking one plays\n" +
+		Usage: "register cliamp-x:// links with the desktop",
+		Description: "Makes cliamp the handler for cliamp-x:// links, so clicking one plays\n" +
 			"or queues its target. install.sh already registers the scheme; use\n" +
 			"these commands after a go install build, to point the scheme at a\n" +
 			"different binary, or to remove the registration.",
 		Commands: []*cli.Command{
 			{
 				Name:  "register",
-				Usage: "make cliamp the handler for cliamp:// links",
+				Usage: "make cliamp the handler for cliamp-x:// links",
 				Action: func(ctx context.Context, c *cli.Command) error {
 					return cmd.ProtocolRegister(os.Stdout)
 				},
 			},
 			{
 				Name:  "unregister",
-				Usage: "remove the cliamp:// handler registration",
+				Usage: "remove the cliamp-x:// handler registration",
 				Action: func(ctx context.Context, c *cli.Command) error {
 					return cmd.ProtocolUnregister(os.Stdout)
 				},
 			},
 			{
 				Name:  "status",
-				Usage: "report whether cliamp:// is registered",
+				Usage: "report whether cliamp-x:// is registered",
 				Action: func(ctx context.Context, c *cli.Command) error {
 					return cmd.ProtocolStatus(os.Stdout)
 				},

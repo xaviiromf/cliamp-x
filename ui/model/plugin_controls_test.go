@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/internal/playback"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // Lua plugins change the volume, the speed and mono through messages. The

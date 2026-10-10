@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
-	"github.com/bjarneo/cliamp/internal/ytdlcookies"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
+	"github.com/xaviiromf/cliamp-x/playlist"
 
 	"github.com/kkdai/youtube/v2"
 )

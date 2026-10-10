@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 const playlistListCacheTTL = 5 * time.Minute

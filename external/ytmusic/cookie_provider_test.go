@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 func TestCookieProviderInterfaces(t *testing.T) {

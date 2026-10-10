@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/internal/authurl"
-	"github.com/bjarneo/cliamp/internal/browser"
-	"github.com/bjarneo/cliamp/internal/httpclient"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/internal/authurl"
+	"github.com/xaviiromf/cliamp-x/internal/browser"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/playlist"
 
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // backfillTestProvider is a local playlist store that records its calls.

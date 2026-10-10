@@ -10,7 +10,7 @@ import (
 
 func TestSendV2AndSubscribeV2(t *testing.T) {
 	broker := NewBroker()
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServerWithBroker(sock, broker)
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestSendV2AndSubscribeV2(t *testing.T) {
 }
 
 func TestV2ClientRejectsMismatchedResponseID(t *testing.T) {
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	listener, err := listenSocket(sock)
 	if err != nil {
 		t.Fatal(err)

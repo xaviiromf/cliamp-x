@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/ytdlp"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 func TestPlaylistsIncludesAccountListsAndCharts(t *testing.T) {

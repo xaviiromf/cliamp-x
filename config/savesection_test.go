@@ -198,7 +198,7 @@ func TestSaveSectionSecuresConfigFile(t *testing.T) {
 
 func writeConfig(t *testing.T, home, data string) {
 	t.Helper()
-	dir := filepath.Join(home, ".config", "cliamp")
+	dir := filepath.Join(home, ".config", "cliamp-x")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}

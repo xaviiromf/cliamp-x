@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/lyrics"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/lyrics"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestTrackIDFromPath(t *testing.T) {

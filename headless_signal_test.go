@@ -11,7 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
 )
 
 // quitRecorder quits on playback.QuitMsg, as the Model does after it keeps

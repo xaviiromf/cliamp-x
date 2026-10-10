@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjarneo/cliamp/internal/appdir"
-	"github.com/bjarneo/cliamp/internal/fileutil"
-	"github.com/bjarneo/cliamp/internal/tomlutil"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
+	"github.com/xaviiromf/cliamp-x/internal/fileutil"
+	"github.com/xaviiromf/cliamp-x/internal/tomlutil"
 )
 
 const pinsFile = "radio_countries.toml"

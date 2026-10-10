@@ -16,8 +16,8 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/bjarneo/cliamp/external/radio"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/external/radio"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 // statsTimeout bounds one round of statistics requests.

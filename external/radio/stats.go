@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 // StatsURL serves live and all-time listener statistics for the cliamp radio

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/ytdlcookies"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 func TestNewFromConfig(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // writeAudioFile creates an empty file with a supported extension. Tag reading

@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestEmptyStatesNameTheNextStep(t *testing.T) {

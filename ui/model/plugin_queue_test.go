@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestPluginQueueAddTrackAppendsAsGiven(t *testing.T) {

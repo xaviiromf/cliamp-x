@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
 )
 
 func TestHotkeyMsg(t *testing.T) {

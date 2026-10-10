@@ -3,9 +3,9 @@ package jellyfin
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // The shared provider body is tested in internal/embyapi. These tests cover

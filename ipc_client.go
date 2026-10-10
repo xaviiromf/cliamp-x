@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bjarneo/cliamp/ipc"
+	"github.com/xaviiromf/cliamp-x/ipc"
 )
 
 // cliRequestID is the V2 request ID of every CLI request.

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // ID prefixes and section labels used to group Plex playlists and albums in

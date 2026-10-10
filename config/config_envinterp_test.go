@@ -98,7 +98,7 @@ func TestLoadInterpolatesSecretsFromEnv(t *testing.T) {
 	t.Setenv("CLIAMP_TEST_JELLY_TOKEN", "jelly-tok")
 	t.Setenv("CLIAMP_TEST_YT_SECRET", "yt-secret")
 
-	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp", "config.toml")
+	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -149,7 +149,7 @@ client_secret = "${CLIAMP_TEST_YT_SECRET}"
 func TestLoadPreservesLiteralDollarInPassword(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp", "config.toml")
+	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestLoadInterpolatesPluginSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CLIAMP_TEST_LASTFM_KEY", "lastfm-abc")
 
-	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp", "config.toml")
+	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}

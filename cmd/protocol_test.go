@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/deeplink"
+	"github.com/xaviiromf/cliamp-x/internal/deeplink"
 )
 
 // TestSchemeMatches keeps the registered scheme and the parsed scheme in step.

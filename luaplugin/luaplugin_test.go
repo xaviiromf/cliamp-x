@@ -22,7 +22,7 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/bjarneo/cliamp/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
 )
 
 // newTestManager returns a Manager ready for testing (no disk I/O).
@@ -1641,7 +1641,7 @@ func TestNewTreatsBadTrustManifestAsUntrusted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
-			cfg := filepath.Join(home, ".config", "cliamp")
+			cfg := filepath.Join(home, ".config", "cliamp-x")
 			dir := filepath.Join(cfg, "plugins")
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				t.Fatal(err)
@@ -1716,7 +1716,7 @@ func TestNewEnforcesApprovedPermissions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
-			dir := filepath.Join(home, ".config", "cliamp", "plugins")
+			dir := filepath.Join(home, ".config", "cliamp-x", "plugins")
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				t.Fatal(err)
 			}

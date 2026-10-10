@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // browseCountriesID is the provider-pane shortcut into the country browser.

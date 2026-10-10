@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/bjarneo/cliamp/applog"
+	"github.com/xaviiromf/cliamp-x/applog"
 )
 
 func TestLoadAllIncludesBuiltinThemes(t *testing.T) {
@@ -79,7 +79,7 @@ func TestLoadAllUserThemeOverridesBuiltin(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	// Put a user override file named "dracula.toml" with a distinctive accent color.
-	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	userDir := filepath.Join(home, ".config", "cliamp-x", "themes")
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestLoadAllAddsUserOnlyTheme(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	userDir := filepath.Join(home, ".config", "cliamp-x", "themes")
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestLoadAllIgnoresInvalidUserTheme(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	userDir := filepath.Join(home, ".config", "cliamp-x", "themes")
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestLoadAllLogsSkippedTheme(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	userDir := filepath.Join(home, ".config", "cliamp-x", "themes")
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestLoadAllIgnoresNonTomlFiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	userDir := filepath.Join(home, ".config", "cliamp", "themes")
+	userDir := filepath.Join(home, ".config", "cliamp-x", "themes")
 	if err := os.MkdirAll(userDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}

@@ -3,8 +3,8 @@ package model
 import (
 	"sync"
 
-	"github.com/bjarneo/cliamp/luaplugin"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // PluginState is the playback state that Lua plugins read. The Model

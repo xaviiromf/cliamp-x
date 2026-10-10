@@ -24,15 +24,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/external/audiobookshelf"
-	"github.com/bjarneo/cliamp/external/emby"
-	"github.com/bjarneo/cliamp/external/jellyfin"
-	"github.com/bjarneo/cliamp/external/lyrion"
-	"github.com/bjarneo/cliamp/external/mixcloud"
-	"github.com/bjarneo/cliamp/external/navidrome"
-	"github.com/bjarneo/cliamp/external/netease"
-	"github.com/bjarneo/cliamp/external/plex"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/external/audiobookshelf"
+	"github.com/xaviiromf/cliamp-x/external/emby"
+	"github.com/xaviiromf/cliamp-x/external/jellyfin"
+	"github.com/xaviiromf/cliamp-x/external/lyrion"
+	"github.com/xaviiromf/cliamp-x/external/mixcloud"
+	"github.com/xaviiromf/cliamp-x/external/navidrome"
+	"github.com/xaviiromf/cliamp-x/external/netease"
+	"github.com/xaviiromf/cliamp-x/external/plex"
 )
 
 // Setup launches the interactive wizard. Returns nil on clean exit.

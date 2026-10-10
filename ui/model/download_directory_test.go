@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestSaveUsesConfiguredDirectory(t *testing.T) {

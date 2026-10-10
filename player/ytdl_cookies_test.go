@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/ytdlcookies"
+	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 )
 
 func TestAppendYTDLCookieArgsSelectsBrowserByURLHost(t *testing.T) {

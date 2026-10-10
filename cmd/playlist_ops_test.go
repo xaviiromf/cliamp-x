@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // captureStdout runs fn with os.Stdout redirected to a buffer and returns what
@@ -361,7 +361,7 @@ func TestPlaylistWriteCommandsLeaveTheFileAlone(t *testing.T) {
 			if err := p.SavePlaylist("mix", []playlist.Track{{Path: filepath.Join(home, "b.mp3"), Title: "B"}, {Path: filepath.Join(home, "a.mp3"), Title: "A"}}); err != nil {
 				t.Fatal(err)
 			}
-			dir := filepath.Join(home, ".config", "cliamp", "playlists")
+			dir := filepath.Join(home, ".config", "cliamp-x", "playlists")
 			before, err := os.ReadFile(filepath.Join(dir, "mix.toml"))
 			if err != nil {
 				t.Fatal(err)
@@ -535,7 +535,7 @@ func TestPlaylistFavoriteToggle(t *testing.T) {
 	}
 
 	// The playlist file keeps no bookmark flag.
-	data, err := os.ReadFile(filepath.Join(home, ".config", "cliamp", "playlists", "mix.toml"))
+	data, err := os.ReadFile(filepath.Join(home, ".config", "cliamp-x", "playlists", "mix.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +561,7 @@ func TestPlaylistFavoriteOutOfRange(t *testing.T) {
 // Old bookmarks show up as favorites the first time the CLI reads them.
 func TestPlaylistFavoritesMigratesBookmarks(t *testing.T) {
 	home := setupTestEnv(t)
-	dir := filepath.Join(home, ".config", "cliamp", "playlists")
+	dir := filepath.Join(home, ".config", "cliamp-x", "playlists")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

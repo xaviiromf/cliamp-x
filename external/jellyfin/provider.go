@@ -1,9 +1,9 @@
 package jellyfin
 
 import (
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/internal/embyapi"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/internal/embyapi"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 var (

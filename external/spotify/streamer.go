@@ -17,8 +17,8 @@ import (
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
 	"github.com/gopxl/beep/v2"
 
-	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 const (

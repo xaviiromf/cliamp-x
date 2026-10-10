@@ -111,7 +111,7 @@ buildGoModule {
 
   meta = {
     description = "Retro terminal music player inspired by Winamp";
-    homepage = "https://github.com/bjarneo/cliamp";
+    homepage = "https://github.com/xaviiromf/cliamp-x";
     license = lib.licenses.mit;
     mainProgram = "cliamp";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;

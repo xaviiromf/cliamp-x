@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/external/radio"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/external/radio"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestOpenProviderListImmediateNavigation(t *testing.T) {

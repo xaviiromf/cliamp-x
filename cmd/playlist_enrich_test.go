@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // fakeFFprobe puts an ffprobe script first on PATH. The script appends its
@@ -109,7 +109,7 @@ func TestPlaylistEnrich(t *testing.T) {
 				if err := p.SavePlaylist("other", tt.other); err != nil {
 					t.Fatalf("SavePlaylist(other): %v", err)
 				}
-				dir := filepath.Join(home, ".config", "cliamp", "playlists")
+				dir := filepath.Join(home, ".config", "cliamp-x", "playlists")
 				copyFrom, copyTo = filepath.Join(dir, "other.toml"), filepath.Join(dir, "mix.toml")
 			}
 			logFile := fakeFFprobe(t, copyFrom, copyTo)

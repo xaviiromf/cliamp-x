@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/appmeta"
+	"github.com/xaviiromf/cliamp-x/internal/appmeta"
 )
 
 func newDirectoryTestClient(t *testing.T, handler http.HandlerFunc) *client {

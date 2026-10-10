@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // everyProviderConfig enables every provider that needs no external tool.

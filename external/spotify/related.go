@@ -16,7 +16,7 @@ import (
 	"github.com/devgianlu/go-librespot/spclient"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // maxStationPages bounds how far RelatedTracks pages through a station, which

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // newTestProvider builds a provider with the location question already
@@ -43,7 +43,7 @@ func TestProviderLoadsStationsFromTOML(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	// Create radios.toml with one extra station.
-	cfgDir := filepath.Join(home, ".config", "cliamp")
+	cfgDir := filepath.Join(home, ".config", "cliamp-x")
 	writeFile(t, filepath.Join(cfgDir, "radios.toml"), `[[station]]
 name = "Extra"
 url = "https://extra.example/stream"

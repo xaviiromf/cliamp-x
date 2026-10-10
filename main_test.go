@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/external/emby"
-	"github.com/bjarneo/cliamp/internal/embyapi"
-	"github.com/bjarneo/cliamp/internal/resume"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/external/emby"
+	"github.com/xaviiromf/cliamp-x/internal/embyapi"
+	"github.com/xaviiromf/cliamp-x/internal/resume"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // cliamp search and cliamp search-sc play the first match of the query. Any

@@ -3,7 +3,7 @@ package model
 import (
 	"charm.land/lipgloss/v2"
 
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // Model-specific lipgloss styles. They have no initializers: rebuildModelStyles

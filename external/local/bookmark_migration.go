@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bjarneo/cliamp/internal/fileutil"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/internal/fileutil"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // bookmarksMigratedFile records that MigrateBookmarks ran. It is kept next to

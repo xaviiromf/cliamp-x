@@ -6,9 +6,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/theme"
-	"github.com/bjarneo/cliamp/ui"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/xaviiromf/cliamp-x/theme"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 func TestThemePickerFilterPreservesRawThemeIndex(t *testing.T) {

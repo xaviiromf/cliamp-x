@@ -14,12 +14,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bjarneo/cliamp/external/local"
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/internal/sshurl"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/external/local"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/internal/sshurl"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 // PlaylistList prints all playlists with their track counts.

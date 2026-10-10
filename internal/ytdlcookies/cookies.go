@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 var (

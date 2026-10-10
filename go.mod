@@ -1,4 +1,4 @@
-module github.com/bjarneo/cliamp
+module github.com/xaviiromf/cliamp-x
 
 go 1.26.6
 

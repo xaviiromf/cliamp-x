@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/tomlutil"
+	"github.com/xaviiromf/cliamp-x/internal/tomlutil"
 )
 
 // fullTOMLTrack sets every exported Track field, so the tests show which

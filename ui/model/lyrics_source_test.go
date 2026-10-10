@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/lyrics"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/lyrics"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // fakeLyricsSource answers for the tracks whose path starts with prefix, as

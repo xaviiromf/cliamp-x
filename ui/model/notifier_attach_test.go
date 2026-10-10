@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/playback"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 type fakeNotifier struct {

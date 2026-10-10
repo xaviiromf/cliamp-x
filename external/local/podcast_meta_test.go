@@ -4,8 +4,8 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // An episode saved into a playlist has to come back recognizable: the feed

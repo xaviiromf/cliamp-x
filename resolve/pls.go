@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // plsEntry holds a single parsed PLS entry.

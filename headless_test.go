@@ -15,14 +15,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/internal/plugintrust"
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/luaplugin"
-	"github.com/bjarneo/cliamp/player"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/theme"
-	"github.com/bjarneo/cliamp/ui/model"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/player"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/theme"
+	"github.com/xaviiromf/cliamp-x/ui/model"
 )
 
 func TestV2Operations(t *testing.T) {

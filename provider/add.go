@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 var errAddUnsupported = errors.New("provider does not support adding tracks")

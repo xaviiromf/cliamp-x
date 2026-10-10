@@ -6,7 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // commandMode identifies the UI contexts in which a command is available.

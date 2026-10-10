@@ -16,11 +16,11 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/bjarneo/cliamp/internal/appdir"
-	"github.com/bjarneo/cliamp/internal/fileutil"
-	"github.com/bjarneo/cliamp/internal/httpclient"
-	"github.com/bjarneo/cliamp/internal/plugintrust"
-	"github.com/bjarneo/cliamp/luaplugin"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
+	"github.com/xaviiromf/cliamp-x/internal/fileutil"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
 )
 
 var httpClient = httpclient.NewAPI(30 * time.Second)

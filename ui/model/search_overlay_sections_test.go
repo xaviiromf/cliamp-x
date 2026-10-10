@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func albumResult(name string) playlist.Track {

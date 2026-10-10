@@ -3,8 +3,8 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 // PluginQueueMsg is sent by Lua plugins (cliamp.queue.*) to mutate the queue.

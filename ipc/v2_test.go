@@ -150,7 +150,7 @@ func TestJobStorePreservesFailureDetail(t *testing.T) {
 }
 
 func TestServerRoutesV2(t *testing.T) {
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServer(sock)
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestServerRoutesV2(t *testing.T) {
 // The runtime owner matches the read methods exactly, so the server hands it
 // the canonical name whatever the case and spaces of the request.
 func TestServerCanonicalizesReadMethods(t *testing.T) {
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServer(sock)
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func TestServerCanonicalizesReadMethods(t *testing.T) {
 }
 
 func TestServerCanonicalizesMethodOperation(t *testing.T) {
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServer(sock)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func TestServerCanonicalizesMethodOperation(t *testing.T) {
 func TestServerRoutesRuntimeSnapshotAliasToV2State(t *testing.T) {
 	for _, operation := range []string{"runtime.snapshot", "runtime.status"} {
 		t.Run(operation, func(t *testing.T) {
-			sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+			sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 			server, err := NewServer(sock)
 			if err != nil {
 				t.Fatal(err)
@@ -259,7 +259,7 @@ func TestServerRoutesRuntimeSnapshotAliasToV2State(t *testing.T) {
 }
 
 func TestServerCloseIsIdempotent(t *testing.T) {
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServer(sock)
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +274,7 @@ func TestServerCloseIsIdempotent(t *testing.T) {
 
 func TestV2SubscribeAcknowledgesThenStreamsEvents(t *testing.T) {
 	broker := NewBroker()
-	sock := filepath.Join(shortTempDir(t), "cliamp.sock")
+	sock := filepath.Join(shortTempDir(t), "cliamp-x.sock")
 	server, err := NewServerWithBroker(sock, broker)
 	if err != nil {
 		t.Fatal(err)

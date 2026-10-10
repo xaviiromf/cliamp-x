@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/deeplink"
-	"github.com/bjarneo/cliamp/ipc"
+	"github.com/xaviiromf/cliamp-x/internal/deeplink"
+	"github.com/xaviiromf/cliamp-x/ipc"
 )
 
 // sentOperation is one operation that dispatchDeepLink submitted.
@@ -18,7 +18,7 @@ type sentOperation struct {
 	timeout   time.Duration
 }
 
-// A cliamp:// link maps to a fixed set of operations. Albums and playlists
+// A cliamp-x:// link maps to a fixed set of operations. Albums and playlists
 // cannot be queued. A search plays or queues only a top match that a link may
 // play.
 func TestDispatchDeepLink(t *testing.T) {
@@ -32,29 +32,29 @@ func TestDispatchDeepLink(t *testing.T) {
 	}{
 		{
 			name: "play url",
-			uri:  "cliamp://play?url=https://example.com/stream.mp3",
+			uri:  "cliamp-x://play?url=https://example.com/stream.mp3",
 			want: []sentOperation{{"url.load", ipc.Request{Path: "https://example.com/stream.mp3", Play: true}, ipcLoadWait}},
 		},
 		{
 			name: "queue url",
-			uri:  "cliamp://queue?url=https://example.com/stream.mp3",
+			uri:  "cliamp-x://queue?url=https://example.com/stream.mp3",
 			want: []sentOperation{{"url.load", ipc.Request{Path: "https://example.com/stream.mp3"}, ipcLoadWait}},
 		},
 		{
 			name: "play album",
-			uri:  "cliamp://play?provider=navidrome&album=a1b2c3",
+			uri:  "cliamp-x://play?provider=navidrome&album=a1b2c3",
 			want: []sentOperation{{"provider.load_album", ipc.Request{Provider: "navidrome", Album: "a1b2c3"}, ipcLoadWait}},
 		},
-		{name: "queue album", uri: "cliamp://queue?provider=navidrome&album=a1b2c3", wantErr: "queueing a provider album is not supported"},
+		{name: "queue album", uri: "cliamp-x://queue?provider=navidrome&album=a1b2c3", wantErr: "queueing a provider album is not supported"},
 		{
 			name: "play playlist",
-			uri:  "cliamp://play?provider=jellyfin&playlist=xyz789",
+			uri:  "cliamp-x://play?provider=jellyfin&playlist=xyz789",
 			want: []sentOperation{{"provider.load", ipc.Request{Provider: "jellyfin", Playlist: "xyz789"}, ipcLoadWait}},
 		},
-		{name: "queue playlist", uri: "cliamp://queue?provider=jellyfin&playlist=xyz789", wantErr: "queueing a provider playlist is not supported"},
+		{name: "queue playlist", uri: "cliamp-x://queue?provider=jellyfin&playlist=xyz789", wantErr: "queueing a provider playlist is not supported"},
 		{
 			name:   "play search",
-			uri:    "cliamp://play?provider=ytmusic&q=aphex+twin",
+			uri:    "cliamp-x://play?provider=ytmusic&q=aphex+twin",
 			search: []ipc.TrackInfo{track},
 			want: []sentOperation{
 				{"provider.search", ipc.Request{Provider: "ytmusic", Query: "aphex twin", Limit: 1}, 60 * time.Second},
@@ -63,7 +63,7 @@ func TestDispatchDeepLink(t *testing.T) {
 		},
 		{
 			name:   "queue search",
-			uri:    "cliamp://queue?provider=ytmusic&q=aphex+twin",
+			uri:    "cliamp-x://queue?provider=ytmusic&q=aphex+twin",
 			search: []ipc.TrackInfo{track},
 			want: []sentOperation{
 				{"provider.search", ipc.Request{Provider: "ytmusic", Query: "aphex twin", Limit: 1}, 60 * time.Second},
@@ -72,16 +72,16 @@ func TestDispatchDeepLink(t *testing.T) {
 		},
 		{
 			name:    "search without a match",
-			uri:     "cliamp://play?provider=ytmusic&q=aphex+twin",
+			uri:     "cliamp-x://play?provider=ytmusic&q=aphex+twin",
 			want:    []sentOperation{{"provider.search", ipc.Request{Provider: "ytmusic", Query: "aphex twin", Limit: 1}, 60 * time.Second}},
 			wantErr: `ytmusic has no match for "aphex twin"`,
 		},
 		{
 			name:    "search result a link may not play",
-			uri:     "cliamp://play?provider=ytmusic&q=aphex+twin",
+			uri:     "cliamp-x://play?provider=ytmusic&q=aphex+twin",
 			search:  []ipc.TrackInfo{{Title: "Local", Path: "/home/user/music/a.mp3"}},
 			want:    []sentOperation{{"provider.search", ipc.Request{Provider: "ytmusic", Query: "aphex twin", Limit: 1}, 60 * time.Second}},
-			wantErr: "returned a result a cliamp:// link may not play",
+			wantErr: "returned a result a cliamp-x:// link may not play",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,7 +115,7 @@ func TestDispatchDeepLink(t *testing.T) {
 
 // An error from the running cliamp reaches the caller of the link.
 func TestDispatchDeepLinkReturnsSendError(t *testing.T) {
-	action, err := deeplink.Parse("cliamp://play?url=https://example.com/stream.mp3")
+	action, err := deeplink.Parse("cliamp-x://play?url=https://example.com/stream.mp3")
 	if err != nil {
 		t.Fatal(err)
 	}

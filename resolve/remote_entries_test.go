@@ -3,7 +3,7 @@ package resolve
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestURIScheme(t *testing.T) {

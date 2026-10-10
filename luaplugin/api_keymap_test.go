@@ -13,7 +13,7 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/bjarneo/cliamp/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
 )
 
 func TestPluginBindAndEmit(t *testing.T) {

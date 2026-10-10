@@ -8,13 +8,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/external/radio"
-	"github.com/bjarneo/cliamp/internal/playback"
-	"github.com/bjarneo/cliamp/lyrics"
-	"github.com/bjarneo/cliamp/player"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/external/radio"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/lyrics"
+	"github.com/xaviiromf/cliamp-x/player"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 // — Message types used by tea.Cmd constructors —

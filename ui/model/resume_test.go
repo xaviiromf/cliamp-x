@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestSetInitialTrackSelectsRestoredContextWithoutPlayback(t *testing.T) {

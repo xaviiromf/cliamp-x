@@ -19,21 +19,21 @@ func Dir() (string, error) {
 		return dir, nil
 	}
 	if xdg, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdg != "" {
-		return filepath.Join(xdg, "cliamp"), nil
+		return filepath.Join(xdg, "cliamp-x"), nil
 	}
 	if home, ok := os.LookupEnv("HOME"); ok && home != "" {
-		return filepath.Join(home, ".config", "cliamp"), nil
+		return filepath.Join(home, ".config", "cliamp-x"), nil
 	}
 	if runtime.GOOS == "windows" {
 		if appData, ok := os.LookupEnv("APPDATA"); ok && appData != "" {
-			return filepath.Join(appData, "cliamp"), nil
+			return filepath.Join(appData, "cliamp-x"), nil
 		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "cliamp"), nil
+	return filepath.Join(home, ".config", "cliamp-x"), nil
 }
 
 // PluginDir returns the cliamp plugin directory.
@@ -51,11 +51,11 @@ func DataDir() (string, error) {
 	// Honor HOME first, matching Dir(); on Windows os.UserHomeDir() reads
 	// USERPROFILE and ignores HOME, so this keeps the two resolvers consistent.
 	if home, ok := os.LookupEnv("HOME"); ok && home != "" {
-		return filepath.Join(home, ".local", "share", "cliamp"), nil
+		return filepath.Join(home, ".local", "share", "cliamp-x"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "cliamp"), nil
+	return filepath.Join(home, ".local", "share", "cliamp-x"), nil
 }

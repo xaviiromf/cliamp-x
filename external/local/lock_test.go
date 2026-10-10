@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // The TUI, the daemon and the `cliamp playlist` CLI each build their own

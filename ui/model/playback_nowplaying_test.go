@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/plugintrust"
-	"github.com/bjarneo/cliamp/luaplugin"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // nowPlayingProv records ReportNowPlaying calls, which nowPlaying issues

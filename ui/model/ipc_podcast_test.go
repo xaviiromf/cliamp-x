@@ -14,8 +14,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 const ipcPodcastRSS = `<rss><channel><title>Podcast</title>

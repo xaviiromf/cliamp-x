@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/bjarneo/cliamp/internal/httpclient/httpclienttest"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient/httpclienttest"
 )
 
 // TestRequestsUseEnvironmentProxy checks that token requests and YouTube

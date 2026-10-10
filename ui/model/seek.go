@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/luaplugin"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // seekDebounceTicks is how many ticks to wait after the last seek keypress

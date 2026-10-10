@@ -13,18 +13,18 @@ import (
 // the packaged cliamp.desktop. Keeping them separate means registering and
 // unregistering the scheme never rewrites the launcher entry that install.sh
 // owns, and `cliamp protocol unregister` can simply delete this file.
-const desktopFileName = "cliamp-url-handler.desktop"
+const desktopFileName = "cliamp-x-url-handler.desktop"
 
 // desktopEntry is the handler registration.
 //
-// NoDisplay keeps it out of application menus: it exists to answer cliamp://
+// NoDisplay keeps it out of application menus: it exists to answer cliamp-x://
 // links, and a second "cliamp" entry beside the real launcher would be
 // confusing. Terminal=true matters more than it looks, because a cold start
 // turns into the TUI and needs somewhere to draw.
 const desktopEntry = `[Desktop Entry]
 Type=Application
 Name=cliamp (URL handler)
-Comment=Open cliamp:// links in cliamp
+Comment=Open cliamp-x:// links in cliamp
 Exec=%s open %%u
 Icon=cliamp
 Terminal=true

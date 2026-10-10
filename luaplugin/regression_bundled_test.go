@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
 )
 
 // TestBundledPluginsLoad is the backward-compatibility guard for the plugin
@@ -36,7 +36,7 @@ func TestBundledPluginsLoad(t *testing.T) {
 	// Seed an isolated HOME so appdir.PluginDir() resolves into a temp tree.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	pluginDir := filepath.Join(home, ".config", "cliamp", "plugins")
+	pluginDir := filepath.Join(home, ".config", "cliamp-x", "plugins")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("mkdir plugin dir: %v", err)
 	}

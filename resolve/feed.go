@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 	"golang.org/x/net/html/charset"
 )
 

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 type addTestProvider struct{ added []string }

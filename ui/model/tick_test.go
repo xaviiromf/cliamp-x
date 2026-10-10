@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/ui"
 
 	tea "charm.land/bubbletea/v2"
 )

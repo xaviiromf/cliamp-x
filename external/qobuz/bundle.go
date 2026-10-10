@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 // bundleBaseURL is the Qobuz web player origin that ships the JS bundle.

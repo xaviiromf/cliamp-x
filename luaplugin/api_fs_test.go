@@ -148,7 +148,7 @@ func TestIsWriteAllowed(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 			t.Setenv("USERPROFILE", home) // os.UserHomeDir reads it on Windows
-			cfg := filepath.Join(home, ".config", "cliamp")
+			cfg := filepath.Join(home, ".config", "cliamp-x")
 			if layout.linkConfig {
 				target := filepath.Join(home, "dotfiles", "cliamp")
 				mustMkdirAll(t, target)
@@ -158,7 +158,7 @@ func TestIsWriteAllowed(t *testing.T) {
 				}
 			}
 			plugins := filepath.Join(cfg, "plugins")
-			data := filepath.Join(home, ".local", "share", "cliamp")
+			data := filepath.Join(home, ".local", "share", "cliamp-x")
 			mustMkdirAll(t, filepath.Join(plugins, "pkg"))
 			mustMkdirAll(t, data)
 			for _, f := range []string{
@@ -229,15 +229,15 @@ func TestIsWriteAllowed(t *testing.T) {
 				{name: "config.toml", path: filepath.Join(cfg, "config.toml")},
 				{name: "config.toml through traversal", path: filepath.Join(cfg, "themes", "..", "config.toml")},
 				{name: "radios.toml", path: filepath.Join(cfg, "radios.toml")},
-				{name: "IPC socket", path: filepath.Join(cfg, "cliamp.sock")},
-				{name: "IPC PID file", path: filepath.Join(cfg, "cliamp.sock.pid")},
+				{name: "IPC socket", path: filepath.Join(cfg, "cliamp-x.sock")},
+				{name: "IPC PID file", path: filepath.Join(cfg, "cliamp-x.sock.pid")},
 				{name: "plugin log", path: filepath.Join(cfg, "plugins.log")},
 				{name: "plugins dir with other case", path: filepath.Join(cfg, "PLUGINS", "evil.lua"), want: !caseFolded},
 				{name: "config.toml with other case", path: filepath.Join(cfg, "Config.toml"), want: !caseFolded},
 				{name: "plugins dir with long s", path: filepath.Join(cfg, "plugin\u017f", "evil.lua"), want: !caseFolded},
 				{name: "trust manifest with long s", path: filepath.Join(cfg, "plugin\u017f", ".trust.json"), want: !caseFolded},
 				{name: "radios.toml with long s", path: filepath.Join(cfg, "radio\u017f.toml"), want: !caseFolded},
-				{name: "IPC socket with Kelvin sign", path: filepath.Join(cfg, "cliamp.soc\u212a"), want: !caseFolded},
+				{name: "IPC socket with Kelvin sign", path: filepath.Join(cfg, "cliamp-x.soc\u212a"), want: !caseFolded},
 				{name: "config.toml stream", path: filepath.Join(cfg, "config.toml::$DATA"), want: runtime.GOOS != "windows"},
 				{name: "symlink to plugins dir", path: filepath.Join(data, "to-plugins", "evil.lua"), link: true},
 				{name: "symlink to config.toml", path: filepath.Join(data, "to-config.toml"), link: true},

@@ -3,9 +3,9 @@ package model
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/playback"
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // Every path that stops playback must refuse a stream that was still

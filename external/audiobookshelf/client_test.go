@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
-	"github.com/bjarneo/cliamp/internal/netdiag"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/netdiag"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

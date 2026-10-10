@@ -14,8 +14,8 @@ import (
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
 
-	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/internal/playback"
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/internal/playback"
 )
 
 func Run(prog *tea.Program, svc *Service) (tea.Model, error) {
@@ -158,7 +158,7 @@ func New(send func(tea.Msg)) (*Service, error) {
 		return nil, fmt.Errorf("mpris: session bus: %w", err)
 	}
 
-	reply, err := conn.RequestName("org.mpris.MediaPlayer2.cliamp",
+	reply, err := conn.RequestName("org.mpris.MediaPlayer2.cliamp_x",
 		dbus.NameFlagDoNotQueue)
 	if err != nil {
 		conn.Close()
@@ -214,7 +214,7 @@ func newService(conn *dbus.Conn, send func(tea.Msg)) (*Service, error) {
 
 	propsSpec := map[string]map[string]*prop.Prop{
 		"org.mpris.MediaPlayer2": {
-			"Identity":            {Value: "Cliamp", Writable: false, Emit: prop.EmitTrue},
+			"Identity":            {Value: "cliamp-x", Writable: false, Emit: prop.EmitTrue},
 			"CanQuit":             {Value: true, Writable: false, Emit: prop.EmitTrue},
 			"CanRaise":            {Value: false, Writable: false, Emit: prop.EmitTrue},
 			"HasTrackList":        {Value: false, Writable: false, Emit: prop.EmitTrue},

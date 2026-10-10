@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // testClient returns a client with a valid-looking token pointed at srv.

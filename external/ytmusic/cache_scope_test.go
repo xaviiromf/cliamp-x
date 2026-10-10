@@ -3,7 +3,7 @@ package ytmusic
 import (
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestYTCacheRejectsDifferentOAuthAccount(t *testing.T) {

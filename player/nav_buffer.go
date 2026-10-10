@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 // readStallTimeout is how long a navReader waits for new data before it

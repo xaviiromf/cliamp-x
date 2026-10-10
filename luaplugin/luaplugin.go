@@ -16,8 +16,8 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/bjarneo/cliamp/internal/appdir"
-	"github.com/bjarneo/cliamp/internal/plugintrust"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
+	"github.com/xaviiromf/cliamp-x/internal/plugintrust"
 )
 
 // Plugin represents a single loaded Lua plugin.

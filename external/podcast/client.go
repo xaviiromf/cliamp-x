@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/appmeta"
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/appmeta"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 type show struct {

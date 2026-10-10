@@ -3,7 +3,7 @@ package tidal
 import (
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/credstore"
+	"github.com/xaviiromf/cliamp-x/internal/credstore"
 )
 
 // Built-in fallback OAuth client credentials: the device ("TV") client pair

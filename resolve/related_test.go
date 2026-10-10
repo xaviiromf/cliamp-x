@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestYouTubeRelaterCanRelate(t *testing.T) {

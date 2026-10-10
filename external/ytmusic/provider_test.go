@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestRefreshInvalidatesAllCaches(t *testing.T) {

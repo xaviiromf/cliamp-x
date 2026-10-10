@@ -20,7 +20,7 @@ import (
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
 	"golang.org/x/oauth2"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 type tokenSourceFunc func() (*oauth2.Token, error)
@@ -351,7 +351,7 @@ func TestDeleteCreds(t *testing.T) {
 	})
 
 	t.Run("removes existing file", func(t *testing.T) {
-		dir := filepath.Join(home, ".config", "cliamp")
+		dir := filepath.Join(home, ".config", "cliamp-x")
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -381,7 +381,7 @@ func TestCredsPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CredsPath() error = %v", err)
 	}
-	want := filepath.Join(home, ".config", "cliamp", "spotify_credentials.json")
+	want := filepath.Join(home, ".config", "cliamp-x", "spotify_credentials.json")
 	if got != want {
 		t.Errorf("CredsPath() = %q, want %q", got, want)
 	}

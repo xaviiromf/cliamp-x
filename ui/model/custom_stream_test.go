@@ -13,12 +13,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/gopxl/beep/v2"
 
-	"github.com/bjarneo/cliamp/external/local"
-	"github.com/bjarneo/cliamp/favorites"
-	"github.com/bjarneo/cliamp/history"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/external/local"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // customStreamTestProvider claims spotify: URIs like the Spotify provider.

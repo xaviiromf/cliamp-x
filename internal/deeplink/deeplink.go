@@ -1,7 +1,7 @@
-// Package deeplink parses cliamp:// URIs into the small set of actions the
+// Package deeplink parses cliamp-x:// URIs into the small set of actions the
 // protocol handler is allowed to perform.
 //
-// A cliamp:// URI can be delivered by any web page with a single click, so
+// A cliamp-x:// URI can be delivered by any web page with a single click, so
 // every value reaching Parse is untrusted. Two rules keep that manageable:
 //
 //   - Parse returns a closed struct. There is no field that can carry an IPC
@@ -58,7 +58,7 @@ const (
 	TargetSearch
 )
 
-// Action is the validated result of parsing a cliamp:// URI. Exactly one
+// Action is the validated result of parsing a cliamp-x:// URI. Exactly one
 // target field is populated, indicated by Target.
 type Action struct {
 	Verb   Verb
@@ -80,10 +80,10 @@ type Action struct {
 
 // ErrNotDeepLink reports a URI that is not in the cliamp scheme at all, so
 // callers can tell "not for us" apart from "malformed".
-var ErrNotDeepLink = errors.New("not a cliamp:// URI")
+var ErrNotDeepLink = errors.New("not a cliamp-x:// URI")
 
 // Scheme is the URI scheme cliamp registers with the desktop environment.
-const Scheme = "cliamp"
+const Scheme = "cliamp-x"
 
 const (
 	maxURILen      = 4096
@@ -92,13 +92,13 @@ const (
 	maxProviderLen = 32
 )
 
-// Parse converts a cliamp:// URI into an Action, rejecting anything outside
+// Parse converts a cliamp-x:// URI into an Action, rejecting anything outside
 // the documented grammar:
 //
-//	cliamp://play?url=https://example.com/stream.mp3
-//	cliamp://play?provider=navidrome&album=a1b2c3
-//	cliamp://play?provider=navidrome&playlist=a1b2c3
-//	cliamp://queue?provider=ytmusic&q=aphex+twin
+//	cliamp-x://play?url=https://example.com/stream.mp3
+//	cliamp-x://play?provider=navidrome&album=a1b2c3
+//	cliamp-x://play?provider=navidrome&playlist=a1b2c3
+//	cliamp-x://queue?provider=ytmusic&q=aphex+twin
 //
 // There are two verbs and no more. "play" makes the target the thing that is
 // playing now; "queue" adds it without interrupting. A third verb meaning
@@ -134,7 +134,7 @@ func Parse(raw string) (Action, error) {
 	// sender is using a grammar we do not implement, and silently ignoring it
 	// would run an action they did not intend.
 	if p := strings.Trim(u.Path, "/"); p != "" {
-		return Action{}, fmt.Errorf("cliamp://%s takes no path segment, got %q", verb, p)
+		return Action{}, fmt.Errorf("cliamp-x://%s takes no path segment, got %q", verb, p)
 	}
 
 	query, err := url.ParseQuery(u.RawQuery)
@@ -159,7 +159,7 @@ func parseVerb(host string) (Verb, error) {
 	case "queue":
 		return Queue, nil
 	case "":
-		return 0, errors.New("cliamp URI is missing an action (expected cliamp://play or cliamp://queue)")
+		return 0, errors.New("cliamp URI is missing an action (expected cliamp-x://play or cliamp-x://queue)")
 	default:
 		return 0, fmt.Errorf("unknown cliamp action %q (expected play or queue)", host)
 	}
@@ -287,7 +287,7 @@ func validateURL(raw string) (string, error) {
 	case "":
 		return "", fmt.Errorf("url %q has no scheme (expected http or https)", raw)
 	default:
-		return "", fmt.Errorf("url scheme %q is not allowed in a cliamp:// link (expected http or https)", u.Scheme)
+		return "", fmt.Errorf("url scheme %q is not allowed in a cliamp-x:// link (expected http or https)", u.Scheme)
 	}
 	if u.Host == "" {
 		return "", fmt.Errorf("url %q has no host", raw)

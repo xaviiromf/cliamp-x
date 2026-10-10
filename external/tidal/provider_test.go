@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 func TestBrowseEntriesExposeFavoriteArtistsAndAlbums(t *testing.T) {

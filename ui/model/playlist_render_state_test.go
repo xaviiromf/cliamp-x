@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func TestRenderQueueBodyPreservesVisibleQueuePositions(t *testing.T) {

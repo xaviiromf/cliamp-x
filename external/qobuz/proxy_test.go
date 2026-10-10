@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/bjarneo/cliamp/internal/httpclient/httpclienttest"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient/httpclienttest"
 )
 
 // TestClientUsesEnvironmentProxy checks that API calls and the bundle fetch

@@ -1,5 +1,5 @@
 // protocol.go implements `cliamp protocol register|unregister|status`, which
-// wires the cliamp:// URI scheme into the desktop environment so links open
+// wires the cliamp-x:// URI scheme into the desktop environment so links open
 // in cliamp.
 //
 // Registration is deliberately opt-in rather than something install.sh does.
@@ -18,9 +18,9 @@ import (
 
 // SchemeName is the URI scheme registered with the desktop environment. It
 // matches deeplink.Scheme; the two are kept in step by TestSchemeMatches.
-const SchemeName = "cliamp"
+const SchemeName = "cliamp-x"
 
-// ProtocolRegister makes this binary the system handler for cliamp:// links.
+// ProtocolRegister makes this binary the system handler for cliamp-x:// links.
 func ProtocolRegister(out io.Writer) error {
 	exe, err := handlerExecutable()
 	if err != nil {

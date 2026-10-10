@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // socketDir returns a new config directory for a test that binds the

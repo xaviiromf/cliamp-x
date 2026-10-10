@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // stubLibrary serves the Web API with status and records each request.

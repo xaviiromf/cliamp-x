@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bjarneo/cliamp/internal/tomlutil"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/resolve"
+	"github.com/xaviiromf/cliamp-x/internal/tomlutil"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
 // ExpandPath expands a leading ~ and environment variables in p.

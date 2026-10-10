@@ -16,12 +16,12 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/external/radio"
-	"github.com/bjarneo/cliamp/internal/globe"
-	"github.com/bjarneo/cliamp/internal/worldmap"
-	"github.com/bjarneo/cliamp/theme"
-	"github.com/bjarneo/cliamp/ui"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/external/radio"
+	"github.com/xaviiromf/cliamp-x/internal/globe"
+	"github.com/xaviiromf/cliamp-x/internal/worldmap"
+	"github.com/xaviiromf/cliamp-x/theme"
+	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 const (

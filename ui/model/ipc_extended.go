@@ -9,12 +9,12 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/lyrics"
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
-	"github.com/bjarneo/cliamp/resolve"
-	"github.com/bjarneo/cliamp/tracksave"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/lyrics"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/resolve"
+	"github.com/xaviiromf/cliamp-x/tracksave"
 )
 
 // ipcLibraryRequest carries a provider or saved-playlist operation to

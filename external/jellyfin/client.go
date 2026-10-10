@@ -2,7 +2,7 @@
 // to a Jellyfin server and exposes it as a playlist provider.
 package jellyfin
 
-import "github.com/bjarneo/cliamp/internal/embyapi"
+import "github.com/xaviiromf/cliamp-x/internal/embyapi"
 
 // Client aliases the shared embyapi type so external callers keep using
 // jellyfin.Client.

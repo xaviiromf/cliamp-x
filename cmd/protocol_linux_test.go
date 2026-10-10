@@ -42,7 +42,7 @@ func TestProtocolRoundTrip(t *testing.T) {
 	}
 	body := string(entry)
 	for _, want := range []string{
-		"MimeType=x-scheme-handler/cliamp;",
+		"MimeType=x-scheme-handler/cliamp-x;",
 		" open %u",
 		"Terminal=true",
 		"NoDisplay=true",

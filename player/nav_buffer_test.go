@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 // startNavRead reads n bytes from r in a goroutine. started closes before the

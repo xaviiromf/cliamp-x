@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 var client = httpclient.NewAPI(8 * time.Second)

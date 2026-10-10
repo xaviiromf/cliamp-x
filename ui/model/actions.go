@@ -3,7 +3,7 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // This file holds one action verb for each user intent that more than one

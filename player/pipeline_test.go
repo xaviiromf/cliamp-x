@@ -19,7 +19,7 @@ import (
 	"github.com/gopxl/beep/v2/generators"
 	"github.com/gopxl/beep/v2/wav"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // installPipelineRouteFixtures puts fake ffmpeg, ffprobe and ssh binaries

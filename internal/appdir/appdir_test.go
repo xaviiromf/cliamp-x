@@ -17,18 +17,18 @@ func TestDir(t *testing.T) {
 		{
 			name: "home config",
 			env:  map[string]string{"CLIAMP_CONFIG_DIR": "", "XDG_CONFIG_HOME": "", "APPDATA": "", "HOME": "TEMPDIR"},
-			want: func(tmp string) string { return filepath.Join(tmp, ".config", "cliamp") },
+			want: func(tmp string) string { return filepath.Join(tmp, ".config", "cliamp-x") },
 		},
 		{
 			name: "xdg config",
 			env:  map[string]string{"CLIAMP_CONFIG_DIR": "", "HOME": "", "APPDATA": "", "XDG_CONFIG_HOME": "TEMPDIR"},
-			want: func(tmp string) string { return filepath.Join(tmp, "cliamp") },
+			want: func(tmp string) string { return filepath.Join(tmp, "cliamp-x") },
 		},
 		{
 			name:        "appdata on windows when home missing",
 			windowsOnly: true,
 			env:         map[string]string{"CLIAMP_CONFIG_DIR": "", "XDG_CONFIG_HOME": "", "HOME": "", "APPDATA": "TEMPDIR"},
-			want:        func(tmp string) string { return filepath.Join(tmp, "cliamp") },
+			want:        func(tmp string) string { return filepath.Join(tmp, "cliamp-x") },
 		},
 	}
 
@@ -69,7 +69,7 @@ func TestPluginDir(t *testing.T) {
 		t.Fatalf("PluginDir() error: %v", err)
 	}
 
-	if !strings.HasSuffix(dir, filepath.Join("cliamp", "plugins")) {
+	if !strings.HasSuffix(dir, filepath.Join("cliamp-x", "plugins")) {
 		t.Fatalf("PluginDir() = %q, expected to end with cliamp/plugins", dir)
 	}
 }

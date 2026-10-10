@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/internal/httpclient"
+	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 )
 
 func testHash(data []byte) string {

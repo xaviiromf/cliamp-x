@@ -1,9 +1,9 @@
 package model
 
 import (
-	"github.com/bjarneo/cliamp/luaplugin"
-	"github.com/bjarneo/cliamp/player"
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/player"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 func (m Model) currentPlaybackTrack() (playlist.Track, int) {

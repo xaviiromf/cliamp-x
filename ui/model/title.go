@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/bjarneo/cliamp/playlist"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 const (

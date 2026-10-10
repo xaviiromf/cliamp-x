@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjarneo/cliamp/theme"
+	"github.com/xaviiromf/cliamp-x/theme"
 )
 
 var updateVisGolden = flag.Bool("update-vis-golden", false,

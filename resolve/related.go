@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bjarneo/cliamp/playlist"
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // YouTubeRelater finds songs related to a YouTube or YouTube Music video from

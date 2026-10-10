@@ -18,10 +18,10 @@ import (
 
 	cli "github.com/urfave/cli/v3"
 
-	"github.com/bjarneo/cliamp/config"
-	"github.com/bjarneo/cliamp/ipc"
-	"github.com/bjarneo/cliamp/resolve"
-	"github.com/bjarneo/cliamp/theme"
+	"github.com/xaviiromf/cliamp-x/config"
+	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/resolve"
+	"github.com/xaviiromf/cliamp-x/theme"
 )
 
 func TestInverseBoolFlags(t *testing.T) {
@@ -346,7 +346,7 @@ func TestVersionFlag(t *testing.T) {
 			if err := app.Run(t.Context(), []string{"cliamp", tt.arg}); err != nil {
 				t.Fatalf("Run(%s) error = %v", tt.arg, err)
 			}
-			if got := out.String(); got != "cliamp version "+want+"\n" {
+			if got := out.String(); got != "cliamp-x version "+want+"\n" {
 				t.Errorf("Run(%s) printed %q, want version %q", tt.arg, got, want)
 			}
 		})

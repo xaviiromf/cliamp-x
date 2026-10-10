@@ -9,7 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/bjarneo/cliamp/provider"
+	"github.com/xaviiromf/cliamp-x/provider"
 )
 
 // newColumnTestModel builds a full-tier model with several providers so the

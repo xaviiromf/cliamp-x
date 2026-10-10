@@ -13,7 +13,7 @@ import (
 // anything starting with ssh:// to exec.Command("ssh", ...), so an unfiltered
 // catalog URL lets a directory submitter choose a host the user connects to.
 //
-// A cliamp:// link makes that reachable in one click, because the link author
+// A cliamp-x:// link makes that reachable in one click, because the link author
 // picks the search query and therefore which station comes back first.
 func TestCatalogStationURLsAreConstrainedToHTTP(t *testing.T) {
 	hostile := []CatalogStation{
