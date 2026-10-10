@@ -39,6 +39,16 @@ const (
 	VisOmarchy                    // dithered pixel field with the Omarchy mark (omarchy.org style)
 	VisRedSector                  // tumbling wireframe equalizer over a drifting starfield
 	VisYinYang                    // two koi chasing round a lily pad, flicking their tails to the drums
+	VisSpectrogram                // scrolling frequency waterfall
+	VisRadial                     // spectrum spokes around a ring
+	VisStarfield                  // flight through stars, warping when loud
+	VisPlasma                     // demoscene sine plasma
+	VisTunnel                     // flight through a tunnel of rings
+	VisHelix                      // turning double helix
+	VisRipple                     // rings on a pond, one per beat
+	VisAurora                     // drifting curtains of northern lights
+	VisSkyline                    // city at night, a building per band
+	VisSpiral                     // turning spiral arms
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -85,6 +95,16 @@ var visModes = [VisCount]visEntry{
 	VisOmarchy:     {"Omarchy", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderOmarchy)},
 	VisRedSector:   {"RedSector", newRedSectorDriver},
 	VisYinYang:     {"YinYang", newYinYangDriver},
+	VisSpectrogram: {"Spectrogram", newSpectrogramDriver},
+	VisRadial:      {"Radial", newRenderOnlyDriver(spectrumAnalysisSpec(24), (*Visualizer).renderRadial)},
+	VisStarfield:   {"Starfield", newStarfieldDriver},
+	VisPlasma:      {"Plasma", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderPlasma)},
+	VisTunnel:      {"Tunnel", newTunnelDriver},
+	VisHelix:       {"Helix", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderHelix)},
+	VisRipple:      {"Ripple", newRippleDriver},
+	VisAurora:      {"Aurora", newRenderOnlyDriver(spectrumAnalysisSpec(16), (*Visualizer).renderAurora)},
+	VisSkyline:     {"Skyline", newRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), (*Visualizer).renderSkyline)},
+	VisSpiral:      {"Spiral", newRenderOnlyDriver(spectrumAnalysisSpec(16), (*Visualizer).renderSpiral)},
 	VisNone:        {"None", newNoOpDriver},
 }
 

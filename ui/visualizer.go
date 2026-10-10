@@ -50,6 +50,7 @@ type Visualizer struct {
 	pulseCoordCache *pulseCoords
 	dotMask         []bool      // per-frame Braille dots, see dotMaskFor
 	dotGrid         brailleGrid // per-frame tier grid of the render-only Braille modes
+	xGrid           brailleGrid // per-frame grid of the cliamp-x dot modes, see vis_canvas.go
 }
 
 // NewVisualizer creates a Visualizer for the given sample rate.
