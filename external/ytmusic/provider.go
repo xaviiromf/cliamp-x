@@ -1011,6 +1011,28 @@ func (p *Provider) AddTrackToPlaylist(ctx context.Context, playlistID string, tr
 	return p.client.AddToPlaylist(ctx, strings.TrimPrefix(playlistID, prefixList), id)
 }
 
+// AddTracksToPlaylist adds songs to one of the account's playlists, 50 per
+// request. Tracks that are not YouTube songs are skipped.
+func (p *Provider) AddTracksToPlaylist(ctx context.Context, playlistID string, tracks []playlist.Track) (added, skipped int, err error) {
+	var ids []string
+	for _, t := range tracks {
+		if id := trackVideoID(t); id != "" {
+			ids = append(ids, id)
+		} else {
+			skipped++
+		}
+	}
+	plain := strings.TrimPrefix(playlistID, prefixList)
+	for start := 0; start < len(ids); start += 50 {
+		chunk := ids[start:min(len(ids), start+50)]
+		if err := p.client.AddToPlaylist(ctx, plain, chunk...); err != nil {
+			return added, skipped, err
+		}
+		added += len(chunk)
+	}
+	return added, skipped, nil
+}
+
 // CanAddToPlaylist reports whether pl is one of the account's playlists.
 func (p *Provider) CanAddToPlaylist(pl playlist.PlaylistInfo) bool {
 	if !strings.HasPrefix(pl.ID, prefixList) || pl.Section != p.words.yourMusic {

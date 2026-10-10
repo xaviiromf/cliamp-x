@@ -129,6 +129,12 @@ hide_preview = false
 # Hide the cover beside the full-screen visualizer.
 hide_fullscreen_cover = false
 
+# Mouse: wheel scrolls, click selects, a second click plays (Shift selects text).
+mouse = true
+
+# Interface language: "es" or "en"; empty follows $LANG.
+language = ""
+
 # Preview pictures: "auto", "kitty" (kitty graphics protocol) or "blocks".
 preview_images = "auto"
 

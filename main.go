@@ -320,6 +320,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	}
 	m.SetVisRows(cfg.VisRows)
 	m.SetVisSensitivity(cfg.VisSensitivity)
+	model.SetLanguage(cfg.Language)
 	m.SetNormalize(cfg.Normalize, cfg.NormalizeTarget)
 	m.SetCrossfade(cfg.Crossfade)
 	if !cfg.SponsorBlock.Disabled {
@@ -345,6 +346,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 		m.SetPreview(!cfg.HidePreview)
 		m.SetPreviewImages(cfg.PreviewImages)
 		m.SetFullscreenCover(!cfg.HideFullCover)
+		m.SetMouse(!cfg.MouseOff)
 	}
 	if cfg.ShowMetadata {
 		m.SetShowMetadata(true)

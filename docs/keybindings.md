@@ -24,6 +24,8 @@ entries, a status message tells you which key to press.
 | `+` `-` | Volume up/down |
 | `]` `[` | Change speed by 0.25x |
 | `m` | Toggle mono |
+| `*` | Mark or unmark the selected track (`x` then removes every marked track, `Esc` clears the marks) |
+| `W` | Save the whole queue as a new private YouTube Music playlist |
 | `n` | Volume normalization: off, by song, by album (saved in `normalize`) |
 | `M` | More like this: replace the queue with a radio of the highlighted song, album, artist or playlist (or of the playing song) |
 | `D` | Download the highlighted song, album or playlist for offline listening |
@@ -346,3 +348,15 @@ matching rules.
 | `q` / `Ctrl+C` | Quit |
 
 cliamp-x also quits as the `q` key does when it gets `SIGINT`, `SIGTERM` or `SIGHUP`. It then saves the resume position. The terminal sends `SIGHUP` when you close its window.
+
+## Mouse
+
+With `mouse = true` (the default):
+
+- The wheel moves through the list on screen, like the arrow keys. In the full
+  screen visualizer it changes the volume.
+- A click on a list row selects it; a second click on the selected row plays
+  or opens it, like `Enter`.
+- A click on the seek bar seeks there.
+
+Hold `Shift` while dragging to select text in the terminal.

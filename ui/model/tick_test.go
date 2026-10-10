@@ -59,6 +59,8 @@ func (f *samplingFakeEngine) StereoSamplesInto(dst [][2]float64) int {
 }
 
 func TestMain(m *testing.M) {
+	// The tests read the English interface, whatever $LANG says.
+	spanishUI = false
 	os.Unsetenv("CLIAMP_CONFIG_DIR")
 	os.Unsetenv("XDG_CONFIG_HOME")
 	os.Exit(m.Run())

@@ -69,6 +69,16 @@ func init() {
 			view:    overlayView{(*Model).eqPanelHeaderLine, (*Model).renderEQPanelBody},
 		},
 		{
+			screen: screenSaveQueue,
+			key:    (*Model).handleSaveQueueKey,
+			paste: func(m *Model, s string) {
+				m.insertText("save-queue", &m.saveQueue.name, s)
+				m.saveQueue.err = ""
+			},
+			context: fixedContext(commandModeSaveQueue, "Save Queue"),
+			view:    overlayView{(*Model).saveQueueHeaderLine, (*Model).renderSaveQueueBody},
+		},
+		{
 			screen:  screenStats,
 			key:     (*Model).handleStatsKey,
 			context: fixedContext(commandModeStats, "Statistics"),
@@ -312,6 +322,8 @@ func (m *Model) overlayOpen(screen topLevelScreen) bool {
 		return m.eqPanel.visible
 	case screenStats:
 		return m.stats.visible
+	case screenSaveQueue:
+		return m.saveQueue.active
 	case screenPlaylistPicker:
 		return m.plPicker.visible
 	case screenFileBrowser:

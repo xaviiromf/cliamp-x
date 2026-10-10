@@ -188,6 +188,8 @@ func TestLoadGolden(t *testing.T) {
 	allWant.HideSettingsPane = true
 	allWant.HidePreview = true
 	allWant.HideFullCover = true
+	allWant.MouseOff = true
+	allWant.Language = "es"
 	allWant.PreviewImages = "auto"
 	allWant.Normalize = "track"
 	allWant.NormalizeTarget = -14

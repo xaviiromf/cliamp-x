@@ -220,12 +220,16 @@ const (
 	screenJump
 	screenEQPanel
 	screenStats
+	screenSaveQueue
 	// screenFullVisualizer stays last. TestOverlayStackOrder checks that
 	// overlayStack holds each screen up to it.
 	screenFullVisualizer
 )
 
-func (s topLevelScreen) label() string {
+// label names the screen in the interface language.
+func (s topLevelScreen) label() string { return L(s.labelEN()) }
+
+func (s topLevelScreen) labelEN() string {
 	switch s {
 	case screenKeymap:
 		return "Keys"
@@ -259,6 +263,8 @@ func (s topLevelScreen) label() string {
 		return "Lyrics"
 	case screenJump:
 		return "Jump to Time"
+	case screenSaveQueue:
+		return "Save Queue"
 	case screenStats:
 		return "Statistics"
 	case screenEQPanel:
@@ -581,6 +587,9 @@ type Model struct {
 	previewOff      bool   // the preview pane is turned off; the cover cache stays
 	fullVisCoverOff bool   // no cover beside the full-screen visualizer
 	coverThemeURL   string // the cover the cover theme took its colors from
+	saveQueue       saveQueueState
+	plMarks         map[string]bool // paths of the queue rows marked with *
+	mouseOn         bool            // mouse support
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration

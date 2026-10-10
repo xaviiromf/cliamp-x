@@ -38,6 +38,12 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
 - **Estadísticas** (`S`): tiempo escuchado, racha de días, actividad y tus
   artistas, canciones y géneros más escuchados por semana, mes o año.
 - **Letras de YouTube Music**: además de las sincronizadas de LRCLIB.
+- **Mouse**: la rueda recorre las listas, un clic selecciona, un segundo clic
+  reproduce y un clic en la barra de progreso salta a ese punto.
+- **Cola cómoda**: mueve canciones con `Shift+↑/↓`, marca varias con `*` para
+  quitarlas juntas y guarda la cola como playlist de YouTube Music con `W`.
+- **Interfaz en español**: menús, ayuda, teclas y avisos, según tu `LANG` o
+  `language = "es"`.
 - **Radio automática**: cuando la cola termina, sigue con canciones parecidas
   a la última (`R` la activa o desactiva).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
@@ -185,6 +191,8 @@ cliamp-x https://example.com/stream  # una URL
 | `X` | Buscar remixes y otras versiones de la canción |
 | `D` | Descargar la canción, álbum o playlist seleccionado |
 | `S` | Estadísticas de lo que escuchas |
+| `*` / `x` | Marcar canciones de la cola / quitar las marcadas |
+| `W` | Guardar la cola como playlist de YouTube Music |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
 | `Ctrl+K` / `?` | Ver todas las teclas |

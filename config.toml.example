@@ -101,6 +101,14 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Hide the cover of the playing song beside the full-screen visualizer (V).
 # hide_fullscreen_cover = true
 
+# Mouse: the wheel scrolls the lists, a click selects a row and a second click
+# on it plays or opens it, and a click on the seek bar seeks. Hold Shift to
+# select text in the terminal while the mouse is on. Default: true.
+# mouse = false
+
+# Interface language: "es" (Spanish) or "en" (English). Empty follows $LANG.
+# language = "es"
+
 # How the preview pane draws pictures: "kitty" sends real images with the
 # kitty graphics protocol (kitty, Ghostty), "blocks" draws them with colored
 # half-block characters (any terminal, lower detail), and "auto" picks kitty

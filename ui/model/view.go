@@ -204,6 +204,9 @@ func (m Model) View() tea.View {
 	}
 	view.AltScreen = true
 	view.WindowTitle = currentTerminalTitle(m.termTitle, m.width, m.terminalTitleValues())
+	if m.mouseOn {
+		view.MouseMode = tea.MouseModeCellMotion
+	}
 	return view
 }
 
@@ -397,7 +400,7 @@ func trackInfoName(track playlist.Track, streamTitle string) string {
 		}
 	}
 	if name == "" {
-		name = "No track loaded"
+		name = L("No track loaded")
 	}
 	if track.Album != "" {
 		name += " · " + track.Album
@@ -565,18 +568,18 @@ func (m Model) renderTimeStatus() string {
 		status = statusStyle.Render("⟳ Seeking...")
 	case m.buffering:
 		if elapsed := int(time.Since(m.bufferingAt).Seconds()); elapsed > 0 {
-			status = statusStyle.Render(fmt.Sprintf("◌ Buffering... (%ds)", elapsed))
+			status = statusStyle.Render(fmt.Sprintf("◌ %s (%ds)", L("Buffering..."), elapsed))
 		} else {
-			status = statusStyle.Render("◌ Buffering...")
+			status = statusStyle.Render("◌ " + L("Buffering..."))
 		}
 	case m.player.IsPlaying() && m.player.IsPaused():
-		status = statusStyle.Render("⏸ Paused")
+		status = statusStyle.Render("⏸ " + L("Paused"))
 	case m.player.IsPlaying() && track.Stream:
 		status = statusStyle.Render("● Streaming")
 	case m.player.IsPlaying():
-		status = statusStyle.Render("▶ Playing")
+		status = statusStyle.Render("▶ " + L("Playing"))
 	default:
-		status = dimStyle.Render("■ Stopped")
+		status = dimStyle.Render("■ " + L("Stopped"))
 	}
 
 	left := timeStyle.Render(timeStr)
@@ -1071,7 +1074,7 @@ func (m Model) renderPlaylist() string {
 		if m.feedLoading || (m.provPane.loading && m.activeProviderPlaylistID != "") {
 			lines = append(lines, loadingLine("Loading feed…"))
 		} else {
-			lines = append(lines, dimStyle.Render("  No tracks loaded."), dimStyle.Render("  To add music, press one of these keys:"), "")
+			lines = append(lines, dimStyle.Render("  "+L("No tracks loaded.")), dimStyle.Render("  "+L("To add music, press one of these keys:")), "")
 			for _, key := range []string{"esc", "o", "u", "ctrl+f"} {
 				if hint := m.commandHint(commandModeMain, key); hint != "" {
 					lines = append(lines, hint)
@@ -1129,6 +1132,8 @@ func (m Model) renderPlaylist() string {
 		cursorMarker := " "
 		if selected {
 			cursorMarker = ">"
+		} else if m.plMarks[t.Path] {
+			cursorMarker = "✓"
 		}
 		// An unplayable track is never the playing one, so both share a cell.
 		stateMarker, stateStyle := " ", playlistActiveStyle

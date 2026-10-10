@@ -52,6 +52,7 @@ const (
 	commandModeFullVis
 	commandModeEQPanel
 	commandModeStats
+	commandModeSaveQueue
 )
 
 const commandModeAny = ^commandMode(0)
@@ -97,9 +98,9 @@ func (c commandSpec) runKey() string {
 
 func (c commandSpec) label(m Model) string {
 	if c.LabelFor != nil {
-		return c.LabelFor(m)
+		return L(c.LabelFor(m))
 	}
-	return c.Label
+	return L(c.Label)
 }
 
 // commandRegistry deliberately lists every core-reserved key, including text
@@ -146,7 +147,8 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeSubs, Keys: []string{"esc", "F"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", Keymap: true},
 	{Mode: commandModeSubsFilter, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Apply filter", Keymap: true, Primary: true},
 	{Mode: commandModeSubsFilter, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Clear filter", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"x"}, KeyLabel: "x", Label: "Remove selected track from playlist", Destructive: true, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"x"}, KeyLabel: "x", Label: "Remove selected track (or the marked ones) from playlist", Destructive: true, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"*"}, KeyLabel: "*", Label: "Mark/unmark track (x removes the marked ones, Esc clears)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"w"}, KeyLabel: "w", Label: "Write selected track/selection to playlist", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"o"}, KeyLabel: "o", Label: "Open file browser", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"N"}, KeyLabel: "N", Label: "Browse provider", LabelFor: func(m Model) string {
@@ -170,6 +172,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"X"}, KeyLabel: "X", Label: "Find remixes and other versions of the song", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"D"}, KeyLabel: "D", Label: "Download for offline: the highlighted song, album or playlist", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"S"}, KeyLabel: "S", Label: "Listening statistics", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"W"}, KeyLabel: "W", Label: "Save the queue as a YouTube Music playlist", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
 		return !m.simplified && m.layout.tier == layoutFull
 	}, Keymap: true},
@@ -249,6 +252,8 @@ var commandRegistry = []commandSpec{
 			m.searchOverlay.cursor >= 0 && m.searchOverlay.cursor < len(m.searchOverlay.results)
 	}},
 	{Mode: commandModeEQ, Keys: []string{"up", "down"}, KeyLabel: "Up Down", Label: "Gain", ContextHelp: true},
+	{Mode: commandModeSaveQueue, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Save", ContextHelp: true, Primary: true},
+	{Mode: commandModeSaveQueue, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Cancel", ContextHelp: true, Cancel: true},
 	{Mode: commandModeStats, Keys: []string{"left", "right", "h", "l", "tab", "shift+tab"}, KeyLabel: "Left Right", Label: "Period: week / month / year / all time", ContextHelp: true, Primary: true},
 	{Mode: commandModeStats, Keys: []string{"up", "down", "k", "j", "home", "g"}, KeyLabel: "Up Down", Label: "Scroll", ContextHelp: true},
 	{Mode: commandModeStats, Keys: []string{"esc", "q", "S", "backspace"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", ContextHelp: true, Cancel: true},

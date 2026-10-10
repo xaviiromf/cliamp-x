@@ -77,6 +77,16 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.handlePaste(msg.Content)
 		return m, cmd
 
+	case tea.MouseWheelMsg:
+		cmd := m.handleMouseWheel(msg)
+		m.adjustScroll()
+		return m, cmd
+
+	case tea.MouseClickMsg:
+		cmd := m.handleMouseClick(msg)
+		m.adjustScroll()
+		return m, cmd
+
 	case tea.KeyPressMsg:
 		cmd := m.handleKey(msg)
 		if m.quitting {
@@ -102,6 +112,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case artworkLoadedMsg:
+		return m, nil
+
+	case queueSavedMsg:
+		m.handleQueueSaved(msg)
 		return m, nil
 
 	case statsLoadedMsg:

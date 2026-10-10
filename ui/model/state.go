@@ -453,24 +453,26 @@ func (s *statusMsg) Show(text string, ttl statusTTL) {
 	s.Success(text, ttl)
 }
 
+// The status texts are translated here, so every caller writes English.
+
 func (s *statusMsg) Showf(ttl statusTTL, format string, args ...any) {
-	s.Show(fmt.Sprintf(format, args...), ttl)
+	s.Show(fmt.Sprintf(L(format), args...), ttl)
 }
 
 func (s *statusMsg) Activityf(ttl statusTTL, format string, args ...any) {
-	s.Activity(fmt.Sprintf(format, args...), ttl)
+	s.Activity(fmt.Sprintf(L(format), args...), ttl)
 }
 
 func (s *statusMsg) Successf(ttl statusTTL, format string, args ...any) {
-	s.Success(fmt.Sprintf(format, args...), ttl)
+	s.Success(fmt.Sprintf(L(format), args...), ttl)
 }
 
 func (s *statusMsg) Warningf(ttl statusTTL, format string, args ...any) {
-	s.Warning(fmt.Sprintf(format, args...), ttl)
+	s.Warning(fmt.Sprintf(L(format), args...), ttl)
 }
 
 func (s *statusMsg) Errorf(ttl statusTTL, format string, args ...any) {
-	s.Error(fmt.Sprintf(format, args...), ttl)
+	s.Error(fmt.Sprintf(L(format), args...), ttl)
 }
 
 func (s *statusMsg) Activity(text string, ttl statusTTL) {
@@ -490,7 +492,7 @@ func (s *statusMsg) Error(text string, ttl statusTTL) {
 }
 
 func (s *statusMsg) show(kind feedbackKind, text string, ttl statusTTL) {
-	s.ShowAtKind(time.Now(), kind, text, ttl)
+	s.ShowAtKind(time.Now(), kind, L(text), ttl)
 }
 
 func (s *statusMsg) ShowAt(now time.Time, text string, ttl statusTTL) {

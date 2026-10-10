@@ -30,7 +30,7 @@ import (
 // sepHeader renders a labeled separator width cells wide. The label is
 // embedded before the "─" fill, so separatorLine truncates it: it never wraps.
 func sepHeader(label string, width int) string {
-	return dimStyle.Render(labeledSeparator("", label, width))
+	return dimStyle.Render(labeledSeparator("", L(label), width))
 }
 
 // sepHeaderN appends an "n/total" position counter to a separator label.
@@ -102,7 +102,7 @@ func bodyLines(lines []string, budget int) string {
 
 // bodyMessage renders a single dim message line into the budget.
 func bodyMessage(msg string, budget int) string {
-	return bodyLines([]string{dimStyle.Render("  " + msg)}, budget)
+	return bodyLines([]string{dimStyle.Render("  " + L(msg))}, budget)
 }
 
 // renderSearchOverlayResults renders the search results grouped into labeled

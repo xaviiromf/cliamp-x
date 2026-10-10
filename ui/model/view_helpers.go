@@ -221,7 +221,7 @@ func spinnerFrame() string {
 // loadingLine renders a single styled "<spinner> <label>" line for use as a
 // loading indicator inside a list pane.
 func loadingLine(label string) string {
-	return activeToggle.Render("  "+spinnerFrame()) + dimStyle.Render(" "+label)
+	return activeToggle.Render("  "+spinnerFrame()) + dimStyle.Render(" "+L(label))
 }
 
 // padLines appends empty strings so that rendered items fill maxVisible rows.
