@@ -12,7 +12,7 @@ type labels struct {
 	genreMix, genreSongs, genreFeatured                string
 	genreCommunity, genreLabel, moodLabel              string
 	searchSongs, searchAlbums, searchArtists           string
-	searchPlaylists, localMusic, localTag              string
+	searchPlaylists, searchLink, localMusic, localTag  string
 }
 
 var spanish = labels{
@@ -23,7 +23,7 @@ var spanish = labels{
 	sortTop: "Tus favoritos primero", sortAlpha: "A-Z", sortArtist: "Por artista", sortYear: "Más recientes",
 	genreMix: "Mezcla del género", genreSongs: "Canciones populares", genreFeatured: "Lista destacada",
 	genreCommunity: "Lista de la comunidad", genreLabel: "Géneros", moodLabel: "Estados de ánimo",
-	searchSongs: "Canciones", searchAlbums: "Álbumes", searchArtists: "Artistas", searchPlaylists: "Listas",
+	searchSongs: "Canciones", searchAlbums: "Álbumes", searchArtists: "Artistas", searchPlaylists: "Listas", searchLink: "Desde el enlace",
 	localMusic: "Música local", localTag: " · local",
 }
 
@@ -35,7 +35,7 @@ var english = labels{
 	sortTop: "Your favorites first", sortAlpha: "A-Z", sortArtist: "By artist", sortYear: "Newest",
 	genreMix: "Genre mix", genreSongs: "Popular songs", genreFeatured: "Featured playlist",
 	genreCommunity: "Community playlist", genreLabel: "Genres", moodLabel: "Moods",
-	searchSongs: "Songs", searchAlbums: "Albums", searchArtists: "Artists", searchPlaylists: "Playlists",
+	searchSongs: "Songs", searchAlbums: "Albums", searchArtists: "Artists", searchPlaylists: "Playlists", searchLink: "From the link",
 	localMusic: "Local music", localTag: " · local",
 }
 

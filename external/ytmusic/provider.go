@@ -1016,13 +1016,23 @@ func (p *Provider) openLink(ctx context.Context, link Link) ([]playlist.Track, e
 		}
 		link = resolved
 	}
+	tracks, err := p.openLinkTracks(ctx, link)
+	for i := range tracks {
+		if tracks[i].ProviderMeta == nil {
+			tracks[i].ProviderMeta = map[string]string{}
+		}
+		tracks[i].ProviderMeta[MetaSection] = p.words.searchLink
+	}
+	return tracks, err
+}
+
+// openLinkTracks resolves a parsed link to its tracks.
+func (p *Provider) openLinkTracks(ctx context.Context, link Link) ([]playlist.Track, error) {
 	switch link.Kind {
 	case LinkVideo:
 		songs, err := p.client.Radio(ctx, link.VideoID, "")
 		if err == nil && len(songs) > 0 && songs[0].VideoID == link.VideoID {
-			t := songTrack(songs[0])
-			t.ProviderMeta[MetaSection] = p.words.searchSongs
-			return []playlist.Track{t}, nil
+			return []playlist.Track{songTrack(songs[0])}, nil
 		}
 		return []playlist.Track{{
 			Path: WatchURL(link.VideoID), Title: link.VideoID, Stream: true,

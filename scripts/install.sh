@@ -217,7 +217,11 @@ build_from_source() {
     ensure_build_tools
     say "Building cliamp-x..."
     # GOTOOLCHAIN=auto lets an older Go fetch the version go.mod asks for.
-    (cd "$REPO_DIR" && GOTOOLCHAIN=auto make build)
+    # Fedora's Go turns the checksum database and the proxy off, which
+    # blocks that download, so turn them back on unless the user chose.
+    (cd "$REPO_DIR" && GOTOOLCHAIN=auto \
+        GOSUMDB="${GOSUMDB:-sum.golang.org}" GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}" \
+        make build)
     mkdir -p "$BIN_DIR"
     install -m 755 "$REPO_DIR/$BINARY" "$BIN_DIR/$BINARY"
     install_extras "$REPO_DIR"
