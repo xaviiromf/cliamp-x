@@ -45,19 +45,36 @@ volver a él desde otro proveedor y `N` para abrir el navegador.
 
 ## Menús
 
-El navegador de YouTube Music ofrece estos menús:
+El panel de YouTube Music tiene tres secciones:
 
-| Menú | Contenido |
-|------|-----------|
-| Inicio | Las recomendaciones de tu página de inicio |
-| Favoritos | Las canciones que te gustan |
-| Álbumes | Los álbumes de tu biblioteca |
-| Artistas | Los artistas que sigues |
-| Géneros | Los géneros y estados de ánimo de YouTube Music |
-| Playlists | Tus playlists y las que guardaste |
-| Historial | Lo que escuchaste hace poco |
+| Sección | Filas | Contenido |
+|---------|-------|-----------|
+| Explorar | Álbumes | Los álbumes que guardaste (♥) primero, después los de tus canciones con "me gusta" y los que recomienda tu inicio. Ordénalos con `s` |
+| Explorar | Artistas | Tus suscripciones (♥), los artistas de tu biblioteca y los de tus "me gusta". Cada artista abre sus canciones populares, álbumes y singles |
+| Explorar | Géneros | Los géneros de YouTube Music. Cada uno ofrece una mezcla, sus canciones populares, la lista destacada o una lista de la comunidad |
+| Explorar | Estados de ánimo | Relax, Energía, Concentración, Dormir... |
+| Tu música | ♥ Favoritos | Tus "me gusta" de YouTube Music junto con todo lo que marcaste con `f`, también tus archivos locales |
+| Tu música | Historial | Lo que escuchaste en cliamp-x (local y YouTube) y tu historial de la cuenta |
+| Tu música | Música local | Todas las canciones de tu carpeta de música |
+| Tu música | Tus playlists | Las playlists de tu biblioteca |
+| Tus géneros | ★ Género | Los géneros que fijaste con `f` |
+| Inicio | Mixes y estantes | Selecciones rápidas, tus mixes, lanzamientos y recomendaciones |
 
-Tus playlists locales y tus archivos aparecen en los mismos menús.
+### Favoritos
+
+`f` marca o desmarca según lo seleccionado:
+
+- Una canción: "me gusta" en tu cuenta (y en Favoritos).
+- Un álbum en Álbumes: lo guarda en tu biblioteca o lo quita.
+- Un artista en Artistas: te suscribe o te desuscribe.
+- Un género en Géneros: lo fija primero y en el panel.
+
+### Música local
+
+Los álbumes, artistas y géneros de tu carpeta de música (por defecto
+`~/Music`, cambiable con `music_dir`) aparecen en los mismos menús, marcados
+"· local". Un artista local con el mismo nombre que uno de YouTube Music se une
+a él, así una fila abre los dos.
 
 ## Búsqueda
 
@@ -69,12 +86,15 @@ búsqueda también acepta links de YouTube y YouTube Music:
 | `watch?v=...` o `youtu.be/...` | Una canción o un video |
 | `playlist?list=...` | Una playlist |
 | `browse/MPREb_...` | Un álbum |
-| `channel/UC...` | Un artista |
+| `channel/UC...` o `@nombre` | Un artista (sus canciones populares) |
+
+`Ctrl+U` borra el texto del buscador.
 
 ## Radio automática
 
 Cuando la cola termina, cliamp-x sigue con canciones parecidas a la última.
-Para desactivarlo, pon `auto_radio = false` en la sección `[ytmusic]`.
+Pulsa `R` para activarla o desactivarla (se guarda como `auto_radio` en la
+sección `[ytmusic]`).
 
 ## Historial de YouTube Music
 

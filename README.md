@@ -11,14 +11,32 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
 ## Funciones
 
 - **YouTube Music sin anuncios con tu cuenta**: el audio llega directamente a
-  través de yt-dlp.
-- **Menús personalizados**: Inicio, Favoritos, Álbumes, Artistas, Géneros,
-  Playlists e Historial.
-- **Búsqueda por nombre o por link** de YouTube y YouTube Music (canciones,
-  playlists, álbumes y artistas).
-- **Archivos locales integrados en los mismos menús**, junto con tus playlists
-  locales, favoritos e historial.
-- **Ecualizador** de 10 bandas con presets por género.
+  través de yt-dlp, con la sesión de tu navegador (Premium incluido).
+- **Inicio de sesión persistente**: `cliamp-x login` copia la sesión de tu
+  navegador una vez (Brave, Brave Origin, Chrome, Chromium, Edge, Vivaldi,
+  Opera, Firefox, LibreWolf, Zen...) y cliamp-x la renueva en cada inicio.
+- **Menús personalizados**: Explorar (Álbumes, Artistas, Géneros, Estados de
+  ánimo), Tu música (♥ Favoritos, Historial, Música local y tus playlists) e
+  Inicio (tus mixes, selecciones rápidas y recomendaciones).
+- **Todo ordenado según tus gustos**: los álbumes que guardaste y los artistas
+  a los que te suscribiste van primero con ♥, seguidos de los que más
+  aparecen en tus "me gusta". `f` guarda un álbum o te suscribe a un artista
+  en tu cuenta, y en una canción le da (o quita) "me gusta".
+- **Géneros favoritos**: marca un género con `f` y queda primero y fijado en
+  el panel.
+- **Búsqueda por nombre o por link** de YouTube y YouTube Music (`watch?v=`,
+  `youtu.be/`, shorts, playlists, álbumes, canales y `@artista`).
+- **Radio automática**: cuando la cola termina, sigue con canciones parecidas
+  a la última (`R` la activa o desactiva).
+- **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
+  géneros locales aparecen junto a los de YouTube Music (marcados "· local"), y
+  Favoritos e Historial mezclan ambos.
+- **Ecualizador visual** (`E`): curva de 10 bandas agrupadas en graves, medios y
+  agudos, presets por género (Rock, Metal, Pop, Electronic, Hip-Hop,
+  Reggaeton, Cumbia, Jazz, Classical, Lo-Fi, Soundtrack...), vista previa al
+  recorrerlos, comparación A/B, preamplificador automático contra la
+  saturación y modo **EQ automático** que elige el preset según el género de
+  cada canción.
 - **Visualizadores** del espectro, con muchos modos.
 - **Letras** sincronizadas.
 - **MPRIS**: controla la reproducción con las teclas multimedia, `playerctl` o
@@ -37,7 +55,7 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
 
 ## Instalación
 
-### Script de instalación
+### Script de instalación (cualquier distribución)
 
 ```sh
 git clone https://github.com/xaviiromf/cliamp-x.git
@@ -45,20 +63,38 @@ cd cliamp-x
 ./scripts/install.sh
 ```
 
-### Compilar desde el código fuente
+El script detecta tu gestor de paquetes (apt, dnf/yum, zypper, pacman, apk,
+xbps, emerge), instala yt-dlp, ffmpeg, ALSA y el puente de PipeWire si lo usas,
+compila cliamp-x (descarga Go si el de tu distribución es antiguo) y lo instala
+en `~/.local/bin` con su acceso directo. Se prueba en cada cambio sobre Ubuntu,
+Debian, Fedora, Arch, openSUSE, Alpine y Void.
 
-Necesitas [Go](https://go.dev/dl/) (la versión de `go.mod`) y las cabeceras de
-ALSA, FLAC, Vorbis, Ogg y mpg123:
+- `./scripts/install.sh --release` instala el binario publicado en vez de
+  compilarlo (con `gh` autenticado si el repositorio es privado).
+- `./scripts/install.sh --uninstall` lo desinstala (tu configuración se queda en
+  `~/.config/cliamp-x`).
+- Otras opciones: `--prefix DIR`, `--no-deps`, `--yes`.
+
+### Paquetes
+
+Cada release publica binarios para x86_64 y aarch64 (compatibles con glibc 2.28
+o superior), un `.tar.gz`, un `.deb` y un `.rpm`. En Arch hay un PKGBUILD en
+[packaging/aur](packaging/aur/PKGBUILD) (`makepkg -si`).
+
+### Compilar a mano
+
+Necesitas [Go](https://go.dev/dl/) 1.21 o superior (descarga solo la versión
+de `go.mod`), gcc y las cabeceras de ALSA:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install libasound2-dev libflac-dev libvorbis-dev libogg-dev libmpg123-dev
+sudo apt install golang-go gcc make libasound2-dev
 
 # Arch
-sudo pacman -S alsa-lib flac libvorbis libogg mpg123
+sudo pacman -S go gcc make alsa-lib
 
 # Fedora
-sudo dnf install alsa-lib-devel flac-devel libvorbis-devel libogg-devel mpg123-devel
+sudo dnf install golang gcc make alsa-lib-devel
 ```
 
 Luego compila:
@@ -107,8 +143,10 @@ cliamp-x https://example.com/stream  # una URL
 | `N` | Abrir el navegador del proveedor |
 | `Y` / `L` | Ir a YouTube Music / a Local |
 | `a` | Añadir a la cola (reproducir a continuación) |
-| `f` | Marcar o quitar de favoritos |
+| `f` | Favorito: "me gusta" en una canción, guardar un álbum, suscribirse a un artista, fijar un género |
 | `e` | Cambiar el preset del ecualizador |
+| `E` | Abrir el panel del ecualizador |
+| `R` | Activar o desactivar la radio automática |
 | `v` | Cambiar de visualizador |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
