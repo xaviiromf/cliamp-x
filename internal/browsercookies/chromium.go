@@ -215,13 +215,16 @@ func chromiumKeys(apps []string) [][]byte {
 		seen[password] = true
 		keys = append(keys, deriveKey(password))
 	}
-	for _, pw := range keyringPasswords(apps) {
+	for _, pw := range keyringLookup(apps) {
 		add(pw)
 	}
 	add("peanuts")
 	add("")
 	return keys
 }
+
+// keyringLookup reads the keyring passwords; tests replace it.
+var keyringLookup = keyringPasswords
 
 // keyringPasswords collects Chromium cookie passwords from the Secret Service
 // (GNOME Keyring, KeePassXC) and from KWallet.
