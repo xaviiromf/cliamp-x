@@ -52,10 +52,10 @@ type providerKey struct {
 
 // providerKeys lists the providers that --provider accepts, in help order.
 // The flag help, the flag check, the provider names and the log of skipped
-// providers all come from this table. The local provider is not a
-// --provider value.
+// providers all come from this table.
 var providerKeys = []providerKey{
 	{key: "ytmusic", name: "YouTube Music"},
+	{key: "local", name: "Local"},
 }
 
 // providerName returns the display name of the provider key.
@@ -91,8 +91,11 @@ func parseProviderKey(v string) (string, error) {
 		}
 		keys[i] = pk.key
 	}
+	if len(keys) == 1 {
+		return "", fmt.Errorf("--provider must be %s (got %q)", keys[0], v)
+	}
 	last := len(keys) - 1
-	return "", fmt.Errorf("--provider must be %s, or %s (got %q)", strings.Join(keys[:last], ", "), keys[last], v)
+	return "", fmt.Errorf("--provider must be %s or %s (got %q)", strings.Join(keys[:last], ", "), keys[last], v)
 }
 
 // buildProviders creates the providers that cfg enables. The public
