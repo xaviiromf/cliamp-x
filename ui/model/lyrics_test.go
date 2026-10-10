@@ -2,11 +2,7 @@ package model
 
 import (
 	"testing"
-	"time"
 
-	tea "charm.land/bubbletea/v2"
-
-	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
@@ -77,36 +73,6 @@ func TestLyricsSyncable(t *testing.T) {
 				t.Fatalf("lyricsSyncable() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-// assertRadioLyricsScrollable exercises the timed-lyrics key path as well as
-// sync eligibility, using tracks produced by the actual radio loading paths.
-func assertRadioLyricsScrollable(t *testing.T, track playlist.Track) {
-	t.Helper()
-	m := keybindingTestModel()
-	m.playlist.Replace([]playlist.Track{track})
-	m.playlist.SetIndex(0)
-	m.lyrics.visible = true
-	m.lyrics.lines = []lyrics.Line{
-		{Start: time.Second, Text: "First"},
-		{Start: 2 * time.Second, Text: "Second"},
-	}
-	if m.lyricsSyncable() {
-		t.Error("live radio lyrics must not follow stream elapsed time")
-	}
-	for _, keys := range [][]tea.KeyPressMsg{
-		{{Text: "j"}, {Text: "k"}},
-		{{Code: tea.KeyDown}, {Code: tea.KeyUp}},
-	} {
-		m.handleKey(keys[0])
-		if m.lyrics.scroll != 1 {
-			t.Fatalf("%s did not scroll timed radio lyrics down", keys[0].String())
-		}
-		m.handleKey(keys[1])
-		if m.lyrics.scroll != 0 {
-			t.Fatalf("%s did not scroll timed radio lyrics up", keys[1].String())
-		}
 	}
 }
 

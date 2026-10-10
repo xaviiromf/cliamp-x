@@ -255,8 +255,3 @@ func (c *Client) browse(ctx context.Context, browseID, params string) (map[strin
 	}
 	return c.call(ctx, "browse", body, "")
 }
-
-// browseContinuation fetches the next page of a browse result.
-func (c *Client) browseContinuation(ctx context.Context, token string) (map[string]any, error) {
-	return c.call(ctx, "browse", map[string]any{}, "ctoken="+token+"&continuation="+token+"&type=next")
-}
