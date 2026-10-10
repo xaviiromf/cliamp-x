@@ -599,7 +599,7 @@ func (m Model) renderFullVisualizer() string {
 		m.fullVisTopLine(),
 		m.renderTimeStatus(),
 		"",
-		m.renderSpectrum(),
+		m.renderFullVisCover(m.renderSpectrum()),
 		m.renderSeekBar(),
 		"",
 		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol ") + helpKey("t", "Title ") + helpKey("?", "Keys"),

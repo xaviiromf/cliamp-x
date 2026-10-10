@@ -1,0 +1,11 @@
+# Cover — follows the cover of the playing song. cliamp-x takes the accent
+# and the spectrum colors from the cover's most vivid colors; these are the
+# colors until a cover loads. The background is a dark shade of the cover's
+# main hue.
+bg = "#16141c"
+accent = "#c792ea"
+bright_fg = "#e6e1f0"
+fg = "#a39bb5"
+green = "#7fdbca"
+yellow = "#ffcb6b"
+red = "#f78c6c"

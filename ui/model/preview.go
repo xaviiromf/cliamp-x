@@ -83,16 +83,14 @@ func (m *Model) SetPreviewImages(mode string) {
 	}
 }
 
-// SetPreview turns the preview pane on or off. The pane is off until a
-// caller turns it on, so a Model in a test never loads images.
+// SetPreview turns the preview pane on or off. The cover cache serves the
+// cover features either way, so it is created the first time this runs; a
+// Model in a test that never calls it loads no images.
 func (m *Model) SetPreview(on bool) {
-	if !on {
-		m.art = nil
-		return
-	}
 	if m.art == nil {
 		m.art = newArtworkCache()
 	}
+	m.previewOff = !on
 }
 
 func newArtworkCache() *artwork.Cache {
@@ -105,7 +103,7 @@ func newArtworkCache() *artwork.Cache {
 
 // previewEnabled reports whether the pane may take rows at all.
 func (m Model) previewEnabled() bool {
-	return !m.headless && m.art != nil
+	return !m.headless && !m.previewOff && m.art != nil
 }
 
 // trackPreview describes a track.

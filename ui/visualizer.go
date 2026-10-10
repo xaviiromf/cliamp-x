@@ -1,6 +1,9 @@
 package ui
 
-import "time"
+import (
+	"image"
+	"time"
+)
 
 const (
 	DefaultSpectrumBands = 10
@@ -19,7 +22,11 @@ const (
 // Visualizer performs FFT analysis and renders spectrum bars.
 type Visualizer struct {
 	// sensitivity is the spectrum gain level, 1-10; 0 means DefaultVisSensitivity.
-	sensitivity     int
+	sensitivity int
+	// cover is the playing song's cover for the cover modes; coverPx caches
+	// it at the last drawn size.
+	cover           image.Image
+	coverPx         *image.RGBA
 	prevBySpec      map[VisAnalysisSpec][]float64
 	edgeCache       map[int][]float64
 	fftBufCache     map[int][]float64

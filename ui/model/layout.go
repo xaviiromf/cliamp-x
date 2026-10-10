@@ -283,6 +283,10 @@ func (m *Model) recomputeLayout() {
 			m.vis.Rows = 0
 		} else if m.fullVis {
 			m.vis.Rows = layout.fullVisualizerRows
+			// The cover beside the full-screen visualizer takes its width.
+			if cols, _ := m.fullVisCoverBox(); cols > 0 && m.vis.Cols > 0 {
+				m.vis.Cols = max(1, m.vis.Cols-cols-2)
+			}
 		} else {
 			rows := layout.visualizerRows
 			if (contentFirst && rows == 0) || m.visualizerDisabled() {

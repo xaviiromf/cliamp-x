@@ -34,6 +34,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if sc := nm.sponsorCmds(); sc != nil {
 				cmd = tea.Batch(cmd, sc)
 			}
+			if cc := nm.coverCmds(); cc != nil {
+				cmd = tea.Batch(cmd, cc)
+			}
 		}
 		// A load that starts now gets its own redraws at once. The main tick
 		// can still wait up to ui.TickIdle before it runs at the spinner rate.

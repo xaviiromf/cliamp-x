@@ -8,7 +8,12 @@ cliamp-x saves your selection and restores it at the next start.
 
 ## Built-in themes
 
-alucard, ayu-mirage-dark, catppuccin, catppuccin-latte, dracula, ember, ethereal, everforest, flexoki-light, gruvbox, hackerman, kanagawa, matte-black, miasma, neon-blade-runner, nord, osaka-jade, ristretto, rose-pine, tokyo-night, vantablack, winamp
+alucard, ayu-mirage-dark, catppuccin, catppuccin-latte, cover, dracula, ember, ethereal, everforest, flexoki-light, gruvbox, hackerman, kanagawa, matte-black, miasma, neon-blade-runner, nord, osaka-jade, ristretto, rose-pine, tokyo-night, vantablack, winamp
+
+`cover` follows the cover of the playing song: its accent and spectrum colors
+come from the cover's most vivid colors, on a dark shade of its main hue, and
+change with each song. Colors are lightened as needed to keep text at a 4.5:1
+contrast. Until a cover loads it uses its own colors.
 
 ## Creating a custom theme
 

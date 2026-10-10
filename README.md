@@ -58,8 +58,12 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   cada canción.
 - **Visualizadores** del espectro: más de 40 modos (`v` los recorre), entre
   ellos Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora,
-  Skyline y Spiral. Se ven en todas las pantallas, también al buscar y al
-  explorar, ajustados al espacio libre, y en pantalla completa (`V`).
+  Skyline y Spiral, además de CoverPulse, CoverBars y CoverShatter, que
+  animan la carátula de la canción. Se ven en todas las pantallas, también al
+  buscar y al explorar, y en pantalla completa (`V`), donde la carátula se
+  muestra al lado.
+- **Tema "cover"**: los colores de la interfaz y del visualizador salen de la
+  carátula de cada canción.
 - **Vista previa con carátula**: al recorrer álbumes, artistas, playlists,
   canciones o resultados de búsqueda, abajo aparece la carátula (o la miniatura
   del video, con su forma 16:9 o 4:3) con datos como el artista, el año, la

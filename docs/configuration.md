@@ -76,7 +76,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # keeps it available, and both values are restored after restart.
 
 # Visualizer mode (leave empty for default Bars)
-# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, Mirror, Omarchy, RedSector, YinYang, Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora, Skyline, Spiral, None
+# Options: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, Mirror, Omarchy, RedSector, YinYang, Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora, Skyline, Spiral, CoverPulse, CoverBars, CoverShatter, None
 # Mirror draws tapered Braille bars around a persistent horizontal center axis.
 # ClassicPeak uses smooth bars and floating peak caps, with sampling aligned
 # to audible playback and adaptive redraws for smooth motion.
@@ -85,6 +85,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # YinYang koi chase each other across a wide strip, leaving on the right and
 # coming back on the left. Taller panels have them circle a lily pad whose
 # lotus follows recent bass levels, including after silence or time in the strip.
+# CoverPulse, CoverBars and CoverShatter draw the cover of the playing song:
+# breathing with the bass, revealed through spectrum bars, or bursting into
+# tiles with the bands. Without a cover they show a note.
 visualizer = "Bars"
 
 # Visualizer volume linking (default: true)
@@ -122,6 +125,9 @@ hide_settings_pane = false
 
 # Hide the artwork preview pane under the lists.
 hide_preview = false
+
+# Hide the cover beside the full-screen visualizer.
+hide_fullscreen_cover = false
 
 # Preview pictures: "auto", "kitty" (kitty graphics protocol) or "blocks".
 preview_images = "auto"

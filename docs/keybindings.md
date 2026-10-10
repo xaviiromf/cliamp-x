@@ -106,7 +106,7 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | `v` | Cycle visualizer and save the choice in `config.toml` |
 | `}` / `{` | Visualizer sensitivity up / down (1-10, saved in `vis_sensitivity`). Also works in the full screen visualizer |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
-| `V` | Full screen visualizer. Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
+| `V` | Full screen visualizer, with the cover of the playing song beside it when the terminal has room (a real image in kitty and Ghostty; `hide_fullscreen_cover = true` removes it). Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
 | `Ctrl+H` | Toggle album headers |
 | `Ctrl+G` | Toggle the key-binding hint bar (remembered in `hide_help_bar`) |
 | `R` | Toggle the auto radio: when the queue ends, keep playing songs similar to the last one (remembered in `[ytmusic] auto_radio`) |

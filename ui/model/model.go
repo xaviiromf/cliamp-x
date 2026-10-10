@@ -578,6 +578,10 @@ type Model struct {
 	stats     statsState    // the statistics screen
 	statsLog  *stats.Log    // where listened songs are recorded
 
+	previewOff      bool   // the preview pane is turned off; the cover cache stays
+	fullVisCoverOff bool   // no cover beside the full-screen visualizer
+	coverThemeURL   string // the cover the cover theme took its colors from
+
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration
 	cachedDur  time.Duration

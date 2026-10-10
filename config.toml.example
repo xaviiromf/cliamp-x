@@ -98,6 +98,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # with its details. It appears only when the terminal has rows to spare.
 # hide_preview = true
 
+# Hide the cover of the playing song beside the full-screen visualizer (V).
+# hide_fullscreen_cover = true
+
 # How the preview pane draws pictures: "kitty" sends real images with the
 # kitty graphics protocol (kitty, Ghostty), "blocks" draws them with colored
 # half-block characters (any terminal, lower detail), and "auto" picks kitty
@@ -137,7 +140,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # UI theme name (check ~/.config/cliamp-x/themes/ for available themes)
 # theme = "Tokyo Night"
 
-# Visualizer mode: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, Mirror, Omarchy, RedSector, YinYang, Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora, Skyline, Spiral, or None
+# Visualizer mode: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, Mirror, Omarchy, RedSector, YinYang, Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora, Skyline, Spiral, CoverPulse, CoverBars, CoverShatter, or None
 # Mirror draws tapered Braille bars around a persistent horizontal center axis.
 # YinYang koi chase each other across a wide strip, leaving on the right
 # and coming back on the left; taller panels have them circle a lily pad

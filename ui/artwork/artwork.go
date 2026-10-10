@@ -256,6 +256,11 @@ func downscale(img image.Image, limit int) image.Image {
 	return resample(img, max(1, int(float64(w)*scale+0.5)), max(1, int(float64(h)*scale+0.5)))
 }
 
+// Resample box-filters img to tw by th pixels.
+func Resample(img image.Image, tw, th int) *image.RGBA {
+	return resample(img, max(1, tw), max(1, th))
+}
+
 // resample box-filters img to tw by th pixels.
 func resample(img image.Image, tw, th int) *image.RGBA {
 	b := img.Bounds()
