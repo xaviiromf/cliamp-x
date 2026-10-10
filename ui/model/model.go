@@ -315,12 +315,12 @@ type Model struct {
 	// list reported. The runtime snapshot shows it.
 	audioDevice string
 	// Core playback
-	player        player.Engine
-	playlist      *playlist.Playlist
-	configSaver   ConfigSaver
-	vis           *ui.Visualizer
+	player      player.Engine
+	playlist    *playlist.Playlist
+	configSaver ConfigSaver
+	vis         *ui.Visualizer
 	// autoRadio keeps playing related songs when the queue runs out.
-	autoRadio bool
+	autoRadio     bool
 	seekStepLarge time.Duration
 	pausedAt      time.Time
 

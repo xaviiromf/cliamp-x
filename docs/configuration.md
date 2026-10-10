@@ -47,6 +47,11 @@ audio_device = ""
 # Initial directory for the file browser ('o' key)
 initial_directory = "~/Music"
 
+# Local music folder whose albums, artists and genres join the YouTube Music
+# menus, marked "· local". Empty uses ~/Music (or XDG_MUSIC_DIR); "off" keeps
+# local files out of those menus.
+music_dir = ""
+
 # Shift+Left/Right seek jump in seconds
 seek_large_step_sec = 30
 

@@ -95,6 +95,7 @@ show_metadata = true
 expanded = true
 audio_device = "USB DAC #2"
 initial_directory = ~/Music#Mixes
+music_dir = "/srv/music"
 padding_horizontal = 5
 padding_vertical = 2
 log_level = "DEBUG"
@@ -164,6 +165,7 @@ func TestLoadGolden(t *testing.T) {
 	topWant.Expanded = true
 	topWant.AudioDevice = "USB DAC #2"
 	topWant.InitialDirectory = "~/Music#Mixes"
+	topWant.MusicDir = "/srv/music"
 	topWant.PaddingH = 5
 	topWant.PaddingV = 2
 	topWant.LogLevel = "debug"
@@ -173,6 +175,7 @@ func TestLoadGolden(t *testing.T) {
 	allWant := exampleWant
 	allWant.VisRows = 7
 	allWant.InitialDirectory = "~/Music"
+	allWant.MusicDir = "~/Music"
 	allWant.AudioDevice = "alsa_output.usb-FiiO_K5_Pro-00.analog-stereo"
 	allWant.Provider = "ytmusic"
 	allWant.Simplified = true

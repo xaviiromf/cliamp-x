@@ -19,6 +19,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
+	"github.com/xaviiromf/cliamp-x/locallib"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
@@ -113,7 +114,7 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 	}
 
 	// YouTube Music comes first: it is the view cliamp-x opens on.
-	s.entries = append(s.entries, youTubeEntries(cfg, interactive, s.favorites, s.history)...)
+	s.entries = append(s.entries, youTubeEntries(cfg, interactive, s.favorites, s.history, localLibrary(cfg.MusicDir))...)
 	if s.local != nil {
 		s.entries = append(s.entries, provider.Entry{Key: "local", Name: "Local", Provider: s.local})
 	} else {
@@ -128,7 +129,7 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 // [ytmusic] section sets enabled = false. The sign-in comes from the browser
 // cookies that `cliamp-x login` remembered; without one the provider still
 // browses and searches. A missing yt-dlp only blocks playback.
-func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, hist *history.Store) []provider.Entry {
+func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, hist *history.Store, local *locallib.Library) []provider.Entry {
 	if !cfg.YouTubeMusic.IsSet() {
 		logYouTubeSkipped("disabled in config")
 		return nil
@@ -161,11 +162,22 @@ func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, 
 	music := ytmusic.New(client, ytmusic.Options{
 		Favorites:     favs,
 		History:       hist,
+		Local:         local,
 		ReportHistory: cfg.YouTubeMusic.ReportHistory,
 	})
 	return []provider.Entry{
 		{Key: "ytmusic", Name: providerName("ytmusic"), Provider: music},
 	}
+}
+
+// localLibrary returns the index of the local music folder that joins the
+// YouTube Music menus: music_dir, or the user's music folder when unset.
+// "off" turns it off.
+func localLibrary(dir string) *locallib.Library {
+	if strings.TrimSpace(dir) == "" {
+		dir = locallib.DefaultDir()
+	}
+	return locallib.New(dir)
 }
 
 // Close releases the providers that implement provider.Closer. The three

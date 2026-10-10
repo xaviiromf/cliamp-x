@@ -143,7 +143,18 @@ func (b genreBrowser) Genres() ([]provider.GenreInfo, error) {
 			rest = append(rest, info)
 		}
 	}
-	return append(fav, rest...), nil
+	out := append(fav, rest...)
+	if !b.moods {
+		names := make([]string, 0)
+		for name := range b.p.opts.Local.Genres() {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			out = append(out, provider.GenreInfo{ID: prefixLocalGenre + name, Name: name + b.p.words.localTag, Group: b.p.words.localMusic})
+		}
+	}
+	return out, nil
 }
 
 // GenreSortTypes lists what a category can play.
@@ -199,6 +210,13 @@ func (p *Provider) GenreBrowserFor(entryID string) provider.GenreBrowser {
 // GenreTracks plays a category: its popular songs, its featured or
 // community playlist, or a shuffled mix of the songs and the featured list.
 func (p *Provider) GenreTracks(genreID, sortType string) ([]playlist.Track, error) {
+	if name, ok := strings.CutPrefix(genreID, prefixLocalGenre); ok {
+		tracks := p.opts.Local.GenreTracks(name)
+		if sortType == "mix" {
+			rand.Shuffle(len(tracks), func(i, j int) { tracks[i], tracks[j] = tracks[j], tracks[i] })
+		}
+		return tracks, nil
+	}
 	ctx, cancel := budget()
 	defer cancel()
 	shelves, err := p.client.CategoryPage(ctx, genreID)

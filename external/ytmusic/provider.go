@@ -13,6 +13,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/locallib"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
@@ -35,6 +36,11 @@ const (
 	prefixGenre  = "genre:" // the mix of a genre, by category params
 	prefixRadio  = "radio:" // the song radio of a video
 
+	rowLocal          = "local:all"    // every track of the local library
+	prefixLocalAlbum  = "local:al:"    // a local album, by its library key
+	prefixLocalArtist = "local:ar:"    // a local-only artist, by name
+	prefixLocalGenre  = "local:genre:" // a local genre, by name
+
 	browseAlbums  = "browse:albums"
 	browseArtists = "browse:artists"
 	browseGenres  = "browse:genres"
@@ -49,6 +55,7 @@ const (
 type Options struct {
 	Favorites     *favorites.Store // the ♥ favorites, shared with the UI
 	History       *history.Store   // the local play history, shared with the UI
+	Local         *locallib.Library
 	ReportHistory bool
 }
 
@@ -246,6 +253,7 @@ func (p *Provider) cachedCategories() []Category {
 func (p *Provider) Refresh() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.opts.Local.Refresh()
 	var zero time.Time
 	p.homeAt, p.libraryAt, p.likedAt, p.catsAt, p.albumsAt, p.artistsAt = zero, zero, zero, zero, zero, zero
 }
@@ -272,6 +280,9 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		playlist.PlaylistInfo{ID: rowFavorites, Name: w.favorites, TrackCount: favCount, Section: w.yourMusic},
 		playlist.PlaylistInfo{ID: rowHistory, Name: w.history, Section: w.yourMusic},
 	)
+	if n := len(p.opts.Local.Tracks()); n > 0 {
+		rows = append(rows, playlist.PlaylistInfo{ID: rowLocal, Name: w.localMusic, TrackCount: n, Section: w.yourMusic})
+	}
 	for _, it := range p.cachedLibrary() {
 		id := strings.TrimPrefix(it.ID, "VL")
 		if id == "LM" || id == "SE" {
@@ -356,6 +367,10 @@ func (p *Provider) Tracks(id string) ([]playlist.Track, error) {
 		return p.favoriteTracks()
 	case id == rowHistory:
 		return p.historyTracks(ctx)
+	case id == rowLocal:
+		return p.opts.Local.Tracks(), nil
+	case strings.HasPrefix(id, "local:"):
+		return p.AlbumTracks(id)
 	case strings.HasPrefix(id, prefixList):
 		return p.listTracks(ctx, strings.TrimPrefix(id, prefixList))
 	case strings.HasPrefix(id, prefixAlbum):
@@ -603,6 +618,18 @@ func (p *Provider) allAlbums() []provider.AlbumInfo {
 			}
 		}
 	}
+	if local := p.opts.Local.Albums(); len(local) > 0 {
+		favs := p.favoriteSet()
+		for _, a := range local {
+			liked := 0
+			for _, t := range a.Tracks {
+				if favs[t.Path] {
+					liked++
+				}
+			}
+			add(provider.AlbumInfo{ID: prefixLocalAlbum + a.Key, Name: a.Name + p.words.localTag, Artist: a.Artist, Year: a.Year}, 5+10*liked)
+		}
+	}
 	out := r.sorted()
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -616,6 +643,20 @@ func (p *Provider) AlbumTracks(albumID string) ([]playlist.Track, error) {
 	ctx, cancel := budget()
 	defer cancel()
 	switch {
+	case strings.HasPrefix(albumID, prefixLocalAlbum):
+		a, ok := p.opts.Local.Album(strings.TrimPrefix(albumID, prefixLocalAlbum))
+		if !ok {
+			return nil, errors.New("this local album is gone; press Ctrl+R")
+		}
+		return a.Tracks, nil
+	case strings.HasPrefix(albumID, prefixLocalArtist):
+		var tracks []playlist.Track
+		for _, a := range p.opts.Local.ArtistAlbums(strings.TrimPrefix(albumID, prefixLocalArtist)) {
+			tracks = append(tracks, a.Tracks...)
+		}
+		return tracks, nil
+	case strings.HasPrefix(albumID, prefixLocalGenre):
+		return p.opts.Local.GenreTracks(strings.TrimPrefix(albumID, prefixLocalGenre)), nil
 	case strings.HasPrefix(albumID, "MPREb_"):
 		page, err := p.client.Album(ctx, albumID)
 		return songTracks(page.Songs), err
@@ -681,6 +722,19 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 			}
 		}
 	}
+	// Local artists join the YouTube Music artist of the same name, so one
+	// row opens both; the others get a local row.
+	byName := map[string]string{}
+	for id, e := range r.byID {
+		byName[strings.ToLower(e.value.Name)] = id
+	}
+	for name, count := range p.opts.Local.Artists() {
+		if id, ok := byName[strings.ToLower(name)]; ok {
+			r.add(id, provider.ArtistInfo{}, 5+count, nil)
+			continue
+		}
+		r.add(prefixLocalArtist+name, provider.ArtistInfo{ID: prefixLocalArtist + name, Name: name + p.words.localTag}, 5+count, nil)
+	}
 	out := r.sorted()
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -691,6 +745,9 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 // ArtistAlbums lists what an artist page offers: the top songs, then every
 // album and single.
 func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
+	if name, ok := strings.CutPrefix(artistID, prefixLocalArtist); ok {
+		return p.localAlbumInfos(name), nil
+	}
 	ctx, cancel := budget()
 	defer cancel()
 	page, err := p.client.Artist(ctx, artistID)
@@ -713,7 +770,32 @@ func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
 	for _, it := range singles {
 		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year})
 	}
-	return out, nil
+	return append(out, p.localAlbumInfos(name)...), nil
+}
+
+// localAlbumInfos lists the local albums of an artist, matched by name.
+func (p *Provider) localAlbumInfos(artist string) []provider.AlbumInfo {
+	var out []provider.AlbumInfo
+	for _, a := range p.opts.Local.ArtistAlbums(artist) {
+		out = append(out, provider.AlbumInfo{ID: prefixLocalAlbum + a.Key, Name: a.Name + p.words.localTag, Artist: a.Artist, Year: a.Year})
+	}
+	return out
+}
+
+// favoriteSet returns the paths of the ♥ favorites.
+func (p *Provider) favoriteSet() map[string]bool {
+	set := map[string]bool{}
+	if p.opts.Favorites == nil {
+		return set
+	}
+	tracks, err := p.opts.Favorites.Tracks()
+	if err != nil {
+		return set
+	}
+	for _, t := range tracks {
+		set[t.Path] = true
+	}
+	return set
 }
 
 // ArtistForTrack resolves a YouTube Music track to its artist.
@@ -859,6 +941,13 @@ func (p *Provider) SearchTracks(ctx context.Context, query string, limit int) ([
 
 	w := p.words
 	var out []playlist.Track
+	for _, t := range p.opts.Local.Search(query, 10) {
+		if t.ProviderMeta == nil {
+			t.ProviderMeta = map[string]string{}
+		}
+		t.ProviderMeta[MetaSection] = w.localMusic
+		out = append(out, t)
+	}
 	var firstErr error
 	for i, f := range filters {
 		if results[i].err != nil {

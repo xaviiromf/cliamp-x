@@ -35,9 +35,19 @@ func (m Model) navLabels() navLabels {
 	return l
 }
 
-func (l navLabels) artistsTitle() string { return l.artist + "s" }
+func (l navLabels) artistsTitle() string { return plural(l.artist) }
 
-func (l navLabels) albumsTitle() string { return l.album + "s" }
+func (l navLabels) albumsTitle() string { return plural(l.album) }
+
+// irregularPlurals are the label plurals that are not the word plus "s".
+var irregularPlurals = map[string]string{"Álbum": "Álbumes"}
+
+func plural(word string) string {
+	if p, ok := irregularPlurals[word]; ok {
+		return p
+	}
+	return word + "s"
+}
 
 func (l navLabels) artistsLower() string { return strings.ToLower(l.artistsTitle()) }
 

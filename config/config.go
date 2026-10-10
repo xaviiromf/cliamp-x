@@ -281,6 +281,7 @@ type Config struct {
 	AudioDevice      string                       // preferred audio output device name (empty = system default)
 	Playlist         string                       // local TOML playlist name to load on startup
 	InitialDirectory string                       // initial directory for the file browser
+	MusicDir         string                       // local music folder for the YouTube Music menus: "" = ~/Music, "off" = none
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
@@ -538,6 +539,8 @@ func (c *Config) setTopLevel(key, val string) {
 		c.AudioDevice = parseString(val)
 	case "initial_directory":
 		c.InitialDirectory = parseString(val)
+	case "music_dir":
+		c.MusicDir = strings.TrimSpace(parseString(val))
 	case "padding_horizontal":
 		if v, ok := parseInt(val); ok {
 			c.PaddingH = v

@@ -25,6 +25,11 @@ shuffle = false
 # Start with mono output (L+R downmix)
 mono = false
 
+# Local music folder whose albums, artists and genres join the YouTube Music
+# menus (marked "· local"). Empty uses ~/Music (or XDG_MUSIC_DIR); "off" keeps
+# local files out of those menus.
+# music_dir = "~/Music"
+
 # Initial directory for the file browser ('o' key). 
 # Supports environment variables ($HOME) and tilde expansion (~/Music).
 # initial_directory = "~/Music"
