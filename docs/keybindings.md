@@ -25,6 +25,8 @@ entries, a status message tells you which key to press.
 | `]` `[` | Change speed by 0.25x |
 | `m` | Toggle mono |
 | `n` | Volume normalization: off, by song, by album (saved in `normalize`) |
+| `M` | More like this: replace the queue with a radio of the highlighted song, album, artist or playlist (or of the playing song) |
+| `X` | Find remixes and other versions of the highlighted or playing song, grouped by kind, in the search overlay |
 | `Ctrl+J` | Jump to time |
 
 ## Navigation

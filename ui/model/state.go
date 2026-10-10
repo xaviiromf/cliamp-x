@@ -309,6 +309,7 @@ type requestState struct {
 	searchOverlayLists    uint64
 	searchOverlayMutation uint64
 	autoRadio             uint64
+	discover              uint64
 	auth                  uint64
 	catalog               uint64
 	stream                uint64

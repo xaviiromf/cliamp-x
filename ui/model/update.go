@@ -101,6 +101,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case artworkLoadedMsg:
 		return m, nil
 
+	case moreLikeThisMsg:
+		return m, m.handleMoreLikeThis(msg)
+
 	case sponsorSegmentsMsg:
 		m.handleSponsorSegments(msg)
 		return m, nil

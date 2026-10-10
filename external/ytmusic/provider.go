@@ -58,6 +58,9 @@ type Options struct {
 	History       *history.Store   // the local play history, shared with the UI
 	Local         *locallib.Library
 	ReportHistory bool
+	// DataDir holds the provider's caches, such as the new releases of the
+	// subscribed artists. Empty keeps them in memory only.
+	DataDir string
 }
 
 // Provider is the YouTube Music provider.
@@ -66,6 +69,8 @@ type Provider struct {
 	opts   Options
 	words  labels
 	genres *genreFavorites
+
+	releases newReleases
 
 	mu        sync.Mutex
 	home      []Shelf
@@ -312,6 +317,8 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		rows = append(rows, playlist.PlaylistInfo{ID: prefixList + it.ID, Name: it.Title, Section: w.yourMusic, ImageURL: it.Thumbnail})
 	}
 
+	rows = append(rows, p.releaseRows()...)
+
 	for _, g := range p.favoriteGenres() {
 		rows = append(rows, playlist.PlaylistInfo{ID: prefixGenre + g.Params, Name: "★ " + g.Title, Section: w.genresSection})
 	}
@@ -395,7 +402,9 @@ func (p *Provider) Tracks(id string) ([]playlist.Track, error) {
 	case strings.HasPrefix(id, prefixList):
 		return p.listTracks(ctx, strings.TrimPrefix(id, prefixList))
 	case strings.HasPrefix(id, prefixAlbum):
-		return p.AlbumTracks(strings.TrimPrefix(id, prefixAlbum))
+		albumID := strings.TrimPrefix(id, prefixAlbum)
+		p.markReleaseSeen(albumID)
+		return p.AlbumTracks(albumID)
 	case strings.HasPrefix(id, prefixShelf):
 		return p.shelfTracks(strings.TrimPrefix(id, prefixShelf))
 	case strings.HasPrefix(id, prefixArtist):
@@ -1166,4 +1175,34 @@ func (p *Provider) openLinkTracks(ctx context.Context, link Link) ([]playlist.Tr
 		return p.artistTopTracks(ctx, link.BrowseID)
 	}
 	return nil, errors.New("youtube music: this link points to nothing playable")
+}
+
+// errNoSeed reports a row with no YouTube song to start a radio from.
+var errNoSeed = errors.New("youtube music: no YouTube song to start from")
+
+// RelatedToItem returns the radio of the first YouTube song of an album,
+// artist or playlist row.
+func (p *Provider) RelatedToItem(ctx context.Context, id string, n int) (playlist.Track, []playlist.Track, error) {
+	var tracks []playlist.Track
+	var err error
+	switch {
+	case strings.HasPrefix(id, prefixArtist):
+		tracks, err = p.artistTopTracks(ctx, strings.TrimPrefix(id, prefixArtist))
+	case strings.HasPrefix(id, "UC"):
+		tracks, err = p.artistTopTracks(ctx, id)
+	case strings.HasPrefix(id, "MPREb_"), strings.HasPrefix(id, prefixLocalAlbum), strings.HasPrefix(id, prefixLocalArtist):
+		tracks, err = p.AlbumTracks(id)
+	default:
+		tracks, err = p.Tracks(id)
+	}
+	if err != nil {
+		return playlist.Track{}, nil, err
+	}
+	for _, t := range tracks {
+		if p.CanRelate(t) {
+			related, err := p.RelatedTracks(ctx, t, n)
+			return t, related, err
+		}
+	}
+	return playlist.Track{}, nil, errNoSeed
 }

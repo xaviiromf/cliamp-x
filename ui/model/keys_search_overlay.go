@@ -67,6 +67,10 @@ func (m *Model) handleSearchOverlayResultsKey(msg tea.KeyPressMsg) tea.Cmd {
 	count := len(m.searchOverlay.results)
 
 	switch msg.String() {
+	case "M":
+		return m.moreLikeThis()
+	case "X":
+		return m.findRemixes()
 	case "ctrl+x":
 		m.toggleExpandedView()
 		m.searchOverlayResultsMaybeAdjustScroll(m.searchOverlayResultsVisible())

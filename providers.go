@@ -17,6 +17,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/external/ytmusic"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/internal/appdir"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
 	"github.com/xaviiromf/cliamp-x/locallib"
@@ -167,6 +168,7 @@ func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, 
 		History:       hist,
 		Local:         local,
 		ReportHistory: cfg.YouTubeMusic.ReportHistory,
+		DataDir:       ytmusicDataDir(),
 	})
 	return []provider.Entry{
 		{Key: "ytmusic", Name: providerName("ytmusic"), Provider: music},
@@ -331,4 +333,13 @@ func logProviderWiring(providers []provider.Entry) {
 			logProviderSkipped(pk.name, pk.key, "not configured")
 		}
 	}
+}
+
+// ytmusicDataDir is where the YouTube Music provider keeps its caches.
+func ytmusicDataDir() string {
+	dir, err := appdir.DataDir()
+	if err != nil {
+		return ""
+	}
+	return dir
 }

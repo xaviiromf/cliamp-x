@@ -26,6 +26,12 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   el panel.
 - **Búsqueda por nombre o por link** de YouTube y YouTube Music (`watch?v=`,
   `youtu.be/`, shorts, playlists, álbumes, canales y `@artista`).
+- **Más como esto** (`M`): una radio de canciones parecidas a partir de
+  cualquier canción, álbum, artista o playlist.
+- **Buscador de remixes** (`X`): remixes, slowed + reverb, sped up,
+  nightcore, bootlegs y covers de una canción, agrupados por tipo.
+- **Novedades de tus artistas**: los lanzamientos de este año de los artistas
+  que sigues, marcados mientras no los abras.
 - **Radio automática**: cuando la cola termina, sigue con canciones parecidas
   a la última (`R` la activa o desactiva).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
@@ -165,6 +171,8 @@ cliamp-x https://example.com/stream  # una URL
 | `v` | Cambiar de visualizador |
 | `}` / `{` | Subir / bajar la sensibilidad del visualizador |
 | `n` | Normalización de volumen: desactivada, por canción, por álbum |
+| `M` | Más como esto: radio de la canción, álbum o artista seleccionado |
+| `X` | Buscar remixes y otras versiones de la canción |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
 | `Ctrl+K` / `?` | Ver todas las teclas |

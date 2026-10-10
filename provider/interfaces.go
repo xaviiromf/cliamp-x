@@ -28,6 +28,13 @@ type Relater interface {
 
 // ArtistBrowser is implemented by providers that support listing artists
 // and their albums.
+// ItemRelater finds songs related to a browse row: an album, an artist or a
+// playlist. seed is the song the related songs follow, usually the first
+// song of the row.
+type ItemRelater interface {
+	RelatedToItem(ctx context.Context, id string, n int) (seed playlist.Track, related []playlist.Track, err error)
+}
+
 type ArtistBrowser interface {
 	Artists() ([]ArtistInfo, error)
 	ArtistAlbums(artistID string) ([]AlbumInfo, error)

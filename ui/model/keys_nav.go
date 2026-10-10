@@ -46,6 +46,15 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 
+	if !m.navBrowser.searching {
+		switch key {
+		case "M":
+			return m.moreLikeThis()
+		case "X":
+			return m.findRemixes()
+		}
+	}
+
 	// Search bar: active on any list/track screen (not the mode menu).
 	if m.navBrowser.mode != navBrowseModeMenu {
 		if m.navBrowser.searching {

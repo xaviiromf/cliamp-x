@@ -284,6 +284,10 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.toggleAutoRadio()
 	case "n":
 		m.cycleNormalize()
+	case "M":
+		return m.moreLikeThis()
+	case "X":
+		return m.findRemixes()
 	case "F":
 		m.openSubsOverlay()
 	case "l":
@@ -761,6 +765,12 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "n":
 		m.cycleNormalize()
+
+	case "M":
+		return m.moreLikeThis()
+
+	case "X":
+		return m.findRemixes()
 
 	case "?":
 		m.openKeymap()

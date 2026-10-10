@@ -45,7 +45,7 @@ volver a él desde otro proveedor y `N` para abrir el navegador.
 
 ## Menús
 
-El panel de YouTube Music tiene tres secciones:
+El panel de YouTube Music tiene estas secciones:
 
 | Sección | Filas | Contenido |
 |---------|-------|-----------|
@@ -58,6 +58,7 @@ El panel de YouTube Music tiene tres secciones:
 | Tu música | Música local | Todas las canciones de tu carpeta de música |
 | Tu música | Tus playlists | Las playlists de tu biblioteca |
 | Tus géneros | ★ Género | Los géneros que fijaste con `f` |
+| Novedades de tus artistas | Lanzamientos | Los singles y álbumes de este año de los artistas a los que estás suscrito, los más recientes primero. Los que aún no abriste llevan `●`. Se actualiza en segundo plano cada 6 horas |
 | Inicio | Mixes y estantes | Selecciones rápidas, tus mixes, lanzamientos y recomendaciones |
 
 ### Favoritos
@@ -108,6 +109,22 @@ esperar. En kitty y Ghostty la carátula se ve como imagen real (protocolo
 gráfico de kitty); en otras terminales, o dentro de tmux, se dibuja con
 bloques de colores, con menos detalle. `preview_images = "blocks"` fuerza los
 bloques y `hide_preview = true` en `config.toml` oculta la vista previa.
+
+## Más como esto y buscador de remixes
+
+- `M` (**más como esto**) arma una radio con canciones parecidas a la fila
+  seleccionada: una canción, un álbum, un artista o una playlist (de un álbum
+  o artista toma su primera canción). Como "Iniciar radio" en YouTube Music,
+  reemplaza la cola y empieza a sonar. Sin nada seleccionado usa la canción
+  que suena.
+- `X` busca **remixes y otras versiones** de la canción seleccionada o de la
+  que suena, y las agrupa en Remixes, Slowed + reverb, Sped up, Nightcore,
+  Bootlegs y mashups, y Versiones y covers. Descarta lo que no menciona el
+  título original o dura demasiado distinto; en un título de una sola palabra
+  pide además el nombre del artista.
+
+Ambas funcionan en el panel de YouTube Music, en el navegador de álbumes y
+artistas, en la búsqueda y en la cola.
 
 ## SponsorBlock
 
