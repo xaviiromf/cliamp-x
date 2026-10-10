@@ -79,7 +79,13 @@ type Provider struct {
 	albumsAt  time.Time
 	artists   []provider.ArtistInfo
 	artistsAt time.Time
+
+	savedAlbums map[string]bool // library albums, by browse ID
+	subscribed  map[string]bool // subscribed artists, by channel ID
 }
+
+// heart marks a saved album or a subscribed artist in the browse lists.
+const heart = "♥ "
 
 // New returns a provider over a signed-in (or signed-out) client.
 func New(client *Client, opts Options) *Provider {
@@ -602,9 +608,14 @@ func (p *Provider) allAlbums() []provider.AlbumInfo {
 		if err != nil {
 			applog.Warn("ytmusic: library albums: %v", err)
 		}
+		savedSet := map[string]bool{}
 		for _, it := range saved {
-			add(provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1000)
+			savedSet[it.ID] = true
+			add(provider.AlbumInfo{ID: it.ID, Name: heart + it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1000)
 		}
+		p.mu.Lock()
+		p.savedAlbums = savedSet
+		p.mu.Unlock()
 		for _, s := range p.cachedLiked() {
 			if s.AlbumID != "" {
 				add(provider.AlbumInfo{ID: s.AlbumID, Name: s.Album, Artist: s.ArtistName(), ArtistID: s.ArtistID()}, 10)
@@ -696,9 +707,14 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 		if err != nil {
 			applog.Warn("ytmusic: subscriptions: %v", err)
 		}
+		subSet := map[string]bool{}
 		for _, it := range subs {
-			add(it.ID, it.Title, 1000)
+			subSet[it.ID] = true
+			add(it.ID, heart+it.Title, 1000)
 		}
+		p.mu.Lock()
+		p.subscribed = subSet
+		p.mu.Unlock()
 		lib, err := p.client.LibraryArtists(ctx)
 		cancel()
 		if err != nil {
@@ -796,6 +812,81 @@ func (p *Provider) favoriteSet() map[string]bool {
 		set[t.Path] = true
 	}
 	return set
+}
+
+// ToggleFavorite saves or removes an album from the library (f on an album)
+// or subscribes to or unsubscribes from an artist (f on an artist), in the
+// account. Saved albums and subscribed artists carry a ♥ and lead the lists.
+func (p *Provider) ToggleFavorite(id string) (added bool, name string, err error) {
+	if strings.HasPrefix(id, "local:") {
+		return false, "", errors.New("local items have no account favorite: press f on their songs")
+	}
+	if !p.client.SignedIn() {
+		return false, "", ErrSignInRequired
+	}
+	ctx, cancel := budget()
+	defer cancel()
+	switch {
+	case strings.HasPrefix(id, "MPREb_"):
+		p.mu.Lock()
+		loaded := p.savedAlbums != nil
+		p.mu.Unlock()
+		if !loaded {
+			p.allAlbums()
+		}
+		p.mu.Lock()
+		added = !p.savedAlbums[id]
+		p.mu.Unlock()
+		page, err := p.client.Album(ctx, id)
+		if err != nil {
+			return false, "", err
+		}
+		playlistID, err := p.client.AlbumPlaylistID(ctx, id)
+		if err != nil {
+			return false, page.Title, err
+		}
+		if err := p.client.SetPlaylistSaved(ctx, playlistID, added); err != nil {
+			return false, page.Title, err
+		}
+		name = page.Title
+	case strings.HasPrefix(id, "UC"):
+		p.mu.Lock()
+		loaded := p.subscribed != nil
+		p.mu.Unlock()
+		if !loaded {
+			if _, err := p.Artists(); err != nil {
+				return false, "", err
+			}
+		}
+		p.mu.Lock()
+		added = !p.subscribed[id]
+		p.mu.Unlock()
+		if err := p.client.SetSubscribed(ctx, id, added); err != nil {
+			return false, "", err
+		}
+		page, err := p.client.Artist(ctx, id)
+		if err == nil {
+			name = page.Name
+		}
+	default:
+		return false, "", errors.New("only albums and artists can be favorited here")
+	}
+	p.mu.Lock()
+	p.albumsAt, p.artistsAt = time.Time{}, time.Time{}
+	if strings.HasPrefix(id, "MPREb_") {
+		if p.savedAlbums == nil {
+			p.savedAlbums = map[string]bool{}
+		}
+		p.savedAlbums[id] = added
+	}
+	if strings.HasPrefix(id, "UC") {
+		if p.subscribed == nil {
+			p.subscribed = map[string]bool{}
+		}
+		p.subscribed[id] = added
+	}
+	p.mu.Unlock()
+	return added, name, nil
 }
 
 // ArtistForTrack resolves a YouTube Music track to its artist.

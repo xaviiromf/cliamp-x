@@ -77,21 +77,28 @@ func (m *Model) toggleProviderFavorite() tea.Cmd {
 
 // toggleFavorite shares persistence feedback without decorating item metadata.
 func (m *Model) toggleFavorite(prov playlist.Provider, id string) bool {
-	ft, ok := prov.(provider.FavoriteToggler)
-	if !ok || id == "" {
-		return false
+	ok, _ := m.toggleFavoriteState(prov, id)
+	return ok
+}
+
+// toggleFavoriteState toggles a provider favorite and reports whether it
+// worked and whether the item is now a favorite.
+func (m *Model) toggleFavoriteState(prov playlist.Provider, id string) (ok, added bool) {
+	ft, isToggler := prov.(provider.FavoriteToggler)
+	if !isToggler || id == "" {
+		return false, false
 	}
 	added, name, err := ft.ToggleFavorite(id)
 	if err != nil {
 		m.status.Errorf(statusTTLDefault, "Favorite save failed: %s", err)
-		return false
+		return false, false
 	}
 	if added {
 		m.status.Showf(statusTTLMedium, "Favorited: %s", name)
 	} else {
 		m.status.Showf(statusTTLMedium, "Removed: %s", name)
 	}
-	return true
+	return true, added
 }
 
 // playlistStarAction keeps the key handler and its help scoped to the same

@@ -377,10 +377,29 @@ func (m *Model) handleNavArtistListKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		m.navClearSearchKeepingCursor(rawIdx)
 		return m.fetchNavArtistAllTracksCmd(ab, artist.ID)
+	case "f":
+		if m.navBrowser.loading {
+			return nil
+		}
+		idx := m.selectedNavRawIndex(len(m.navBrowser.artists))
+		if idx >= 0 {
+			if ok, added := m.toggleFavoriteState(m.navBrowser.prov, m.navBrowser.artists[idx].ID); ok {
+				m.navBrowser.artists[idx].Name = setHeart(m.navBrowser.artists[idx].Name, added)
+			}
+		}
 	case "esc", "h", "left", "backspace":
 		m.navBackFromRoot()
 	}
 	return nil
+}
+
+// setHeart adds or removes the ♥ that marks a favorited browse row.
+func setHeart(name string, favorite bool) string {
+	name = strings.TrimPrefix(name, "♥ ")
+	if favorite {
+		return "♥ " + name
+	}
+	return name
 }
 
 // handleNavAlbumListKey handles the album list screen.
@@ -437,8 +456,13 @@ func (m *Model) handleNavAlbumListKey(msg tea.KeyPressMsg, artistAlbums bool) te
 			return nil
 		}
 		idx := m.selectedNavRawIndex(len(m.navBrowser.albums))
-		if idx >= 0 && m.toggleFavorite(m.navBrowser.prov, m.navBrowser.albums[idx].ID) && m.isActiveProvider(m.navBrowser.prov.Name()) {
-			return m.fetchProviderPlaylists()
+		if idx >= 0 {
+			if ok, added := m.toggleFavoriteState(m.navBrowser.prov, m.navBrowser.albums[idx].ID); ok {
+				m.navBrowser.albums[idx].Name = setHeart(m.navBrowser.albums[idx].Name, added)
+				if m.isActiveProvider(m.navBrowser.prov.Name()) {
+					return m.fetchProviderPlaylists()
+				}
+			}
 		}
 	case "s":
 		if artistAlbums {

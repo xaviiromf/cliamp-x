@@ -271,6 +271,11 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModePlaylistPicker, Keys: []string{"p"}, KeyLabel: "p", Label: "Add to the start instead", Keymap: true, ContextHelp: true},
 	{Mode: commandModePlaylistManager, Keys: []string{"A"}, KeyLabel: "A", Label: "Add to the current playlist", Keymap: true, ContextHelp: true},
 	{Mode: commandModeNavBrowser, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", ContextHelp: true, Enabled: func(m Model) bool { return m.navBrowser.mode != navBrowseModeMenu }},
+	{Mode: commandModeNavBrowser, Keys: []string{"f"}, KeyLabel: "f", Label: "Favorite artist", ContextHelp: true, Prominent: true, Enabled: func(m Model) bool {
+		_, ok := m.navBrowser.prov.(provider.FavoriteToggler)
+		idx := m.selectedNavRawIndex(len(m.navBrowser.artists))
+		return ok && m.navView() == navViewArtists && !m.navBrowser.loading && idx >= 0 && m.navBrowser.artists[idx].ID != ""
+	}},
 	{Mode: commandModeNavBrowser, Keys: []string{"f"}, KeyLabel: "f", Label: "Favorite album", ContextHelp: true, Prominent: true, Enabled: func(m Model) bool {
 		_, ok := m.navBrowser.prov.(provider.FavoriteToggler)
 		idx := m.selectedNavRawIndex(len(m.navBrowser.albums))

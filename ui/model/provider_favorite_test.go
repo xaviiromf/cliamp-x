@@ -124,8 +124,13 @@ func TestFavoriteFromProviderAlbumsAndSearch(t *testing.T) {
 				if wantRefresh && m.provPane.cursor >= len(m.provPane.lists) {
 					t.Fatalf("provider cursor = %d after refresh of %d rows", m.provPane.cursor, len(m.provPane.lists))
 				}
+				// A browse row shows the new favorite state with a ♥; the
+				// search result keeps its metadata.
+				if (view == "category" || view == "albums") && outcome != "error" {
+					albums[1].Name = setHeart(albums[1].Name, outcome != "remove")
+				}
 				if !slices.Equal(m.navBrowser.albums, albums) || m.searchOverlay.results[1].Title != "Target Show" {
-					t.Fatal("favorite decorated album metadata")
+					t.Fatalf("albums = %+v, want %+v", m.navBrowser.albums, albums)
 				}
 			})
 		}

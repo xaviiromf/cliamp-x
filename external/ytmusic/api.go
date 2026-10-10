@@ -474,6 +474,50 @@ func (c *Client) SetLike(ctx context.Context, videoID string, like bool) error {
 	return err
 }
 
+// AlbumPlaylistID returns the playlist ID (OLAK5uy_...) behind an album,
+// which saving the album to the library acts on.
+func (c *Client) AlbumPlaylistID(ctx context.Context, browseID string) (string, error) {
+	resp, err := c.browse(ctx, browseID, "")
+	if err != nil {
+		return "", err
+	}
+	if id, _ := findFirst(resp, "audioPlaylistId").(string); id != "" {
+		return id, nil
+	}
+	for _, v := range findAll(resp, "playlistId", 0) {
+		if id, _ := v.(string); strings.HasPrefix(id, "OLAK5uy_") {
+			return id, nil
+		}
+	}
+	return "", errors.New("youtube music: this album has no playlist to save")
+}
+
+// SetPlaylistSaved saves a playlist or album to the library, or removes it.
+func (c *Client) SetPlaylistSaved(ctx context.Context, playlistID string, saved bool) error {
+	if !c.SignedIn() {
+		return ErrSignInRequired
+	}
+	endpoint := "like/removelike"
+	if saved {
+		endpoint = "like/like"
+	}
+	_, err := c.call(ctx, endpoint, map[string]any{"target": map[string]any{"playlistId": strings.TrimPrefix(playlistID, "VL")}}, "")
+	return err
+}
+
+// SetSubscribed subscribes to an artist channel, or unsubscribes.
+func (c *Client) SetSubscribed(ctx context.Context, channelID string, on bool) error {
+	if !c.SignedIn() {
+		return ErrSignInRequired
+	}
+	endpoint := "subscription/unsubscribe"
+	if on {
+		endpoint = "subscription/subscribe"
+	}
+	_, err := c.call(ctx, endpoint, map[string]any{"channelIds": []string{channelID}}, "")
+	return err
+}
+
 // AddToPlaylist adds songs to one of the account's playlists. Songs already
 // in the playlist are skipped.
 func (c *Client) AddToPlaylist(ctx context.Context, playlistID string, videoIDs ...string) error {
