@@ -391,6 +391,9 @@ type searchOverlayRow struct {
 // searchOverlaySection names the section a search result belongs to. Albums are
 // placeholders that expand into a record; everything else plays as-is.
 func searchOverlaySection(t playlist.Track) string {
+	if section := t.Meta(playlist.MetaSection); section != "" {
+		return section
+	}
 	if t.IsAlbum() {
 		return "Albums"
 	}

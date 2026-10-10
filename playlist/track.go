@@ -121,6 +121,9 @@ const (
 	MetaKindAlbum = "album"
 	// MetaAlbumID carries the provider-side album id of an album placeholder.
 	MetaAlbumID = "albumID"
+	// MetaSection names the search overlay section of a result, such as
+	// "Artists". Results without it fall back to Albums and Tracks.
+	MetaSection = "section"
 )
 
 // IsAlbum reports whether the track is an album placeholder rather than

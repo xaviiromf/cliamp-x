@@ -5,35 +5,34 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestProviderResetCommands(t *testing.T) {
-	tests := []struct {
-		command string
-		file    string
-	}{
-		{command: "ytmusic", file: "ytmusic_credentials.json"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.command, func(t *testing.T) {
+// logout and ytmusic reset forget the saved YouTube Music cookies and stop
+// the automatic sign-in until the next login.
+func TestLogoutCommands(t *testing.T) {
+	for _, args := range [][]string{{"cliamp-x", "logout"}, {"cliamp-x", "ytmusic", "reset"}} {
+		t.Run(strings.Join(args[1:], " "), func(t *testing.T) {
 			dir := t.TempDir()
 			t.Setenv("CLIAMP_CONFIG_DIR", dir)
-			path := filepath.Join(dir, tt.file)
-			if err := os.WriteFile(path, []byte("{}"), 0o600); err != nil {
+			jar := filepath.Join(dir, "ytmusic_cookies.txt")
+			if err := os.WriteFile(jar, []byte("# Netscape HTTP Cookie File\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-
-			args := []string{"cliamp-x", tt.command, "reset"}
 			if err := buildApp().Run(t.Context(), args); err != nil {
-				t.Fatalf("%s reset: %v", tt.command, err)
+				t.Fatalf("%v: %v", args, err)
 			}
-			if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
-				t.Errorf("%s still exists after reset: stat error = %v", tt.file, err)
+			if _, err := os.Stat(jar); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("cookie jar still exists: stat error = %v", err)
 			}
-			// A second reset finds no file and still succeeds.
+			data, err := os.ReadFile(filepath.Join(dir, "ytmusic_auth.json"))
+			if err != nil || !strings.Contains(string(data), `"logged_out": true`) {
+				t.Errorf("auth record = %q, %v; want logged_out", data, err)
+			}
+			// A second logout finds no jar and still succeeds.
 			if err := buildApp().Run(t.Context(), args); err != nil {
-				t.Errorf("%s reset without a file: %v", tt.command, err)
+				t.Errorf("%v without a jar: %v", args, err)
 			}
 		})
 	}

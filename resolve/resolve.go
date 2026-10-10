@@ -713,9 +713,7 @@ func ResolveYTDLBatchPageContext(ctx context.Context, pageURL string, start, cou
 	if b == "" {
 		b = ytdlcookies.ForURL(pageURL)
 	}
-	if b != "" {
-		args = append(args, "--cookies-from-browser", b)
-	}
+	args = append(args, ytdlcookies.Args(b)...)
 	if start > 0 {
 		args = append(args, "--playlist-start", strconv.Itoa(start+1)) // yt-dlp is 1-based
 	}
@@ -815,9 +813,7 @@ func DownloadYTDLContext(ctx context.Context, pageURL, saveDir string) (string, 
 		"--print-json",
 		"-o", outTemplate,
 	}
-	if browser := ytdlcookies.ForURL(pageURL); browser != "" {
-		args = append(args, "--cookies-from-browser", browser)
-	}
+	args = append(args, ytdlcookies.Args(ytdlcookies.ForURL(pageURL))...)
 	args = append(args, "--", pageURL)
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	cmd.WaitDelay = 3 * time.Second

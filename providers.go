@@ -17,12 +17,12 @@ import (
 	"github.com/xaviiromf/cliamp-x/external/ytmusic"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 	"github.com/xaviiromf/cliamp-x/resolve"
-	"github.com/xaviiromf/cliamp-x/ui/model"
 )
 
 // providerSet holds the providers of one run, in the order of the provider
@@ -113,7 +113,7 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 	}
 
 	// YouTube Music comes first: it is the view cliamp-x opens on.
-	s.entries = append(s.entries, youTubeEntries(cfg, interactive)...)
+	s.entries = append(s.entries, youTubeEntries(cfg, interactive, s.favorites, s.history)...)
 	if s.local != nil {
 		s.entries = append(s.entries, provider.Entry{Key: "local", Name: "Local", Provider: s.local})
 	} else {
@@ -125,17 +125,13 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 }
 
 // youTubeEntries returns the YouTube Music entry. It returns none when the
-// [ytmusic] section sets enabled = false. A missing yt-dlp only blocks
-// playback, so the provider still registers and can browse and search.
-func youTubeEntries(cfg config.Config, interactive bool) []provider.Entry {
+// [ytmusic] section sets enabled = false. The sign-in comes from the browser
+// cookies that `cliamp-x login` remembered; without one the provider still
+// browses and searches. A missing yt-dlp only blocks playback.
+func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, hist *history.Store) []provider.Entry {
 	if !cfg.YouTubeMusic.IsSet() {
 		logYouTubeSkipped("disabled in config")
 		return nil
-	}
-	if browser := strings.TrimSpace(cfg.YouTubeMusic.CookiesFrom); browser != "" {
-		for _, host := range []string{"youtube.com", "youtu.be", "music.youtube.com"} {
-			resolve.SetYTDLCookiesForHost(host, browser)
-		}
 	}
 	if !player.YTDLPAvailable() {
 		fmt.Fprintf(os.Stderr, "\nYouTube Music requires yt-dlp for audio playback.\n")
@@ -150,7 +146,23 @@ func youTubeEntries(cfg config.Config, interactive bool) []provider.Entry {
 			}
 		}
 	}
-	music := ytmusic.NewCookieProviders(cfg.YouTubeMusic.CookiesFrom).Music
+
+	auth := ytmusic.LoadAuth(cfg.YouTubeMusic.CookiesFrom)
+	if auth.SignedIn() {
+		// yt-dlp plays with the same session, so Premium quality and
+		// age-restricted songs work.
+		if path, err := ytmusic.CookiePath(); err == nil {
+			for _, host := range []string{"youtube.com", "youtu.be", "music.youtube.com"} {
+				resolve.SetYTDLCookiesForHost(host, ytdlcookies.FilePrefix+path)
+			}
+		}
+	}
+	client := ytmusic.NewClient(auth, cfg.YouTubeMusic.Language, cfg.YouTubeMusic.Region)
+	music := ytmusic.New(client, ytmusic.Options{
+		Favorites:     favs,
+		History:       hist,
+		ReportHistory: cfg.YouTubeMusic.ReportHistory,
+	})
 	return []provider.Entry{
 		{Key: "ytmusic", Name: providerName("ytmusic"), Provider: music},
 	}
@@ -190,35 +202,10 @@ func (s *providerSet) registerPlayerHooks(p *player.Player) {
 }
 
 // observeAuthURLs sends the sign-in URL of a provider to the Model, so the
-// provider pane can show it when no browser opens. restore removes the
-// observers.
-func (s *providerSet) observeAuthURLs(send func(tea.Msg)) (restore func()) {
-	var restores []func()
-	observe := func(set func(func(string)), names ...string) {
-		set(func(u string) {
-			for _, name := range names {
-				send(model.ProvAuthURLMsg{ProviderName: name, URL: u})
-			}
-		})
-		restores = append(restores, func() { set(nil) })
-	}
-	// The three YouTube providers share one sign-in. The model shows the URL
-	// only for the provider that is active.
-	var youTube []string
-	for _, e := range s.entries {
-		switch p := e.Provider.(type) {
-		case *ytmusic.YouTubeAllProvider, *ytmusic.YouTubeProvider, *ytmusic.YouTubeMusicProvider:
-			youTube = append(youTube, p.Name())
-		}
-	}
-	if len(youTube) > 0 {
-		observe(ytmusic.SetAuthURLObserver, youTube...)
-	}
-	return func() {
-		for _, restore := range restores {
-			restore()
-		}
-	}
+// provider pane can show it when no browser opens. YouTube Music signs in
+// with browser cookies and opens no sign-in page, so nothing is observed.
+func (s *providerSet) observeAuthURLs(func(tea.Msg)) (restore func()) {
+	return func() {}
 }
 
 // logProviderRegistered records that a provider joined the active set. It

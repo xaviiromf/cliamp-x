@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/cmd"
 	"github.com/xaviiromf/cliamp-x/config"
 	"github.com/xaviiromf/cliamp-x/external/ytmusic"
+	"github.com/xaviiromf/cliamp-x/internal/browsercookies"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -75,6 +77,8 @@ func buildApp() *cli.Command {
 			pluginsCommand(),
 			playlistCommand(),
 			historyCommand(),
+			loginCommand(),
+			logoutCommand(),
 			ytmusicCommand(),
 			ipcSimpleCommand("play", "resume playback"),
 			ipcSimpleCommand("pause", "pause playback"),
@@ -365,37 +369,100 @@ func protocolCommand() *cli.Command {
 	}
 }
 
-func ytmusicCommand() *cli.Command {
-	return providerCredsCommand("ytmusic", "YouTube Music", ytmusic.CredsPath, ytmusic.DeleteCreds)
+// spanishLocale reports whether the user's locale is Spanish, for the
+// messages of the sign-in commands.
+func spanishLocale() bool {
+	for _, name := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := os.Getenv(name); v != "" {
+			return strings.HasPrefix(strings.ToLower(v), "es")
+		}
+	}
+	return false
 }
 
-// providerCredsCommand builds the `cliamp <provider> reset` subcommand shared
-// by providers that cache OAuth credentials on disk.
-func providerCredsCommand(key, display string, credsPath func() (string, error), deleteCreds func() (bool, error)) *cli.Command {
+func say(es, en string) string {
+	if spanishLocale() {
+		return es
+	}
+	return en
+}
+
+func loginCommand() *cli.Command {
 	return &cli.Command{
-		Name:  key,
-		Usage: "manage " + display + " integration",
+		Name:  "login",
+		Usage: "sign in to YouTube Music with the session of your browser",
+		Description: "Copies the YouTube Music sign-in of a browser, so cliamp-x shows your\n" +
+			"library, likes and recommendations. Sign in at music.youtube.com in the\n" +
+			"browser first. Without --browser the most recently used browser profile\n" +
+			"that is signed in is picked. cliamp-x refreshes the cookies from that\n" +
+			"profile at every start, so you stay signed in.\n\n" +
+			"Supported browsers: " + strings.Join(browsercookies.Browsers(), ", ") + ".\n" +
+			"A profile can follow a colon, as in brave:Default or chrome:\"Profile 1\".",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "browser", Aliases: []string{"b"}, Usage: "browser to read the sign-in from (default: detect)"},
+		},
+		Action: func(ctx context.Context, c *cli.Command) error {
+			spec := c.String("browser")
+			if spec == "" {
+				if cfg, err := config.Load(); err == nil {
+					spec = cfg.YouTubeMusic.CookiesFrom
+				}
+			}
+			src, err := ytmusic.Login(spec)
+			if err != nil {
+				if errors.Is(err, browsercookies.ErrNotSignedIn) {
+					return errors.New(say(
+						"el navegador no tiene una sesión de YouTube: abre music.youtube.com, inicia sesión y vuelve a ejecutar `cliamp-x login`",
+						"the browser has no YouTube sign-in: open music.youtube.com, sign in, then run `cliamp-x login` again"))
+				}
+				return fmt.Errorf("%s: %w", say("no se pudo iniciar sesión", "sign-in failed"), err)
+			}
+			fmt.Println(say("Sesión de YouTube Music iniciada con ", "Signed in to YouTube Music with ") + src.Browser + " (" + src.Profile + ").")
+			fmt.Println(say("cliamp-x renovará la sesión desde ese navegador en cada inicio. Ejecuta `cliamp-x` para empezar.",
+				"cliamp-x refreshes the sign-in from that browser at every start. Run `cliamp-x` to start."))
+			return nil
+		},
+	}
+}
+
+func logoutCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "logout",
+		Usage: "forget the YouTube Music sign-in (the browser stays signed in)",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			if err := ytmusic.Logout(); err != nil {
+				return err
+			}
+			fmt.Println(say("Sesión de YouTube Music cerrada en cliamp-x. Ejecuta `cliamp-x login` para volver a entrar.",
+				"Signed out of YouTube Music in cliamp-x. Run `cliamp-x login` to sign in again."))
+			return nil
+		},
+	}
+}
+
+func ytmusicCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "ytmusic",
+		Usage: "YouTube Music sign-in",
 		Commands: []*cli.Command{
 			{
-				Name:  "reset",
-				Usage: "clear stored " + display + " credentials and force re-authentication",
+				Name:  "status",
+				Usage: "show whether cliamp-x is signed in to YouTube Music",
 				Action: func(ctx context.Context, c *cli.Command) error {
-					path, err := credsPath()
-					if err != nil {
-						return fmt.Errorf("locate credentials: %w", err)
-					}
-					removed, err := deleteCreds()
-					if err != nil {
-						return fmt.Errorf("remove credentials: %w", err)
-					}
-					if !removed {
-						fmt.Printf("No stored %s credentials to remove.\n", display)
+					cfg, _ := config.Load()
+					auth := ytmusic.LoadAuth(cfg.YouTubeMusic.CookiesFrom)
+					if !auth.SignedIn() {
+						fmt.Println(say("Sin sesión. Ejecuta `cliamp-x login`.", "Not signed in. Run `cliamp-x login`."))
 						return nil
 					}
-					fmt.Printf("Removed %s\n", path)
-					fmt.Printf("Restart cliamp and select %s to sign in again.\n", display)
+					fmt.Println(say("Sesión iniciada (origen: ", "Signed in (source: ") + auth.Source() + ").")
 					return nil
 				},
+			},
+			{
+				Name:   "reset",
+				Usage:  "same as `cliamp-x logout`",
+				Action: logoutCommand().Action,
 			},
 		},
 	}

@@ -17,3 +17,4 @@ docs/ideas.md
 .github/workflows/contextowl-changelog.yml
 /gui/
 coverage.out
+/cliamp-x

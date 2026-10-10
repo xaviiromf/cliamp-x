@@ -62,3 +62,21 @@ func hostForURL(rawURL string) string {
 	}
 	return playlist.NormalizeHost(u.Hostname())
 }
+
+// FilePrefix marks a cookie source that is a cookies.txt file rather than a
+// browser, as in "file:/home/me/.config/cliamp-x/ytmusic_cookies.txt".
+const FilePrefix = "file:"
+
+// Args returns the yt-dlp arguments for a cookie source: --cookies for a
+// file source, --cookies-from-browser for a browser, nothing for "".
+func Args(source string) []string {
+	source = strings.TrimSpace(source)
+	switch {
+	case source == "":
+		return nil
+	case strings.HasPrefix(source, FilePrefix):
+		return []string{"--cookies", strings.TrimPrefix(source, FilePrefix)}
+	default:
+		return []string{"--cookies-from-browser", source}
+	}
+}

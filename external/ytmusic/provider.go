@@ -2,644 +2,950 @@ package ytmusic
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
-
-	"google.golang.org/api/youtube/v3"
 )
 
-var (
-	_ provider.Closer = (*YouTubeMusicProvider)(nil)
-	_ provider.Closer = (*YouTubeProvider)(nil)
-	_ provider.Closer = (*YouTubeAllProvider)(nil)
-)
-
-// itemInfo holds metadata for a single video in a playlist.
-type itemInfo struct {
-	videoID string
-	title   string
-	channel string
-}
-
-// youtubeAPIBatchSize is the maximum number of items per YouTube Data API request.
-const youtubeAPIBatchSize = 50
-
-// baseProvider holds shared state for YouTube and YouTube Music providers.
-// Both providers share the same OAuth session and track cache.
-type baseProvider struct {
-	session      *Session
-	clientID     string
-	clientSecret string
-	hasCookies   bool // true when cookies_from is configured
-	mu           sync.Mutex
-	trackCache   map[string][]playlist.Track // playlist ID -> cached tracks
-	allPlaylists []playlistEntry             // cached raw playlist list
-	classified   map[string]bool             // playlist ID -> is music (from classify.go)
-	disk         *ytCache                    // lazy-loaded disk cache
-	cacheScope   string                      // immutable identity of the active OAuth account
-	authCancel   context.CancelFunc          // cancels any in-progress OAuth flow
-	authGen      uint64                      // counts sign-ins, so a call clears only its own authCancel
-}
-
-func newBase(session *Session, clientID, clientSecret string, hasCookies bool) *baseProvider {
-	cacheScope := storedOAuthCacheScope(strings.TrimSpace(clientID))
-	if session != nil && session.cacheScope != "" {
-		cacheScope = session.cacheScope
-	}
-	return &baseProvider{
-		session:      session,
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		hasCookies:   hasCookies,
-		trackCache:   make(map[string][]playlist.Track),
-		cacheScope:   cacheScope,
-	}
-}
-
-// ensureDiskCache lazily loads the disk cache. Must be called under mu.
-func (b *baseProvider) ensureDiskCache() *ytCache {
-	if b.disk == nil {
-		b.disk = loadYTCache(b.cacheScope)
-	}
-	return b.disk
-}
-
-// signIn runs the interactive sign-in. Tests replace it.
-var signIn = NewSession
-
-// initSession creates a session if one doesn't exist yet. If interactive is
-// false, only stored credentials are tried (returning ErrNeedsAuth on failure).
-// If interactive is true, a browser-based OAuth flow is started. Any previous
-// in-progress OAuth flow is cancelled first to free the callback port.
-func (b *baseProvider) initSession(interactive bool) error {
-	timeout := 30 * time.Second
-	if interactive {
-		timeout = 5 * time.Minute
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	b.mu.Lock()
-	if b.session != nil {
-		b.mu.Unlock()
-		return nil
-	}
-	clientID := b.clientID
-	clientSecret := b.clientSecret
-	if clientID == "" {
-		b.mu.Unlock()
-		return fmt.Errorf("ytmusic: no client ID available")
-	}
-	// An interactive call cancels any previous in-progress auth attempt so
-	// the old listener on CallbackPort is released before it binds again.
-	// It registers its own flow in the same lock hold, so a newer call or
-	// close always finds the flow that runs. A silent call leaves a running
-	// browser flow alone.
-	var gen uint64
-	if interactive {
-		if b.authCancel != nil {
-			b.authCancel()
-		}
-		b.authGen++
-		gen = b.authGen
-		b.authCancel = cancel
-	}
-	b.mu.Unlock()
-
-	var sess *Session
-	var err error
-	if interactive {
-		sess, err = signIn(ctx, clientID, clientSecret)
-
-		b.mu.Lock()
-		if b.authGen == gen {
-			b.authCancel = nil
-		}
-		b.mu.Unlock()
-	} else {
-		sess, err = NewSessionSilent(ctx, clientID, clientSecret)
-	}
-	if err != nil {
-		if !interactive {
-			return playlist.ErrNeedsAuth
-		}
-		return err
-	}
-
-	b.mu.Lock()
-	if b.session == nil {
-		if b.cacheScope != sess.cacheScope {
-			b.allPlaylists = nil
-			b.classified = nil
-			clear(b.trackCache)
-		}
-		b.session = sess
-		b.cacheScope = sess.cacheScope
-		b.disk = nil
-	}
-	b.mu.Unlock()
-	return nil
-}
-
-func (b *baseProvider) ensureSession() error { return b.initSession(false) }
-func (b *baseProvider) authenticate() error  { return b.initSession(true) }
-
-// refresh clears playlist/track caches so the next call re-fetches from the
-// API. Classification is preserved — it's on disk in a separate file, rarely
-// changes, and re-classifying costs API quota.
-func (b *baseProvider) refresh() {
-	b.mu.Lock()
-	b.allPlaylists = nil
-	b.classified = nil
-	clear(b.trackCache)
-	dc := b.ensureDiskCache()
-	dc.clear()
-	snap := dc.snapshot()
-	b.mu.Unlock()
-
-	saveSnapshot(snap)
-}
-
-// close ends a sign-in in progress and drops the session. The three
-// providers share one base, and the Close of each one calls close, so close
-// must be safe to call more than once.
-func (b *baseProvider) close() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.authCancel != nil {
-		b.authCancel()
-		b.authCancel = nil
-	}
-	if b.session != nil {
-		b.session.Close()
-		b.session = nil
-	}
-}
-
-// fetchAndClassify loads all playlists and classifies them as music vs non-music.
-// Results are cached in-memory for the session and on disk for fast startup.
-// If fresh disk cache exists with full classification, no API calls or auth are needed.
-func (b *baseProvider) fetchAndClassify() error {
-	b.mu.Lock()
-	if b.allPlaylists != nil {
-		b.mu.Unlock()
-		return nil
-	}
-
-	// Try disk cache first — no session/auth needed if data is fresh.
-	dc := b.ensureDiskCache()
-	if dc.playlistsFresh() {
-		classified := loadClassification(b.cacheScope)
-		if classified != nil {
-			allClassified := true
-			for _, pl := range dc.Playlists {
-				if _, ok := classified[pl.ID]; !ok {
-					allClassified = false
-					break
-				}
-			}
-			if allClassified {
-				b.allPlaylists = dc.Playlists
-				b.classified = classified
-				b.mu.Unlock()
-				return nil
-			}
-		}
-	}
-	b.mu.Unlock()
-
-	// Disk cache stale or incomplete — fetch from API.
-	if err := b.ensureSession(); err != nil {
-		return err
-	}
-
-	b.mu.Lock()
-	sess := b.session
-	cacheScope := b.cacheScope
-	b.mu.Unlock()
-	if sess == nil {
-		return fmt.Errorf("ytmusic: session unavailable")
-	}
-	svc := sess.Service()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	var all []playlistEntry
-	seen := make(map[string]bool)
-
-	pageToken := ""
-	for {
-		call := svc.Playlists.List([]string{"snippet", "contentDetails"}).
-			Mine(true).
-			MaxResults(50).
-			Context(ctx)
-		if pageToken != "" {
-			call = call.PageToken(pageToken)
-		}
-
-		resp, err := call.Do()
-		if err != nil {
-			return fmt.Errorf("ytmusic: list playlists: %w", err)
-		}
-
-		for _, item := range resp.Items {
-			count := int(item.ContentDetails.ItemCount)
-			if count <= 0 || seen[item.Id] {
-				continue
-			}
-			seen[item.Id] = true
-			all = append(all, playlistEntry{
-				ID:         item.Id,
-				Name:       item.Snippet.Title,
-				TrackCount: count,
-			})
-		}
-
-		if resp.NextPageToken == "" {
-			break
-		}
-		pageToken = resp.NextPageToken
-	}
-
-	// Classify playlists (parallel, with disk cache).
-	// Pass nil to let classifyPlaylists load from disk itself —
-	// the earlier loadClassification() was skipped because cache was stale.
-	classified := classifyWithTimeout(svc, all, 60*time.Second, nil, cacheScope)
-
-	b.mu.Lock()
-	if b.allPlaylists != nil {
-		// Another goroutine completed fetchAndClassify while we were fetching.
-		b.mu.Unlock()
-		return nil
-	}
-	b.allPlaylists = all
-	b.classified = classified
-	// Persist playlists to disk cache.
-	dc = b.ensureDiskCache()
-	dc.setPlaylists(all)
-	snap := dc.snapshot()
-	b.mu.Unlock()
-
-	// Save outside the lock — disk I/O shouldn't block other goroutines.
-	saveSnapshot(snap)
-
-	return nil
-}
-
-// filteredPlaylists returns playlists filtered by music classification.
-func (b *baseProvider) filteredPlaylists(wantMusic bool) []playlist.PlaylistInfo {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	var result []playlist.PlaylistInfo
-	for _, pl := range b.allPlaylists {
-		isMusic, ok := b.classified[pl.ID]
-		if !ok {
-			isMusic = false
-		}
-		if isMusic == wantMusic {
-			result = append(result, playlist.PlaylistInfo{
-				ID:         pl.ID,
-				Name:       pl.Name,
-				TrackCount: pl.TrackCount,
-			})
-		}
-	}
-	return result
-}
-
-// tracks fetches tracks for a playlist (shared between both providers).
-// Checks in-memory cache, then disk cache, then fetches from API.
-func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
-	b.mu.Lock()
-	if cached, ok := b.trackCache[playlistID]; ok {
-		b.mu.Unlock()
-		return cached, nil
-	}
-
-	// Check disk cache — avoids API call and auth if fresh.
-	dc := b.ensureDiskCache()
-	if tracks, ok := dc.tracksFresh(playlistID); ok {
-		b.trackCache[playlistID] = tracks
-		b.mu.Unlock()
-		return tracks, nil
-	}
-	b.mu.Unlock()
-
-	// Disk cache miss — fetch from API.
-	if err := b.ensureSession(); err != nil {
-		return nil, err
-	}
-
-	b.mu.Lock()
-	sess := b.session
-	b.mu.Unlock()
-	if sess == nil {
-		return nil, fmt.Errorf("ytmusic: session unavailable")
-	}
-	svc := sess.Service()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	var items []itemInfo
-
-	pageToken := ""
-	for {
-		call := svc.PlaylistItems.List([]string{"snippet", "contentDetails"}).
-			PlaylistId(playlistID).
-			MaxResults(50).
-			Context(ctx)
-		if pageToken != "" {
-			call = call.PageToken(pageToken)
-		}
-
-		resp, err := call.Do()
-		if err != nil {
-			return nil, fmt.Errorf("ytmusic: list playlist items: %w", err)
-		}
-
-		for _, item := range resp.Items {
-			vid := item.ContentDetails.VideoId
-			if vid == "" {
-				continue
-			}
-			title := item.Snippet.Title
-			if title == "Private video" || title == "Deleted video" {
-				continue
-			}
-			channel := item.Snippet.VideoOwnerChannelTitle
-			if !b.hasCookies && (channel == "Music Library Uploads" || channel == "") {
-				continue
-			}
-			items = append(items, itemInfo{
-				videoID: vid,
-				title:   title,
-				channel: channel,
-			})
-		}
-
-		if resp.NextPageToken == "" {
-			break
-		}
-		pageToken = resp.NextPageToken
-	}
-
-	durations := b.fetchDurations(ctx, svc, items)
-
-	var tracks []playlist.Track
-	for _, it := range items {
-		tracks = append(tracks, playlist.Track{
-			Path:         "https://music.youtube.com/watch?v=" + it.videoID,
-			Title:        it.title,
-			Artist:       cleanChannelName(it.channel),
-			Stream:       false,
-			DurationSecs: durations[it.videoID],
-		})
-	}
-
-	// Persist to in-memory and disk cache.
-	b.mu.Lock()
-	b.trackCache[playlistID] = tracks
-	dc = b.ensureDiskCache()
-	dc.setTracks(playlistID, tracks)
-	snap := dc.snapshot()
-	b.mu.Unlock()
-
-	// Save outside the lock — disk I/O shouldn't block other goroutines.
-	saveSnapshot(snap)
-
-	return tracks, nil
-}
-
-func (b *baseProvider) fetchDurations(ctx context.Context, svc *youtube.Service, items []itemInfo) map[string]int {
-	var mu sync.Mutex
-	durations := make(map[string]int)
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5) // limit concurrent API calls
-
-	for i := 0; i < len(items); i += youtubeAPIBatchSize {
-		end := min(i+youtubeAPIBatchSize, len(items))
-		batch := items[i:end]
-
-		wg.Go(func() {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			var ids []string
-			for _, it := range batch {
-				ids = append(ids, it.videoID)
-			}
-			vResp, err := svc.Videos.List([]string{"contentDetails"}).
-				Id(ids...).
-				Context(ctx).
-				Do()
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			for _, v := range vResp.Items {
-				durations[v.Id] = parseISO8601Duration(v.ContentDetails.Duration)
-			}
-			mu.Unlock()
-		})
-	}
-
-	wg.Wait()
-	return durations
-}
-
-// Special auto-generated playlist IDs exposed by the YouTube Data API.
+// ProviderMeta keys of YouTube Music tracks.
 const (
-	playlistIDLikedMusic  = "LM" // YouTube Music liked songs
-	playlistIDLikedVideos = "LL" // YouTube liked videos
+	MetaVideoID  = "ytmusic.id"
+	MetaArtistID = "ytmusic.artist"
+	MetaAlbumID  = "ytmusic.album"
 )
 
-// playlistCounts fetches item counts for the given playlist IDs in a single
-// API call. IDs not exposed by the API are omitted from the result.
-// Returns an empty map when no session is available (e.g. disk-cache-only boot).
-func (b *baseProvider) playlistCounts(ids ...string) map[string]int {
-	out := make(map[string]int, len(ids))
-	if len(ids) == 0 {
-		return out
+// Pane row and browse IDs.
+const (
+	rowFavorites = "fav"
+	rowHistory   = "hist"
+	prefixList   = "pl:"    // a playlist, by browse ID (VL...)
+	prefixAlbum  = "al:"    // an album, by browse ID (MPREb_...)
+	prefixShelf  = "shelf:" // the songs of a home shelf, by index
+	prefixArtist = "ar:"    // the top songs of an artist, by channel ID
+	prefixGenre  = "genre:" // the mix of a genre, by category params
+	prefixRadio  = "radio:" // the song radio of a video
+
+	browseAlbums  = "browse:albums"
+	browseArtists = "browse:artists"
+	browseGenres  = "browse:genres"
+	browseMoods   = "browse:moods"
+
+	cacheTTL      = 15 * time.Minute
+	requestBudget = 45 * time.Second
+	homeRowLimit  = 40
+)
+
+// Options configures the provider.
+type Options struct {
+	Favorites     *favorites.Store // the ♥ favorites, shared with the UI
+	History       *history.Store   // the local play history, shared with the UI
+	ReportHistory bool
+}
+
+// Provider is the YouTube Music provider.
+type Provider struct {
+	client *Client
+	opts   Options
+	words  labels
+	genres *genreFavorites
+
+	mu        sync.Mutex
+	home      []Shelf
+	homeAt    time.Time
+	library   []Item
+	libraryAt time.Time
+	liked     []Song
+	likedAt   time.Time
+	cats      []Category
+	catsAt    time.Time
+	albums    []provider.AlbumInfo
+	albumsAt  time.Time
+	artists   []provider.ArtistInfo
+	artistsAt time.Time
+}
+
+// New returns a provider over a signed-in (or signed-out) client.
+func New(client *Client, opts Options) *Provider {
+	return &Provider{
+		client: client,
+		opts:   opts,
+		words:  labelsFor(client.hl),
+		genres: loadGenreFavorites(),
 	}
-	b.mu.Lock()
-	sess := b.session
-	b.mu.Unlock()
-	if sess == nil {
-		return out
+}
+
+// Client returns the API client of the provider.
+func (p *Provider) Client() *Client { return p.client }
+
+func (p *Provider) Name() string { return "YouTube Music" }
+
+func budget() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), requestBudget)
+}
+
+// songTrack turns a song into a playlist track.
+func songTrack(s Song) playlist.Track {
+	t := playlist.Track{
+		Path:         WatchURL(s.VideoID),
+		Title:        s.Title,
+		Artist:       s.ArtistName(),
+		Album:        s.Album,
+		DurationSecs: s.Duration,
+		Stream:       true,
+		ProviderMeta: map[string]string{MetaVideoID: s.VideoID},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	resp, err := sess.Service().Playlists.List([]string{"contentDetails"}).
-		Id(ids...).
-		Context(ctx).
-		Do()
-	if err != nil {
-		return out
+	if id := s.ArtistID(); id != "" {
+		t.ProviderMeta[MetaArtistID] = id
 	}
-	for _, item := range resp.Items {
-		out[item.Id] = int(item.ContentDetails.ItemCount)
+	if s.AlbumID != "" {
+		t.ProviderMeta[MetaAlbumID] = s.AlbumID
+	}
+	return t
+}
+
+func songTracks(songs []Song) []playlist.Track {
+	out := make([]playlist.Track, 0, len(songs))
+	seen := make(map[string]bool, len(songs))
+	for _, s := range songs {
+		if seen[s.VideoID] {
+			continue
+		}
+		seen[s.VideoID] = true
+		out = append(out, songTrack(s))
 	}
 	return out
 }
 
-// ─── YouTube Music Provider ────────────────────────────────────────────────
-
-// YouTubeMusicProvider shows playlists classified as music content.
-type YouTubeMusicProvider struct {
-	base *baseProvider
+// trackVideoID returns the video ID of a track from any YouTube source.
+func trackVideoID(t playlist.Track) string {
+	if id := t.Meta(MetaVideoID); id != "" {
+		return id
+	}
+	return VideoIDFromPath(t.Path)
 }
 
-func (p *YouTubeMusicProvider) Name() string        { return "YouTube Music" }
-func (p *YouTubeMusicProvider) Authenticate() error { return p.base.authenticate() }
-func (p *YouTubeMusicProvider) Close()              { p.base.close() }
-func (p *YouTubeMusicProvider) Refresh()            { p.base.refresh() }
-func (p *YouTubeMusicProvider) Tracks(id string) ([]playlist.Track, error) {
-	return p.base.tracks(id)
+// --- cached reads ---
+
+func (p *Provider) cachedHome() []Shelf {
+	p.mu.Lock()
+	if p.home != nil && time.Since(p.homeAt) < cacheTTL {
+		defer p.mu.Unlock()
+		return p.home
+	}
+	p.mu.Unlock()
+	ctx, cancel := budget()
+	defer cancel()
+	home, err := p.client.Home(ctx, 10)
+	if err != nil {
+		applog.Warn("ytmusic: home: %v", err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err == nil {
+		p.home, p.homeAt = home, time.Now()
+	}
+	return p.home
 }
 
-func (p *YouTubeMusicProvider) Playlists() ([]playlist.PlaylistInfo, error) {
-	if err := p.base.fetchAndClassify(); err != nil {
+func (p *Provider) cachedLibrary() []Item {
+	if !p.client.SignedIn() {
+		return nil
+	}
+	p.mu.Lock()
+	if p.library != nil && time.Since(p.libraryAt) < cacheTTL {
+		defer p.mu.Unlock()
+		return p.library
+	}
+	p.mu.Unlock()
+	ctx, cancel := budget()
+	defer cancel()
+	items, err := p.client.LibraryPlaylists(ctx)
+	if err != nil {
+		applog.Warn("ytmusic: library playlists: %v", err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err == nil {
+		if items == nil {
+			items = []Item{}
+		}
+		p.library, p.libraryAt = items, time.Now()
+	}
+	return p.library
+}
+
+// cachedLiked returns the account's liked songs and mirrors them into the
+// local favorites store, so a song liked on another device shows its ♥.
+func (p *Provider) cachedLiked() []Song {
+	if !p.client.SignedIn() {
+		return nil
+	}
+	p.mu.Lock()
+	if p.liked != nil && time.Since(p.likedAt) < cacheTTL {
+		defer p.mu.Unlock()
+		return p.liked
+	}
+	p.mu.Unlock()
+	ctx, cancel := budget()
+	defer cancel()
+	songs, err := p.client.LikedSongs(ctx, 0)
+	if err != nil {
+		applog.Warn("ytmusic: liked songs: %v", err)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return p.liked
+	}
+	if songs == nil {
+		songs = []Song{}
+	}
+	if p.opts.Favorites != nil && len(songs) > 0 {
+		if added, err := p.opts.Favorites.Import(songTracks(songs)); err != nil {
+			applog.Warn("ytmusic: import liked songs: %v", err)
+		} else if added > 0 {
+			applog.Info("ytmusic: %d liked songs added to favorites", added)
+		}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.liked, p.likedAt = songs, time.Now()
+	return p.liked
+}
+
+func (p *Provider) cachedCategories() []Category {
+	p.mu.Lock()
+	if p.cats != nil && time.Since(p.catsAt) < cacheTTL*4 {
+		defer p.mu.Unlock()
+		return p.cats
+	}
+	p.mu.Unlock()
+	ctx, cancel := budget()
+	defer cancel()
+	cats, err := p.client.Categories(ctx)
+	if err != nil {
+		applog.Warn("ytmusic: categories: %v", err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err == nil {
+		p.cats, p.catsAt = cats, time.Now()
+	}
+	return p.cats
+}
+
+// Refresh drops every cached list, so the next read asks YouTube Music.
+func (p *Provider) Refresh() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var zero time.Time
+	p.homeAt, p.libraryAt, p.likedAt, p.catsAt, p.albumsAt, p.artistsAt = zero, zero, zero, zero, zero, zero
+}
+
+// CanRefreshPlaylist reports that every row reloads in place.
+func (p *Provider) CanRefreshPlaylist(string) bool { return true }
+
+// --- the provider pane ---
+
+// Playlists returns the rows of the provider pane: your music, your
+// favorite genres and the home page. The browse menus come from
+// BrowseEntries.
+func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
+	w := p.words
+	var rows []playlist.PlaylistInfo
+	favCount := 0
+	if p.opts.Favorites != nil {
+		if p.client.SignedIn() {
+			p.cachedLiked()
+		}
+		favCount = p.opts.Favorites.Count()
+	}
+	rows = append(rows,
+		playlist.PlaylistInfo{ID: rowFavorites, Name: w.favorites, TrackCount: favCount, Section: w.yourMusic},
+		playlist.PlaylistInfo{ID: rowHistory, Name: w.history, Section: w.yourMusic},
+	)
+	for _, it := range p.cachedLibrary() {
+		id := strings.TrimPrefix(it.ID, "VL")
+		if id == "LM" || id == "SE" {
+			continue // Liked music is in Favorites; SE is podcast episodes.
+		}
+		rows = append(rows, playlist.PlaylistInfo{ID: prefixList + it.ID, Name: it.Title, Section: w.yourMusic})
+	}
+
+	for _, g := range p.favoriteGenres() {
+		rows = append(rows, playlist.PlaylistInfo{ID: prefixGenre + g.Params, Name: "★ " + g.Title, Section: w.genresSection})
+	}
+
+	seen := map[string]bool{}
+	homeRows := 0
+	for i, sh := range p.cachedHome() {
+		if homeRows >= homeRowLimit {
+			break
+		}
+		songs := 0
+		for _, it := range sh.Items {
+			if it.Kind == KindSong || it.Kind == KindVideo {
+				songs++
+			}
+		}
+		if songs > 0 && songs*2 >= len(sh.Items) {
+			rows = append(rows, playlist.PlaylistInfo{ID: prefixShelf + strconv.Itoa(i), Name: sh.Title, TrackCount: songs, Section: w.home})
+			homeRows++
+			continue
+		}
+		for _, it := range sh.Items {
+			var id string
+			switch it.Kind {
+			case KindAlbum:
+				id = prefixAlbum + it.ID
+			case KindPlaylist:
+				id = prefixList + it.ID
+			case KindArtist:
+				id = prefixArtist + it.ID
+			default:
+				continue
+			}
+			if seen[id] || strings.TrimPrefix(it.ID, "VL") == "LM" {
+				continue
+			}
+			seen[id] = true
+			name := it.Title
+			if it.Artist != "" && it.Kind != KindArtist && it.Artist != it.Title {
+				name += " · " + it.Artist
+			}
+			rows = append(rows, playlist.PlaylistInfo{ID: id, Name: name, Section: w.home + " · " + sh.Title})
+			homeRows++
+		}
+	}
+	return rows, nil
+}
+
+// BrowseEntries puts the Explore menus at the top of the provider pane.
+func (p *Provider) BrowseEntries() []provider.BrowseEntry {
+	w := p.words
+	return []provider.BrowseEntry{
+		{ID: browseAlbums, Name: w.albums, Section: w.explore, Mode: provider.BrowseAlbums},
+		{ID: browseArtists, Name: w.artists, Section: w.explore, Mode: provider.BrowseArtistAlbums},
+		{ID: browseGenres, Name: w.genres, Section: w.explore, Mode: provider.BrowseGenres},
+		{ID: browseMoods, Name: w.moods, Section: w.explore, Mode: provider.BrowseGenres},
+	}
+}
+
+// BrowseLabels names the browse levels.
+func (p *Provider) BrowseLabels() (artist, album string) {
+	if p.words.albums == spanish.albums {
+		return "Artista", "Álbum"
+	}
+	return "Artist", "Album"
+}
+
+// Tracks loads the songs of a pane row or browse leaf.
+func (p *Provider) Tracks(id string) ([]playlist.Track, error) {
+	ctx, cancel := budget()
+	defer cancel()
+	switch {
+	case id == rowFavorites:
+		return p.favoriteTracks()
+	case id == rowHistory:
+		return p.historyTracks(ctx)
+	case strings.HasPrefix(id, prefixList):
+		return p.listTracks(ctx, strings.TrimPrefix(id, prefixList))
+	case strings.HasPrefix(id, prefixAlbum):
+		return p.AlbumTracks(strings.TrimPrefix(id, prefixAlbum))
+	case strings.HasPrefix(id, prefixShelf):
+		return p.shelfTracks(strings.TrimPrefix(id, prefixShelf))
+	case strings.HasPrefix(id, prefixArtist):
+		return p.artistTopTracks(ctx, strings.TrimPrefix(id, prefixArtist))
+	case strings.HasPrefix(id, prefixGenre):
+		return p.GenreTracks(strings.TrimPrefix(id, prefixGenre), "mix")
+	case strings.HasPrefix(id, prefixRadio):
+		songs, err := p.client.Radio(ctx, strings.TrimPrefix(id, prefixRadio), "")
+		return songTracks(songs), err
+	}
+	return nil, fmt.Errorf("youtube music: unknown list %q", id)
+}
+
+// listTracks loads a playlist. Radio mixes (RD...) are dynamic and load
+// through the watch queue instead of the playlist page.
+func (p *Provider) listTracks(ctx context.Context, id string) ([]playlist.Track, error) {
+	plain := strings.TrimPrefix(id, "VL")
+	if strings.HasPrefix(plain, "RD") && !strings.HasPrefix(plain, "RDCLAK") {
+		songs, err := p.client.Radio(ctx, "", plain)
+		return songTracks(songs), err
+	}
+	page, err := p.client.Playlist(ctx, plain, 0)
+	if err != nil {
 		return nil, err
 	}
-
-	counts := p.base.playlistCounts(playlistIDLikedMusic)
-	all := []playlist.PlaylistInfo{{
-		ID:         playlistIDLikedMusic,
-		Name:       "Liked Music",
-		TrackCount: counts[playlistIDLikedMusic],
-	}}
-	all = append(all, p.base.filteredPlaylists(true)...)
-	return all, nil
+	if len(page.Songs) == 0 && strings.HasPrefix(plain, "RD") {
+		songs, err := p.client.Radio(ctx, "", plain)
+		return songTracks(songs), err
+	}
+	return songTracks(page.Songs), nil
 }
 
-// ─── YouTube Provider ──────────────────────────────────────────────────────
-
-// YouTubeProvider shows playlists classified as non-music (video) content.
-type YouTubeProvider struct {
-	base *baseProvider
+// favoriteTracks returns the ♥ favorites: the account's liked songs (mirrored
+// into the store) and every local or YouTube track favorited in cliamp-x.
+func (p *Provider) favoriteTracks() ([]playlist.Track, error) {
+	if p.client.SignedIn() {
+		p.cachedLiked()
+	}
+	if p.opts.Favorites == nil {
+		return songTracks(p.cachedLiked()), nil
+	}
+	return p.opts.Favorites.Tracks()
 }
 
-func (p *YouTubeProvider) Name() string        { return "YouTube" }
-func (p *YouTubeProvider) Authenticate() error { return p.base.authenticate() }
-func (p *YouTubeProvider) Close()              { p.base.close() }
-func (p *YouTubeProvider) Refresh()            { p.base.refresh() }
-func (p *YouTubeProvider) Tracks(id string) ([]playlist.Track, error) {
-	return p.base.tracks(id)
+// historyTracks returns what cliamp-x played, newest first, followed by the
+// rest of the account's YouTube Music history.
+func (p *Provider) historyTracks(ctx context.Context) ([]playlist.Track, error) {
+	var out []playlist.Track
+	seen := map[string]bool{}
+	if p.opts.History != nil {
+		local, err := p.opts.History.Tracks(500)
+		if err != nil {
+			applog.Warn("ytmusic: history: %v", err)
+		}
+		for _, t := range local {
+			if !seen[t.Path] {
+				seen[t.Path] = true
+				out = append(out, t)
+			}
+		}
+	}
+	if p.client.SignedIn() {
+		songs, err := p.client.History(ctx)
+		if err != nil {
+			applog.Warn("ytmusic: account history: %v", err)
+		}
+		for _, t := range songTracks(songs) {
+			if !seen[t.Path] {
+				seen[t.Path] = true
+				out = append(out, t)
+			}
+		}
+	}
+	return out, nil
 }
 
-func (p *YouTubeProvider) Playlists() ([]playlist.PlaylistInfo, error) {
-	if err := p.base.fetchAndClassify(); err != nil {
+func (p *Provider) shelfTracks(index string) ([]playlist.Track, error) {
+	i, err := strconv.Atoi(index)
+	home := p.cachedHome()
+	if err != nil || i < 0 || i >= len(home) {
+		return nil, errors.New("youtube music: the home page changed; press Ctrl+R")
+	}
+	var songs []Song
+	for _, it := range home[i].Items {
+		if it.Song != nil {
+			songs = append(songs, *it.Song)
+		}
+	}
+	return songTracks(songs), nil
+}
+
+func (p *Provider) artistTopTracks(ctx context.Context, channel string) ([]playlist.Track, error) {
+	page, err := p.client.Artist(ctx, channel)
+	if err != nil {
 		return nil, err
 	}
-
-	counts := p.base.playlistCounts(playlistIDLikedVideos)
-	all := []playlist.PlaylistInfo{{
-		ID:         playlistIDLikedVideos,
-		Name:       "Liked Videos",
-		TrackCount: counts[playlistIDLikedVideos],
-	}}
-	all = append(all, p.base.filteredPlaylists(false)...)
-	return all, nil
-}
-
-// ─── YouTube All Provider ──────────────────────────────────────────────────
-
-// YouTubeAllProvider shows all playlists regardless of classification.
-type YouTubeAllProvider struct {
-	base *baseProvider
-}
-
-func (p *YouTubeAllProvider) Name() string        { return "YouTube (All)" }
-func (p *YouTubeAllProvider) Authenticate() error { return p.base.authenticate() }
-func (p *YouTubeAllProvider) Close()              { p.base.close() }
-func (p *YouTubeAllProvider) Refresh()            { p.base.refresh() }
-func (p *YouTubeAllProvider) Tracks(id string) ([]playlist.Track, error) {
-	return p.base.tracks(id)
-}
-
-func (p *YouTubeAllProvider) Playlists() ([]playlist.PlaylistInfo, error) {
-	if err := p.base.fetchAndClassify(); err != nil {
-		return nil, err
+	if page.SongsListID != "" {
+		if list, err := p.client.Playlist(ctx, page.SongsListID, 200); err == nil && len(list.Songs) > 0 {
+			return songTracks(list.Songs), nil
+		}
 	}
+	return songTracks(page.TopSongs), nil
+}
 
-	counts := p.base.playlistCounts(playlistIDLikedMusic, playlistIDLikedVideos)
-	all := []playlist.PlaylistInfo{
-		{ID: playlistIDLikedMusic, Name: "Liked Music", TrackCount: counts[playlistIDLikedMusic]},
-		{ID: playlistIDLikedVideos, Name: "Liked Videos", TrackCount: counts[playlistIDLikedVideos]},
+// --- albums ---
+
+// AlbumSortTypes lists the album orders.
+func (p *Provider) AlbumSortTypes() []provider.SortType {
+	w := p.words
+	return []provider.SortType{
+		{ID: "top", Label: w.sortTop},
+		{ID: "alpha", Label: w.sortAlpha},
+		{ID: "artist", Label: w.sortArtist},
+		{ID: "year", Label: w.sortYear},
 	}
+}
 
-	b := p.base
-	b.mu.Lock()
-	for _, pl := range b.allPlaylists {
-		all = append(all, playlist.PlaylistInfo{
-			ID:         pl.ID,
-			Name:       pl.Name,
-			TrackCount: pl.TrackCount,
+func (p *Provider) DefaultAlbumSort() string { return "top" }
+
+// AlbumList returns a page of the album list: the saved albums and the
+// albums of the liked songs, most liked first, then the albums the home page
+// recommends.
+func (p *Provider) AlbumList(sortType string, offset, size int) ([]provider.AlbumInfo, error) {
+	sorted := append([]provider.AlbumInfo(nil), p.allAlbums()...)
+	switch sortType {
+	case "alpha":
+		sort.SliceStable(sorted, func(i, j int) bool { return lessFold(sorted[i].Name, sorted[j].Name) })
+	case "artist":
+		sort.SliceStable(sorted, func(i, j int) bool {
+			if !strings.EqualFold(sorted[i].Artist, sorted[j].Artist) {
+				return lessFold(sorted[i].Artist, sorted[j].Artist)
+			}
+			return lessFold(sorted[i].Name, sorted[j].Name)
+		})
+	case "year":
+		sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Year > sorted[j].Year })
+	}
+	if offset >= len(sorted) {
+		return nil, nil
+	}
+	end := len(sorted)
+	if size > 0 && offset+size < end {
+		end = offset + size
+	}
+	return sorted[offset:end], nil
+}
+
+func lessFold(a, b string) bool { return strings.ToLower(a) < strings.ToLower(b) }
+
+// ranked collects entries by ID, adding up their scores, and returns them
+// best first; ties keep the order of first appearance.
+type ranked[T any] struct {
+	byID  map[string]*rankedEntry[T]
+	order int
+}
+
+type rankedEntry[T any] struct {
+	value T
+	score int
+	order int
+}
+
+func newRanked[T any]() *ranked[T] {
+	return &ranked[T]{byID: map[string]*rankedEntry[T]{}}
+}
+
+// add records value under id, or adds score to the entry already there and
+// lets merge fill its gaps.
+func (r *ranked[T]) add(id string, value T, score int, merge func(old *T, add T)) {
+	if e, ok := r.byID[id]; ok {
+		e.score += score
+		if merge != nil {
+			merge(&e.value, value)
+		}
+		return
+	}
+	r.order++
+	r.byID[id] = &rankedEntry[T]{value: value, score: score, order: r.order}
+}
+
+func (r *ranked[T]) sorted() []T {
+	entries := make([]*rankedEntry[T], 0, len(r.byID))
+	for _, e := range r.byID {
+		entries = append(entries, e)
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].score != entries[j].score {
+			return entries[i].score > entries[j].score
+		}
+		return entries[i].order < entries[j].order
+	})
+	out := make([]T, len(entries))
+	for i, e := range entries {
+		out[i] = e.value
+	}
+	return out
+}
+
+func (p *Provider) allAlbums() []provider.AlbumInfo {
+	p.mu.Lock()
+	if p.albums != nil && time.Since(p.albumsAt) < cacheTTL {
+		defer p.mu.Unlock()
+		return p.albums
+	}
+	p.mu.Unlock()
+
+	r := newRanked[provider.AlbumInfo]()
+	add := func(info provider.AlbumInfo, score int) {
+		if info.ID == "" || info.Name == "" {
+			return
+		}
+		r.add(info.ID, info, score, func(old *provider.AlbumInfo, add provider.AlbumInfo) {
+			if old.Year == 0 {
+				old.Year = add.Year
+			}
+			if old.Artist == "" {
+				old.Artist, old.ArtistID = add.Artist, add.ArtistID
+			}
 		})
 	}
-	b.mu.Unlock()
-
-	return all, nil
+	if p.client.SignedIn() {
+		ctx, cancel := budget()
+		saved, err := p.client.LibraryAlbums(ctx)
+		cancel()
+		if err != nil {
+			applog.Warn("ytmusic: library albums: %v", err)
+		}
+		for _, it := range saved {
+			add(provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1000)
+		}
+		for _, s := range p.cachedLiked() {
+			if s.AlbumID != "" {
+				add(provider.AlbumInfo{ID: s.AlbumID, Name: s.Album, Artist: s.ArtistName(), ArtistID: s.ArtistID()}, 10)
+			}
+		}
+	}
+	for _, sh := range p.cachedHome() {
+		for _, it := range sh.Items {
+			if it.Kind == KindAlbum {
+				add(provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1)
+			}
+		}
+	}
+	out := r.sorted()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.albums, p.albumsAt = out, time.Now()
+	return out
 }
 
-// ─── Constructor ───────────────────────────────────────────────────────────
-
-// Providers holds the YouTube Music, YouTube, and YouTube All providers,
-// sharing a single OAuth session.
-type Providers struct {
-	Music *YouTubeMusicProvider
-	Video *YouTubeProvider
-	All   *YouTubeAllProvider
-}
-
-// New creates all three YouTube providers with a shared session.
-func New(session *Session, clientID, clientSecret string, hasCookies bool) Providers {
-	base := newBase(session, clientID, clientSecret, hasCookies)
-	return Providers{
-		Music: &YouTubeMusicProvider{base: base},
-		Video: &YouTubeProvider{base: base},
-		All:   &YouTubeAllProvider{base: base},
+// AlbumTracks loads an album, a playlist, an artist's top songs or a song
+// radio, after the prefix of its ID.
+func (p *Provider) AlbumTracks(albumID string) ([]playlist.Track, error) {
+	ctx, cancel := budget()
+	defer cancel()
+	switch {
+	case strings.HasPrefix(albumID, "MPREb_"):
+		page, err := p.client.Album(ctx, albumID)
+		return songTracks(page.Songs), err
+	case strings.HasPrefix(albumID, prefixArtist):
+		return p.artistTopTracks(ctx, strings.TrimPrefix(albumID, prefixArtist))
+	case strings.HasPrefix(albumID, prefixRadio):
+		songs, err := p.client.Radio(ctx, strings.TrimPrefix(albumID, prefixRadio), "")
+		return songTracks(songs), err
+	case strings.HasPrefix(albumID, "UC"):
+		return p.artistTopTracks(ctx, albumID)
+	default:
+		return p.listTracks(ctx, strings.TrimPrefix(albumID, prefixList))
 	}
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// --- artists ---
 
-var iso8601Re = regexp.MustCompile(`P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
+// Artists returns the artists of the library, the subscriptions and the
+// liked songs, most liked first, then the ones the home page recommends.
+func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
+	p.mu.Lock()
+	if p.artists != nil && time.Since(p.artistsAt) < cacheTTL {
+		defer p.mu.Unlock()
+		return p.artists, nil
+	}
+	p.mu.Unlock()
 
-func parseISO8601Duration(d string) int {
-	m := iso8601Re.FindStringSubmatch(d)
-	if m == nil {
-		return 0
+	r := newRanked[provider.ArtistInfo]()
+	add := func(id, name string, score int) {
+		if id != "" && name != "" {
+			r.add(id, provider.ArtistInfo{ID: id, Name: name}, score, nil)
+		}
 	}
-	var total int
-	if m[1] != "" {
-		v, _ := strconv.Atoi(m[1])
-		total += v * 86400
+	if p.client.SignedIn() {
+		ctx, cancel := budget()
+		subs, err := p.client.Subscriptions(ctx)
+		if err != nil {
+			applog.Warn("ytmusic: subscriptions: %v", err)
+		}
+		for _, it := range subs {
+			add(it.ID, it.Title, 1000)
+		}
+		lib, err := p.client.LibraryArtists(ctx)
+		cancel()
+		if err != nil {
+			applog.Warn("ytmusic: library artists: %v", err)
+		}
+		for _, it := range lib {
+			add(it.ID, it.Title, 100)
+		}
+		for _, s := range p.cachedLiked() {
+			for _, a := range s.Artists {
+				add(a.ID, a.Name, 10)
+			}
+		}
 	}
-	if m[2] != "" {
-		v, _ := strconv.Atoi(m[2])
-		total += v * 3600
+	for _, sh := range p.cachedHome() {
+		for _, it := range sh.Items {
+			if it.Kind == KindArtist {
+				add(it.ID, it.Title, 1)
+			} else if it.ArtistID != "" {
+				add(it.ArtistID, it.Artist, 1)
+			}
+		}
 	}
-	if m[3] != "" {
-		v, _ := strconv.Atoi(m[3])
-		total += v * 60
-	}
-	if m[4] != "" {
-		v, _ := strconv.Atoi(m[4])
-		total += v
-	}
-	return total
+	out := r.sorted()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.artists, p.artistsAt = out, time.Now()
+	return out, nil
 }
 
-func cleanChannelName(name string) string {
-	name = strings.TrimSuffix(name, " - Topic")
-	return name
+// ArtistAlbums lists what an artist page offers: the top songs, then every
+// album and single.
+func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
+	ctx, cancel := budget()
+	defer cancel()
+	page, err := p.client.Artist(ctx, artistID)
+	if err != nil {
+		return nil, err
+	}
+	name := page.Name
+	out := []provider.AlbumInfo{{ID: prefixArtist + artistID, Name: p.words.topSongs, Artist: name, ArtistID: artistID}}
+	albums := page.Albums
+	if full, err := p.client.ArtistReleases(ctx, page.AlbumsMore); err == nil && len(full) > 0 {
+		albums = full
+	}
+	singles := page.Singles
+	if full, err := p.client.ArtistReleases(ctx, page.SinglesMore); err == nil && len(full) > 0 {
+		singles = full
+	}
+	for _, it := range albums {
+		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: name, ArtistID: artistID, Year: it.Year})
+	}
+	for _, it := range singles {
+		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year})
+	}
+	return out, nil
+}
+
+// ArtistForTrack resolves a YouTube Music track to its artist.
+func (p *Provider) ArtistForTrack(track playlist.Track) (provider.ArtistInfo, bool) {
+	id := track.Meta(MetaArtistID)
+	if id == "" {
+		return provider.ArtistInfo{}, false
+	}
+	name := track.Artist
+	if i := strings.Index(name, ", "); i > 0 {
+		name = name[:i]
+	}
+	return provider.ArtistInfo{ID: id, Name: name}, true
+}
+
+// --- favorites, history and playlists ---
+
+// CanFavoriteTrack reports whether a ♥ on track goes to YouTube Music.
+func (p *Provider) CanFavoriteTrack(track playlist.Track) bool {
+	return trackVideoID(track) != ""
+}
+
+// SetTrackFavorite likes or un-likes the song in the account. Signed out,
+// the ♥ stays local.
+func (p *Provider) SetTrackFavorite(ctx context.Context, track playlist.Track, favorite bool) error {
+	id := trackVideoID(track)
+	if id == "" || !p.client.SignedIn() {
+		return nil
+	}
+	if err := p.client.SetLike(ctx, id, favorite); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	p.likedAt = time.Time{}
+	p.mu.Unlock()
+	return nil
+}
+
+// CanReportPlayback reports whether plays go to the account history.
+func (p *Provider) CanReportPlayback(track playlist.Track) bool {
+	return p.opts.ReportHistory && p.client.SignedIn() && trackVideoID(track) != ""
+}
+
+// ReportNowPlaying adds the song to the YouTube Music history.
+func (p *Provider) ReportNowPlaying(track playlist.Track, _ time.Duration, _ bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	return p.client.ReportPlayback(ctx, trackVideoID(track))
+}
+
+// ReportScrobble does nothing: the history entry is made at the start.
+func (p *Provider) ReportScrobble(playlist.Track, time.Duration, time.Duration, bool) error {
+	return nil
+}
+
+// CanRelate reports whether track has a song radio.
+func (p *Provider) CanRelate(track playlist.Track) bool {
+	return trackVideoID(track) != ""
+}
+
+// RelatedTracks returns up to n songs of the seed's song radio.
+func (p *Provider) RelatedTracks(ctx context.Context, seed playlist.Track, n int) ([]playlist.Track, error) {
+	id := trackVideoID(seed)
+	if id == "" || n < 1 {
+		return nil, nil
+	}
+	songs, err := p.client.Radio(ctx, id, "")
+	if err != nil {
+		return nil, err
+	}
+	var out []playlist.Track
+	for _, t := range songTracks(songs) {
+		if trackVideoID(t) == id {
+			continue
+		}
+		out = append(out, t)
+		if len(out) >= n {
+			break
+		}
+	}
+	return out, nil
+}
+
+// AddTrackToPlaylist adds a song to one of the account's playlists.
+func (p *Provider) AddTrackToPlaylist(ctx context.Context, playlistID string, track playlist.Track) error {
+	id := trackVideoID(track)
+	if id == "" {
+		return errors.New("only YouTube songs can go into a YouTube Music playlist")
+	}
+	return p.client.AddToPlaylist(ctx, strings.TrimPrefix(playlistID, prefixList), id)
+}
+
+// CanAddToPlaylist reports whether pl is one of the account's playlists.
+func (p *Provider) CanAddToPlaylist(pl playlist.PlaylistInfo) bool {
+	if !strings.HasPrefix(pl.ID, prefixList) || pl.Section != p.words.yourMusic {
+		return false
+	}
+	id := strings.TrimPrefix(strings.TrimPrefix(pl.ID, prefixList), "VL")
+	return strings.HasPrefix(id, "PL")
+}
+
+// CreatePlaylist creates a private playlist in the account.
+func (p *Provider) CreatePlaylist(ctx context.Context, name string) (string, error) {
+	id, err := p.client.CreatePlaylist(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	p.mu.Lock()
+	p.libraryAt = time.Time{}
+	p.mu.Unlock()
+	return prefixList + "VL" + id, nil
+}
+
+// --- search ---
+
+// SearchTracks searches YouTube Music. A YouTube or YouTube Music link
+// loads what it points to instead. Results come grouped: artists, albums
+// and playlists first (they expand when chosen), then songs.
+func (p *Provider) SearchTracks(ctx context.Context, query string, limit int) ([]playlist.Track, error) {
+	if link, ok := ParseLink(query); ok {
+		return p.openLink(ctx, link)
+	}
+	if limit <= 0 {
+		limit = 30
+	}
+	filters := []SearchFilter{SearchArtists, SearchAlbums, SearchPlaylists, SearchSongs}
+	limits := map[SearchFilter]int{SearchArtists: 3, SearchAlbums: 6, SearchPlaylists: 4, SearchSongs: limit}
+	type result struct {
+		shelves []Shelf
+		err     error
+	}
+	results := make([]result, len(filters))
+	var wg sync.WaitGroup
+	for i, f := range filters {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sh, err := p.client.Search(ctx, query, f, limits[f])
+			results[i] = result{sh, err}
+		}()
+	}
+	wg.Wait()
+
+	w := p.words
+	var out []playlist.Track
+	var firstErr error
+	for i, f := range filters {
+		if results[i].err != nil {
+			if firstErr == nil {
+				firstErr = results[i].err
+			}
+			continue
+		}
+		count := 0
+		for _, sh := range results[i].shelves {
+			for _, it := range sh.Items {
+				if count >= limits[f] {
+					break
+				}
+				switch f {
+				case SearchSongs:
+					if it.Song == nil {
+						continue
+					}
+					t := songTrack(*it.Song)
+					t.ProviderMeta[MetaSection] = w.searchSongs
+					out = append(out, t)
+				case SearchArtists:
+					out = append(out, placeholder(prefixArtist+it.ID, it.Title, "", w.searchArtists))
+				case SearchAlbums:
+					t := placeholder(it.ID, it.Title, it.Artist, w.searchAlbums)
+					t.Year = it.Year
+					out = append(out, t)
+				case SearchPlaylists:
+					out = append(out, placeholder(prefixList+it.ID, it.Title, it.Artist, w.searchPlaylists))
+				}
+				count++
+			}
+		}
+	}
+	if len(out) == 0 && firstErr != nil {
+		return nil, firstErr
+	}
+	return out, nil
+}
+
+// MetaSection names the search section of a result row.
+const MetaSection = playlist.MetaSection
+
+// placeholder is a search row that expands into tracks through AlbumTracks.
+func placeholder(id, title, artist, section string) playlist.Track {
+	return playlist.Track{
+		Path:   "ytmusic:" + id,
+		Title:  title,
+		Artist: artist,
+		Album:  title,
+		ProviderMeta: map[string]string{
+			playlist.MetaKind:    playlist.MetaKindAlbum,
+			playlist.MetaAlbumID: id,
+			MetaSection:          section,
+		},
+	}
+}
+
+// openLink loads the tracks a YouTube or YouTube Music link points to.
+func (p *Provider) openLink(ctx context.Context, link Link) ([]playlist.Track, error) {
+	if link.Kind == LinkUnknown {
+		resolved, err := p.client.resolveLink(ctx, link)
+		if err != nil {
+			return nil, err
+		}
+		link = resolved
+	}
+	switch link.Kind {
+	case LinkVideo:
+		songs, err := p.client.Radio(ctx, link.VideoID, "")
+		if err == nil && len(songs) > 0 && songs[0].VideoID == link.VideoID {
+			t := songTrack(songs[0])
+			t.ProviderMeta[MetaSection] = p.words.searchSongs
+			return []playlist.Track{t}, nil
+		}
+		return []playlist.Track{{
+			Path: WatchURL(link.VideoID), Title: link.VideoID, Stream: true,
+			ProviderMeta: map[string]string{MetaVideoID: link.VideoID},
+		}}, nil
+	case LinkPlaylist:
+		return p.listTracks(ctx, link.PlaylistID)
+	case LinkAlbum:
+		page, err := p.client.Album(ctx, link.BrowseID)
+		return songTracks(page.Songs), err
+	case LinkArtist:
+		return p.artistTopTracks(ctx, link.BrowseID)
+	}
+	return nil, errors.New("youtube music: this link points to nothing playable")
 }
