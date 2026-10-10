@@ -42,6 +42,7 @@ type PlaylistInfo struct {
 	Section        string
 	DirSourceCount int
 	Favorite       bool
+	ImageURL       string // cover for the preview pane, or ""
 }
 
 // Provider is the interface for playlist sources (radio, Navidrome, Spotify, etc.).

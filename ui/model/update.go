@@ -25,6 +25,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		nm.recomputeLayout()
 		nm.dropStalePreload()
 		nm.notifyPlaybackChange()
+		// Frame ticks change nothing the preview pane loads, and they come
+		// many times a second.
+		if _, tick := msg.(tickMsg); !tick {
+			if pc := nm.previewCmds(); pc != nil {
+				cmd = tea.Batch(cmd, pc)
+			}
+		}
 		// A load that starts now gets its own redraws at once. The main tick
 		// can still wait up to ui.TickIdle before it runs at the spinner rate.
 		if !spinning && !nm.spinnerTicking && nm.spinnerVisible() {
@@ -86,6 +93,13 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.recomputeLayout()
 		m.normalizeMainFocus()
 		m.clampActiveScrollState()
+		return m, nil
+
+	case artworkLoadedMsg:
+		return m, nil
+
+	case previewDetailsMsg:
+		m.handlePreviewDetails(msg)
 		return m, nil
 
 	case seekTickMsg:

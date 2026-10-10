@@ -328,7 +328,8 @@ func TestVisualizerVisibility(t *testing.T) {
 		want          bool
 	}{
 		{name: "main", width: 80, height: 24, set: func(*Model) {}, want: true},
-		{name: "content first", width: 80, height: 24, set: func(m *Model) { m.keymap.visible = true }, want: false},
+		{name: "content first", width: 80, height: 24, set: func(m *Model) { m.keymap.visible = true }, want: true},
+		{name: "content first without room", width: 80, height: 18, set: func(m *Model) { m.keymap.visible = true }, want: false},
 		{name: "picker preview", width: 80, height: 24, set: func(m *Model) { m.visPicker.visible = true }, want: true},
 		{name: "full visualizer", width: 40, height: 10, set: func(m *Model) { m.fullVis = true }, want: true},
 		{name: "minimal", width: 40, height: 10, set: func(*Model) {}, want: false},
@@ -371,7 +372,7 @@ func TestTickVisualizerSkipsContentFirstLayouts(t *testing.T) {
 				vis:    ui.NewVisualizer(float64(p.SampleRate())),
 				keymap: keymapOverlay{visible: true},
 				width:  80,
-				height: 24,
+				height: 18, // too low to spare the visualizer any rows
 			}
 			m.vis.Mode = tt.mode
 			m.recomputeLayout()

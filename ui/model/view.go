@@ -270,9 +270,11 @@ func (m Model) mainSections(playlist string, includeTransient, contentFirst bool
 				m.renderTitle(),
 				m.renderTrackInfo(),
 				m.renderTimeStatus(),
-				m.renderSeekBar(),
-				m.renderPlaylistHeader(),
 			}
+			if m.layout.visualizerRows > 0 {
+				sections = append(sections, m.renderSpectrum())
+			}
+			sections = append(sections, m.renderSeekBar(), m.renderPlaylistHeader())
 		}
 	} else {
 		switch m.layout.tier {
@@ -333,6 +335,9 @@ func (m Model) mainSections(playlist string, includeTransient, contentFirst bool
 	}
 	if playlist != "" {
 		sections = append(sections, playlist)
+	}
+	if preview := m.renderPreview(); preview != "" {
+		sections = append(sections, preview)
 	}
 	if !m.layout.twoColumn && m.layout.tier != layoutCompact {
 		// The two-column body needs no spacer above the hint bar: the settings

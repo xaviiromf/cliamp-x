@@ -183,6 +183,7 @@ func TestLoadGolden(t *testing.T) {
 	allWant.Simplified = true
 	allWant.HideHelpBar = true
 	allWant.HideSettingsPane = true
+	allWant.HidePreview = true
 	allWant.Expanded = true
 	allWant.Theme = "Tokyo Night"
 	allWant.Visualizer = "Bars"

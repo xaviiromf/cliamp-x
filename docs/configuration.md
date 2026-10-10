@@ -117,6 +117,9 @@ expanded = false
 # Close the Settings pane beside the playlist (Ctrl+B toggles and saves).
 hide_settings_pane = false
 
+# Hide the artwork preview pane under the lists.
+hide_preview = false
+
 # Show highlighted-playlist metadata below Settings (Ctrl+I toggles and saves).
 show_metadata = false
 
@@ -153,6 +156,11 @@ in columns and rows. The defaults are 3 and 1. cliamp-x clamps
 `padding_horizontal` to 0-10 and `padding_vertical` to 0-5. On a small
 terminal, cliamp-x reduces the padding so that the UI keeps at least one column
 and one row.
+
+The browsing screens (the provider pane, the browser, search, and the keymap)
+keep the visualizer too. They first give the list ten rows, then split what is
+left between the [preview pane](#preview-pane) and the visualizer, so a short
+terminal shows a shorter visualizer, or none.
 
 At the full tier the playback screen splits below the seek bar: the playlist
 fills the left column and a `Settings` pane fills the right one. The pane reads
@@ -213,6 +221,20 @@ List views such as provider browsing, file selection, queues, playlists, search
 results, themes, and keybindings use a content-first layout. This layout replaces
 the visualizer and detailed controls with a compact now-playing summary. It leaves
 more rows for navigation. The visualizer picker keeps its live preview.
+
+### Preview pane
+
+When the terminal has rows to spare, a preview pane appears under the list. It
+shows the cover of the highlighted album, the picture of the highlighted
+artist or playlist, or the thumbnail of the highlighted song, with a few
+details: artist, year, length, number of songs, listeners or plays. Where
+nothing is highlighted it shows the song that plays. The picture keeps its
+shape, so a plain YouTube video shows as a 16:9 thumbnail and a YouTube Music
+album as a square cover. Images are drawn with half-block characters, which
+any terminal with true color shows. Covers load in the background, and the
+rows just below and above the cursor load ahead of it, so moving through a
+list rarely waits; they are cached in `~/.local/share/cliamp-x/artwork`.
+`hide_preview = true` removes the pane.
 
 ### Metadata
 

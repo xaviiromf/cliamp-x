@@ -22,6 +22,8 @@ type Song struct {
 	Duration   int    // seconds, 0 when unknown
 	Liked      bool
 	SetVideoID string // the playlist entry ID, for playlist edits
+	Thumbnail  string // cover or video thumbnail URL
+	Plays      string // play count as YouTube Music words it, such as "283 M plays"
 }
 
 // ArtistName returns the credited artists joined with ", ".
@@ -58,15 +60,16 @@ const (
 
 // Item is one card of a shelf: a song, an album, a playlist or an artist.
 type Item struct {
-	Kind     ItemKind
-	ID       string // browse ID, or the video ID of a song
-	Params   string // browse params, for pages such as an artist's albums
-	Title    string
-	Subtitle string
-	Artist   string
-	ArtistID string
-	Year     int
-	Song     *Song // set for KindSong and KindVideo
+	Kind      ItemKind
+	ID        string // browse ID, or the video ID of a song
+	Params    string // browse params, for pages such as an artist's albums
+	Title     string
+	Subtitle  string
+	Artist    string
+	ArtistID  string
+	Year      int
+	Thumbnail string // cover, picture or thumbnail URL
+	Song      *Song  // set for KindSong and KindVideo
 }
 
 // Shelf is one titled row of cards, such as "Quick picks".
@@ -81,6 +84,45 @@ var (
 	durationRe = regexp.MustCompile(`^(\d{1,2}:)?\d{1,2}:\d{2}$`)
 	yearRe     = regexp.MustCompile(`^(19|20)\d{2}$`)
 )
+
+// thumbnailURL picks the smallest thumbnail at least 120 pixels wide under
+// o, or the largest one when all are smaller: enough for a terminal cover and
+// quick to fetch.
+func thumbnailURL(o any) string {
+	list, _ := findFirst(o, "thumbnails").([]any)
+	best, bestW := "", 0
+	for _, t := range list {
+		url := str(t, "url")
+		w, _ := get(t, "width").(float64)
+		if url == "" {
+			continue
+		}
+		width := int(w)
+		switch {
+		case best == "":
+			best, bestW = url, width
+		case bestW < 120 && width > bestW:
+			best, bestW = url, width
+		case width >= 120 && width < bestW:
+			best, bestW = url, width
+		}
+	}
+	if strings.HasPrefix(best, "//") {
+		best = "https:" + best
+	}
+	return best
+}
+
+// isPlays reports whether a subtitle segment counts plays or views.
+func isPlays(seg string) bool {
+	lower := strings.ToLower(seg)
+	for _, w := range []string{"reproduccion", "visualizacion", "views", "plays", "vistas"} {
+		if strings.Contains(lower, w) {
+			return true
+		}
+	}
+	return false
+}
 
 // parseDuration turns "3:21" or "1:02:03" into seconds.
 func parseDuration(s string) int {
@@ -138,6 +180,11 @@ func creditRuns(runs []any, s *Song) (year int) {
 	if len(s.Artists) == 0 {
 		if name := plainArtist(strings.Join(plain, "")); name != "" {
 			s.Artists = []Artist{{Name: name}}
+		}
+	}
+	for _, seg := range strings.Split(strings.Join(plain, ""), "•") {
+		if seg = strings.TrimSpace(seg); s.Plays == "" && isPlays(seg) {
+			s.Plays = seg
 		}
 	}
 	return year
@@ -231,6 +278,7 @@ func parseSongRow(r map[string]any) (Song, bool) {
 		}
 	}
 	s.Liked = likeStatus(r)
+	s.Thumbnail = thumbnailURL(r["thumbnail"])
 	return s, true
 }
 
@@ -248,6 +296,7 @@ func parsePanelSong(r map[string]any) (Song, bool) {
 		s.Duration = d
 	}
 	s.Liked = likeStatus(r)
+	s.Thumbnail = thumbnailURL(r["thumbnail"])
 	return s, true
 }
 
@@ -256,7 +305,7 @@ func parseTwoRow(r map[string]any) (Item, bool) {
 	if r == nil {
 		return Item{}, false
 	}
-	it := Item{Title: text(r["title"]), Subtitle: text(r["subtitle"])}
+	it := Item{Title: text(r["title"]), Subtitle: text(r["subtitle"]), Thumbnail: thumbnailURL(r["thumbnailRenderer"])}
 	nav := obj(r, "navigationEndpoint")
 	var credit Song
 	it.Year = creditRuns(arr(r, "subtitle", "runs"), &credit)
@@ -281,6 +330,7 @@ func parseTwoRow(r map[string]any) (Item, bool) {
 	if we := obj(nav, "watchEndpoint"); we != nil {
 		credit.VideoID = str(we, "videoId")
 		credit.Title = it.Title
+		credit.Thumbnail = it.Thumbnail
 		if credit.VideoID == "" {
 			return Item{}, false
 		}
@@ -309,13 +359,13 @@ func parseListItem(r map[string]any) (Item, bool) {
 		if s.Album == "" {
 			kind = KindVideo
 		}
-		return Item{Kind: kind, ID: s.VideoID, Title: s.Title, Artist: s.ArtistName(), ArtistID: s.ArtistID(), Song: &s}, true
+		return Item{Kind: kind, ID: s.VideoID, Title: s.Title, Artist: s.ArtistName(), ArtistID: s.ArtistID(), Thumbnail: s.Thumbnail, Song: &s}, true
 	}
 	be := obj(r, "navigationEndpoint", "browseEndpoint")
 	if be == nil {
 		return Item{}, false
 	}
-	it := Item{ID: str(be, "browseId"), Params: str(be, "params"), Title: text(flexColumn(r, 0)), Subtitle: text(flexColumn(r, 1))}
+	it := Item{ID: str(be, "browseId"), Params: str(be, "params"), Title: text(flexColumn(r, 0)), Subtitle: text(flexColumn(r, 1)), Thumbnail: thumbnailURL(r["thumbnail"])}
 	var credit Song
 	it.Year = creditRuns(arr(flexColumn(r, 1), "runs"), &credit)
 	it.Artist, it.ArtistID = credit.ArtistName(), credit.ArtistID()

@@ -397,6 +397,21 @@ type SectionTitler interface {
 	SectionTitle(prefix string) string
 }
 
+// PreviewDetails is what the preview pane shows about an album, artist or
+// playlist beyond its list row: a picture and a few lines such as the track
+// count, the total length, the year or the listener count.
+type PreviewDetails struct {
+	ImageURL string
+	Lines    []string
+}
+
+// PreviewLoader is implemented by providers that can look up preview details
+// for the IDs of their browse rows. The UI calls it off the Update goroutine
+// and caches the answer.
+type PreviewLoader interface {
+	PreviewDetails(ctx context.Context, id string) (PreviewDetails, error)
+}
+
 // GenreLabeler is implemented by GenreBrowser providers whose categories are
 // not genres, so the browse overlay can name them correctly (for example
 // "Countries" for a radio directory).

@@ -24,6 +24,7 @@ type ArtistInfo struct {
 	ID         string
 	Name       string
 	AlbumCount int
+	ImageURL   string // picture for the preview pane, or ""
 }
 
 // AlbumInfo describes an album in a provider's catalog.
@@ -38,6 +39,7 @@ type AlbumInfo struct {
 	// Restricted is presentation metadata for provider items that may require
 	// account access. It must not be folded into Name or persisted metadata.
 	Restricted bool
+	ImageURL   string // cover for the preview pane, or ""
 }
 
 // GenreInfo describes a provider category and whether it is pinned as a

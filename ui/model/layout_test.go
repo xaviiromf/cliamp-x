@@ -252,8 +252,9 @@ func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
 	if browse.layout.bodyRows <= playback.layout.bodyRows {
 		t.Fatalf("content-first body rows = %d, want more than playback rows %d", browse.layout.bodyRows, playback.layout.bodyRows)
 	}
-	if browse.layout.visualizerRows != 0 {
-		t.Fatalf("content-first visualizer rows = %d, want 0", browse.layout.visualizerRows)
+	// Browsing keeps the visualizer, shrunk so the list keeps ten rows.
+	if rows := browse.layout.visualizerRows; rows < 1 || rows > browse.layout.baseVisualizerRows || browse.layout.bodyRows < 10 {
+		t.Fatalf("content-first visualizer rows = %d, body rows = %d; want a shrunk visualizer and a 10-row list", rows, browse.layout.bodyRows)
 	}
 	if browse.vis.Rows < 1 {
 		t.Fatalf("content-first visualizer canvas rows = %d, want positive", browse.vis.Rows)

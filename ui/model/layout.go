@@ -27,6 +27,9 @@ type frameLayout struct {
 	visualizerRows     int
 	baseVisualizerRows int
 	fullVisualizerRows int
+	// previewRows is the height of the artwork preview pane under the list,
+	// its header included, or 0 when the screen has no room for it.
+	previewRows int
 	// twoColumn splits the body region into the playlist (left) and the
 	// settings pane (right); the two widths are zero when it is off.
 	twoColumn     bool
@@ -160,6 +163,9 @@ func (m *Model) recomputeLayout() {
 		layout.fixedRows = 7
 	}
 	layout.baseVisualizerRows = layout.visualizerRows
+	// contentFirstMinListRows is the list height a browsing screen keeps
+	// before it gives rows to the visualizer.
+	const contentFirstMinListRows = 10
 	contentFirst := m.usesContentFirstLayout()
 	simplified := m.usesSimplifiedLayout()
 	if contentFirst {
@@ -168,6 +174,25 @@ func (m *Model) recomputeLayout() {
 			layout.fixedRows = 6
 		} else {
 			layout.fixedRows = 7
+		}
+		// Browsing keeps the preview pane and the visualizer, shrunk to what
+		// the screen can spare after a usable list. The preview takes half
+		// of that first; the visualizer gets the rest.
+		if layout.tier != layoutMinimal {
+			free := height - 2*paddingV - layout.fixedRows - layout.footerRows - contentFirstMinListRows
+			if m.previewEnabled() && free >= previewMinRows {
+				share := free / 2
+				if m.visualizerDisabled() {
+					share = free
+				}
+				layout.previewRows = min(previewMaxRows, max(previewMinRows, share))
+				free -= layout.previewRows
+				layout.fixedRows += layout.previewRows
+			}
+			if !m.visualizerDisabled() {
+				layout.visualizerRows = max(0, min(layout.baseVisualizerRows, free))
+				layout.fixedRows += layout.visualizerRows
+			}
 		}
 	} else if simplified {
 		layout.visualizerRows = 0
@@ -217,6 +242,16 @@ func (m *Model) recomputeLayout() {
 		layout.fixedRows -= freed
 	}
 
+	// A tall playback screen shows the preview under the playlist with the
+	// rows the playlist cannot use.
+	if layout.tier == layoutFull && !contentFirst && !simplified && screen == screenMain && !m.heightExpanded && m.previewEnabled() {
+		spare := height - 2*paddingV - layout.fixedRows - layout.footerRows - (maxPlVisible + layout.chromeRowsFreed())
+		if spare >= previewMinRows {
+			layout.previewRows = min(previewMaxRows, spare)
+			layout.fixedRows += layout.previewRows
+		}
+	}
+
 	layout.fullVisualizerRows = max(1, height-6-2*paddingV)
 	if !layout.tooSmall() {
 		layout.bodyRows = max(1, height-2*paddingV-layout.fixedRows-layout.footerRows)
@@ -250,7 +285,7 @@ func (m *Model) recomputeLayout() {
 			m.vis.Rows = layout.fullVisualizerRows
 		} else {
 			rows := layout.visualizerRows
-			if contentFirst || m.visualizerDisabled() {
+			if (contentFirst && rows == 0) || m.visualizerDisabled() {
 				// Keep the normal canvas size cached while visualizer work is paused
 				// so modes resume with valid dimensions when the layout returns.
 				rows = max(1, layout.baseVisualizerRows)

@@ -23,6 +23,7 @@ const (
 	MetaVideoID  = "ytmusic.id"
 	MetaArtistID = "ytmusic.artist"
 	MetaAlbumID  = "ytmusic.album"
+	MetaPlays    = "ytmusic.plays"
 )
 
 // Pane row and browse IDs.
@@ -80,6 +81,8 @@ type Provider struct {
 	artists   []provider.ArtistInfo
 	artistsAt time.Time
 
+	previews previewCache
+
 	savedAlbums map[string]bool // library albums, by browse ID
 	subscribed  map[string]bool // subscribed artists, by channel ID
 }
@@ -123,7 +126,19 @@ func songTrack(s Song) playlist.Track {
 	if s.AlbumID != "" {
 		t.ProviderMeta[MetaAlbumID] = s.AlbumID
 	}
+	if s.Plays != "" {
+		t.ProviderMeta[MetaPlays] = s.Plays
+	}
+	t.AlbumArtURL = s.Thumbnail
+	if t.AlbumArtURL == "" {
+		t.AlbumArtURL = VideoThumbnail(s.VideoID)
+	}
 	return t
+}
+
+// VideoThumbnail returns the 16:9 thumbnail of a YouTube video.
+func VideoThumbnail(videoID string) string {
+	return "https://i.ytimg.com/vi/" + videoID + "/mqdefault.jpg"
 }
 
 func songTracks(songs []Song) []playlist.Track {
@@ -294,7 +309,7 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		if id == "LM" || id == "SE" {
 			continue // Liked music is in Favorites; SE is podcast episodes.
 		}
-		rows = append(rows, playlist.PlaylistInfo{ID: prefixList + it.ID, Name: it.Title, Section: w.yourMusic})
+		rows = append(rows, playlist.PlaylistInfo{ID: prefixList + it.ID, Name: it.Title, Section: w.yourMusic, ImageURL: it.Thumbnail})
 	}
 
 	for _, g := range p.favoriteGenres() {
@@ -314,7 +329,7 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 			}
 		}
 		if songs > 0 && songs*2 >= len(sh.Items) {
-			rows = append(rows, playlist.PlaylistInfo{ID: prefixShelf + strconv.Itoa(i), Name: sh.Title, TrackCount: songs, Section: w.home})
+			rows = append(rows, playlist.PlaylistInfo{ID: prefixShelf + strconv.Itoa(i), Name: sh.Title, TrackCount: songs, Section: w.home, ImageURL: sh.Items[0].Thumbnail})
 			homeRows++
 			continue
 		}
@@ -338,7 +353,7 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 			if it.Artist != "" && it.Kind != KindArtist && it.Artist != it.Title {
 				name += " · " + it.Artist
 			}
-			rows = append(rows, playlist.PlaylistInfo{ID: id, Name: name, Section: w.home + " · " + sh.Title})
+			rows = append(rows, playlist.PlaylistInfo{ID: id, Name: name, Section: w.home + " · " + sh.Title, ImageURL: it.Thumbnail})
 			homeRows++
 		}
 	}
@@ -599,6 +614,9 @@ func (p *Provider) allAlbums() []provider.AlbumInfo {
 			if old.Artist == "" {
 				old.Artist, old.ArtistID = add.Artist, add.ArtistID
 			}
+			if old.ImageURL == "" {
+				old.ImageURL = add.ImageURL
+			}
 		})
 	}
 	if p.client.SignedIn() {
@@ -611,21 +629,21 @@ func (p *Provider) allAlbums() []provider.AlbumInfo {
 		savedSet := map[string]bool{}
 		for _, it := range saved {
 			savedSet[it.ID] = true
-			add(provider.AlbumInfo{ID: it.ID, Name: heart + it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1000)
+			add(provider.AlbumInfo{ID: it.ID, Name: heart + it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year, ImageURL: it.Thumbnail}, 1000)
 		}
 		p.mu.Lock()
 		p.savedAlbums = savedSet
 		p.mu.Unlock()
 		for _, s := range p.cachedLiked() {
 			if s.AlbumID != "" {
-				add(provider.AlbumInfo{ID: s.AlbumID, Name: s.Album, Artist: s.ArtistName(), ArtistID: s.ArtistID()}, 10)
+				add(provider.AlbumInfo{ID: s.AlbumID, Name: s.Album, Artist: s.ArtistName(), ArtistID: s.ArtistID(), ImageURL: s.Thumbnail}, 10)
 			}
 		}
 	}
 	for _, sh := range p.cachedHome() {
 		for _, it := range sh.Items {
 			if it.Kind == KindAlbum {
-				add(provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year}, 1)
+				add(provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: it.Artist, ArtistID: it.ArtistID, Year: it.Year, ImageURL: it.Thumbnail}, 1)
 			}
 		}
 	}
@@ -696,9 +714,13 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 	p.mu.Unlock()
 
 	r := newRanked[provider.ArtistInfo]()
-	add := func(id, name string, score int) {
+	add := func(id, name, image string, score int) {
 		if id != "" && name != "" {
-			r.add(id, provider.ArtistInfo{ID: id, Name: name}, score, nil)
+			r.add(id, provider.ArtistInfo{ID: id, Name: name, ImageURL: image}, score, func(old *provider.ArtistInfo, add provider.ArtistInfo) {
+				if old.ImageURL == "" {
+					old.ImageURL = add.ImageURL
+				}
+			})
 		}
 	}
 	if p.client.SignedIn() {
@@ -710,7 +732,7 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 		subSet := map[string]bool{}
 		for _, it := range subs {
 			subSet[it.ID] = true
-			add(it.ID, heart+it.Title, 1000)
+			add(it.ID, heart+it.Title, it.Thumbnail, 1000)
 		}
 		p.mu.Lock()
 		p.subscribed = subSet
@@ -721,20 +743,20 @@ func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
 			applog.Warn("ytmusic: library artists: %v", err)
 		}
 		for _, it := range lib {
-			add(it.ID, it.Title, 100)
+			add(it.ID, it.Title, it.Thumbnail, 100)
 		}
 		for _, s := range p.cachedLiked() {
 			for _, a := range s.Artists {
-				add(a.ID, a.Name, 10)
+				add(a.ID, a.Name, "", 10)
 			}
 		}
 	}
 	for _, sh := range p.cachedHome() {
 		for _, it := range sh.Items {
 			if it.Kind == KindArtist {
-				add(it.ID, it.Title, 1)
+				add(it.ID, it.Title, it.Thumbnail, 1)
 			} else if it.ArtistID != "" {
-				add(it.ArtistID, it.Artist, 1)
+				add(it.ArtistID, it.Artist, "", 1)
 			}
 		}
 	}
@@ -771,7 +793,7 @@ func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
 		return nil, err
 	}
 	name := page.Name
-	out := []provider.AlbumInfo{{ID: prefixArtist + artistID, Name: p.words.topSongs, Artist: name, ArtistID: artistID}}
+	out := []provider.AlbumInfo{{ID: prefixArtist + artistID, Name: p.words.topSongs, Artist: name, ArtistID: artistID, ImageURL: page.Thumbnail}}
 	albums := page.Albums
 	if full, err := p.client.ArtistReleases(ctx, page.AlbumsMore); err == nil && len(full) > 0 {
 		albums = full
@@ -781,10 +803,10 @@ func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
 		singles = full
 	}
 	for _, it := range albums {
-		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: name, ArtistID: artistID, Year: it.Year})
+		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: name, ArtistID: artistID, Year: it.Year, ImageURL: it.Thumbnail})
 	}
 	for _, it := range singles {
-		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year})
+		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year, ImageURL: it.Thumbnail})
 	}
 	return append(out, p.localAlbumInfos(name)...), nil
 }
@@ -1062,13 +1084,18 @@ func (p *Provider) SearchTracks(ctx context.Context, query string, limit int) ([
 					t.ProviderMeta[MetaSection] = w.searchSongs
 					out = append(out, t)
 				case SearchArtists:
-					out = append(out, placeholder(prefixArtist+it.ID, it.Title, "", w.searchArtists))
+					t := placeholder(prefixArtist+it.ID, it.Title, "", w.searchArtists)
+					t.AlbumArtURL = it.Thumbnail
+					out = append(out, t)
 				case SearchAlbums:
 					t := placeholder(it.ID, it.Title, it.Artist, w.searchAlbums)
 					t.Year = it.Year
+					t.AlbumArtURL = it.Thumbnail
 					out = append(out, t)
 				case SearchPlaylists:
-					out = append(out, placeholder(prefixList+it.ID, it.Title, it.Artist, w.searchPlaylists))
+					t := placeholder(prefixList+it.ID, it.Title, it.Artist, w.searchPlaylists)
+					t.AlbumArtURL = it.Thumbnail
+					out = append(out, t)
 				}
 				count++
 			}
@@ -1127,6 +1154,7 @@ func (p *Provider) openLinkTracks(ctx context.Context, link Link) ([]playlist.Tr
 		}
 		return []playlist.Track{{
 			Path: WatchURL(link.VideoID), Title: link.VideoID, Stream: true,
+			AlbumArtURL:  VideoThumbnail(link.VideoID),
 			ProviderMeta: map[string]string{MetaVideoID: link.VideoID},
 		}}, nil
 	case LinkPlaylist:

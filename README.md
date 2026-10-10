@@ -37,7 +37,15 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   recorrerlos, comparación A/B, preamplificador automático contra la
   saturación y modo **EQ automático** que elige el preset según el género de
   cada canción.
-- **Visualizadores** del espectro, con muchos modos.
+- **Visualizadores** del espectro: más de 40 modos (`v` los recorre), entre
+  ellos Spectrogram, Radial, Starfield, Plasma, Tunnel, Helix, Ripple, Aurora,
+  Skyline y Spiral. Se ven en todas las pantallas, también al buscar y al
+  explorar, ajustados al espacio libre, y en pantalla completa (`V`).
+- **Vista previa con carátula**: al recorrer álbumes, artistas, playlists,
+  canciones o resultados de búsqueda, abajo aparece la carátula (o la miniatura
+  del video, con su forma 16:9 o 4:3) con datos como el artista, el año, la
+  duración, las canciones, los oyentes o las reproducciones. Las imágenes de
+  las filas cercanas se cargan por adelantado, así que aparecen sin esperar.
 - **Letras** sincronizadas.
 - **MPRIS**: controla la reproducción con las teclas multimedia, `playerctl` o
   el panel de tu escritorio.

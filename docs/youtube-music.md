@@ -90,6 +90,22 @@ búsqueda también acepta links de YouTube y YouTube Music:
 
 `Ctrl+U` borra el texto del buscador.
 
+## Vista previa
+
+Si la terminal tiene filas de sobra, bajo la lista aparece la carátula de lo
+que tienes seleccionado, con algunos datos:
+
+- **Álbum:** tipo y año, artista, número de canciones y duración.
+- **Artista:** oyentes mensuales, suscriptores y sus canciones más populares.
+- **Playlist:** autor y duración.
+- **Canción:** artista, álbum, año, duración y reproducciones.
+
+Un video normal de YouTube (un remix no oficial, por ejemplo) se ve con su
+miniatura en 16:9 o 4:3, sin recortar. Las imágenes de las filas cercanas se
+descargan por adelantado y quedan guardadas en
+`~/.local/share/cliamp-x/artwork`, así que al recorrer la lista aparecen sin
+esperar. `hide_preview = true` en `config.toml` la oculta.
+
 ## Radio automática
 
 Cuando la cola termina, cliamp-x sigue con canciones parecidas a la última.

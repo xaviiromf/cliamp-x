@@ -117,10 +117,12 @@ func (c *Client) Home(ctx context.Context, minShelves int) ([]Shelf, error) {
 
 // PlaylistPage is a playlist with its songs.
 type PlaylistPage struct {
-	ID     string
-	Title  string
-	Author string
-	Songs  []Song
+	ID        string
+	Title     string
+	Author    string
+	Length    string // "113 pistas • 4+ horas"
+	Thumbnail string
+	Songs     []Song
 }
 
 // Playlist returns a playlist and its songs, up to limit (0 = all). id may
@@ -135,6 +137,8 @@ func (c *Client) Playlist(ctx context.Context, id string, limit int) (PlaylistPa
 	if h := responsiveHeader(resp); h != nil {
 		page.Title = text(h["title"])
 		page.Author = text(h["straplineTextOne"])
+		page.Length = text(h["secondSubtitle"])
+		page.Thumbnail = thumbnailURL(h["thumbnail"])
 	}
 	if limit > 0 && len(page.Songs) > limit {
 		page.Songs = page.Songs[:limit]
@@ -157,12 +161,15 @@ func responsiveHeader(resp map[string]any) map[string]any {
 
 // AlbumPage is an album with its songs.
 type AlbumPage struct {
-	ID       string
-	Title    string
-	Artist   string
-	ArtistID string
-	Year     int
-	Songs    []Song
+	ID        string
+	Title     string
+	Artist    string
+	ArtistID  string
+	Year      int
+	Kind      string // "Álbum", "Single", "EP"... as the header words it
+	Length    string // "10 canciones • 40 minutos"
+	Thumbnail string
+	Songs     []Song
 }
 
 // Album returns an album (browse ID MPREb_...) and its songs.
@@ -179,6 +186,9 @@ func (c *Client) Album(ctx context.Context, browseID string) (AlbumPage, error) 
 		page.Artist, page.ArtistID = credit.ArtistName(), credit.ArtistID()
 		var sub Song
 		page.Year = creditRuns(arr(h, "subtitle", "runs"), &sub)
+		page.Kind = strings.TrimSpace(strings.Split(text(h["subtitle"]), "•")[0])
+		page.Length = text(h["secondSubtitle"])
+		page.Thumbnail = thumbnailURL(h["thumbnail"])
 	}
 	r, contents := firstListRenderer(sectionList(resp))
 	if r != nil {
@@ -194,6 +204,9 @@ func (c *Client) Album(ctx context.Context, browseID string) (AlbumPage, error) 
 		if s.Album == "" {
 			s.Album, s.AlbumID = page.Title, browseID
 		}
+		if s.Thumbnail == "" {
+			s.Thumbnail = page.Thumbnail
+		}
 	}
 	return page, nil
 }
@@ -202,6 +215,9 @@ func (c *Client) Album(ctx context.Context, browseID string) (AlbumPage, error) 
 type ArtistPage struct {
 	ID          string
 	Name        string
+	Thumbnail   string
+	Listeners   string // "14,6 M usuarios mensuales"
+	Subscribers string // "3,03 M"
 	TopSongs    []Song
 	SongsListID string // browse ID of the full song list, if any
 	Albums      []Item
@@ -223,6 +239,9 @@ func (c *Client) Artist(ctx context.Context, channelID string) (ArtistPage, erro
 	for _, name := range []string{"musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer", "musicResponsiveHeaderRenderer"} {
 		if h := obj(resp, "header", name); h != nil {
 			page.Name = text(h["title"])
+			page.Thumbnail = thumbnailURL(h["thumbnail"])
+			page.Listeners = text(h["monthlyListenerCount"])
+			page.Subscribers = text(findFirst(h["subscriptionButton"], "subscriberCountText"))
 			break
 		}
 	}

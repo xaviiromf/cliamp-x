@@ -168,3 +168,44 @@ func TestParseDurationAndPlainArtist(t *testing.T) {
 		}
 	}
 }
+
+func TestThumbnailURL(t *testing.T) {
+	thumbs := func(sizes ...any) map[string]any {
+		var list []any
+		for i := 0; i < len(sizes); i += 2 {
+			list = append(list, map[string]any{"url": sizes[i], "width": float64(sizes[i+1].(int))})
+		}
+		return map[string]any{"thumbnail": map[string]any{"thumbnails": list}}
+	}
+	tests := []struct {
+		name string
+		in   any
+		want string
+	}{
+		{"smallest at least 120 wide", thumbs("a60", 60, "b544", 544, "c226", 226, "d120", 120), "d120"},
+		{"largest when all are small", thumbs("a32", 32, "b60", 60), "b60"},
+		{"protocol-relative url", thumbs("//yt3.example/x", 176), "https://yt3.example/x"},
+		{"no thumbnails", map[string]any{}, ""},
+	}
+	for _, tt := range tests {
+		if got := thumbnailURL(tt.in); got != tt.want {
+			t.Errorf("%s: thumbnailURL = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestIsPlays(t *testing.T) {
+	for seg, want := range map[string]bool{
+		"47 M reproducciones":   true,
+		"1,2 M visualizaciones": true,
+		"158K views":            true,
+		"3.4M plays":            true,
+		"Toby Fox":              false,
+		"2:21":                  false,
+		"UNDERTALE Soundtrack":  false,
+	} {
+		if got := isPlays(seg); got != want {
+			t.Errorf("isPlays(%q) = %v, want %v", seg, got, want)
+		}
+	}
+}

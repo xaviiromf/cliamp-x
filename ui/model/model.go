@@ -15,6 +15,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/provider"
 	"github.com/xaviiromf/cliamp-x/theme"
 	"github.com/xaviiromf/cliamp-x/ui"
+	"github.com/xaviiromf/cliamp-x/ui/artwork"
 )
 
 // ConfigSaver persists top-level config keys with typed values.
@@ -560,6 +561,12 @@ type Model struct {
 	hideSettings    bool // close the two-column settings pane beside the playlist
 	showMetadata    bool // expand highlighted-track metadata below settings
 	heightExpanded  bool // tracks whether manual 'x' expansion is active
+
+	// The artwork preview pane: the image cache (nil while the pane is
+	// off) and the looked-up details of albums, artists and playlists.
+	art            *artwork.Cache
+	previewDetails map[string]provider.PreviewDetails
+	previewPending map[string]bool
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration

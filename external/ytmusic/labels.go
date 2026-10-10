@@ -13,6 +13,7 @@ type labels struct {
 	genreCommunity, genreLabel, moodLabel              string
 	searchSongs, searchAlbums, searchArtists           string
 	searchPlaylists, searchLink, localMusic, localTag  string
+	subscribers, songsWord                             string
 }
 
 var spanish = labels{
@@ -24,7 +25,7 @@ var spanish = labels{
 	genreMix: "Mezcla del género", genreSongs: "Canciones populares", genreFeatured: "Lista destacada",
 	genreCommunity: "Lista de la comunidad", genreLabel: "Géneros", moodLabel: "Estados de ánimo",
 	searchSongs: "Canciones", searchAlbums: "Álbumes", searchArtists: "Artistas", searchPlaylists: "Listas", searchLink: "Desde el enlace",
-	localMusic: "Música local", localTag: " · local",
+	localMusic: "Música local", localTag: " · local", subscribers: "suscriptores", songsWord: "canciones",
 }
 
 var english = labels{
@@ -36,7 +37,7 @@ var english = labels{
 	genreMix: "Genre mix", genreSongs: "Popular songs", genreFeatured: "Featured playlist",
 	genreCommunity: "Community playlist", genreLabel: "Genres", moodLabel: "Moods",
 	searchSongs: "Songs", searchAlbums: "Albums", searchArtists: "Artists", searchPlaylists: "Playlists", searchLink: "From the link",
-	localMusic: "Local music", localTag: " · local",
+	localMusic: "Local music", localTag: " · local", subscribers: "subscribers", songsWord: "songs",
 }
 
 func labelsFor(hl string) labels {
