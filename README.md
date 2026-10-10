@@ -32,6 +32,12 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   nightcore, bootlegs y covers de una canción, agrupados por tipo.
 - **Novedades de tus artistas**: los lanzamientos de este año de los artistas
   que sigues, marcados mientras no los abras.
+- **Descargas para escuchar sin conexión** (`D`): canciones, álbumes y
+  playlists con su carátula y etiquetas, ordenados por artista y álbum en
+  `~/Music/cliamp-x`. Lo descargado suena desde el disco.
+- **Estadísticas** (`S`): tiempo escuchado, racha de días, actividad y tus
+  artistas, canciones y géneros más escuchados por semana, mes o año.
+- **Letras de YouTube Music**: además de las sincronizadas de LRCLIB.
 - **Radio automática**: cuando la cola termina, sigue con canciones parecidas
   a la última (`R` la activa o desactiva).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
@@ -173,6 +179,8 @@ cliamp-x https://example.com/stream  # una URL
 | `n` | Normalización de volumen: desactivada, por canción, por álbum |
 | `M` | Más como esto: radio de la canción, álbum o artista seleccionado |
 | `X` | Buscar remixes y otras versiones de la canción |
+| `D` | Descargar la canción, álbum o playlist seleccionado |
+| `S` | Estadísticas de lo que escuchas |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
 | `Ctrl+K` / `?` | Ver todas las teclas |

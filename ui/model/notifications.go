@@ -298,6 +298,7 @@ func (m *Model) leaveTrack(elapsed, dur time.Duration) {
 	}
 	m.playingTrackLeft = true
 	m.maybeScrobble(m.playingTrack, elapsed, dur)
+	m.recordPlay(m.playingTrack, elapsed, dur)
 }
 
 // findTrackPosition returns the provider that can report track's saved

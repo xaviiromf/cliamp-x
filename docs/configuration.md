@@ -508,8 +508,36 @@ directory = "/media/usb/CLAPt/Music"
 An empty value keeps the default. Relative paths are rejected; literal `~` is not
 expanded. Missing directories are created. Mount external drives first because
 cliamp-x does not check mount status. The IPC `save` operation uses the same
-directory, in the TUI and in headless mode. Files remain ordinary local audio
-files and are not automatically substituted into online playlists.
+directory, in the TUI and in headless mode. `Ctrl+S` files remain ordinary
+local audio files; `D` downloads, below, also play in place of the stream.
+
+### Offline downloads
+
+`D` downloads the highlighted song, album, playlist or artist (its top songs)
+for listening without a connection. It works in the provider pane, the
+browser, search results and the queue. Songs download one at a time with
+yt-dlp, and the status line shows the progress (`↓ 3/12 · Song 45%`).
+
+Each song keeps YouTube's own AAC audio (`.m4a`) when there is one, so it is
+not re-encoded, and gets its cover (1200 px for YouTube Music songs), title,
+artist, album, year and, for an album, track number. Files land in
+`<directory>/<Artist>/<Album>/`, singles in `<Artist>/Singles/`. Without
+ffmpeg the files keep the audio but no tags.
+
+A downloaded song plays from its file instead of streaming, also offline;
+`~/.local/share/cliamp-x/offline.json` maps the songs to their files. The
+preview pane marks downloaded songs with `↓`. When the directory is inside
+your music folder (the default is), the downloads also join the local music
+menus.
+
+## Listening statistics
+
+`S` opens the statistics of what you listened to in cliamp-x: listening time,
+plays, distinct songs and artists, the streak of days in a row, the activity
+of the last 30 days, and the top artists, songs and genres. Left and Right
+switch between the last week, month, year and all time. A song counts once it
+played for 30 seconds, or half of it when it is shorter. The log is
+`~/.local/share/cliamp-x/plays.jsonl` and stays on this computer.
 
 ## Proxy
 

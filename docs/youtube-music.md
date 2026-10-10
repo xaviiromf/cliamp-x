@@ -126,6 +126,18 @@ bloques y `hide_preview = true` en `config.toml` oculta la vista previa.
 Ambas funcionan en el panel de YouTube Music, en el navegador de álbumes y
 artistas, en la búsqueda y en la cola.
 
+## Descargas y letras
+
+- `D` descarga para escuchar sin conexión la canción, el álbum o la playlist
+  seleccionada (de un artista, sus canciones populares). Se guardan en
+  `~/Music/cliamp-x/Artista/Álbum/` con su carátula y etiquetas, sin
+  recomprimir el audio. Una canción descargada suena desde el archivo, aunque
+  no haya conexión, y la vista previa la marca con `↓`. Ver
+  [Configuración](configuration.md#offline-downloads).
+- Las letras de YouTube Music se suman a las de LRCLIB y NetEase. Como YouTube
+  Music no trae tiempos, las letras sincronizadas de LRCLIB tienen prioridad y
+  las de YouTube Music se usan cuando no hay otras.
+
 ## SponsorBlock
 
 Muchos videos musicales de YouTube traen una intro hablada, un final con

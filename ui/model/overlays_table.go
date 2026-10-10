@@ -69,6 +69,12 @@ func init() {
 			view:    overlayView{(*Model).eqPanelHeaderLine, (*Model).renderEQPanelBody},
 		},
 		{
+			screen:  screenStats,
+			key:     (*Model).handleStatsKey,
+			context: fixedContext(commandModeStats, "Statistics"),
+			view:    overlayView{(*Model).statsHeaderLine, (*Model).renderStatsBody},
+		},
+		{
 			screen:  screenDevicePicker,
 			key:     (*Model).handleDeviceKey,
 			context: fixedContext(commandModeDevicePicker, "Audio Device"),
@@ -304,6 +310,8 @@ func (m *Model) overlayOpen(screen topLevelScreen) bool {
 		return m.devicePicker.visible
 	case screenEQPanel:
 		return m.eqPanel.visible
+	case screenStats:
+		return m.stats.visible
 	case screenPlaylistPicker:
 		return m.plPicker.visible
 	case screenFileBrowser:
@@ -345,7 +353,7 @@ func (m *Model) overlayOpen(screen topLevelScreen) bool {
 // and reads as a view of it.
 func (m *Model) overlayContentFirst(screen topLevelScreen) bool {
 	switch screen {
-	case screenKeymap, screenDevicePicker, screenEQPanel, screenFileBrowser, screenNavBrowser,
+	case screenKeymap, screenDevicePicker, screenEQPanel, screenStats, screenFileBrowser, screenNavBrowser,
 		screenThemePicker, screenSubs, screenSearch:
 		return true
 	case screenPlaylistPicker:

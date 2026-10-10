@@ -22,9 +22,11 @@ import (
 	"github.com/xaviiromf/cliamp-x/internal/appdir"
 	"github.com/xaviiromf/cliamp-x/internal/appmeta"
 	"github.com/xaviiromf/cliamp-x/internal/loudstore"
+	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/internal/resume"
 	"github.com/xaviiromf/cliamp-x/internal/sponsorblock"
+	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
 	"github.com/xaviiromf/cliamp-x/mediactl"
@@ -160,6 +162,14 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		m.SetAutoPlay(true)
 	}
 	configureModel(&m, cfg, headless, visualizer60FPS)
+	// Downloaded songs play from their files, also without a connection.
+	if dir, derr := appdir.DataDir(); derr == nil {
+		manifest := offline.OpenManifest(filepath.Join(dir, "offline.json"))
+		p.SetLocalCopies(manifest.LocalFile)
+		m.SetOffline(manifest, cfg.Downloads.Directory)
+		// The statistics screen sums up this log of listened songs.
+		m.SetStatsLog(stats.Open(filepath.Join(dir, "plays.jsonl")))
+	}
 
 	if resumeState.Path != "" && resumeState.PositionSec > 0 && len(positional) > 0 {
 		m.SetResume(resumeState.Path, resumeState.PositionSec)

@@ -14,6 +14,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/locallib"
+	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
@@ -1205,4 +1206,26 @@ func (p *Provider) RelatedToItem(ctx context.Context, id string, n int) (playlis
 		}
 	}
 	return playlist.Track{}, nil, errNoSeed
+}
+
+// TrackLyrics returns the YouTube Music lyrics of a song as plain lines, or
+// lyrics.ErrNotFound. YouTube Music has no timestamps for them, so synced
+// lyrics from LRCLIB win when they exist.
+func (p *Provider) TrackLyrics(ctx context.Context, track playlist.Track) ([]lyrics.Line, error) {
+	id := trackVideoID(track)
+	if id == "" {
+		return nil, lyrics.ErrNotFound
+	}
+	text, _, err := p.client.Lyrics(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	var lines []lyrics.Line
+	for raw := range strings.SplitSeq(strings.TrimSpace(text), "\n") {
+		lines = append(lines, lyrics.Line{Text: strings.TrimSpace(raw)})
+	}
+	if len(lines) == 0 || strings.TrimSpace(text) == "" {
+		return nil, lyrics.ErrNotFound
+	}
+	return lines, nil
 }

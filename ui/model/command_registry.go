@@ -51,6 +51,7 @@ const (
 	commandModeSubsFilter
 	commandModeFullVis
 	commandModeEQPanel
+	commandModeStats
 )
 
 const commandModeAny = ^commandMode(0)
@@ -167,6 +168,8 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"n"}, KeyLabel: "n", Label: "Volume normalization: off / by song / by album", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"M"}, KeyLabel: "M", Label: "More like this: radio from the highlighted song, album or artist", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"X"}, KeyLabel: "X", Label: "Find remixes and other versions of the song", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"D"}, KeyLabel: "D", Label: "Download for offline: the highlighted song, album or playlist", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"S"}, KeyLabel: "S", Label: "Listening statistics", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
 		return !m.simplified && m.layout.tier == layoutFull
 	}, Keymap: true},
@@ -246,6 +249,9 @@ var commandRegistry = []commandSpec{
 			m.searchOverlay.cursor >= 0 && m.searchOverlay.cursor < len(m.searchOverlay.results)
 	}},
 	{Mode: commandModeEQ, Keys: []string{"up", "down"}, KeyLabel: "Up Down", Label: "Gain", ContextHelp: true},
+	{Mode: commandModeStats, Keys: []string{"left", "right", "h", "l", "tab", "shift+tab"}, KeyLabel: "Left Right", Label: "Period: week / month / year / all time", ContextHelp: true, Primary: true},
+	{Mode: commandModeStats, Keys: []string{"up", "down", "k", "j", "home", "g"}, KeyLabel: "Up Down", Label: "Scroll", ContextHelp: true},
+	{Mode: commandModeStats, Keys: []string{"esc", "q", "S", "backspace"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", ContextHelp: true, Cancel: true},
 	{Mode: commandModeEQPanel, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Preset (live preview) / band gain", ContextHelp: true, Primary: true},
 	{Mode: commandModeEQPanel, Keys: []string{"left", "right", "h", "l"}, KeyLabel: "Left Right", Label: "Select band", ContextHelp: true},
 	{Mode: commandModeEQPanel, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab", Label: "Presets / bands", ContextHelp: true},
@@ -324,6 +330,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeNavBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true, Enabled: func(m Model) bool { return m.navView() == navViewTracks }},
 	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"M"}, KeyLabel: "M", Label: "More like this: radio from the highlighted row", Keymap: true},
 	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"X"}, KeyLabel: "X", Label: "Find remixes and other versions of the song", Keymap: true},
+	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"D"}, KeyLabel: "D", Label: "Download for offline", Keymap: true},
 	{Mode: commandModeLyrics, Keys: []string{"r"}, KeyLabel: "r", Label: "Retry", ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) }},
 	{Mode: commandModeLyrics, Keys: []string{"[", "]"}, KeyLabel: "[ ]", Label: "Sync offset (−/+250 ms)", ContextHelp: true, Keymap: true, Enabled: func(m Model) bool { return m.lyricsSyncable() && m.lyricsHaveTimestamps() }},
 	{Mode: commandModeLyrics, Keys: []string{"esc", "q"}, KeyLabel: "Esc", Label: "Close", ContextHelp: true, Cancel: true},

@@ -624,3 +624,23 @@ func TestBuildPipelineSendsFFmpegFormatsPastNativeDecoders(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSourcePlaysLocalCopy(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "copy.wav")
+	if err := os.WriteFile(file, testWAV(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := &Player{sr: beep.SampleRate(44100), bitDepth: 16, resampleQuality: 1}
+	p.RegisterYTDLMatcher(func(string) bool { return true })
+	const page = "https://music.youtube.com/watch?v=dQw4w9WgXcQ"
+	p.SetLocalCopies(func(path string) (string, bool) { return file, path == page })
+	tp, err := p.buildSource(page, time.Second, 0, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tp.close()
+	if tp.ytdlSeek || tp.path != page || !tp.seekable {
+		t.Fatalf("pipeline = ytdl %v path %q seekable %v; want the seekable local file under the page's identity", tp.ytdlSeek, tp.path, tp.seekable)
+	}
+}

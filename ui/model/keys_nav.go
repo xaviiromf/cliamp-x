@@ -52,6 +52,8 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 			return m.moreLikeThis()
 		case "X":
 			return m.findRemixes()
+		case "D":
+			return m.downloadHighlighted()
 		}
 	}
 

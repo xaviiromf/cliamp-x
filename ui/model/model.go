@@ -9,6 +9,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -218,6 +219,7 @@ const (
 	screenLyrics
 	screenJump
 	screenEQPanel
+	screenStats
 	// screenFullVisualizer stays last. TestOverlayStackOrder checks that
 	// overlayStack holds each screen up to it.
 	screenFullVisualizer
@@ -257,6 +259,8 @@ func (s topLevelScreen) label() string {
 		return "Lyrics"
 	case screenJump:
 		return "Jump to Time"
+	case screenStats:
+		return "Statistics"
 	case screenEQPanel:
 		return "Equalizer"
 	case screenFullVisualizer:
@@ -570,6 +574,9 @@ type Model struct {
 
 	crossfade time.Duration // overlap between songs of different albums
 	sponsor   sponsorState  // SponsorBlock lookups and skips
+	downloads downloadState // offline downloads
+	stats     statsState    // the statistics screen
+	statsLog  *stats.Log    // where listened songs are recorded
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration

@@ -87,22 +87,46 @@ type Source func(ctx context.Context) ([]Line, error)
 
 // Lookup returns the lyrics of a track. It tries the embedded lyrics first,
 // then each source in order, then LRCLIB and NetEase with artist and title.
-// A source that fails is skipped. When no step finds lyrics, Lookup returns
-// the last LRCLIB or NetEase error, so a network failure does not read as
-// ErrNotFound. When both answer that they have none, it returns ErrNotFound.
+// A source that fails is skipped. Synced lyrics win over plain ones: a source
+// with plain text only, such as YouTube Music, is used when LRCLIB and
+// NetEase have no synced lyrics either. When no step finds lyrics, Lookup
+// returns the last LRCLIB or NetEase error, so a network failure does not
+// read as ErrNotFound. When both answer that they have none, it returns
+// ErrNotFound.
 func Lookup(ctx context.Context, embedded, artist, title string, sources ...Source) ([]Line, error) {
 	if lines := ParseEmbedded(embedded); len(lines) > 0 {
 		return lines, nil
 	}
+	var plain []Line
 	for _, source := range sources {
 		sourceCtx, cancel := context.WithTimeout(ctx, sourceTimeout)
 		lines, err := source(sourceCtx)
 		cancel()
-		if err == nil && len(lines) > 0 {
+		if err != nil || len(lines) == 0 {
+			continue
+		}
+		if Synced(lines) {
 			return lines, nil
 		}
+		if plain == nil {
+			plain = lines
+		}
 	}
-	return fetch(ctx, artist, title)
+	lines, err := fetch(ctx, artist, title)
+	if plain != nil && (err != nil || !Synced(lines)) {
+		return plain, nil
+	}
+	return lines, err
+}
+
+// Synced reports whether lines carry timestamps.
+func Synced(lines []Line) bool {
+	for _, l := range lines {
+		if l.Start > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // fetch requests lyrics for the given artist and title.

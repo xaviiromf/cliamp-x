@@ -207,9 +207,10 @@ func (p *Player) localFFmpegPipeline(path string) (*trackPipeline, error) {
 }
 
 // buildSource opens path on the pipeline that its source needs. It is the one
-// place that routes a path. A page URL that the yt-dlp matcher claims plays
-// through the yt-dlp | ffmpeg chain, which starts at 0. Any other path goes
-// through buildPipeline and starts at offset when its decoder can seek.
+// place that routes a path. A path with a downloaded copy plays the file. A
+// page URL that the yt-dlp matcher claims plays through the yt-dlp | ffmpeg
+// chain, which starts at offset. Any other path goes through buildPipeline
+// and starts at offset when its decoder can seek.
 // knownDuration is the metadata duration (use 0 if unknown). With
 // probeDuration, a yt-dlp source with no known duration asks yt-dlp for one.
 func (p *Player) buildSource(path string, knownDuration, offset time.Duration, probeDuration bool) (*trackPipeline, error) {
@@ -222,12 +223,19 @@ func (p *Player) buildSource(path string, knownDuration, offset time.Duration, p
 }
 
 func (p *Player) buildUnleveledSource(path string, knownDuration, offset time.Duration, probeDuration bool) (*trackPipeline, error) {
-	if p.isYTDLURL(path) {
+	source := path
+	if file, ok := p.localCopy(path); ok {
+		// The track keeps its identity; only the bytes come from the file.
+		source = file
+	} else if p.isYTDLURL(path) {
 		return p.buildYTDLSource(path, knownDuration, offset, probeDuration)
 	}
-	tp, err := p.buildPipeline(path, knownDuration)
+	tp, err := p.buildPipeline(source, knownDuration)
 	if err != nil {
 		return nil, fmt.Errorf("play at %v: %w", offset, err)
+	}
+	if source != path {
+		tp.path = path
 	}
 	tp.setKnownDuration(knownDuration)
 	if offset > 0 && tp.seekable {

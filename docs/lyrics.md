@@ -1,6 +1,6 @@
 # Lyrics
 
-Press `y` to show lyrics for the current track. For a local file, cliamp-x first uses lyrics embedded in file tags. If the file has no embedded lyrics, cliamp-x fetches lyrics from LRCLIB and NetEase Cloud Music.
+Press `y` to show lyrics for the current track. For a local file, cliamp-x first uses lyrics embedded in file tags. If the file has no embedded lyrics, cliamp-x fetches lyrics from LRCLIB and NetEase Cloud Music. A YouTube Music song also has the lyrics YouTube Music shows; those carry no timestamps, so synced lyrics from LRCLIB win and the YouTube Music text is used when no source has synced lyrics.
 
 The `lyrics` remote operation uses the same order, and the same artist and title as the overlay. For a radio stream, that is the current song from the stream title.
 

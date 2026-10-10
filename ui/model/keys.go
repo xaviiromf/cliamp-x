@@ -15,6 +15,7 @@ import (
 
 // quit shuts down the player and signals the TUI to exit.
 func (m *Model) quit() tea.Cmd {
+	m.cancelDownloads()
 	// Only save resume for seekable tracks:
 	// - local files (not stream)
 	// - HTTP streams with known duration (podcast MP3s)
@@ -288,6 +289,10 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.moreLikeThis()
 	case "X":
 		return m.findRemixes()
+	case "D":
+		return m.downloadHighlighted()
+	case "S":
+		return m.openStats()
 	case "F":
 		m.openSubsOverlay()
 	case "l":
@@ -771,6 +776,12 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "X":
 		return m.findRemixes()
+
+	case "D":
+		return m.downloadHighlighted()
+
+	case "S":
+		return m.openStats()
 
 	case "?":
 		m.openKeymap()

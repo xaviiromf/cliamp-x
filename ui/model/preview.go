@@ -202,7 +202,7 @@ func (m Model) currentPreviewList() previewList {
 		case navViewTracks:
 			tracks := m.navBrowser.tracks
 			return previewList{count: len(tracks), cursor: m.selectedNavRawIndex(len(tracks)), item: func(i int) (previewItem, bool) {
-				it := trackPreview(tracks[i])
+				it := m.trackItem(tracks[i])
 				it.loader = loader
 				return it, true
 			}}
@@ -214,7 +214,7 @@ func (m Model) currentPreviewList() previewList {
 		loader, _ := m.searchOverlay.prov.(provider.PreviewLoader)
 		results := m.searchOverlay.results
 		return previewList{count: len(results), cursor: m.searchOverlay.cursor, item: func(i int) (previewItem, bool) {
-			it := trackPreview(results[i])
+			it := m.trackItem(results[i])
 			it.loader = loader
 			return it, true
 		}}
@@ -240,7 +240,7 @@ func (m Model) currentPreviewList() previewList {
 				if !ok {
 					return previewItem{}, false
 				}
-				return trackPreview(t), true
+				return m.trackItem(t), true
 			}}
 		}
 	}
@@ -260,9 +260,18 @@ func (m Model) previewTarget() (previewItem, bool) {
 	if idx < 0 || t.Path == "" {
 		return previewItem{}, false
 	}
-	it := m.withDetails(trackPreview(t))
+	it := m.withDetails(m.trackItem(t))
 	it.playing = true
 	return it, true
+}
+
+// trackItem describes a track for the pane, noting a downloaded copy.
+func (m Model) trackItem(t playlist.Track) previewItem {
+	it := trackPreview(t)
+	if m.isDownloaded(t) {
+		it.lines = append(it.lines, downloadLine())
+	}
+	return it
 }
 
 // withDetails adds the looked-up details of an item.

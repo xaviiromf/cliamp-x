@@ -26,6 +26,8 @@ entries, a status message tells you which key to press.
 | `m` | Toggle mono |
 | `n` | Volume normalization: off, by song, by album (saved in `normalize`) |
 | `M` | More like this: replace the queue with a radio of the highlighted song, album, artist or playlist (or of the playing song) |
+| `D` | Download the highlighted song, album or playlist for offline listening |
+| `S` | Listening statistics (Left/Right: week, month, year, all time) |
 | `X` | Find remixes and other versions of the highlighted or playing song, grouped by kind, in the search overlay |
 | `Ctrl+J` | Jump to time |
 

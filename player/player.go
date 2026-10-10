@@ -89,6 +89,8 @@ type Player struct {
 	metaCancel         context.CancelFunc     // cancels the active metadata poller; guarded by mu
 
 	normFields // loudness normalization, see loudness.go
+
+	localCopies func(path string) (string, bool) // downloaded copies; guarded by mu
 }
 
 // StreamMetadataResolver matches a stream URL to a now-playing fetcher for
@@ -1163,4 +1165,22 @@ func (p *Player) SetCrossfade(d time.Duration) {
 // Crossfade returns the crossfade length.
 func (p *Player) Crossfade() time.Duration {
 	return p.sr.D(int(p.gapless.fadeFrames.Load()))
+}
+
+// SetLocalCopies sets how the player finds a downloaded copy of a track:
+// lookup returns the file to play instead of streaming path.
+func (p *Player) SetLocalCopies(lookup func(path string) (string, bool)) {
+	p.mu.Lock()
+	p.localCopies = lookup
+	p.mu.Unlock()
+}
+
+func (p *Player) localCopy(path string) (string, bool) {
+	p.mu.Lock()
+	lookup := p.localCopies
+	p.mu.Unlock()
+	if lookup == nil {
+		return "", false
+	}
+	return lookup(path)
 }
