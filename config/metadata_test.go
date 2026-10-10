@@ -44,7 +44,7 @@ func TestMetadataConfigSaveRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CLIAMP_CONFIG_DIR", dir)
 	path := filepath.Join(dir, "config.toml")
-	const original = "# Keep unrelated settings and formatting\nvolume = -9\nvis_rows = 12\nhide_settings_pane = true\n\n[radio]\ncountry = \"no\"\n"
+	const original = "# Keep unrelated settings and formatting\nvolume = -9\nvis_rows = 12\nhide_settings_pane = true\n\n[ytmusic]\nregion = \"no\"\n"
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -57,8 +57,8 @@ func TestMetadataConfigSaveRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if cfg.ShowMetadata != want || cfg.Volume != -9 || cfg.VisRows != 12 || !cfg.HideSettingsPane || cfg.Radio.Country != "no" {
-			t.Fatalf("round trip %s: metadata=%v volume=%v vis_rows=%d hide_settings_pane=%v country=%q", value, cfg.ShowMetadata, cfg.Volume, cfg.VisRows, cfg.HideSettingsPane, cfg.Radio.Country)
+		if cfg.ShowMetadata != want || cfg.Volume != -9 || cfg.VisRows != 12 || !cfg.HideSettingsPane || cfg.YouTubeMusic.Region != "NO" {
+			t.Fatalf("round trip %s: metadata=%v volume=%v vis_rows=%d hide_settings_pane=%v region=%q", value, cfg.ShowMetadata, cfg.Volume, cfg.VisRows, cfg.HideSettingsPane, cfg.YouTubeMusic.Region)
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {

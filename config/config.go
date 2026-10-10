@@ -186,219 +186,27 @@ func scalar(val string) string {
 	return val
 }
 
-// Provider sections follow one of three enable rules. Each provider struct
-// names its rule, and its IsSet method applies it.
-//
-//   - Credentials: the provider registers when the section holds the
-//     credentials that IsSet needs. The section header alone does nothing.
-//   - Section: the section header alone registers the provider. Load sets
-//     Enabled when it reads the header, and enabled = false sets Disabled.
-//   - Opt-in: the provider registers only when the section sets
-//     enabled = true.
-//
-// Radio and podcasts are always on, so their sections only tune them.
-
-// NavidromeConfig holds credentials for a Navidrome/Subsonic server.
-// All three fields must be non-empty for a client to be constructed.
-// Enable rule: credentials.
-type NavidromeConfig struct {
-	URL              string // e.g. "https://music.example.com"
-	User             string
-	Password         string
-	Format           string // requested stream format; empty lets the server decide, "raw" requests the original
-	BrowseSort       string // album browse sort order, e.g. "alphabeticalByName"
-	ScrobbleDisabled bool   // true only when "scrobble = false" is explicitly set
-}
-
-// IsSet reports whether all three Navidrome credentials are present.
-func (n NavidromeConfig) IsSet() bool {
-	return n.URL != "" && n.User != "" && n.Password != ""
-}
-
-// set applies one key of the [navidrome] section.
-func (n *NavidromeConfig) set(key, val string) {
-	switch key {
-	case "url":
-		n.URL = parseString(val)
-	case "user":
-		n.User = parseString(val)
-	case "password":
-		n.Password = parseString(val)
-	case "browse_sort":
-		n.BrowseSort = parseString(val)
-	case "format":
-		n.Format = parseString(val)
-	case "scrobble":
-		// Opt-out: only mark disabled when the value is explicitly false.
-		if v, ok := parseBool(val); ok {
-			n.ScrobbleDisabled = !v
-		}
-	}
-}
-
-// LyrionConfig holds settings for a Lyrion Music Server (LMS) instance.
-// User and Password are optional — they are only needed when the server has
-// password protection enabled.
-// Enable rule: credentials, where the URL alone is enough.
-type LyrionConfig struct {
-	URL      string // e.g. "http://nas.local:9000"
-	User     string
-	Password string
-	// ShowUnplayable includes tracks and playlists contributed by LMS server
-	// plugins, which the server cannot stream to cliamp. Hidden by default.
-	ShowUnplayable bool
-}
-
-// IsSet reports whether a Lyrion server URL is configured. Credentials are
-// optional, so the URL alone is enough to construct a client.
-func (l LyrionConfig) IsSet() bool {
-	return l.URL != ""
-}
-
-// set applies one key of the [lyrion] section.
-func (l *LyrionConfig) set(key, val string) {
-	switch key {
-	case "url":
-		l.URL = parseString(val)
-	case "user":
-		l.User = parseString(val)
-	case "password":
-		l.Password = parseString(val)
-	case "show_unplayable":
-		if v, ok := parseBool(val); ok {
-			l.ShowUnplayable = v
-		}
-	}
-}
-
-// SpotifyConfig holds settings for the Spotify provider. Requires a Spotify
-// Premium account. If client_id is empty, a built-in fallback (the librespot
-// keymaster ID) is used so search and catalog endpoints work even for users
-// who never registered their own developer app — see Spotify's Nov 27, 2024
-// dev-mode quota restriction.
-// Enable rule: section.
-type SpotifyConfig struct {
-	Disabled bool   // true only when user explicitly sets enabled = false
-	Enabled  bool   // true when [spotify] section exists (even without client_id)
-	ClientID string // Spotify Developer app client ID (overrides built-in fallback)
-	Bitrate  int    // preferred Spotify stream bitrate in kbps
-}
-
-// IsSet reports whether the Spotify provider should be shown. Section presence
-// is enough — a built-in fallback client_id is used when none is configured.
-func (s SpotifyConfig) IsSet() bool {
-	return !s.Disabled && s.Enabled
-}
-
-// ResolveClientID returns the user's configured client_id, or fallbackID when
-// none is set.
-func (s SpotifyConfig) ResolveClientID(fallbackID string) string {
-	if s.ClientID != "" {
-		return s.ClientID
-	}
-	return fallbackID
-}
-
-// set applies one key of the [spotify] section.
-func (s *SpotifyConfig) set(key, val string) {
-	switch key {
-	case "enabled":
-		if v, ok := parseBool(val); ok {
-			s.Disabled = !v
-		}
-	case "client_id":
-		s.ClientID = parseString(val)
-	case "bitrate":
-		if v, ok := parseInt(val); ok {
-			s.Bitrate = v
-		}
-	}
-}
-
-// QobuzConfig holds settings for the Qobuz provider. Requires a paid Qobuz
-// subscription (Studio/Sublime). The app_id, signing secrets and OAuth private
-// key are scraped automatically from the Qobuz web player, so no developer
-// credentials are needed. Sign-in is an interactive OAuth browser flow.
-// Enable rule: section.
-type QobuzConfig struct {
-	Disabled bool // true only when user explicitly sets enabled = false
-	Enabled  bool // true when [qobuz] section exists
-	Quality  int  // preferred stream format_id: 5 (MP3 320), 6 (FLAC CD), 7 (Hi-Res <=96kHz), 27 (Hi-Res <=192kHz)
-}
-
-// IsSet reports whether the Qobuz provider should be shown. Section presence
-// is enough; credentials are scraped from the Qobuz web player automatically.
-func (q QobuzConfig) IsSet() bool {
-	return !q.Disabled && q.Enabled
-}
-
-// set applies one key of the [qobuz] section.
-func (q *QobuzConfig) set(key, val string) {
-	switch key {
-	case "enabled":
-		if v, ok := parseBool(val); ok {
-			q.Disabled = !v
-		}
-	case "quality":
-		if v, ok := parseInt(val); ok {
-			q.Quality = v
-		}
-	}
-}
-
-// TidalConfig holds settings for the Tidal provider. Requires a paid Tidal
-// subscription (all paid plans include lossless FLAC). Sign-in is an OAuth
-// device flow (link.tidal.com). Built-in fallback client credentials are used
-// when none are configured; Tidal revokes leaked client IDs periodically, so
-// client_id/client_secret can be overridden without waiting for a release.
-// Enable rule: section.
-type TidalConfig struct {
-	Disabled     bool   // true only when user explicitly sets enabled = false
-	Enabled      bool   // true when [tidal] section exists
-	ClientID     string // OAuth client ID (overrides built-in fallback)
-	ClientSecret string // OAuth client secret (overrides built-in fallback)
-	Quality      string // preferred quality: "low", "high", "lossless", "hires"
-}
-
-// IsSet reports whether the Tidal provider should be shown. Section presence
-// is enough — built-in fallback client credentials are used when none are set.
-func (t TidalConfig) IsSet() bool {
-	return !t.Disabled && t.Enabled
-}
-
-// set applies one key of the [tidal] section.
-func (t *TidalConfig) set(key, val string) {
-	switch key {
-	case "enabled":
-		if v, ok := parseBool(val); ok {
-			t.Disabled = !v
-		}
-	case "client_id":
-		t.ClientID = parseString(val)
-	case "client_secret":
-		t.ClientSecret = parseString(val)
-	case "quality":
-		t.Quality = parseString(val)
-	}
-}
-
-// YouTubeMusicConfig holds settings for the YouTube Music provider.
-// cliamp ships no OAuth client, so sign-in needs client_id and client_secret
-// from the user. cookies_from alone enables the cookie mode.
-// Enable rule: section. The [yt] and [youtube] headers count as [ytmusic].
+// YouTubeMusicConfig holds settings for the YouTube Music provider. It is on
+// unless the section sets enabled = false. The [yt] and [youtube] headers
+// count as [ytmusic].
 type YouTubeMusicConfig struct {
 	Disabled       bool   // true only when user explicitly sets enabled = false
-	Enabled        bool   // true when [ytmusic] section exists (even without credentials)
-	ClientID       string // Google Cloud OAuth2 client ID
-	ClientSecret   string // Google Cloud OAuth2 client secret
-	CookiesFrom    string // browser name for yt-dlp --cookies-from-browser (e.g. "chrome", "firefox")
+	CookiesFrom    string // browser for the sign-in in yt-dlp syntax, or "" to detect one
 	ExpandPlaylist *bool  // nil = default (true), controls whether list= URLs expand the full playlist
+	Language       string // hl of the YouTube Music pages, or "" for $LANG
+	Region         string // gl of the YouTube Music pages, or "" for $LANG
+	AutoRadio      *bool  // nil = default (true): continue with related songs when the queue ends
+	ReportHistory  bool   // add played songs to the YouTube Music history
 }
 
-// IsSet reports whether the YouTube providers should be enabled: the
-// [ytmusic] section exists or cookies_from is set, and enabled is not false.
+// IsSet reports whether the YouTube Music provider is enabled.
 func (y YouTubeMusicConfig) IsSet() bool {
-	return !y.Disabled && (y.Enabled || strings.TrimSpace(y.CookiesFrom) != "")
+	return !y.Disabled
+}
+
+// AutoRadioEnabled reports whether the queue continues with related songs.
+func (y YouTubeMusicConfig) AutoRadioEnabled() bool {
+	return y.AutoRadio == nil || *y.AutoRadio
 }
 
 // set applies one key of the [ytmusic] section.
@@ -408,301 +216,28 @@ func (y *YouTubeMusicConfig) set(key, val string) {
 		if v, ok := parseBool(val); ok {
 			y.Disabled = !v
 		}
-	case "client_id":
-		y.ClientID = parseString(val)
-	case "client_secret":
-		y.ClientSecret = parseString(val)
 	case "cookies_from":
 		y.CookiesFrom = strings.TrimSpace(parseString(val))
 	case "expand_playlist":
 		if v, ok := parseBool(val); ok {
 			y.ExpandPlaylist = &v
 		}
-	}
-}
-
-// RadioConfig holds settings for the built-in Radio provider. Radio is always
-// enabled, so this block only tunes it.
-type RadioConfig struct {
-	// Country is the listener's home country as an ISO 3166-1 alpha-2 code.
-	// It puts a "near you" row at the top of the radio pane, offers that
-	// country's regions in the country browser, and is the first stop of the
-	// catalog country filter. Unset means "detect from the system timezone,
-	// then the locale"; set it to "none" to turn detection off.
-	Country string
-}
-
-// set applies one key of the [radio] section.
-func (r *RadioConfig) set(key, val string) {
-	switch key {
-	case "country":
-		r.Country = strings.TrimSpace(parseString(val))
-	}
-}
-
-// PodcastConfig tunes the always-available public podcast directory.
-type PodcastConfig struct {
-	Country string // two-letter country code for Apple charts (default "us")
-}
-
-// set applies one key of the [podcast] section.
-func (p *PodcastConfig) set(key, val string) {
-	if key == "country" {
-		p.Country = strings.TrimSpace(parseString(val))
-	}
-}
-
-// SoundCloudConfig holds settings for the SoundCloud provider.
-// SoundCloud is opt-in: requires enabled = true in [soundcloud] before the
-// provider registers. Setting User exposes that profile's Tracks/Likes/Reposts
-// in the browse view. Setting CookiesFrom (browser name) lets yt-dlp use the
-// user's signed-in session for subscriber-gated tracks.
-// Enable rule: opt-in.
-type SoundCloudConfig struct {
-	Enabled     bool   // true only when user explicitly sets enabled = true
-	User        string // SoundCloud username for browse (optional)
-	CookiesFrom string // browser name for yt-dlp --cookies-from-browser (optional)
-}
-
-// IsSet reports whether the SoundCloud provider should be shown.
-func (s SoundCloudConfig) IsSet() bool { return s.Enabled }
-
-// set applies one key of the [soundcloud] section.
-func (s *SoundCloudConfig) set(key, val string) {
-	switch key {
-	case "enabled":
+	case "language":
+		y.Language = strings.TrimSpace(parseString(val))
+	case "region":
+		y.Region = strings.ToUpper(strings.TrimSpace(parseString(val)))
+	case "auto_radio":
 		if v, ok := parseBool(val); ok {
-			s.Enabled = v
+			y.AutoRadio = &v
 		}
-	case "user":
-		s.User = parseString(val)
-	case "cookies_from":
-		s.CookiesFrom = strings.TrimSpace(parseString(val))
-	}
-}
-
-// MixcloudConfig holds settings for the Mixcloud provider. Public discovery
-// works with only enabled=true. Username adds public account views; an access
-// token adds /me and Listen Later; browser cookies are used only by yt-dlp for
-// playback that needs the listener's signed-in Mixcloud session.
-// Enable rule: opt-in.
-type MixcloudConfig struct {
-	Enabled        bool
-	Username       string
-	AccessToken    string
-	CookiesFrom    string
-	Styles         []string
-	StylesSet      bool // distinguishes omitted styles (defaults) from an explicit empty list
-	MaxItems       int
-	StreamCreators int
-}
-
-// IsSet reports whether the Mixcloud provider should be shown.
-func (m MixcloudConfig) IsSet() bool { return m.Enabled }
-
-// set applies one key of the [mixcloud] section.
-func (m *MixcloudConfig) set(key, val string) {
-	switch key {
-	case "enabled":
+	case "report_history":
 		if v, ok := parseBool(val); ok {
-			m.Enabled = v
-		}
-	case "username":
-		m.Username = strings.TrimSpace(parseString(val))
-	case "access_token":
-		m.AccessToken = strings.TrimSpace(parseString(val))
-	case "cookies_from":
-		m.CookiesFrom = strings.TrimSpace(parseString(val))
-	case "styles":
-		m.Styles = parseStringSlice(val)
-		m.StylesSet = true
-	case "max_items":
-		if v, ok := parseInt(val); ok {
-			m.MaxItems = v
-		}
-	case "stream_creators":
-		if v, ok := parseInt(val); ok {
-			m.StreamCreators = v
+			y.ReportHistory = v
 		}
 	}
 }
 
-// NetEaseConfig holds settings for the NetEase Cloud Music provider.
-// The provider is opt-in and can reuse an existing browser session through
-// yt-dlp's --cookies-from-browser support.
-// Enable rule: opt-in.
-type NetEaseConfig struct {
-	Enabled     bool   // true only when user explicitly sets enabled = true
-	CookiesFrom string // browser name for account APIs and playback (e.g. "chrome")
-	UserID      string // optional account user id; setup can discover this from cookies
-}
-
-// IsSet reports whether the NetEase provider should be shown.
-func (n NetEaseConfig) IsSet() bool { return n.Enabled }
-
-// set applies one key of the [netease] section.
-func (n *NetEaseConfig) set(key, val string) {
-	switch key {
-	case "enabled":
-		if v, ok := parseBool(val); ok {
-			n.Enabled = v
-		}
-	case "cookies_from":
-		n.CookiesFrom = strings.TrimSpace(parseString(val))
-	case "user_id":
-		n.UserID = parseString(val)
-	}
-}
-
-// YandexConfig holds settings for the Yandex Music provider.
-// The provider is opt-in and authenticates with a personal OAuth token
-// obtained from https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d
-// Enable rule: opt-in, and Token must also be set.
-type YandexConfig struct {
-	Enabled bool   // true only when user explicitly sets enabled = true
-	Token   string // personal OAuth token
-}
-
-// IsSet reports whether the Yandex provider should be shown.
-func (y YandexConfig) IsSet() bool { return y.Enabled && strings.TrimSpace(y.Token) != "" }
-
-// set applies one key of the [yandex] section.
-func (y *YandexConfig) set(key, val string) {
-	switch key {
-	case "enabled":
-		if v, ok := parseBool(val); ok {
-			y.Enabled = v
-		}
-	case "token":
-		y.Token = parseString(val)
-	}
-}
-
-// PlexConfig holds credentials for a Plex Media Server.
-// Both URL and Token must be non-empty for a client to be constructed.
-// Enable rule: credentials.
-type PlexConfig struct {
-	URL       string   // e.g. "http://192.168.1.10:32400"
-	Token     string   // X-Plex-Token
-	Libraries []string // optional: restrict to these music library names
-}
-
-// IsSet reports whether both Plex credentials are present.
-func (p PlexConfig) IsSet() bool {
-	return p.URL != "" && p.Token != ""
-}
-
-// set applies one key of the [plex] section.
-func (p *PlexConfig) set(key, val string) {
-	switch key {
-	case "url":
-		p.URL = parseString(val)
-	case "token":
-		p.Token = parseString(val)
-	case "libraries":
-		p.Libraries = parseStringSlice(val)
-	}
-}
-
-// JellyfinConfig holds credentials for a Jellyfin server.
-// URL is required. Authenticate either with Token, or with User+Password.
-// UserID is optional and can be discovered lazily.
-// Enable rule: credentials.
-type JellyfinConfig struct {
-	URL      string // e.g. "https://jellyfin.example.com"
-	Token    string // API access token
-	User     string // optional username for password-based login
-	Password string // optional password for password-based login
-	UserID   string // optional user id to skip discovery via /Users/Me
-}
-
-// IsSet reports whether the Jellyfin provider is configured.
-func (j JellyfinConfig) IsSet() bool {
-	return j.URL != "" && (j.Token != "" || (j.User != "" && j.Password != ""))
-}
-
-// set applies one key of the [jellyfin] section.
-func (j *JellyfinConfig) set(key, val string) {
-	switch key {
-	case "url":
-		j.URL = parseString(val)
-	case "token":
-		j.Token = parseString(val)
-	case "user":
-		j.User = parseString(val)
-	case "password":
-		j.Password = parseString(val)
-	case "user_id":
-		j.UserID = parseString(val)
-	}
-}
-
-// EmbyConfig holds credentials for an Emby server.
-// URL is required. Authenticate either with Token, or with User+Password.
-// UserID is optional and can be discovered lazily.
-// Enable rule: credentials.
-type EmbyConfig struct {
-	URL      string // e.g. "https://emby.example.com"
-	Token    string // API access token
-	User     string // optional username for password-based login
-	Password string // optional password for password-based login
-	UserID   string // optional user id to skip discovery via /Users/Me
-}
-
-// IsSet reports whether the Emby provider is configured.
-func (e EmbyConfig) IsSet() bool {
-	return e.URL != "" && (e.Token != "" || (e.User != "" && e.Password != ""))
-}
-
-// set applies one key of the [emby] section.
-func (e *EmbyConfig) set(key, val string) {
-	switch key {
-	case "url":
-		e.URL = parseString(val)
-	case "token":
-		e.Token = parseString(val)
-	case "user":
-		e.User = parseString(val)
-	case "password":
-		e.Password = parseString(val)
-	case "user_id":
-		e.UserID = parseString(val)
-	}
-}
-
-// AudiobookshelfConfig holds credentials for an Audiobookshelf server.
-// URL is required. Authenticate either with Token, or with User+Password.
-// Enable rule: credentials.
-type AudiobookshelfConfig struct {
-	URL       string   // e.g. "https://abs.example.com"
-	Token     string   // API key or login token
-	User      string   // optional username for password-based login
-	Password  string   // optional password for password-based login
-	Libraries []string // optional: restrict to these library names
-}
-
-// IsSet reports whether the Audiobookshelf provider is configured.
-func (a AudiobookshelfConfig) IsSet() bool {
-	return a.URL != "" && (a.Token != "" || (a.User != "" && a.Password != ""))
-}
-
-// set applies one key of the [audiobookshelf] section.
-func (a *AudiobookshelfConfig) set(key, val string) {
-	switch key {
-	case "url":
-		a.URL = parseString(val)
-	case "token":
-		a.Token = parseString(val)
-	case "user":
-		a.User = parseString(val)
-	case "password":
-		a.Password = parseString(val)
-	case "libraries":
-		a.Libraries = parseStringSlice(val)
-	}
-}
-
-// DownloadsConfig selects the directory for saved audio. Empty uses ~/Music/cliamp.
+// DownloadsConfig selects the directory for saved audio. Empty uses ~/Music/cliamp-x.
 type DownloadsConfig struct {
 	Directory string
 }
@@ -728,7 +263,7 @@ type Config struct {
 	Speed            float64                      // playback speed ratio: 0.25–2.0 (default 1.0)
 	AutoPlay         bool                         // start playback automatically on launch (radio streams, CLI tracks)
 	SeekStepLarge    int                          // seconds for Shift+Left/Right seek jumps
-	Provider         string                       // default provider key, a value that --provider accepts (default "cliamp")
+	Provider         string                       // default provider key, a value that --provider accepts (default "ytmusic")
 	Theme            string                       // theme name, or "" for ANSI default
 	Visualizer       string                       // visualizer mode name, or "" for default (Bars)
 	VisRows          int                          // visualizer height in rows at the full layout tier, or 0 for the built-in default
@@ -747,22 +282,7 @@ type Config struct {
 	Playlist         string                       // local TOML playlist name to load on startup
 	InitialDirectory string                       // initial directory for the file browser
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
-	Navidrome        NavidromeConfig              // optional Navidrome/Subsonic server credentials
-	Lyrion           LyrionConfig                 // optional Lyrion Music Server (LMS) instance
-	Spotify          SpotifyConfig                // optional Spotify provider (requires Premium)
-	Qobuz            QobuzConfig                  // optional Qobuz provider (requires subscription)
-	Tidal            TidalConfig                  // optional Tidal provider (requires subscription)
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
-	Plex             PlexConfig                   // optional Plex Media Server credentials
-	Jellyfin         JellyfinConfig               // optional Jellyfin server credentials
-	Emby             EmbyConfig                   // optional Emby server credentials
-	Audiobookshelf   AudiobookshelfConfig         // optional Audiobookshelf server credentials
-	Radio            RadioConfig                  // built-in Radio provider settings
-	Podcast          PodcastConfig                // built-in podcast directory settings
-	SoundCloud       SoundCloudConfig             // SoundCloud provider (opt-in via enabled = true)
-	Mixcloud         MixcloudConfig               // Mixcloud provider (opt-in via enabled = true)
-	NetEase          NetEaseConfig                // NetEase Cloud Music provider (opt-in via enabled = true)
-	Yandex           YandexConfig                 // Yandex Music provider (opt-in via enabled = true)
 	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
 	LogLevel         string                       // log level: debug, info, warn, error (default "info")
 	LowPower         bool                         // reduce CPU by lowering UI cadence and disabling visualization
@@ -786,8 +306,6 @@ func defaultConfig() Config {
 		BitDepth:        16,
 		PaddingH:        3,
 		PaddingV:        1,
-		Spotify:         SpotifyConfig{Bitrate: 320},
-		Qobuz:           QobuzConfig{Quality: 6},
 		LogLevel:        "info",
 	}
 }
@@ -823,16 +341,6 @@ func Load() (Config, error) {
 		if name, ok := sectionHeader(line); ok {
 			section = canonicalSection(name)
 			// Mark providers as enabled when their section exists.
-			switch section {
-			case "ytmusic":
-				cfg.YouTubeMusic.Enabled = true
-			case "spotify":
-				cfg.Spotify.Enabled = true
-			case "qobuz":
-				cfg.Qobuz.Enabled = true
-			case "tidal":
-				cfg.Tidal.Enabled = true
-			}
 			// Initialize plugin sub-maps for [plugins] and [plugins.*] sections.
 			if name, ok := pluginSection(section); ok {
 				if cfg.Plugins == nil {
@@ -853,47 +361,19 @@ func Load() (Config, error) {
 		val = strings.TrimSpace(val)
 
 		switch section {
+		case "":
+			cfg.setTopLevel(key, val)
 		case "downloads":
 			cfg.Downloads.set(key, val)
-		case "navidrome":
-			cfg.Navidrome.set(key, val)
-		case "lyrion":
-			cfg.Lyrion.set(key, val)
-		case "spotify":
-			cfg.Spotify.set(key, val)
-		case "qobuz":
-			cfg.Qobuz.set(key, val)
-		case "tidal":
-			cfg.Tidal.set(key, val)
 		case "ytmusic":
 			cfg.YouTubeMusic.set(key, val)
-		case "plex":
-			cfg.Plex.set(key, val)
-		case "radio":
-			cfg.Radio.set(key, val)
-		case "podcast":
-			cfg.Podcast.set(key, val)
-		case "soundcloud":
-			cfg.SoundCloud.set(key, val)
-		case "mixcloud":
-			cfg.Mixcloud.set(key, val)
-		case "netease":
-			cfg.NetEase.set(key, val)
-		case "yandex":
-			cfg.Yandex.set(key, val)
-		case "jellyfin":
-			cfg.Jellyfin.set(key, val)
-		case "emby":
-			cfg.Emby.set(key, val)
-		case "audiobookshelf":
-			cfg.Audiobookshelf.set(key, val)
 		default:
+			// Keys of a plugin section go to the plugin. Any other section,
+			// such as one left over from cliamp, is ignored.
 			if name, ok := pluginSection(section); ok {
 				if m, ok := cfg.Plugins[name]; ok {
 					m[key] = pluginValue(name, key, val)
 				}
-			} else {
-				cfg.setTopLevel(key, val)
 			}
 		}
 	}
@@ -1187,34 +667,6 @@ func editTopLevel(data, key, line string) string {
 	return strings.Join(lines, "\n")
 }
 
-// SaveNavidromeSort persists the given album browse sort type to the
-// [navidrome] section of the config file. It rewrites the browse_sort key
-// in-place, or appends it after the [navidrome] section if not present.
-// If no [navidrome] section exists, one is appended along with the key.
-func SaveNavidromeSort(sortType string) error {
-	return SaveSection("navidrome", []KeyValue{{"browse_sort", QuoteString(sortType)}}, nil)
-}
-
-// SaveRadioCountry persists the listener's home country in the [radio] section
-// so the choice survives a restart. Pass "" to record that detection should be
-// turned off.
-func SaveRadioCountry(code string) error {
-	if code == "" {
-		code = "none"
-	}
-	return SaveSection("radio", []KeyValue{{"country", QuoteString(code)}}, nil)
-}
-
-// SaveMixcloudStyles persists the selected discovery styles in the [mixcloud]
-// section without disturbing other provider settings or comments.
-func SaveMixcloudStyles(styles []string) error {
-	quoted := make([]string, 0, len(styles))
-	for _, style := range styles {
-		quoted = append(quoted, QuoteString(style))
-	}
-	return SaveSection("mixcloud", []KeyValue{{"styles", "[" + strings.Join(quoted, ", ") + "]"}}, nil)
-}
-
 // KeyValue is one key line for SaveSection. Value is the TOML text of the
 // value, such as QuoteString(s), a number, a bool or a list.
 type KeyValue struct {
@@ -1378,7 +830,6 @@ func (c *Config) clamp() {
 	c.BufferMs = max(min(c.BufferMs, 5000), 50)
 	c.ResampleQuality = max(min(c.ResampleQuality, 4), 1)
 	c.BitDepth = clampBitDepth(c.BitDepth)
-	c.Spotify.Bitrate = clampSpotifyBitrate(c.Spotify.Bitrate)
 	c.PaddingH = max(min(c.PaddingH, 10), 0)
 	c.PaddingV = max(min(c.PaddingV, 5), 0)
 	if c.VisRows != 0 {
@@ -1418,13 +869,6 @@ func clampBitDepth(v int) int {
 		return 32
 	}
 	return 16
-}
-
-func clampSpotifyBitrate(v int) int {
-	if v <= 0 {
-		return 320
-	}
-	return nearestAllowed(v, []int{96, 160, 320})
 }
 
 func abs(x int) int {

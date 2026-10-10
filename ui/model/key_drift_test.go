@@ -322,10 +322,10 @@ func TestShortcutKeysFollowsTheShortcutHelpers(t *testing.T) {
 		calls []string
 		want  []string
 	}{
-		{name: "quick switch takes N", calls: []string{"editText", "quickSwitchProvider"},
-			want: []string{"S", "N", "P", "J", "E", "B", "Y", "C", "X", "M", "Q", "T", "L", "R", "O"}},
-		{name: "shortcut leaves N", calls: []string{"providerShortcut"},
-			want: []string{"S", "P", "J", "E", "B", "Y", "C", "X", "M", "Q", "T", "L", "R", "O"}},
+		{name: "quick switch", calls: []string{"editText", "quickSwitchProvider"},
+			want: []string{"Y", "L"}},
+		{name: "shortcut", calls: []string{"providerShortcut"},
+			want: []string{"Y", "L"}},
 		{name: "other calls take none", calls: []string{"editText", "switchToProvider"}},
 	}
 	for _, tt := range tests {
@@ -371,7 +371,7 @@ var unlistedKeys = map[string][]string{
 	"handleLyricsKey":               {"y"},
 	"handleNavAlbumListKey":         {"l", "right", "h", "left", "backspace"},
 	"handleNavArtistListKey":        {"l", "right", "h", "left", "backspace"},
-	"handleNavBrowserKey":           {"N", "ctrl+f", "S", "P", "J", "E", "B", "Y", "C", "X", "M", "Q", "T", "L", "O"},
+	"handleNavBrowserKey":           {"N", "ctrl+f", "Y", "L"},
 	"handleNavGenreListKey":         {"l", "right", "h", "left", "backspace"},
 	"handleNavGenreSortKey":         {"l", "right", "h", "left", "backspace"},
 	"handleNavMenuKey":              {"l", "right", "N", "backspace", "b"},
@@ -381,11 +381,11 @@ var unlistedKeys = map[string][]string{
 	"handlePlMgrFilterKey":          {"backspace"},
 	"handlePlMgrListKey":            {"y", "Y", "/", "l", "right", "r"},
 	"handlePlMgrTracksKey":          {"ctrl+h", "/", "backspace", "h", "left"},
-	"handlePlaylistManagerKey":      {"S", "N", "P", "J", "E", "B", "Y", "C", "X", "M", "Q", "T", "L", "R", "O"},
+	"handlePlaylistManagerKey":      {"Y", "L"},
 	"handlePlaylistPickerKey":       {"backspace"},
 	"handleProvPillKey":             {"left", "h", "right", "l", "space"},
 	"handleProvSearchKey":           {"ctrl+n", "ctrl+p"},
-	"handleProviderPaneKey":         {"y", "Y", "n", "space", "/", "o", "ctrl+j", "ctrl+f", "S", "P", "J", "E", "B", "C", "X", "M", "Q", "T", "L", "R", "O"},
+	"handleProviderPaneKey":         {"y", "Y", "n", "space", "/", "o", "ctrl+j", "ctrl+f", "L"},
 	"handleQueueKey":                {"A"},
 	"handleSearchKey":               {"ctrl+n", "ctrl+p"},
 	"handleSpeedKey":                {"l", "h", "esc", "backspace"},

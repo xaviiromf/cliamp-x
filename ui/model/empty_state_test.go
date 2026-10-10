@@ -96,18 +96,9 @@ func TestProviderEmptyStateHints(t *testing.T) {
 	tests := []struct {
 		provider, want string
 	}{
-		{"Qobuz", "cliamp qobuz reset"},
-		{"Tidal", "cliamp tidal reset"},
-		{"Mixcloud", "[mixcloud] username"},
-		{"lyrion", "Press N to browse."},
-		{"Yandex Music", "[yandex] token"},
-		{"Radio", "reload the station directory"},
-		{"Podcasts", "reload the top shows"},
-		{"cliamp radio", "pick another provider"},
-		{"YouTube", "yt-dlp"},
-		{"YouTube (All)", "yt-dlp"},
-		{"YouTube Music", "ytmusic-login"},
-		{"NetEase", "cliamp setup"},
+		{"YouTube Music", "cliamp-x login"},
+		{"Local", "playlists/"},
+		{"Other", "Press Ctrl+R to reload"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.provider, func(t *testing.T) {

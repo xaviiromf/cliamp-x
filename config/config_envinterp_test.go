@@ -93,32 +93,16 @@ func TestEnvRef(t *testing.T) {
 
 func TestLoadInterpolatesSecretsFromEnv(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CLIAMP_TEST_NAVI_PASS", "s3cret!")
-	t.Setenv("CLIAMP_TEST_PLEX_TOKEN", "tok-abc")
-	t.Setenv("CLIAMP_TEST_JELLY_TOKEN", "jelly-tok")
-	t.Setenv("CLIAMP_TEST_YT_SECRET", "yt-secret")
+	t.Setenv("CLIAMP_TEST_YT_BROWSER", "brave-origin")
 
 	path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	data := []byte(`
-[navidrome]
-url = "https://music.example.com"
-user = "alice"
-password = "${CLIAMP_TEST_NAVI_PASS}"
-
-[plex]
-url = "http://plex.local:32400"
-token = "$CLIAMP_TEST_PLEX_TOKEN"
-
-[jellyfin]
-url = "https://jelly.example.com"
-token = "${CLIAMP_TEST_JELLY_TOKEN}"
-
 [ytmusic]
-client_id = "literal-id"
-client_secret = "${CLIAMP_TEST_YT_SECRET}"
+language = "es"
+cookies_from = "${CLIAMP_TEST_YT_BROWSER}"
 `)
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -129,20 +113,11 @@ client_secret = "${CLIAMP_TEST_YT_SECRET}"
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.Navidrome.Password != "s3cret!" {
-		t.Errorf("Navidrome.Password = %q, want %q", cfg.Navidrome.Password, "s3cret!")
+	if cfg.YouTubeMusic.Language != "es" {
+		t.Errorf("YouTubeMusic.Language = %q, want %q", cfg.YouTubeMusic.Language, "es")
 	}
-	if cfg.Plex.Token != "tok-abc" {
-		t.Errorf("Plex.Token = %q, want %q", cfg.Plex.Token, "tok-abc")
-	}
-	if cfg.Jellyfin.Token != "jelly-tok" {
-		t.Errorf("Jellyfin.Token = %q, want %q", cfg.Jellyfin.Token, "jelly-tok")
-	}
-	if cfg.YouTubeMusic.ClientID != "literal-id" {
-		t.Errorf("YouTubeMusic.ClientID = %q, want %q", cfg.YouTubeMusic.ClientID, "literal-id")
-	}
-	if cfg.YouTubeMusic.ClientSecret != "yt-secret" {
-		t.Errorf("YouTubeMusic.ClientSecret = %q, want %q", cfg.YouTubeMusic.ClientSecret, "yt-secret")
+	if cfg.YouTubeMusic.CookiesFrom != "brave-origin" {
+		t.Errorf("YouTubeMusic.CookiesFrom = %q, want %q", cfg.YouTubeMusic.CookiesFrom, "brave-origin")
 	}
 }
 
@@ -154,10 +129,8 @@ func TestLoadPreservesLiteralDollarInPassword(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	data := []byte(`
-[navidrome]
-url = "https://music.example.com"
-user = "alice"
-password = "p@$$w0rd"
+[ytmusic]
+cookies_from = "firefox:~/p@$$w0rd"
 `)
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -167,8 +140,8 @@ password = "p@$$w0rd"
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Navidrome.Password != "p@$$w0rd" {
-		t.Errorf("Navidrome.Password = %q, want literal %q", cfg.Navidrome.Password, "p@$$w0rd")
+	if cfg.YouTubeMusic.CookiesFrom != "firefox:~/p@$$w0rd" {
+		t.Errorf("YouTubeMusic.CookiesFrom = %q, want literal %q", cfg.YouTubeMusic.CookiesFrom, "firefox:~/p@$$w0rd")
 	}
 }
 

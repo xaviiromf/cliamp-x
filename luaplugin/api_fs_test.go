@@ -219,7 +219,7 @@ func TestIsWriteAllowed(t *testing.T) {
 				{name: "theme file", path: filepath.Join(cfg, "themes", "mine.toml"), want: true},
 				{name: "own data dir", path: filepath.Join(data, "plugins", "hello", "store.json"), want: true},
 				{name: "cliamp.store file", path: newPluginStore("hello").path, want: true},
-				{name: "music dir", path: filepath.Join(home, "Music", "cliamp", "album", "01.mp3"), want: true},
+				{name: "music dir", path: filepath.Join(home, "Music", "cliamp-x", "album", "01.mp3"), want: true},
 				{name: "plugins dir", path: plugins},
 				{name: "trust manifest", path: filepath.Join(plugins, ".trust.json")},
 				{name: "existing plugin", path: filepath.Join(plugins, "hello.lua")},

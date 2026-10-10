@@ -3,21 +3,14 @@ package model
 import (
 	"slices"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
-
-// radioListenersTTL is how long fetched listener counts stay fresh. A failed
-// fetch stamps the same time, so an offline start does not retry on every
-// pane load; Ctrl+R forces a refresh through refreshActiveProvider.
-const radioListenersTTL = 5 * time.Minute
 
 // resetProviderNav resets provider navigation and search state to the top.
 func (m *Model) resetProviderNav() {
@@ -79,38 +72,7 @@ func (m *Model) fetchProviderPlaylists() tea.Cmd {
 		return nil
 	}
 	gen := nextRequest(&m.requests.provider)
-	if _, ok := m.provider.(*radio.Provider); ok {
-		return m.refreshRadioLists()
-	}
 	return fetchPlaylistsCmd(m.provider, gen)
-}
-
-// maybeFetchRadioListeners starts one listener-counts fetch for the cliamp
-// radio channel rows when the cache is missing or stale. It returns nil for
-// every other provider, in headless mode, and while fresh, so failures stay
-// silent and rows simply show no counts.
-func (m *Model) maybeFetchRadioListeners() tea.Cmd {
-	if m.headless {
-		return nil
-	}
-	if _, ok := m.provider.(*radio.ChannelProvider); !ok {
-		return nil
-	}
-	if time.Since(m.radioListenersAt) < radioListenersTTL {
-		return nil
-	}
-	return fetchRadioListenersCmd(nextRequest(&m.requests.radioListeners))
-}
-
-// refreshRadioLists projects local Radio state on the Update owner. Only
-// directory loading is asynchronous; row snapshots never cross that boundary.
-func (m *Model) refreshRadioLists() tea.Cmd {
-	m.provPane.loading = m.provSearch.loading
-	if err := m.refreshProviderListsNow(); err != nil {
-		m.err = err
-		return nil
-	}
-	return m.startCatalogLoading()
 }
 
 // refreshProviderListsNow is only used for providers whose current rows are
@@ -226,9 +188,6 @@ func (m *Model) refreshActiveProvider(tracksOnly bool) tea.Cmd {
 	nextRequest(&m.requests.catalog)
 	m.catalogBatch = catalogBatchState{}
 	m.provPane.loading = true
-	// A manual refresh also refreshes the listener counts: the next lists
-	// arrival finds a stale cache and refetches.
-	m.radioListenersAt = time.Time{}
 	m.status.Activityf(statusTTLShort, "Refreshing %s…", m.provider.Name())
 	if inPlace {
 		return m.fetchProviderTracks(m.activeProviderPlaylistID)
@@ -292,7 +251,6 @@ func (m Model) isActiveProvider(name string) bool {
 // in the main package registers the providers under these keys.
 const (
 	providerKeyLocal = "local"
-	providerKeyRadio = "radio"
 )
 
 // activeProviderKey returns the config key of the active provider pill, such
@@ -375,36 +333,10 @@ func (m *Model) providerShortcut(key string) (cmd tea.Cmd, ok bool) {
 // config key used by switchToProvider, or "" when the key is unrelated.
 func providerKeyForShortcut(key string) string {
 	switch key {
-	case "S":
-		return "spotify"
-	case "N":
-		return "navidrome"
-	case "P":
-		return "plex"
-	case "J":
-		return "jellyfin"
-	case "E":
-		return "emby"
-	case "B":
-		return "audiobookshelf"
 	case "Y":
-		return "yt"
-	case "C":
-		return "soundcloud"
-	case "X":
-		return "mixcloud"
-	case "M":
-		return "netease"
-	case "Q":
-		return "qobuz"
-	case "T":
-		return "tidal"
+		return "ytmusic"
 	case "L":
 		return "local"
-	case "R":
-		return "radio"
-	case "O":
-		return "podcast"
 	}
 	return ""
 }
@@ -614,18 +546,7 @@ func (m *Model) openProviderList(index int) tea.Cmd {
 	}
 	m.provPane.loading = true
 	m.activeProviderPlaylistID = item.ID
-	cmd := m.fetchProviderTracks(item.ID)
-	if _, ok := m.provider.(*radio.ChannelProvider); ok {
-		// Jump to the playlist immediately and render the feed loading
-		// state there, instead of waiting on the channel list for the
-		// song list to arrive.
-		m.focus = focusPlaylist
-		m.applyHeightMode()
-		m.adjustScroll()
-		m.recomputeLayout()
-		m.status.Activityf(statusTTLShort, "Loading %s…", item.Name)
-	}
-	return cmd
+	return m.fetchProviderTracks(item.ID)
 }
 
 // SetPendingURLs stores remote URLs (feeds, M3U) for async resolution after Init.

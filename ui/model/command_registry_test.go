@@ -74,18 +74,6 @@ func TestReservedKeysComeFromCommandRegistry(t *testing.T) {
 	}
 }
 
-func TestMixcloudShortcutRegistryEntry(t *testing.T) {
-	for _, command := range commandRegistry {
-		if len(command.Keys) == 1 && command.Keys[0] == "X" && command.Mode&commandModeMain != 0 {
-			if command.KeyLabel != "X" || command.Label != "Open Mixcloud provider" || !command.Keymap {
-				t.Fatalf("Mixcloud command = %+v", command)
-			}
-			return
-		}
-	}
-	t.Fatal("Mixcloud shortcut is missing from the command registry")
-}
-
 func TestContextHelpAdvertisesProviderBrowsing(t *testing.T) {
 	browse := trackArtistBrowseProvider{interactionBrowseProvider{commandsTestProvider{name: "Mixcloud"}}}
 	m := keybindingTestModel()

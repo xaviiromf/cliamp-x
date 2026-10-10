@@ -3,11 +3,9 @@ package model
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
@@ -42,28 +40,7 @@ func (m *Model) handlePlaylistsLoaded(msg playlistsLoadedMsg) tea.Cmd {
 		m.status.Warningf(statusTTLLong, "%s", msg.err)
 	}
 	m.replaceProviderLists(msg.playlists)
-	if cmd := m.maybeFetchRadioListeners(); cmd != nil {
-		return tea.Batch(cmd, m.startCatalogLoading())
-	}
 	return m.startCatalogLoading()
-}
-
-// handleRadioListenersLoaded stores live listener counts for the cliamp
-// radio rows. A stale generation or a provider switch in flight drops the
-// message. Failures arrive as a nil map: the previous counts stay on screen
-// and only the backoff time is stamped, so rows never go blank on a failed
-// refresh.
-func (m *Model) handleRadioListenersLoaded(msg radioListenersLoadedMsg) {
-	if msg.gen != m.requests.radioListeners {
-		return
-	}
-	if _, ok := m.provider.(*radio.ChannelProvider); !ok {
-		return
-	}
-	if msg.counts != nil {
-		m.radioListeners = msg.counts
-	}
-	m.radioListenersAt = time.Now()
 }
 
 // handleTracksLoaded puts a loaded provider list, or one page of it, in the

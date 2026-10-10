@@ -16,9 +16,6 @@ import (
 	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/cmd"
 	"github.com/xaviiromf/cliamp-x/config"
-	"github.com/xaviiromf/cliamp-x/external/qobuz"
-	"github.com/xaviiromf/cliamp-x/external/spotify"
-	"github.com/xaviiromf/cliamp-x/external/tidal"
 	"github.com/xaviiromf/cliamp-x/external/ytmusic"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
@@ -78,11 +75,6 @@ func buildApp() *cli.Command {
 			pluginsCommand(),
 			playlistCommand(),
 			historyCommand(),
-			radioCommand(),
-			setupCommand(),
-			spotifyCommand(),
-			qobuzCommand(),
-			tidalCommand(),
 			ytmusicCommand(),
 			ipcSimpleCommand("play", "resume playback"),
 			ipcSimpleCommand("pause", "pause playback"),
@@ -371,84 +363,6 @@ func protocolCommand() *cli.Command {
 			},
 		},
 	}
-}
-
-// radioCommand is an easter egg: the "who's listening" globe from
-// cliamp.stream, in the terminal. The website's stats card shows the command
-// as a prompt; it is left out of the help listing so that stays the only hint.
-func radioCommand() *cli.Command {
-	return &cli.Command{
-		Name:   "radio",
-		Usage:  "who is listening to the cliamp radio channels",
-		Hidden: true,
-		Description: "Shows live listener statistics for the cliamp radio channels from\n" +
-			"radio.cliamp.stream: listeners now on the live streams and the channel\n" +
-			"playlists, by country and by channel, plus the all-time totals of the\n" +
-			"live streams. --globe draws them on a spinning globe, like the one on\n" +
-			"cliamp.stream.",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "stats", Usage: "print live listener statistics"},
-			&cli.BoolFlag{Name: "globe", Usage: "show the statistics on an animated globe (implies --stats)"},
-			&cli.BoolFlag{Name: "json", Usage: "print the raw statistics document of the live streams (implies --stats)"},
-		},
-		Action: func(ctx context.Context, c *cli.Command) error {
-			switch {
-			case c.Bool("globe") && c.Bool("json"):
-				return fmt.Errorf("--globe and --json cannot be combined")
-			case c.Bool("globe"):
-				return cmd.RadioGlobe(ctx, c.Root().String("start-theme"))
-			case c.Bool("stats") || c.Bool("json"):
-				return cmd.RadioStats(ctx, os.Stdout, c.Bool("json"))
-			default:
-				return cli.ShowSubcommandHelp(c)
-			}
-		},
-	}
-}
-
-func setupCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "setup",
-		Usage: "interactive wizard to configure remote providers",
-		Description: "Walks through configuring Navidrome, Plex, Jellyfin, Spotify,\n" +
-			"Qobuz, Tidal, NetEase, Audiobookshelf, and YouTube Music. Validates\n" +
-			"connections and writes ~/.config/cliamp/config.toml.",
-
-		Action: func(ctx context.Context, c *cli.Command) error {
-			return cmd.Setup()
-		},
-	}
-}
-
-func spotifyCommand() *cli.Command {
-	return providerCredsCommand("spotify", "Spotify", spotify.CredsPath, spotify.DeleteCreds)
-}
-
-func qobuzCommand() *cli.Command {
-	return providerCredsCommand("qobuz", "Qobuz", qobuz.CredsPath, qobuz.DeleteCreds)
-}
-
-func tidalCommand() *cli.Command {
-	cmd := providerCredsCommand("tidal", "Tidal", tidal.CredsPath, tidal.DeleteCreds)
-	cmd.Commands = append(cmd.Commands, &cli.Command{
-		Name:      "probe",
-		Usage:     "print sanitized playback diagnostics for each quality tier (no tokens or signed URLs)",
-		ArgsUsage: "[search query]",
-		Action: func(ctx context.Context, c *cli.Command) error {
-			query := strings.Join(c.Args().Slice(), " ")
-			if query == "" {
-				query = "Random Access Memories Get Lucky"
-			}
-			cfg, err := config.Load()
-			if err != nil {
-				return fmt.Errorf("config: %w", err)
-			}
-			probeCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			defer cancel()
-			return tidal.Probe(probeCtx, os.Stdout, query, cfg.Tidal.ClientID, cfg.Tidal.ClientSecret)
-		},
-	})
-	return cmd
 }
 
 func ytmusicCommand() *cli.Command {

@@ -13,7 +13,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/resolve"
 )
 
-// Directory resolves the configured directory, falling back to ~/Music/cliamp.
+// Directory resolves the configured directory, falling back to ~/Music/cliamp-x.
 func Directory(directory string) (string, error) {
 	if directory != "" {
 		if !filepath.IsAbs(directory) {
@@ -29,7 +29,7 @@ func Directory(directory string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, "Music", "cliamp"), nil
+	return filepath.Join(home, "Music", "cliamp-x"), nil
 }
 
 // SaveTo downloads or copies a track to the configured directory. A cancel of

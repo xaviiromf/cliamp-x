@@ -108,20 +108,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.openDefaultProviderBrowser()
 		return m, cmd
 
-	case radioListsRefreshMsg:
-		if msg.gen != m.requests.provider || m.activeProviderKey() != providerKeyRadio {
-			return m, nil
-		}
-		cmd := m.refreshRadioLists()
-		return m, cmd
-
 	case playlistsLoadedMsg:
 		cmd := m.handlePlaylistsLoaded(msg)
 		return m, cmd
-
-	case radioListenersLoadedMsg:
-		m.handleRadioListenersLoaded(msg)
-		return m, nil
 
 	case tracksLoadedMsg:
 		cmd := m.handleTracksLoaded(msg)

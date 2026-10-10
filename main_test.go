@@ -7,11 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xaviiromf/cliamp-x/config"
-	"github.com/xaviiromf/cliamp-x/external/emby"
-	"github.com/xaviiromf/cliamp-x/internal/embyapi"
 	"github.com/xaviiromf/cliamp-x/internal/resume"
-	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // cliamp search and cliamp search-sc play the first match of the query. Any
@@ -65,53 +61,25 @@ func TestCheckTerminalOutput(t *testing.T) {
 	}
 }
 
-// At exit, a Jellyfin or Emby stream saves the list it played from when such
-// a server is the default provider. Any other track saves only its position,
-// and a track with no position saves nothing.
+// At exit, a track with a position saves it with the playlist name, and a
+// track with no position saves nothing.
 func TestSaveExitResume(t *testing.T) {
-	server := emby.NewFromConfig(config.EmbyConfig{
-		URL: "https://emby.example.com", Token: "token", UserID: "user-1",
-	})
-	stream := "https://emby.example.com/Items/two/Download?api_key=token"
-	tracks := []playlist.Track{
-		{Path: "https://emby.example.com/Items/one/Download?api_key=token", Title: "One"},
-		{Path: stream, Title: "Two"},
-	}
+	stream := "https://music.youtube.com/watch?v=abc"
 	for _, tt := range []struct {
-		name       string
-		path       string
-		secs       int
-		server     *embyapi.Provider
-		want       resume.State
-		useContext bool
+		name string
+		path string
+		secs int
+		want resume.State
 	}{
-		{
-			name: "server stream", path: stream, secs: 95, server: server.Provider, useContext: true,
-			want: resume.State{Path: stream, PositionSec: 95, Playlist: "Mix", Context: tracks, ContextIndex: 1},
-		},
-		{
-			name: "stream without server", path: stream, secs: 95,
-			want: resume.State{Path: stream, PositionSec: 95, Playlist: "Mix"},
-		},
-		{
-			name: "local file with server", path: "/music/two.mp3", secs: 95, server: server.Provider,
-			want: resume.State{Path: "/music/two.mp3", PositionSec: 95, Playlist: "Mix"},
-		},
-		{name: "no position", path: stream, secs: 0, server: server.Provider},
+		{name: "stream", path: stream, secs: 95, want: resume.State{Path: stream, PositionSec: 95, Playlist: "Mix"}},
+		{name: "local file", path: "/music/two.mp3", secs: 95, want: resume.State{Path: "/music/two.mp3", PositionSec: 95, Playlist: "Mix"}},
+		{name: "no position", path: stream, secs: 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
-			usedContext := false
-			resumeContext := func() ([]playlist.Track, int) {
-				usedContext = true
-				return tracks, 1
-			}
-			saveExitResume(tt.path, tt.secs, "Mix", resumeContext, tt.server)
+			saveExitResume(tt.path, tt.secs, "Mix")
 			if got := resume.Load(); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("saved state = %+v, want %+v", got, tt.want)
-			}
-			if usedContext != tt.useContext {
-				t.Fatalf("context read = %v, want %v", usedContext, tt.useContext)
 			}
 		})
 	}

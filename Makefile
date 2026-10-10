@@ -58,7 +58,7 @@ TESTFLAGS ?=
 ci: fmt-check tidy-check vet staticcheck security
 	go test -count=1 -race $(TESTFLAGS) -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
-	shellcheck site/install.sh
+	shellcheck scripts/install.sh
 	git diff --exit-code
 
 check: fmt vet test

@@ -19,10 +19,8 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/config"
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/internal/appdir"
 	"github.com/xaviiromf/cliamp-x/internal/appmeta"
-	"github.com/xaviiromf/cliamp-x/internal/embyapi"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/internal/resume"
 	"github.com/xaviiromf/cliamp-x/ipc"
@@ -107,14 +105,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 
 	defaultProvider := cfg.Provider
 	if defaultProvider == "" {
-		defaultProvider = "cliamp"
+		defaultProvider = "ytmusic"
 	}
-	defaultRadio := len(positional) == 0 && defaultProvider == "radio"
-	// The cliamp radio view waits for the listener to pick a channel. Headless
-	// mode has no view, and auto-play expects sound without a keypress, so
-	// both start with the live channel streams instead.
-	liveChannels := defaultRadio ||
-		(len(positional) == 0 && defaultProvider == "cliamp" && (headless || cfg.AutoPlay))
 	resumeState := resume.Load()
 
 	pl := playlist.New()
@@ -124,29 +116,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 			return fmt.Errorf("playlist %q: %w", cfg.Playlist, err)
 		}
 		pl.Add(tracks...)
-	} else if liveChannels {
-		// The channel list lives in the M3U the radio provider already serves,
-		// so resolve that instead of restating it here: the startup playlist
-		// then matches what browsing "cliamp radio" shows -- same channels,
-		// same order, same titles -- and a new channel needs no code change.
-		// It goes through the normal pending path, so the fetch happens in the
-		// background rather than delaying launch.
-		resolved.Pending = append(resolved.Pending, radio.BuiltinURL)
 	}
 	pl.Add(resolved.Tracks...)
-
-	resumeServer := providers.resumeServer(defaultProvider)
-	restoredContext := false
-	restoredIndex := 0
-	restoredResumePath := ""
-	if !headless && resumeServer != nil && cfg.Playlist == "" && len(positional) == 0 && len(resolved.Pending) == 0 && pl.Len() == 0 {
-		if tracks, index, activePath, ok := restoreServerContext(resumeState, resumeServer); ok {
-			pl.Add(tracks...)
-			restoredContext = true
-			restoredIndex = index
-			restoredResumePath = activePath
-		}
-	}
 
 	p, closePlayer, err := newPlayer(cfg)
 	if err != nil {
@@ -169,13 +140,6 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	}
 
 	m := model.New(p, pl, providers.entries, defaultProvider, providers.localPlaylists(), providers.favorites, providers.history, theme.LoadAll(), luaMgr, config.SaveFunc{})
-	m.SetRadioFavorites(providers.radioFavorites)
-	if resumeServer != nil {
-		m.SetResumeSaver(serverResumeSaver(resumeServer))
-	}
-	if restoredContext {
-		m.SetInitialTrack(restoredIndex)
-	}
 	m.SetIPCBroker(pluginBroker)
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaStateProvider(p, m.PluginStateLoader()))
@@ -190,21 +154,13 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	if !headless && len(resolved.Tracks) == 0 && len(resolved.Pending) == 0 && pl.Len() == 0 {
 		m.StartInProvider()
 	}
-	if cfg.AutoPlay && !restoredContext {
+	if cfg.AutoPlay {
 		m.SetAutoPlay(true)
 	}
 	configureModel(&m, cfg, headless, visualizer60FPS)
 
-	if resumeState.Path != "" && resumeState.PositionSec > 0 {
-		// Jellyfin and Emby resume the restored context above. Mixcloud is also commonly
-		// opened from its provider browser rather than a positional URL; preserve
-		// cliamp's existing positional-file behavior for other providers.
-		switch {
-		case restoredResumePath != "":
-			m.SetResume(restoredResumePath, resumeState.PositionSec)
-		case playlist.IsMixcloudURL(resumeState.Path) || (!defaultRadio && len(positional) > 0):
-			m.SetResume(resumeState.Path, resumeState.PositionSec)
-		}
+	if resumeState.Path != "" && resumeState.PositionSec > 0 && len(positional) > 0 {
+		m.SetResume(resumeState.Path, resumeState.PositionSec)
 	}
 
 	prog := tea.NewProgram(m, programOptions(headless, cfg.LowPower)...)
@@ -240,7 +196,7 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	if err != nil {
 		return err
 	}
-	saveOnExit(finalModel, headless, resumeServer)
+	saveOnExit(finalModel, headless)
 	if fm, ok := finalModel.(model.Model); ok {
 		fm.WaitReports(reportsExitWait)
 	}
@@ -393,7 +349,7 @@ func startIPC(send func(tea.Msg), broker *ipc.Broker, plugins *luaplugin.Manager
 // saveOnExit keeps the theme and the resume position of the final Model.
 // When a Jellyfin or Emby server is the default provider, it also keeps the
 // list that the track played from.
-func saveOnExit(final tea.Model, headless bool, resumeServer *embyapi.Provider) {
+func saveOnExit(final tea.Model, headless bool) {
 	fm, ok := final.(model.Model)
 	if !ok {
 		return
@@ -408,23 +364,12 @@ func saveOnExit(final tea.Model, headless bool, resumeServer *embyapi.Provider) 
 	}
 
 	path, secs, playlistName := fm.ResumeState()
-	saveExitResume(path, secs, playlistName, fm.ResumeContext, resumeServer)
+	saveExitResume(path, secs, playlistName)
 }
 
-// saveExitResume saves the track and the position of the exit. When
-// resumeServer is set and path is a Jellyfin or Emby stream, it also saves
-// the list that resumeContext returns. A track with no position saves
-// nothing.
-func saveExitResume(path string, secs int, playlistName string, resumeContext func() ([]playlist.Track, int), resumeServer *embyapi.Provider) {
+// saveExitResume saves the track and the position of the exit.
+func saveExitResume(path string, secs int, playlistName string) {
 	if path == "" || secs <= 0 {
-		return
-	}
-	if resumeServer != nil && embyapi.IsStreamURL(path) {
-		tracks, index := resumeContext()
-		resume.SaveState(resume.State{
-			Path: path, PositionSec: secs, Playlist: playlistName,
-			Context: tracks, ContextIndex: index,
-		})
 		return
 	}
 	resume.Save(path, secs, playlistName)

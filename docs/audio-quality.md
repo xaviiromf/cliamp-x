@@ -1,6 +1,6 @@
 # Audio Quality
 
-Set the output sample rate, speaker buffer size, resample quality, and bit depth in `~/.config/cliamp/config.toml`. The `OUT` status line below the EQ shows the active settings.
+Set the output sample rate, speaker buffer size, resample quality, and bit depth in `~/.config/cliamp-x/config.toml`. The `OUT` status line below the EQ shows the active settings.
 
 ## Configuration
 
@@ -59,9 +59,9 @@ buffer_ms = 2000
 This can add up to two seconds of playback latency. It gives the audio device more time to handle short network interruptions.
 
 Live HTTP radio also uses an automatic decoded-audio jitter buffer. If the
-network has no data, cliamp outputs silence without blocking the UI. It waits
+network has no data, cliamp-x outputs silence without blocking the UI. It waits
 for a short refill before it resumes. This avoids rapid sound breaks. A source
-that stays slower than its audio bitrate can still have silent gaps. cliamp
+that stays slower than its audio bitrate can still have silent gaps. cliamp-x
 cannot reconstruct missing audio.
 
-Changes take effect when you next start cliamp.
+Changes take effect when you next start cliamp-x.

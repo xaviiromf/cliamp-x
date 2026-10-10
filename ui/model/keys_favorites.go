@@ -3,7 +3,6 @@ package model
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
@@ -96,38 +95,22 @@ func (m *Model) toggleFavorite(prov playlist.Provider, id string) bool {
 }
 
 // playlistStarAction keeps the key handler and its help scoped to the same
-// selection. A directory radio station outside saved playlists keeps its
-// station favorite. Every other track toggles the ♥ favorite.
+// selection.
 type playlistStarAction uint8
 
 const (
 	starUnavailable playlistStarAction = iota
 	starFavorite
-	starRadioFavorite
 )
 
 func (m Model) selectedPlaylistStarAction() playlistStarAction {
 	if m.playlist == nil || m.focus != focusPlaylist || m.plCursor < 0 || m.plCursor >= m.playlist.Len() {
 		return starUnavailable
 	}
-	track, _ := m.playlist.Track(m.plCursor)
-	if _, ok := m.favoriteStation(track, m.loadedPlaylist != ""); ok {
-		return starRadioFavorite
-	}
 	if m.favStore != nil {
 		return starFavorite
 	}
 	return starUnavailable
-}
-
-// favoriteStation returns the station whose favorite the ♥ of track shows.
-// savedPlaylist is true for a row of a loaded saved playlist. ok is false when
-// the track uses the favorites store. It is the rule of trackFavorited.
-func (m Model) favoriteStation(track playlist.Track, savedPlaylist bool) (radio.CatalogStation, bool) {
-	if savedPlaylist || m.radioFavorites == nil {
-		return radio.CatalogStation{}, false
-	}
-	return radio.StationFromTrack(track)
 }
 
 // savedPlaylistRow reports whether track is a row of a loaded saved playlist.
@@ -158,63 +141,30 @@ func (m *Model) togglePlaylistStar() tea.Cmd {
 	return cmd
 }
 
-// togglePlaylistTrackFavorite toggles the ♥ of track in the store that the ♥
-// marker reads. savedPlaylist is true for a row of a loaded saved playlist. A
-// directory radio station outside a saved playlist toggles its station
-// favorite. Every other track toggles the favorites store. The f key and IPC
-// playlist.bookmark use it.
-func (m *Model) togglePlaylistTrackFavorite(track playlist.Track, savedPlaylist bool) (tea.Cmd, error) {
-	station, ok := m.favoriteStation(track, savedPlaylist)
-	if !ok {
-		return m.toggleTrackFavorite(track)
-	}
-	added, err := m.radioFavorites.Toggle(station)
-	if err != nil {
-		return nil, err
-	}
-	if added {
-		m.status.Showf(statusTTLMedium, "Favorited station: %s", station.Name)
-	} else {
-		m.status.Showf(statusTTLMedium, "Removed station: %s", station.Name)
-	}
-	// Only the displayed Radio pane needs refreshing. Switching back from
-	// another provider fetches its list normally; never replace that provider's
-	// list with Radio's results.
-	if m.activeProviderKey() == providerKeyRadio {
-		m.refreshProviderListsAfterMutation()
-	}
-	return nil, nil
+// togglePlaylistTrackFavorite toggles the ♥ of track in the favorites store.
+// The f key and IPC playlist.bookmark use it.
+func (m *Model) togglePlaylistTrackFavorite(track playlist.Track, _ bool) (tea.Cmd, error) {
+	return m.toggleTrackFavorite(track)
 }
 
 // playlistTrackFavorited reports whether a playback row shows the ♥ marker.
-// It uses the same rule as selectedPlaylistStarAction, so the marker always
-// shows the state that f toggles. The render path calls it, so it must not do
-// I/O.
+// The render path calls it, so it must not do I/O.
 func (m Model) playlistTrackFavorited(track playlist.Track) bool {
-	return trackFavorited(track, m.favSet, m.radioFavorites, m.loadedPlaylist != "")
+	return trackFavorited(track, m.favSet)
 }
 
 // trackFavoriteLookup returns the ♥ rule as a function that is safe to call
 // from a tea.Cmd. It captures the current favSet, which refreshFavSet
-// replaces and never changes in place. Set playback for rows of the playback
-// playlist, so a saved playlist uses track favorites as its rows do.
-func (m Model) trackFavoriteLookup(playback bool) func(playlist.Track) bool {
-	favSet, stations := m.favSet, m.radioFavorites
-	saved := playback && m.loadedPlaylist != ""
+// replaces and never changes in place.
+func (m Model) trackFavoriteLookup(bool) func(playlist.Track) bool {
+	favSet := m.favSet
 	return func(track playlist.Track) bool {
-		return trackFavorited(track, favSet, stations, saved)
+		return trackFavorited(track, favSet)
 	}
 }
 
-// trackFavorited reports the ♥ state of track. A directory radio station
-// outside a saved playlist uses its station favorite. Every other track uses
-// the favorites store.
-func trackFavorited(track playlist.Track, favSet map[string]struct{}, stations *radio.Favorites, savedPlaylist bool) bool {
-	if !savedPlaylist && stations != nil {
-		if station, ok := radio.StationFromTrack(track); ok {
-			return stations.Contains(station.URL)
-		}
-	}
+// trackFavorited reports the ♥ state of track in the favorites store.
+func trackFavorited(track playlist.Track, favSet map[string]struct{}) bool {
 	_, ok := favSet[track.Path]
 	return ok
 }

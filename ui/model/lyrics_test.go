@@ -110,15 +110,6 @@ func assertRadioLyricsScrollable(t *testing.T, track playlist.Track) {
 	}
 }
 
-func TestRadioLyricsRemainScrollable(t *testing.T) {
-	_, _, tracks := radioFavoriteTestModel(t)
-	for _, track := range tracks {
-		t.Run(track.Title, func(t *testing.T) {
-			assertRadioLyricsScrollable(t, track)
-		})
-	}
-}
-
 func TestLyricsSyncableRuntimeLiveStream(t *testing.T) {
 	m := keybindingTestModel()
 	m.playlist.Replace([]playlist.Track{{

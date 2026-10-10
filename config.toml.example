@@ -1,5 +1,5 @@
-# CLIAMP configuration
-# Copy to ~/.config/cliamp/config.toml
+# cliamp-x configuration
+# Copy to ~/.config/cliamp-x/config.toml
 
 # Default volume in dB (range: volume_min to +6)
 volume = 0
@@ -43,9 +43,9 @@ seek_large_step_sec = 30
 # bit_depth = 16           # 16 or 32 (for FFmpeg-decoded formats)
 
 # Audio output device name. Empty uses the system default output.
-# Run "cliamp --audio-device list" and copy a name from the second column.
+# Run "cliamp-x --audio-device list" and copy a name from the second column.
 # Linux sends the stream to it through PipeWire. macOS makes it the default
-# output while cliamp runs. Windows does not use it at startup.
+# output while cliamp-x runs. Windows does not use it at startup.
 # audio_device = "alsa_output.usb-FiiO_K5_Pro-00.analog-stereo"
 
 # EQ preset: "Flat", "Rock", "Pop", "Jazz", "Classical",
@@ -60,8 +60,8 @@ eq_preset = "Flat"
 # Saved Custom curve; applied when eq_preset is "Custom" or empty
 eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-# Default provider on startup: "cliamp" (the cliamp radio channels), "radio", "podcast", "navidrome", "lyrion", "spotify", "qobuz", "tidal", "plex", "jellyfin", "emby", "soundcloud", "mixcloud", "netease", "yandex", "audiobookshelf", or a YouTube provider
-# provider = "cliamp"
+# Default provider on startup: "ytmusic" (YouTube Music) or "local"
+# provider = "ytmusic"
 
 # Simplified mode: artist/title and time strip without a visualizer or playlist.
 # No visualizer or playback controls are shown.
@@ -93,7 +93,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # padding_horizontal = 3
 # padding_vertical = 1
 
-# UI theme name (check ~/.config/cliamp/themes/ for available themes)
+# UI theme name (check ~/.config/cliamp-x/themes/ for available themes)
 # theme = "Tokyo Night"
 
 # Visualizer mode: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, Mirror, Omarchy, RedSector, YinYang, or None
@@ -107,238 +107,31 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # low_power = false
 
 # Log level: "debug", "info", "warn", or "error" (default "info")
-# Logs are written to ~/.config/cliamp/cliamp.log
+# Logs are written to ~/.config/cliamp-x/cliamp.log
 # log_level = "info"
 
 # ---
-# Podcasts (always available; no enabled setting, API key, or account)
-# Start with cliamp --provider podcast, or set provider = "podcast" above.
-# Country affects Apple's top 100 chart only, not searches or categories.
-# Default: "us". No location detection. See docs/podcasts.md.
-# [podcast]
-# country = "no"
-
-# ---
-# Spotify (optional)
-# Requires a Spotify Premium account.
-#
-# Recommended: register your own Spotify Developer app at
-# developer.spotify.com/dashboard with redirect URI
-# http://127.0.0.1:19872/login, then uncomment the section below with
-# your client_id. You get a private Web API rate-limit quota for library,
-# playlist, and search requests. Playback is authorized separately with
-# Spotify's built-in identity, so first sign-in completes two steps in one tab.
-# [spotify]
-# client_id = "your-spotify-app-client-id"
-# bitrate = 320
-#
-# Development Mode limits /v1/search to 10 results per request. cliamp pages
-# automatically with offset, so search works with your own client_id.
-#
-# Alternative: drop client_id to use cliamp's built-in fallback (the
-# librespot keymaster client_id). Its rate-limit quota is shared with every
-# librespot-based client, so you may see occasional 429s.
-
-# ---
-# Qobuz (optional)
-# Requires an active Qobuz subscription.
-#
-# Enable the provider, then run cliamp, select Qobuz, and press Enter to
-# sign in. A browser window opens for Qobuz's OAuth login; credentials are
-# cached at ~/.config/cliamp/qobuz_credentials.json and refreshed silently
-# on later launches. Run "cliamp qobuz reset" to clear them.
-# [qobuz]
-# enabled = true
-#
-# Stream quality (format_id). Default 6.
-#   5  = MP3 320kbps
-#   6  = FLAC 16-bit/44.1kHz (CD)
-#   7  = FLAC 24-bit up to 96kHz
-#   27 = FLAC 24-bit up to 192kHz (Hi-Res)
-# quality = 6
-
-# ---
-# Tidal (optional)
-# Requires a paid Tidal subscription (all paid plans include lossless FLAC).
-#
-# Enable the provider, then run cliamp, select Tidal, and press Enter to
-# sign in. A link.tidal.com URL with a short code is shown (and opened in a
-# browser); approve the device there. Credentials are cached at
-# ~/.config/cliamp/tidal_credentials.json and refreshed silently on later
-# launches. Run "cliamp tidal reset" to clear them.
-# [tidal]
-# enabled = true
-#
-# Stream quality. Default "lossless".
-#   "low"      = 96 kbps AAC
-#   "high"     = 320 kbps AAC
-#   "lossless" = FLAC up to 24-bit/192kHz where available (see note)
-#   "hires"    = same delivery as "lossless"
-# Note: Tidal serves FLAC to this client type only for tracks with a hi-res
-# ("Max") master; other tracks are downgraded to AAC 320 server-side. cliamp
-# shows a footer notice when that happens. See docs/tidal.md.
-# quality = "lossless"
-#
-# cliamp uses built-in fallback OAuth client credentials. Tidal revokes leaked
-# client IDs from time to time; if sign-in fails with a client error, set a
-# fresh pair here without waiting for a cliamp release.
-# client_id = ""
-# client_secret = ""
-
-# ---
-# Navidrome / Subsonic server (optional)
-# When configured, cliamp opens the playlist browser on startup and streams
-# tracks directly from your server.
-# These values take precedence over the NAVIDROME_URL / NAVIDROME_USER /
-# NAVIDROME_PASS environment variables when both are present.
-# [navidrome]
-# url      = "https://music.example.com"
-# user     = "alice"
-# password = "secret"
-#
-# Album browse sort order for the Navidrome browser (press N to open).
-# Valid values: alphabeticalByName, alphabeticalByArtist, newest, recent,
-#               frequent, starred, byYear, byGenre
-# This is updated automatically when you press [s] inside the browser.
-# browse_sort = alphabeticalByName
-#
-# Stream format: unset lets Navidrome use its per-player transcoding if
-# configured, otherwise the original file. "raw" always requests the original.
-# Other requested formats do not override per-player transcoding.
-# format = "raw"
-
-# ---
-# Lyrion Music Server / LMS (optional)
-# Only `url` is required; add credentials if the server has password
-# protection enabled. Port 9000 is the LMS default — the same port as its web
-# interface, not the 9090 CLI port.
-# These values take precedence over the LYRION_URL / LYRION_USER /
-# LYRION_PASS environment variables when both are present.
-# [lyrion]
-# url      = "http://nas.local:9000"
-# user     = "alice"
-# password = "secret"
-#
-# Tracks and playlists contributed by LMS plugins (Spotty and similar) are not
-# file-backed, so cliamp cannot stream them and hides them by default. Set this
-# to show them anyway, flagged as unplayable and skipped during playback.
-# See docs/lyrion.md.
-# show_unplayable = true
-
-# ---
-# SoundCloud (optional, opt-in)
-# Off by default. Set `enabled = true` to register the provider; then search,
-# URL playback, and a curated browse list work via yt-dlp. Set `user` to
-# expose your profile's Tracks, Likes, and Reposts. Set `cookies_from` to use
-# your browser's signed-in session for Go+ / subscriber-gated tracks.
-# [soundcloud]
-# enabled = true
-# user = "yourname"
-# cookies_from = "firefox"   # chrome, brave, edge, opera, safari, vivaldi…
-
-# ---
-# Mixcloud (optional, opt-in)
-# Public discovery, show search, the live genre catalogue, genre/tag search,
-# creator jumps, and Latest/Popular charts work with enabled=true. Set username
-# for your following stream, profile activity, uploads, read-only show favorites,
-# listening history, collections, and followed-creator browsing. A developer
-# OAuth access_token makes /me the account identity and adds Listen Later.
-# cookies_from is used by yt-dlp for signed-in playback only. styles is the
-# local genre-favorites list; toggle it with [f] in Mixcloud's Genres browser.
-# [mixcloud]
-# enabled = true
-# username = "yourname"
-# access_token = "${MIXCLOUD_ACCESS_TOKEN}"
-# cookies_from = "firefox"   # chrome, brave, edge, chromium, opera, safari, vivaldi, whale…
-# styles = ["ambient", "deep-house", "house", "jazz", "techno"]
-# max_items = 100
-# stream_creators = 20
-
-# ---
-# NetEase Cloud Music (optional, opt-in)
-# Sign in to music.163.com in your browser, then run `cliamp setup` or set
-# cookies_from manually. The provider lists your account playlists, saved
-# playlists, liked songs, and public charts. Playback uses yt-dlp.
-# [netease]
-# enabled = true
-# cookies_from = "chrome"
-# user_id = "optional-account-user-id"
-
-# ---
-# Yandex Music (optional, opt-in)
-# Get a personal OAuth token by opening:
-# https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d
-# The token appears in the address bar after `#access_token=`. The provider
-# lists liked tracks and your playlists. Playback uses direct signed CDN URLs.
-# Without a Yandex Music Plus subscription only low-bitrate previews play.
-# [yandex]
-# enabled = true
-# token = "y0_YourPersonalOAuthToken"
-
-# ---
-# Plex Media Server (optional)
-# [plex]
-# url   = "http://192.168.1.10:32400"
-# token = "xxxxxxxxxxxxxxxxxxxx"
-#
-# Restrict to specific music libraries (comma-separated, case-insensitive).
-# When omitted or empty, all music libraries are loaded.
-# libraries = ["Music", "Jazz"]
-
-# ---
-# Jellyfin server (optional)
-# Authenticate either with a long-lived API token or with your username/password.
-# user_id is optional and is discovered automatically when omitted.
-# [jellyfin]
-# url = "https://jellyfin.example.com"
-# user = "alice"
-# password = "secret"
-# token = "optional-api-token"
-# user_id = "optional-user-id"
-
-# ---
-# YouTube & YouTube Music (optional)
-# Zero OAuth setup: set `cookies_from` to browse your Liked Music, Liked Videos,
-# and account playlists using your browser session without Google Cloud setup.
-# Alternatively, supply your own Google Cloud OAuth client credentials.
-#
+# YouTube Music
+# cliamp-x signs in with the YouTube Music session of your browser: sign in
+# at music.youtube.com once, then run "cliamp-x login". cliamp-x copies the
+# cookies into ~/.config/cliamp-x/ytmusic_cookies.txt (mode 0600) and
+# refreshes them from the browser at every start, so you stay signed in.
+# Without a sign-in, search and public pages still work.
 # [ytmusic]
-# cookies_from = "chrome"   # chrome, firefox, brave, edge, safari, opera…
-#
-# Custom OAuth client (optional, overrides cookie-only mode):
-# client_id = "your-google-oauth-client-id"
-# client_secret = "your-google-oauth-client-secret"
-#
-# Resolve full playlists from list= URLs (default true).
-# When false, only the single video is resolved and playlist links are stripped.
+# Browser that holds the sign-in, in yt-dlp syntax: brave, brave-origin,
+# chrome, chromium, edge, firefox, opera, vivaldi, or a browser:profile path.
+# Empty detects the first browser with a YouTube sign-in.
+# cookies_from = "brave-origin"
+# Expand list= URLs to the whole playlist (true) or play one video (false).
 # expand_playlist = true
+# Language and country of the YouTube Music pages (default: from $LANG).
+# language = "es"
+# region = "CL"
+# When the queue ends, keep playing songs similar to the last one.
+# auto_radio = true
+# Add the songs you play to your YouTube Music history, which improves
+# your recommendations. Off by default.
+# report_history = false
 
-# ---
-# Emby server (optional)
-# Authenticate either with an API key or with your username/password.
-# user_id is optional and is discovered automatically when omitted.
-# [emby]
-# url = "https://emby.example.com"
-# user = "alice"
-# password = "secret"
-# token = "optional-api-key"
-# user_id = "optional-user-id"
-
-# ---
-# Audiobookshelf server (optional)
-# Audiobooks and podcasts from your own Audiobookshelf server. Authenticate
-# either with an API key (Settings -> Users -> API Keys) or with your
-# username/password.
-# [audiobookshelf]
-# url = "https://abs.example.com"
-# token = "your-api-key"
-# user = "listener"
-# password = "secret"
-#
-# Restrict to specific libraries (default: all).
-# libraries = ["Audiobooks", "Podcasts"]
-
-# Destination for TUI Ctrl+S saves. Empty uses ~/Music/cliamp.
-# Use an absolute path; mount external drives before saving.
 [downloads]
 directory = ""

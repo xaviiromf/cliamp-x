@@ -48,7 +48,7 @@ func loadWriteRules() writeRules {
 		add(&r.allow, dataDir)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		add(&r.allow, filepath.Join(home, "Music", "cliamp"))
+		add(&r.allow, filepath.Join(home, "Music", "cliamp-x"))
 	}
 
 	// A plugin that writes these could approve its own code in

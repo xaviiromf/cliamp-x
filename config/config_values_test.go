@@ -2,7 +2,6 @@ package config
 
 import (
 	"reflect"
-	"slices"
 	"testing"
 )
 
@@ -58,12 +57,9 @@ func TestLoadBoolKeysIgnoreLetterCase(t *testing.T) {
 		{"low_power", "low_power = True", func(c Config) bool { return c.LowPower }, true},
 		{"vis_volume_linked", "vis_volume_linked = False", func(c Config) bool { return c.VisVolumeLinked }, false},
 		{"invalid keeps default", "vis_volume_linked = maybe", func(c Config) bool { return c.VisVolumeLinked }, true},
-		{"navidrome scrobble", "[navidrome]\nscrobble = False", func(c Config) bool { return c.Navidrome.ScrobbleDisabled }, true},
-		{"navidrome scrobble zero", "[navidrome]\nscrobble = 0", func(c Config) bool { return c.Navidrome.ScrobbleDisabled }, true},
-		{"lyrion show_unplayable", "[lyrion]\nshow_unplayable = True", func(c Config) bool { return c.Lyrion.ShowUnplayable }, true},
-		{"spotify enabled", "[spotify]\nenabled = False", func(c Config) bool { return c.Spotify.IsSet() }, false},
-		{"qobuz enabled", "[qobuz]\nenabled = FALSE", func(c Config) bool { return c.Qobuz.IsSet() }, false},
-		{"tidal enabled", "[tidal]\nenabled = False", func(c Config) bool { return c.Tidal.IsSet() }, false},
+		{"report_history", "[ytmusic]\nreport_history = True", func(c Config) bool { return c.YouTubeMusic.ReportHistory }, true},
+		{"report_history one", "[ytmusic]\nreport_history = 1", func(c Config) bool { return c.YouTubeMusic.ReportHistory }, true},
+		{"auto_radio", "[ytmusic]\nauto_radio = FALSE", func(c Config) bool { return c.YouTubeMusic.AutoRadioEnabled() }, false},
 		{"ytmusic enabled", "[ytmusic]\nenabled = False", func(c Config) bool { return c.YouTubeMusic.Disabled }, true},
 		{"ytmusic expand_playlist", "[ytmusic]\nexpand_playlist = False", func(c Config) bool {
 			return c.YouTubeMusic.ExpandPlaylist != nil && !*c.YouTubeMusic.ExpandPlaylist
@@ -71,10 +67,6 @@ func TestLoadBoolKeysIgnoreLetterCase(t *testing.T) {
 		{"ytmusic expand_playlist invalid", "[ytmusic]\nexpand_playlist = maybe", func(c Config) bool {
 			return c.YouTubeMusic.ExpandPlaylist == nil
 		}, true},
-		{"soundcloud enabled", "[soundcloud]\nenabled = True", func(c Config) bool { return c.SoundCloud.Enabled }, true},
-		{"mixcloud enabled", "[mixcloud]\nenabled = True", func(c Config) bool { return c.Mixcloud.Enabled }, true},
-		{"netease enabled", "[netease]\nenabled = True", func(c Config) bool { return c.NetEase.Enabled }, true},
-		{"yandex enabled", "[yandex]\nenabled = True", func(c Config) bool { return c.Yandex.Enabled }, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,27 +111,25 @@ func TestQuoteStringRoundTrip(t *testing.T) {
 
 func TestLoadDecodesQuotedStrings(t *testing.T) {
 	cfg := loadConfigText(t, `
-[navidrome]
-url = 'https://music.example.com'
-user = "'alice'"
-password = "a\\b\"c"
+[ytmusic]
+cookies_from = 'firefox:~/.mozilla'
+language = "'es'"
+region = "c\\l\"x"
 
-[plex]
-url = "http://plex.local:32400"
-token = "tok"
-libraries = ["Mus\"ic", 'Ja\zz']
+[downloads]
+directory = "~/Mus\"ic"
 `)
-	if got, want := cfg.Navidrome.URL, "https://music.example.com"; got != want {
-		t.Errorf("Navidrome.URL = %q, want %q", got, want)
+	if got, want := cfg.YouTubeMusic.CookiesFrom, "firefox:~/.mozilla"; got != want {
+		t.Errorf("YouTubeMusic.CookiesFrom = %q, want %q", got, want)
 	}
-	if got, want := cfg.Navidrome.User, "'alice'"; got != want {
-		t.Errorf("Navidrome.User = %q, want %q", got, want)
+	if got, want := cfg.YouTubeMusic.Language, "'es'"; got != want {
+		t.Errorf("YouTubeMusic.Language = %q, want %q", got, want)
 	}
-	if got, want := cfg.Navidrome.Password, `a\b"c`; got != want {
-		t.Errorf("Navidrome.Password = %q, want %q", got, want)
+	if got, want := cfg.YouTubeMusic.Region, `C\L"X`; got != want {
+		t.Errorf("YouTubeMusic.Region = %q, want %q", got, want)
 	}
-	if got, want := cfg.Plex.Libraries, []string{`Mus"ic`, `Ja\zz`}; !slices.Equal(got, want) {
-		t.Errorf("Plex.Libraries = %q, want %q", got, want)
+	if got, want := cfg.Downloads.Directory, `~/Mus"ic`; got != want {
+		t.Errorf("Downloads.Directory = %q, want %q", got, want)
 	}
 }
 
@@ -177,14 +167,10 @@ expanded = True   # any case
 repeat = "all" # loop the list
 seek_large_step_sec = 10#no space, so the value is invalid
 
-[spotify]
-client_id = "abc" # mine
-bitrate = 160 # kbps
-
-[navidrome]
-url = "https://music.example.com"
-user = alice
-password = pa #ss
+[ytmusic]
+cookies_from = "brave" # mine
+report_history = true # on
+language = es #x
 
 [plugins.lastfm]
 api_key = abc #123
@@ -199,9 +185,9 @@ api_key = abc #123
 		{"Expanded", cfg.Expanded, true},
 		{"Repeat", cfg.Repeat, "all"},
 		{"SeekStepLarge", cfg.SeekStepLarge, 30},
-		{"Spotify.ClientID", cfg.Spotify.ClientID, "abc"},
-		{"Spotify.Bitrate", cfg.Spotify.Bitrate, 160},
-		{"Navidrome.Password", cfg.Navidrome.Password, "pa #ss"},
+		{"YouTubeMusic.CookiesFrom", cfg.YouTubeMusic.CookiesFrom, "brave"},
+		{"YouTubeMusic.ReportHistory", cfg.YouTubeMusic.ReportHistory, true},
+		{"YouTubeMusic.Language", cfg.YouTubeMusic.Language, "es #x"},
 		{"plugins.lastfm.api_key", cfg.Plugins["lastfm"]["api_key"], "abc #123"},
 	}
 	for _, c := range checks {
@@ -242,20 +228,17 @@ func TestSectionHeader(t *testing.T) {
 // header land in that section and not in the section before it.
 func TestLoadCommentAfterSectionHeader(t *testing.T) {
 	cfg := loadConfigText(t, `
-[plex]
-url = "http://plex.local:32400"
-token = "plex-token"
+[downloads]
+directory = "/music"
 
-[navidrome] # my server
-url = "https://music.example.com"
-user = "alice"
-password = "secret"
+[ytmusic] # my account
+cookies_from = "brave"
 `)
-	if got, want := cfg.Navidrome.URL, "https://music.example.com"; got != want {
-		t.Errorf("Navidrome.URL = %q, want %q", got, want)
+	if got, want := cfg.YouTubeMusic.CookiesFrom, "brave"; got != want {
+		t.Errorf("YouTubeMusic.CookiesFrom = %q, want %q", got, want)
 	}
-	if got, want := cfg.Plex.URL, "http://plex.local:32400"; got != want {
-		t.Errorf("Plex.URL = %q, want %q", got, want)
+	if got, want := cfg.Downloads.Directory, "/music"; got != want {
+		t.Errorf("Downloads.Directory = %q, want %q", got, want)
 	}
 }
 

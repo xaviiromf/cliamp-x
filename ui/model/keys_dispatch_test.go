@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 	"github.com/xaviiromf/cliamp-x/ui"
@@ -19,8 +18,7 @@ func shortcutTestModel() Model {
 	other := commandsTestProvider{name: "Other"}
 	m.provider = other
 	m.providers = []provider.Entry{{Key: "other", Name: "Other", Provider: other}}
-	for _, key := range []string{"navidrome", "spotify", "plex", "jellyfin", "emby", "audiobookshelf",
-		"yt", "soundcloud", "mixcloud", "netease", "qobuz", "tidal", "local", "radio", "podcast"} {
+	for _, key := range []string{"ytmusic", "local"} {
 		m.providers = append(m.providers, provider.Entry{Key: key, Name: key, Provider: commandsTestProvider{name: key}})
 	}
 	return m
@@ -37,9 +35,7 @@ func TestProviderShortcutsSwitchFromEveryFocus(t *testing.T) {
 		{"volume", focusVolume},
 	}
 	shortcuts := map[string]string{
-		"S": "spotify", "P": "plex", "J": "jellyfin", "E": "emby", "B": "audiobookshelf",
-		"Y": "yt", "C": "soundcloud", "X": "mixcloud", "M": "netease", "Q": "qobuz",
-		"T": "tidal", "L": "local", "R": "radio", "O": "podcast",
+		"Y": "ytmusic", "L": "local",
 	}
 	for _, f := range focuses {
 		for key, want := range shortcuts {
@@ -78,10 +74,6 @@ func TestProviderShortcutsSwitchFromEveryFocus(t *testing.T) {
 // to land, so only the setup hint applies.
 func TestQuickSwitchProviderTakesEveryShortcut(t *testing.T) {
 	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
-	// A Radio with an active search starts no catalog load, so the switch to
-	// it has no command.
-	searching := radio.New(radio.Options{Country: radio.CountryDeclined})
-	searching.SetSearchResults(nil)
 	tests := []struct {
 		name         string
 		key          string
@@ -91,11 +83,9 @@ func TestQuickSwitchProviderTakesEveryShortcut(t *testing.T) {
 		wantProvider string
 		wantOpen     bool // overlays stay open
 	}{
-		{name: "configured provider", key: "S", wantOK: true, wantCmd: true, wantProvider: "spotify"},
-		{name: "N names Navidrome", key: "N", wantOK: true, wantCmd: true, wantProvider: "navidrome"},
-		{name: "switch with no command", key: "R", wantOK: true, wantProvider: "Radio"},
-		{name: "provider not configured keeps overlays", key: "T", drop: "tidal", wantOK: true, wantProvider: "Other", wantOpen: true},
-		{name: "lowercase letter", key: "s", wantProvider: "Other", wantOpen: true},
+		{name: "configured provider", key: "Y", wantOK: true, wantCmd: true, wantProvider: "ytmusic"},
+		{name: "provider not configured keeps overlays", key: "L", drop: "local", wantOK: true, wantProvider: "Other", wantOpen: true},
+		{name: "lowercase letter", key: "y", wantProvider: "Other", wantOpen: true},
 		{name: "other key", key: "ctrl+f", wantProvider: "Other", wantOpen: true},
 		{name: "empty key", key: "", wantProvider: "Other", wantOpen: true},
 	}
@@ -103,11 +93,6 @@ func TestQuickSwitchProviderTakesEveryShortcut(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := shortcutTestModel()
 			m.providers = slices.DeleteFunc(m.providers, func(e provider.Entry) bool { return e.Key == tt.drop })
-			for i, e := range m.providers {
-				if e.Key == "radio" {
-					m.providers[i].Provider = searching
-				}
-			}
 			m.navBrowser.visible = true
 			m.plManager.visible = true
 			m.fileBrowser.visible = true
@@ -165,15 +150,12 @@ func TestOverlayProviderShortcuts(t *testing.T) {
 		wantOpen     bool
 		wantReplace  bool
 	}{
-		{name: "nav menu N switches to Navidrome", open: nav(navBrowseModeMenu, navBrowseScreenList), key: "N", wantProvider: "navidrome"},
-		{name: "nav menu N without Navidrome keeps the browser", open: nav(navBrowseModeMenu, navBrowseScreenList), key: "N", drop: "navidrome", wantProvider: "Other", wantOpen: true},
-		{name: "nav album list R switches to Radio", open: nav(navBrowseModeByAlbum, navBrowseScreenList), key: "R", wantProvider: "radio"},
-		{name: "nav track screen R asks to replace", open: nav(navBrowseModeByAlbum, navBrowseScreenTracks), key: "R", wantProvider: "Other", wantOpen: true, wantReplace: true},
-		{name: "nav S without Spotify keeps the browser", open: nav(navBrowseModeByAlbum, navBrowseScreenList), key: "S", drop: "spotify", wantProvider: "Other", wantOpen: true},
-		{name: "nav replace prompt keeps S", open: navPrompt, key: "S", wantProvider: "Other", wantOpen: true, wantReplace: true},
-		{name: "nav replace prompt keeps S without Spotify", open: navPrompt, key: "S", drop: "spotify", wantProvider: "Other", wantOpen: true, wantReplace: true},
-		{name: "manager list R switches to Radio", open: manager(plMgrScreenList), key: "R", wantProvider: "radio"},
-		{name: "manager tracks S without Spotify keeps the manager", open: manager(plMgrScreenTracks), key: "S", drop: "spotify", wantProvider: "Other", wantOpen: true},
+		{name: "nav album list Y switches to YouTube Music", open: nav(navBrowseModeByAlbum, navBrowseScreenList), key: "Y", wantProvider: "ytmusic"},
+		{name: "nav Y without YouTube Music keeps the browser", open: nav(navBrowseModeByAlbum, navBrowseScreenList), key: "Y", drop: "ytmusic", wantProvider: "Other", wantOpen: true},
+		{name: "nav replace prompt keeps Y", open: navPrompt, key: "Y", wantProvider: "Other", wantOpen: true, wantReplace: true},
+		{name: "nav replace prompt keeps Y without YouTube Music", open: navPrompt, key: "Y", drop: "ytmusic", wantProvider: "Other", wantOpen: true, wantReplace: true},
+		{name: "manager list L switches to Local", open: manager(plMgrScreenList), key: "L", wantProvider: "local"},
+		{name: "manager tracks Y without YouTube Music keeps the manager", open: manager(plMgrScreenTracks), key: "Y", drop: "ytmusic", wantProvider: "Other", wantOpen: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -463,13 +445,13 @@ func TestConfirmPromptsHintOnStrayKeys(t *testing.T) {
 func TestOverlayProviderShortcutMissHintsSetup(t *testing.T) {
 	m := shortcutTestModel()
 	m.playlist.Add(playlist.Track{Path: "existing.mp3"})
-	m.providers = slices.DeleteFunc(m.providers, func(e provider.Entry) bool { return e.Key == "spotify" })
+	m.providers = slices.DeleteFunc(m.providers, func(e provider.Entry) bool { return e.Key == "ytmusic" })
 	m.navBrowser = navBrowserState{
 		prov: commandsTestProvider{name: "Browse"}, visible: true, mode: navBrowseModeByAlbum, screen: navBrowseScreenTracks,
 		tracks: []playlist.Track{{Path: "replacement.mp3"}},
 	}
 
-	m.handleNavBrowserKey(tea.KeyPressMsg{Text: "S"})
+	m.handleNavBrowserKey(tea.KeyPressMsg{Text: "Y"})
 
 	if !m.navBrowser.visible {
 		t.Fatal("nav browser closed for an unconfigured provider; want it open")

@@ -127,12 +127,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Move track up/down", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"h", "l"}, KeyLabel: "h l", Label: "EQ cursor left/right", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Play selected track", Keymap: true, ContextHelp: true, Primary: true},
-	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Favorite track / station", LabelFor: func(m Model) string {
-		if m.selectedPlaylistStarAction() == starRadioFavorite {
-			return "Favorite station"
-		}
-		return "Favorite track"
-	}, Enabled: func(m Model) bool { return m.selectedPlaylistStarAction() != starUnavailable }, Keymap: true, ContextHelp: true, Prominent: true},
+	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Favorite track", Enabled: func(m Model) bool { return m.selectedPlaylistStarAction() != starUnavailable }, Keymap: true, ContextHelp: true, Prominent: true},
 	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"F"}, KeyLabel: "F", Label: "Subscribed shows", Enabled: func(m Model) bool { return m.hasSubscriptions() }, Keymap: true},
@@ -157,19 +152,7 @@ var commandRegistry = []commandSpec{
 		return "Browse provider"
 	}, Enabled: func(m Model) bool { return m.canOpenProviderBrowser() }, Keymap: true, ContextHelp: true, Prominent: true},
 	{Mode: commandModeMain, Keys: []string{"L"}, KeyLabel: "L", Label: "Open Local provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"R"}, KeyLabel: "R", Label: "Open radio provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"O"}, KeyLabel: "O", Label: "Open Podcasts provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"S"}, KeyLabel: "S", Label: "Open Spotify provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"P"}, KeyLabel: "P", Label: "Open Plex provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"Y"}, KeyLabel: "Y", Label: "Open YouTube provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"C"}, KeyLabel: "C", Label: "Open SoundCloud provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"X"}, KeyLabel: "X", Label: "Open Mixcloud provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"M"}, KeyLabel: "M", Label: "Open NetEase provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"J"}, KeyLabel: "J", Label: "Open Jellyfin provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"E"}, KeyLabel: "E", Label: "Open Emby provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"B"}, KeyLabel: "B", Label: "Open Audiobookshelf provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"Q"}, KeyLabel: "Q", Label: "Open Qobuz provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"T"}, KeyLabel: "T", Label: "Open Tidal provider", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"Y"}, KeyLabel: "Y", Label: "Open YouTube Music provider", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+j"}, KeyLabel: "Ctrl+J", Label: "Jump to time", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist", Keymap: true},
 	{Mode: commandModeProvider, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist", Keymap: true, ContextHelp: true, Enabled: func(m Model) bool {

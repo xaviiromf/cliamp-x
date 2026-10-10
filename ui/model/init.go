@@ -7,7 +7,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
@@ -365,11 +364,6 @@ func (m *Model) refreshFavSet() {
 	for _, t := range tracks {
 		m.favSet[t.Path] = struct{}{}
 	}
-}
-
-// SetRadioFavorites shares the Radio provider's local station favorites store.
-func (m *Model) SetRadioFavorites(favorites *radio.Favorites) {
-	m.radioFavorites = favorites
 }
 
 // SetDownloadsDirectory selects the destination for saved tracks.

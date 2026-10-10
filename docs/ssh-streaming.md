@@ -4,7 +4,7 @@ Play music from a remote machine through SSH. You do not need to mount a filesys
 
 ## How It Works
 
-When a track path starts with `ssh://`, cliamp pipes audio through SSH with the system `ssh` binary:
+When a track path starts with `ssh://`, cliamp-x pipes audio through SSH with the system `ssh` binary:
 
 ```
 ssh://hostname/absolute/path/to/file.mp3
@@ -17,12 +17,12 @@ The player runs `ssh hostname cat /path/to/file.mp3` and sends the output to the
 Use `--ssh HOST` with `playlist create` to scan a remote directory. HOST can be `host`, `user@host`, or `host:port`:
 
 ```sh
-cliamp playlist create "Blade Runner" --ssh nas "/Volumes/Music/Blade Runner/"
+cliamp-x playlist create "Blade Runner" --ssh nas "/Volumes/Music/Blade Runner/"
 # Created playlist "Blade Runner" (31 tracks, ssh://nas)
-cliamp playlist create "Live" --ssh music@nas:2222 /srv/music/live/
+cliamp-x playlist create "Live" --ssh music@nas:2222 /srv/music/live/
 ```
 
-This runs `ssh nas find /path -type f -name '*.mp3' ...` to find audio files. It then creates a TOML playlist with `ssh://` path prefixes. Each path keeps the user and the port, such as `ssh://music@nas:2222/srv/music/live/01.flac`. Playback and `cliamp playlist enrich` connect to the port in each path.
+This runs `ssh nas find /path -type f -name '*.mp3' ...` to find audio files. It then creates a TOML playlist with `ssh://` path prefixes. Each path keeps the user and the port, such as `ssh://music@nas:2222/srv/music/live/01.flac`. Playback and `cliamp-x playlist enrich` connect to the port in each path.
 
 ## TOML Format
 
@@ -42,7 +42,7 @@ title = "Voight Kampff Test"
 
 ## SSH Configuration
 
-cliamp uses the system `ssh` binary. It reads `~/.ssh/config`. Host aliases, keys, ports, and ProxyJump work automatically:
+cliamp-x uses the system `ssh` binary. It reads `~/.ssh/config`. Host aliases, keys, ports, and ProxyJump work automatically:
 
 ```
 # ~/.ssh/config

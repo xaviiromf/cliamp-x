@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/xaviiromf/cliamp-x/external/local"
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/ipc"
@@ -563,38 +562,6 @@ func TestIPCProviderSearchKeepsThePaneSearch(t *testing.T) {
 				t.Fatalf("pane state = %q %+v, want the rock search rows", m.provSearch.query, m.provPane.lists)
 			}
 		})
-	}
-}
-
-// The IPC search of the radio provider must take the SearchStations path. A
-// changed method set would make every IPC radio search fail.
-var _ stationSearcher = (*radio.Provider)(nil)
-
-// An IPC search on the radio provider runs SearchStations under the request
-// context and keeps the pane search rows. The context is cancelled, so no
-// request leaves the process. A request that ignores the context fails with a
-// dial error through the proxy.
-func TestIPCRadioSearchKeepsThePaneSearch(t *testing.T) {
-	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
-	for _, key := range []string{"HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"} {
-		t.Setenv(key, "http://127.0.0.1:1")
-	}
-	t.Setenv("NO_PROXY", "")
-	t.Setenv("no_proxy", "")
-	prov := radio.New(radio.Options{Country: radio.CountryDeclined})
-	prov.SetSearchResults([]radio.CatalogStation{{Name: "Rock FM", URL: "https://rock.example/stream"}})
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	if _, err := ipcSearchProvider(ctx, prov, "jazz", 5); !errors.Is(err, context.Canceled) {
-		t.Fatalf("ipcSearchProvider error = %v, want the cancelled request context", err)
-	}
-	lists, err := prov.Playlists()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !prov.IsSearching() || len(lists) != 1 || lists[0].Name != "Rock FM" {
-		t.Fatalf("pane rows = %+v, searching %v; want the Rock FM search row", lists, prov.IsSearching())
 	}
 }
 

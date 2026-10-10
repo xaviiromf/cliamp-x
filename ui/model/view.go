@@ -10,7 +10,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
@@ -59,29 +58,10 @@ func favRemovedMark() string { return favRemovedStyle.Render(favHeart) }
 // providerEmptyStateHint, keyed by lowercase provider Name(), returns the
 // remediation hint shown under the generic "No playlists in X" message.
 var providerEmptyStateHint = map[string]string{
-	"cliamp radio":        "Press Ctrl+R to reload, or pick another provider with Tab + Source.",
-	"local playlists":     "Add .toml playlists to ~/.config/cliamp/playlists/.",
-	"local":               "Add .toml playlists to ~/.config/cliamp/playlists/.",
-	"spotify":             "Press Ctrl+R to reload, or run `cliamp spotify reset` to sign in again.",
-	"navidrome":           "Verify [navidrome] url/username/password in config.toml.",
-	"jellyfin":            "Verify [jellyfin] url and token in config.toml.",
-	"emby":                "Verify [emby] url and token or username/password in config.toml.",
-	"audiobookshelf":      "Verify [audiobookshelf] url and token or username/password in config.toml.",
-	"plex":                "Verify [plex] server URL and token or library filter in config.toml.",
-	"youtube":             "Install yt-dlp for video audio, then press Ctrl+R to reload.",
-	"youtube (all)":       "Install yt-dlp for video audio, then press Ctrl+R to reload.",
-	"youtube music":       "Run `cliamp ytmusic-login` to authorize, then refresh.",
-	"ytmusic":             "Run `cliamp ytmusic-login` to authorize, then refresh.",
-	"soundcloud":          "Set [soundcloud] user in config.toml to browse a profile.",
-	"netease":             "Run `cliamp setup` and configure NetEase browser cookies.",
-	"netease cloud music": "Run `cliamp setup` and configure NetEase browser cookies.",
-	"qobuz":               "Press Ctrl+R to retry, or run `cliamp qobuz reset`.",
-	"tidal":               "Press Ctrl+R to retry, or run `cliamp tidal reset`.",
-	"mixcloud":            "Set [mixcloud] username in config.toml for account views.",
-	"lyrion":              "Only saved server playlists show here. Press N to browse.",
-	"yandex music":        "Verify [yandex] token in config.toml.",
-	"radio":               "Press Ctrl+R to reload the station directory.",
-	"podcasts":            "Press Ctrl+R to reload the top shows.",
+	"local playlists": "Add .toml playlists to ~/.config/cliamp-x/playlists/.",
+	"local":           "Add .toml playlists to ~/.config/cliamp-x/playlists/.",
+	"youtube music":   "Run `cliamp-x login` to sign in, then press Ctrl+R to reload.",
+	"ytmusic":         "Run `cliamp-x login` to sign in, then press Ctrl+R to reload.",
 }
 
 // renderProviderEmptyState explains why the playlists pane is empty for the
@@ -115,7 +95,7 @@ func (m Model) renderProviderEmptyState(budget int) string {
 		if hint, ok := providerEmptyStateHint[strings.ToLower(m.provider.Name())]; ok {
 			lines = append(lines, dimStyle.Render("  "+hint))
 		} else {
-			lines = append(lines, dimStyle.Render("  Press Ctrl+R to reload, or run `cliamp setup` to configure services."))
+			lines = append(lines, dimStyle.Render("  Press Ctrl+R to reload."))
 		}
 	}
 	return strings.Join(fitLines(lines, budget), "\n")
@@ -146,53 +126,9 @@ func (m Model) isProviderRowActive(p playlist.PlaylistInfo) bool {
 	return false
 }
 
-// providerRowLabel formats a provider-list row, appending live listener
-// counts on cliamp radio channel rows. Any other provider renders the plain
-// playlist label.
+// providerRowLabel formats a provider-list row.
 func (m Model) providerRowLabel(prefix string, p playlist.PlaylistInfo) string {
-	if _, ok := m.provider.(*radio.ChannelProvider); !ok {
-		return playlistLabel(prefix, p)
-	}
-	if suffix := m.radioListenerSuffix(p.ID); suffix != "" {
-		return playlistLabel(prefix, p) + " · " + suffix
-	}
 	return playlistLabel(prefix, p)
-}
-
-// radioListenerSuffix names the live audience of one cliamp channel: the
-// fetched count plus one optimistic listener while that channel plays, since
-// the server only learns about this listener on its next poll. Unknown
-// counts (never fetched or failed) show nothing, never zero; a known zero
-// reads as quiet.
-func (m Model) radioListenerSuffix(id string) string {
-	count := 0
-	known := false
-	if m.radioListeners != nil {
-		count, known = m.radioListeners[id], true
-	}
-	if m.radioPlayingHere(id) {
-		count++
-		known = true
-	}
-	if !known {
-		return ""
-	}
-	if count > 0 {
-		return fmt.Sprintf("● %d listening now", count)
-	}
-	return "○ quiet right now"
-}
-
-// radioPlayingHere reports whether the given cliamp channel is the audible
-// one. It guards a nil engine so empty test models can render rows.
-func (m Model) radioPlayingHere(id string) bool {
-	if m.activeProviderPlaylistID == "" || m.activeProviderPlaylistID != id {
-		return false
-	}
-	if m.player == nil {
-		return false
-	}
-	return m.player.IsPlaying() || m.buffering
 }
 
 // playlistLabel formats a playlist entry, omitting fields the provider didn't

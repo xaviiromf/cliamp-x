@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
@@ -434,13 +433,6 @@ type Model struct {
 	// row in the provider browser. Empty when no provider playlist is active.
 	activeProviderPlaylistID string
 
-	// radioListeners holds live listener counts per cliamp radio channel slug.
-	// Nil means unknown: the fetch never ran or failed, and rows show no
-	// counts rather than zero. radioListenersAt stamps the last fetch so a
-	// failed fetch backs off instead of retrying on every pane load.
-	radioListeners   map[string]int
-	radioListenersAt time.Time
-
 	// exitResume holds the playback state captured just before player.Close()
 	// so ResumeState() can read it after the player is shut down.
 	exitResume struct {
@@ -516,10 +508,6 @@ type Model struct {
 	// reports orders the now-playing, progress and scrobble reports to
 	// providers. It is shared across Model value copies.
 	reports *reportQueue
-
-	// Local station favorites. A directory radio station row shows these
-	// instead of the track favorites in favSet.
-	radioFavorites *radio.Favorites
 
 	// favSet is a cached set of favorited paths for O(1) lookup during
 	// rendering. Refreshed on init and after every toggle.

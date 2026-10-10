@@ -13,9 +13,6 @@ func TestProviderResetCommands(t *testing.T) {
 		command string
 		file    string
 	}{
-		{command: "spotify", file: "spotify_credentials.json"},
-		{command: "qobuz", file: "qobuz_credentials.json"},
-		{command: "tidal", file: "tidal_credentials.json"},
 		{command: "ytmusic", file: "ytmusic_credentials.json"},
 	}
 	for _, tt := range tests {
@@ -27,7 +24,7 @@ func TestProviderResetCommands(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			args := []string{"cliamp", tt.command, "reset"}
+			args := []string{"cliamp-x", tt.command, "reset"}
 			if err := buildApp().Run(t.Context(), args); err != nil {
 				t.Fatalf("%s reset: %v", tt.command, err)
 			}

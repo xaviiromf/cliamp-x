@@ -49,92 +49,13 @@ func uncommentExample(s string) string {
 // goldenSections sets every key of every provider section. The unquoted
 // values that contain # must reach the Config whole.
 const goldenSections = `
-[navidrome]
-url = "https://music.example.com"
-user = alice
-password = pa#ss word
-browse_sort = alphabeticalByArtist
-format = "raw"
-scrobble = false
-
-[lyrion]
-url = "http://nas.local:9000"
-user = 'bob'
-password = "lyr#ion"
-show_unplayable = true
-
-[spotify]
-client_id = "spotify-client"
-bitrate = 160
-
-[qobuz]
-quality = 27
-
-[tidal]
-client_id = "tidal-id"
-client_secret = "tidal-secret"
-quality = "hires"
-
 [youtube]
-cookies_from = " firefox "
-client_id = "yt-id"
-client_secret = "${CLIAMP_GOLDEN_YT_SECRET}"
+cookies_from = " brave-origin "
 expand_playlist = false
-
-[plex]
-url = "http://plex.local:32400"
-token = plex#token
-libraries = ["Music", "Jazz"]
-
-[jellyfin]
-url = https://jelly.example.com/web/#/home
-token = "jelly-token"
-user = "jelly"
-password = "jelly-pass"
-user_id = "jelly-uid"
-
-[emby]
-url = "https://emby.example.com"
-token = "emby-token"
-user = "emby"
-password = "emby#pass"
-user_id = "emby-uid"
-
-[audiobookshelf]
-url = "https://abs.example.com"
-token = "abs-token"
-user = "listener"
-password = "abs-pass"
-libraries = Audiobooks, Podcasts
-
-[radio]
-country = " NO "
-
-[podcast]
-country = "no"
-
-[soundcloud]
-enabled = true
-user = "sc-user"
-cookies_from = "chrome"
-
-[mixcloud]
-enabled = true
-username = "mc-user"
-access_token = mc#token
-cookies_from = "brave"
-styles = ["ambient", "deep-house"]
-max_items = 50
-stream_creators = 10
-
-[netease]
-enabled = true
-cookies_from = "chrome:Profile 1"
-user_id = "42"
-
-[yandex]
-enabled = true
-token = "y0_token"
+language = "es"
+region = "cl"
+auto_radio = false
+report_history = true
 
 [plugins]
 disabled = webhook, discord-rpc
@@ -160,7 +81,7 @@ lyrics_offset_ms = -250
 eq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 eq_preset = "Custom"
 theme = "Tokyo Night"
-provider = "Jellyfin"
+provider = "Local"
 visualizer = "Wave"
 sample_rate = 48000
 buffer_ms = 500
@@ -185,27 +106,12 @@ low_power = false
 // part of that item, as for any unquoted string.
 const goldenListComments = `
 eq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]   # bass up
-
-[plex]
-url = "http://plex.local:32400"
-token = "plex-token"
-libraries = ["Music", "Jazz # Blues"] # two libraries
-
-[mixcloud]
-enabled = true
-styles = ['ambient', "deep-house"]	# tab before the comment
-
-[audiobookshelf]
-url = "https://abs.example.com"
-token = "abs-token"
-libraries = Audiobooks, Podcasts # unquoted
 `
 
 // TestLoadGolden loads whole config files and compares every Config field,
 // so a parser change cannot move a value without a test failure.
 func TestLoadGolden(t *testing.T) {
 	t.Setenv("CLIAMP_GOLDEN_YT_SECRET", "yt-secret")
-	t.Setenv("MIXCLOUD_ACCESS_TOKEN", "mc-env-token")
 	example := readExampleConfig(t)
 	f, tr := false, true
 
@@ -213,62 +119,14 @@ func TestLoadGolden(t *testing.T) {
 	exampleWant.EQPreset = "Flat"
 
 	sectionsWant := exampleWant
-	sectionsWant.Navidrome = NavidromeConfig{
-		URL:              "https://music.example.com",
-		User:             "alice",
-		Password:         "pa#ss word",
-		Format:           "raw",
-		BrowseSort:       "alphabeticalByArtist",
-		ScrobbleDisabled: true,
-	}
-	sectionsWant.Lyrion = LyrionConfig{URL: "http://nas.local:9000", User: "bob", Password: "lyr#ion", ShowUnplayable: true}
-	sectionsWant.Spotify = SpotifyConfig{Enabled: true, ClientID: "spotify-client", Bitrate: 160}
-	sectionsWant.Qobuz = QobuzConfig{Enabled: true, Quality: 27}
-	sectionsWant.Tidal = TidalConfig{Enabled: true, ClientID: "tidal-id", ClientSecret: "tidal-secret", Quality: "hires"}
 	sectionsWant.YouTubeMusic = YouTubeMusicConfig{
-		Enabled:        true,
-		ClientID:       "yt-id",
-		ClientSecret:   "yt-secret",
-		CookiesFrom:    "firefox",
+		CookiesFrom:    "brave-origin",
 		ExpandPlaylist: &f,
+		Language:       "es",
+		Region:         "CL",
+		AutoRadio:      &f,
+		ReportHistory:  true,
 	}
-	sectionsWant.Plex = PlexConfig{URL: "http://plex.local:32400", Token: "plex#token", Libraries: []string{"Music", "Jazz"}}
-	sectionsWant.Jellyfin = JellyfinConfig{
-		URL:      "https://jelly.example.com/web/#/home",
-		Token:    "jelly-token",
-		User:     "jelly",
-		Password: "jelly-pass",
-		UserID:   "jelly-uid",
-	}
-	sectionsWant.Emby = EmbyConfig{
-		URL:      "https://emby.example.com",
-		Token:    "emby-token",
-		User:     "emby",
-		Password: "emby#pass",
-		UserID:   "emby-uid",
-	}
-	sectionsWant.Audiobookshelf = AudiobookshelfConfig{
-		URL:       "https://abs.example.com",
-		Token:     "abs-token",
-		User:      "listener",
-		Password:  "abs-pass",
-		Libraries: []string{"Audiobooks", "Podcasts"},
-	}
-	sectionsWant.Radio = RadioConfig{Country: "NO"}
-	sectionsWant.Podcast = PodcastConfig{Country: "no"}
-	sectionsWant.SoundCloud = SoundCloudConfig{Enabled: true, User: "sc-user", CookiesFrom: "chrome"}
-	sectionsWant.Mixcloud = MixcloudConfig{
-		Enabled:        true,
-		Username:       "mc-user",
-		AccessToken:    "mc#token",
-		CookiesFrom:    "brave",
-		Styles:         []string{"ambient", "deep-house"},
-		StylesSet:      true,
-		MaxItems:       50,
-		StreamCreators: 10,
-	}
-	sectionsWant.NetEase = NetEaseConfig{Enabled: true, CookiesFrom: "chrome:Profile 1", UserID: "42"}
-	sectionsWant.Yandex = YandexConfig{Enabled: true, Token: "y0_token"}
 	sectionsWant.Plugins = map[string]map[string]string{
 		"": {"disabled": "webhook, discord-rpc"},
 		"lastfm": {
@@ -292,7 +150,7 @@ func TestLoadGolden(t *testing.T) {
 	topWant.EQ = [10]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	topWant.EQPreset = "Custom"
 	topWant.Theme = "Tokyo Night"
-	topWant.Provider = "jellyfin"
+	topWant.Provider = "local"
 	topWant.Visualizer = "Wave"
 	topWant.SampleRate = 48000
 	topWant.BufferMs = 500
@@ -311,82 +169,28 @@ func TestLoadGolden(t *testing.T) {
 	topWant.LogLevel = "debug"
 
 	// Every setting of the example turned on. The example puts # comments
-	// after sample_rate, the other audio numbers and 3 cookies_from strings.
+	// after sample_rate and the other audio numbers.
 	allWant := exampleWant
 	allWant.VisRows = 7
 	allWant.InitialDirectory = "~/Music"
 	allWant.AudioDevice = "alsa_output.usb-FiiO_K5_Pro-00.analog-stereo"
-	allWant.Provider = "cliamp"
+	allWant.Provider = "ytmusic"
 	allWant.Simplified = true
 	allWant.HideHelpBar = true
 	allWant.HideSettingsPane = true
 	allWant.Expanded = true
 	allWant.Theme = "Tokyo Night"
 	allWant.Visualizer = "Bars"
-	allWant.Podcast = PodcastConfig{Country: "no"}
-	allWant.Spotify = SpotifyConfig{Enabled: true, ClientID: "your-spotify-app-client-id", Bitrate: 320}
-	allWant.Qobuz = QobuzConfig{Enabled: true, Quality: 6}
-	allWant.Tidal = TidalConfig{Enabled: true, Quality: "lossless"}
-	allWant.Navidrome = NavidromeConfig{
-		URL:        "https://music.example.com",
-		User:       "alice",
-		Password:   "secret",
-		Format:     "raw",
-		BrowseSort: "alphabeticalByName",
-	}
-	allWant.Lyrion = LyrionConfig{URL: "http://nas.local:9000", User: "alice", Password: "secret", ShowUnplayable: true}
-	allWant.SoundCloud = SoundCloudConfig{Enabled: true, User: "yourname", CookiesFrom: "firefox"}
-	allWant.Mixcloud = MixcloudConfig{
-		Enabled:        true,
-		Username:       "yourname",
-		AccessToken:    "mc-env-token",
-		CookiesFrom:    "firefox",
-		Styles:         []string{"ambient", "deep-house", "house", "jazz", "techno"},
-		StylesSet:      true,
-		MaxItems:       100,
-		StreamCreators: 20,
-	}
-	allWant.NetEase = NetEaseConfig{Enabled: true, CookiesFrom: "chrome", UserID: "optional-account-user-id"}
-	allWant.Yandex = YandexConfig{Enabled: true, Token: "y0_YourPersonalOAuthToken"}
-	allWant.Plex = PlexConfig{URL: "http://192.168.1.10:32400", Token: "xxxxxxxxxxxxxxxxxxxx", Libraries: []string{"Music", "Jazz"}}
-	allWant.Jellyfin = JellyfinConfig{
-		URL:      "https://jellyfin.example.com",
-		Token:    "optional-api-token",
-		User:     "alice",
-		Password: "secret",
-		UserID:   "optional-user-id",
-	}
 	allWant.YouTubeMusic = YouTubeMusicConfig{
-		Enabled:        true,
-		ClientID:       "your-google-oauth-client-id",
-		ClientSecret:   "your-google-oauth-client-secret",
-		CookiesFrom:    "chrome",
+		CookiesFrom:    "brave-origin",
 		ExpandPlaylist: &tr,
-	}
-	allWant.Emby = EmbyConfig{
-		URL:      "https://emby.example.com",
-		Token:    "optional-api-key",
-		User:     "alice",
-		Password: "secret",
-		UserID:   "optional-user-id",
-	}
-	allWant.Audiobookshelf = AudiobookshelfConfig{
-		URL:       "https://abs.example.com",
-		Token:     "your-api-key",
-		User:      "listener",
-		Password:  "secret",
-		Libraries: []string{"Audiobooks", "Podcasts"},
+		Language:       "es",
+		Region:         "CL",
+		AutoRadio:      &tr,
 	}
 
 	listsWant := defaultConfig()
 	listsWant.EQ = [10]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	listsWant.Plex = PlexConfig{URL: "http://plex.local:32400", Token: "plex-token", Libraries: []string{"Music", "Jazz # Blues"}}
-	listsWant.Mixcloud = MixcloudConfig{Enabled: true, Styles: []string{"ambient", "deep-house"}, StylesSet: true}
-	listsWant.Audiobookshelf = AudiobookshelfConfig{
-		URL:       "https://abs.example.com",
-		Token:     "abs-token",
-		Libraries: []string{"Audiobooks", "Podcasts # unquoted"},
-	}
 
 	tests := []struct {
 		name string

@@ -1,6 +1,6 @@
 # Community Plugins
 
-These plugins are maintained by the community. To add a plugin, open a PR.
+These plugins are maintained by the community of the original [cliamp](https://github.com/bjarneo/cliamp). They target the cliamp plugin API, which cliamp-x keeps. To add a plugin, open a PR.
 
 | Plugin | Description | Author |
 |--------|-------------|--------|
@@ -12,10 +12,7 @@ These plugins are maintained by the community. To add a plugin, open a PR.
 | [cliamp-plugin-tubeamp](https://github.com/8bit64k/cliamp-plugin-tubeamp) | Vacuum-tube amplifier visualizer | [@8bit64k](https://github.com/8bit64k) |
 | [cliamp-plugin-nova](https://github.com/8bit64k/cliamp-plugin-nova) | Concentric-ring spectrum visualizer | [@8bit64k](https://github.com/8bit64k) |
 | [cliamp-plugin-mandelbrot](https://github.com/mikkel-bergmann/cliamp-plugin-mandelbrot) | Zooming psychedelic Mandelbrot set visualizer with braille rendering and bass reactivity | [@mikkel-bergmann](https://github.com/mikkel-bergmann) |
-| [cliamp-plugin-gpodder-sync](https://github.com/sollymay/cliamp-plugin-gpodder-sync) | gpodder.net subscription, progress and download sync | [@sollymay](https://github.com/sollymay) |
 | [cliamp-plugin-discord-rpc](https://github.com/fazaimron27/cliamp-plugin-discord-rpc) | Discord Rich Presence | [@fazaimron27](https://github.com/fazaimron27) |
 | [herdr-cliamp](https://github.com/coryshaw1/herdr-cliamp) | Floating cliamp for the [herdr](https://herdr.dev) multiplexer that keeps playing when hidden, with now-playing and transport keybinds | [@coryshaw1](https://github.com/coryshaw1) |
-| [cliamp-plugin-autoplay](https://github.com/gaurabxkc/cliamp-plugin-autoplay) | Endless similar-track playback: Last.fm similarity, played from Spotify | [@gaurabxkc](https://github.com/gaurabxkc) |
 | [cliamp-plugin-pomodoro](https://github.com/gaurabxkc/cliamp-plugin-pomodoro) | Focus timer that pauses playback during breaks, with a countdown clock visualizer | [@gaurabxkc](https://github.com/gaurabxkc) |
 | [cliamp-plugin-save-song](https://github.com/dorobica/cliamp-plugin-save-song) | One key saves the playing song, including the live title on radio streams, to a dated list you can search and replay | [@dorobica](https://github.com/dorobica) |
-| [cliamp-plugin-mac-notify](https://github.com/dbarrerap/cliamp-plugin-mac-notify) | macOS Now Playing desktop notifications with local cover art and YouTube thumbnails | [@dbarrerap](https://github.com/dbarrerap) |

@@ -1,6 +1,6 @@
 # Media Controls
 
-cliamp integrates with operating system media controls. Desktop environments,
+cliamp-x integrates with operating system media controls. Desktop environments,
 hardware media keys, and command line tools can control playback, read track
 metadata, and adjust volume without using the TUI.
 
@@ -17,13 +17,13 @@ metadata, and adjust volume without using the TUI.
 
 ### Bus Name
 
-cliamp registers this name:
+cliamp-x registers this name:
 
 ```
-org.mpris.MediaPlayer2.cliamp
+org.mpris.MediaPlayer2.cliamp_x
 ```
 
-Only one instance can hold this name. If a second cliamp process starts, its
+Only one instance can hold this name. If a second cliamp-x process starts, its
 MPRIS registration fails without an error message. That instance runs without
 D-Bus integration.
 
@@ -40,7 +40,7 @@ The `org.mpris.MediaPlayer2.Player` interface supports all standard transport co
 | `playerctl next` | Skip to the next track |
 | `playerctl previous` | Go to the previous track (or restart if more than 3 seconds in) |
 
-A client can also call the MPRIS `Quit` method. cliamp then exits and saves the
+A client can also call the MPRIS `Quit` method. cliamp-x then exits and saves the
 resume position, as the `q` key does.
 
 ### Seeking
@@ -57,9 +57,9 @@ Desktop widgets with a progress bar receive `Seeked` signals and stay in sync.
 
 ### Volume
 
-Volume is available as a linear value from 0.0 to 1.0. Internally, cliamp uses
+Volume is available as a linear value from 0.0 to 1.0. Internally, cliamp-x uses
 a decibel scale from `volume_min` to +6 dB. The default `volume_min` is -50 dB.
-See [configuration.md](configuration.md). cliamp converts the values
+See [configuration.md](configuration.md). cliamp-x converts the values
 automatically. A value of 0.0 sets the volume to `volume_min`. A value of 1.0
 sets the volume to +6 dB.
 
@@ -72,7 +72,7 @@ Setting volume through `playerctl` updates the player immediately. When you
 change volume with the TUI `+` and `-` keys, D-Bus clients receive the new value
 on the next tick.
 
-cliamp clamps a value below 0.0 or above 1.0 to that range. A value whose
+cliamp-x clamps a value below 0.0 or above 1.0 to that range. A value whose
 decibel level is below `volume_min` sets the volume to `volume_min`. In each
 case, Volume then reports the clamped value. A NaN value returns the D-Bus
 error `org.freedesktop.DBus.Properties.Error.InvalidArg` and does not change
@@ -80,7 +80,7 @@ the volume.
 
 ### Metadata
 
-cliamp publishes track metadata with standard MPRIS keys:
+cliamp-x publishes track metadata with standard MPRIS keys:
 
 | Key | Description |
 |---|---|
@@ -113,25 +113,25 @@ playerctl status                # prints Playing, Paused, or Stopped
 
 Hyprland does not bind `XF86Audio*` keys by default. Add the following to the
 Hyprland config, usually `~/.config/hypr/bindings.conf` or `hyprland.conf`, to
-bind hardware media keys to cliamp through `playerctl`:
+bind hardware media keys to cliamp-x through `playerctl`:
 
 ```conf
-bindl = , XF86AudioPlay,  exec, playerctl --player=cliamp play-pause
-bindl = , XF86AudioPause, exec, playerctl --player=cliamp play-pause
-bindl = , XF86AudioNext,  exec, playerctl --player=cliamp next
-bindl = , XF86AudioPrev,  exec, playerctl --player=cliamp previous
+bindl = , XF86AudioPlay,  exec, playerctl --player=cliamp_x play-pause
+bindl = , XF86AudioPause, exec, playerctl --player=cliamp_x play-pause
+bindl = , XF86AudioNext,  exec, playerctl --player=cliamp_x next
+bindl = , XF86AudioPrev,  exec, playerctl --player=cliamp_x previous
 ```
 
 Notes:
 
 - `bindl` runs even when the session is locked. Keys continue to work under `hyprlock`.
-- `--player=cliamp` limits the command to cliamp. Remove the flag to control the most recently active MPRIS player. Use this when cliamp shares the session with browsers or Spotify.
+- `--player=cliamp_x` limits the command to cliamp-x. Remove the flag to control the most recently active MPRIS player. Use this when cliamp-x shares the session with browsers or other players.
 - Run `hyprctl reload` after you edit the configuration.
 - Install `playerctl`, for example with `pacman -S playerctl` or `apt install playerctl`.
 
 ## macOS
 
-On macOS, cliamp publishes now-playing information to the system MPNowPlayingInfoCenter. This enables:
+On macOS, cliamp-x publishes now-playing information to the system MPNowPlayingInfoCenter. This enables:
 
 - Control Centre and Lock Screen media controls
 - Touch Bar playback buttons
@@ -139,8 +139,8 @@ On macOS, cliamp publishes now-playing information to the system MPNowPlayingInf
 - Bluetooth headphone buttons
 
 Local files with embedded cover art publish that art to Control Centre and Lock
-Screen media controls. cliamp caches art by content in
-`~/.local/share/cliamp/album-art/`. It removes cached art as needed to keep the
+Screen media controls. cliamp-x caches art by content in
+`~/.local/share/cliamp-x/album-art/`. It removes cached art as needed to keep the
 cache near 100 MB.
 
 The macOS media-control runtime pins the main goroutine to thread 0 with
@@ -149,18 +149,18 @@ runs on a background goroutine.
 
 ## Windows
 
-On Windows, cliamp registers the hardware media keys (Play/Pause, Next,
+On Windows, cliamp-x registers the hardware media keys (Play/Pause, Next,
 Previous, Stop) as global hotkeys via the Win32 `RegisterHotKey` API. This
 works regardless of which window has focus, without needing a visible window
 of its own — `RegisterHotKey` ties the hotkeys to a message queue owned by a
 dedicated OS thread rather than to an `HWND`.
 
-cliamp does not publish now-playing metadata to the Windows shell (no
+cliamp-x does not publish now-playing metadata to the Windows shell (no
 System Media Transport Controls integration), so there is no track info in
 the volume flyout or lock screen on Windows. Only the transport keys work.
 
 A hotkey registration can fail if another running application already holds
-the same key; that key then does not control cliamp. Registration failures
+the same key; that key then does not control cliamp-x. Registration failures
 are silent and do not affect the other keys or the rest of the app.
 
 ## Architecture
@@ -189,12 +189,12 @@ command to the Bubbletea event loop.
 
 ## Limitations
 
-cliamp does not expose shuffle and loop status. The TUI `z` and `r` keys control
+cliamp-x does not expose shuffle and loop status. The TUI `z` and `r` keys control
 shuffle and repeat locally. External tools cannot view or control these states.
 
-On Linux, `HasTrackList` is false. cliamp does not implement the optional
+On Linux, `HasTrackList` is false. cliamp-x does not implement the optional
 `org.mpris.MediaPlayer2.TrackList` interface.
 
-On Linux, cliamp does not reconnect to the session bus. If the bus connection
-drops while cliamp runs, playback continues without MPRIS. To register again,
-restart cliamp.
+On Linux, cliamp-x does not reconnect to the session bus. If the bus connection
+drops while cliamp-x runs, playback continues without MPRIS. To register again,
+restart cliamp-x.

@@ -1,10 +1,10 @@
 # Themes
 
-cliamp includes 22 color themes that pass contrast checks. You can add custom themes with TOML files.
+cliamp-x includes 22 color themes that pass contrast checks. You can add custom themes with TOML files.
 
 Press `t` during playback to open the theme picker. Use `↑`/`↓` to navigate and preview each theme. Press `Enter` to select it or `Esc` to cancel.
 
-cliamp saves your selection and restores it at the next start.
+cliamp-x saves your selection and restores it at the next start.
 
 ## Built-in themes
 
@@ -12,10 +12,10 @@ alucard, ayu-mirage-dark, catppuccin, catppuccin-latte, dracula, ember, ethereal
 
 ## Creating a custom theme
 
-Create a `.toml` file in `~/.config/cliamp/themes/`:
+Create a `.toml` file in `~/.config/cliamp-x/themes/`:
 
 ```
-mkdir -p ~/.config/cliamp/themes
+mkdir -p ~/.config/cliamp-x/themes
 ```
 
 Each file needs all six foreground colors as `#RRGGBB` hex values. Add `bg` to
@@ -23,18 +23,18 @@ set a background. Omit it to keep the terminal background. The file name
 without `.toml` is the theme name. The name `default` selects the terminal
 colors, so you cannot use it for a custom theme.
 
-cliamp skips an incomplete or malformed custom theme, and a theme named
+cliamp-x skips an incomplete or malformed custom theme, and a theme named
 `default`. It writes the file name and the reason to
-`~/.config/cliamp/cliamp.log` once per run, for example:
+`~/.config/cliamp-x/cliamp.log` once per run, for example:
 
 ```
-time=2026-09-29T21:00:00.000+02:00 level=WARN msg="theme: skip mytheme.toml in /home/you/.config/cliamp/themes: theme \"mytheme\": accent must be #RRGGBB"
+time=2026-09-29T21:00:00.000+02:00 level=WARN msg="theme: skip mytheme.toml in /home/you/.config/cliamp-x/themes: theme \"mytheme\": accent must be #RRGGBB"
 ```
 
-cliamp writes this line at the warn level. With `log_level = "error"`, the log
+cliamp-x writes this line at the warn level. With `log_level = "error"`, the log
 does not show it.
 
-### Example: `~/.config/cliamp/themes/solarized.toml`
+### Example: `~/.config/cliamp-x/themes/solarized.toml`
 
 ```toml
 bg = "#002b36"
@@ -73,12 +73,12 @@ terminals.
 ## Overriding a built-in theme
 
 If a custom file has the same name as a built-in theme, the custom file takes
-priority. For example, `~/.config/cliamp/themes/catppuccin.toml` replaces the
+priority. For example, `~/.config/cliamp-x/themes/catppuccin.toml` replaces the
 built-in catppuccin theme.
 
 ## Setting a default theme
 
-Add a `theme` line to `~/.config/cliamp/config.toml`:
+Add a `theme` line to `~/.config/cliamp-x/config.toml`:
 
 ```toml
 theme = "catppuccin"

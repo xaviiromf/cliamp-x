@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"testing"
 )
 
@@ -37,9 +36,6 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.PaddingV != 1 {
 		t.Errorf("PaddingV = %d, want 1", cfg.PaddingV)
-	}
-	if cfg.Spotify.Bitrate != 320 {
-		t.Errorf("Spotify.Bitrate = %d, want 320", cfg.Spotify.Bitrate)
 	}
 	if cfg.AutoPlay {
 		t.Error("AutoPlay should be false by default")
@@ -189,30 +185,6 @@ func TestClampBitDepth(t *testing.T) {
 		got := clampBitDepth(tt.input)
 		if got != tt.want {
 			t.Errorf("clampBitDepth(%d) = %d, want %d", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestClampSpotifyBitrate(t *testing.T) {
-	tests := []struct {
-		input int
-		want  int
-	}{
-		{-1, 320},
-		{0, 320},
-		{96, 96},
-		{160, 160},
-		{320, 320},
-		{120, 96},
-		{128, 96},
-		{200, 160},
-		{240, 160},
-		{500, 320},
-	}
-	for _, tt := range tests {
-		got := clampSpotifyBitrate(tt.input)
-		if got != tt.want {
-			t.Errorf("clampSpotifyBitrate(%d) = %d, want %d", tt.input, got, tt.want)
 		}
 	}
 }
@@ -402,66 +374,6 @@ func TestParseStringSlice(t *testing.T) {
 	}
 }
 
-func TestNavidromeIsSet(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  NavidromeConfig
-		want bool
-	}{
-		{"all set", NavidromeConfig{URL: "https://x", User: "u", Password: "p"}, true},
-		{"missing URL", NavidromeConfig{User: "u", Password: "p"}, false},
-		{"missing user", NavidromeConfig{URL: "https://x", Password: "p"}, false},
-		{"missing password", NavidromeConfig{URL: "https://x", User: "u"}, false},
-		{"all empty", NavidromeConfig{}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.IsSet(); got != tt.want {
-				t.Errorf("IsSet() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSpotifyIsSet(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  SpotifyConfig
-		want bool
-	}{
-		{"section + custom id", SpotifyConfig{Enabled: true, ClientID: "abc"}, true},
-		{"section only (uses fallback)", SpotifyConfig{Enabled: true}, true},
-		{"no section", SpotifyConfig{}, false},
-		{"disabled", SpotifyConfig{Disabled: true, Enabled: true, ClientID: "abc"}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.IsSet(); got != tt.want {
-				t.Errorf("IsSet() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSpotifyResolveClientID(t *testing.T) {
-	const fallback = "FALLBACK"
-	tests := []struct {
-		name string
-		cfg  SpotifyConfig
-		want string
-	}{
-		{"user id wins", SpotifyConfig{ClientID: "user-id"}, "user-id"},
-		{"empty falls back", SpotifyConfig{}, fallback},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.ResolveClientID(fallback); got != tt.want {
-				t.Errorf("ResolveClientID() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestLoadLyricsOffsetMs(t *testing.T) {
 	tests := []struct {
 		name string
@@ -498,191 +410,16 @@ func TestLoadLyricsOffsetMs(t *testing.T) {
 	}
 }
 
-func TestLoadSpotifyBitrate(t *testing.T) {
-	tests := []struct {
-		name    string
-		bitrate int
-		want    int
-	}{
-		{"exact supported value", 160, 160},
-		{"rounded to nearest supported value", 200, 160},
-		{"non-positive value", 0, 320},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-
-			path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatalf("MkdirAll: %v", err)
-			}
-			data := []byte("[spotify]\nbitrate = " + strconv.Itoa(tt.bitrate) + "\n")
-			if err := os.WriteFile(path, data, 0o644); err != nil {
-				t.Fatalf("WriteFile: %v", err)
-			}
-
-			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
-			}
-			if cfg.Spotify.Bitrate != tt.want {
-				t.Fatalf("Spotify.Bitrate = %d, want %d", cfg.Spotify.Bitrate, tt.want)
-			}
-		})
-	}
-}
-
-func TestQobuzIsSet(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  QobuzConfig
-		want bool
-	}{
-		{"section present", QobuzConfig{Enabled: true}, true},
-		{"explicitly disabled", QobuzConfig{Enabled: true, Disabled: true}, false},
-		{"absent", QobuzConfig{}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.IsSet(); got != tt.want {
-				t.Errorf("IsSet() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestLoadQobuz(t *testing.T) {
-	tests := []struct {
-		name        string
-		body        string
-		wantIsSet   bool
-		wantQuality int
-	}{
-		{"section enables, default quality", "[qobuz]\n", true, 6},
-		{"explicit quality", "[qobuz]\nquality = 27\n", true, 27},
-		{"disabled", "[qobuz]\nenabled = false\n", false, 6},
-		{"absent", "", false, 6},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatalf("MkdirAll: %v", err)
-			}
-			if err := os.WriteFile(path, []byte(tt.body), 0o644); err != nil {
-				t.Fatalf("WriteFile: %v", err)
-			}
-			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
-			}
-			if got := cfg.Qobuz.IsSet(); got != tt.wantIsSet {
-				t.Errorf("Qobuz.IsSet() = %v, want %v", got, tt.wantIsSet)
-			}
-			if cfg.Qobuz.Quality != tt.wantQuality {
-				t.Errorf("Qobuz.Quality = %d, want %d", cfg.Qobuz.Quality, tt.wantQuality)
-			}
-		})
-	}
-}
-
-func TestLoadTidal(t *testing.T) {
-	tests := []struct {
-		name      string
-		body      string
-		wantIsSet bool
-		wantCfg   TidalConfig
-	}{
-		{"section enables", "[tidal]\n", true, TidalConfig{Enabled: true}},
-		{
-			"full config",
-			"[tidal]\nquality = \"hires\"\nclient_id = \"id\"\nclient_secret = \"sec\"\n",
-			true,
-			TidalConfig{Enabled: true, Quality: "hires", ClientID: "id", ClientSecret: "sec"},
-		},
-		{"disabled", "[tidal]\nenabled = false\n", false, TidalConfig{Enabled: true, Disabled: true}},
-		{"absent", "", false, TidalConfig{}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatalf("MkdirAll: %v", err)
-			}
-			if err := os.WriteFile(path, []byte(tt.body), 0o644); err != nil {
-				t.Fatalf("WriteFile: %v", err)
-			}
-			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
-			}
-			if got := cfg.Tidal.IsSet(); got != tt.wantIsSet {
-				t.Errorf("Tidal.IsSet() = %v, want %v", got, tt.wantIsSet)
-			}
-			if cfg.Tidal != tt.wantCfg {
-				t.Errorf("Tidal = %+v, want %+v", cfg.Tidal, tt.wantCfg)
-			}
-		})
-	}
-}
-
-func TestPlexIsSet(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  PlexConfig
-		want bool
-	}{
-		{"both set", PlexConfig{URL: "http://x", Token: "t"}, true},
-		{"no URL", PlexConfig{Token: "t"}, false},
-		{"no token", PlexConfig{URL: "http://x"}, false},
-		{"empty", PlexConfig{}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.IsSet(); got != tt.want {
-				t.Errorf("IsSet() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestJellyfinIsSet(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  JellyfinConfig
-		want bool
-	}{
-		{"token auth", JellyfinConfig{URL: "http://x", Token: "t"}, true},
-		{"password auth", JellyfinConfig{URL: "http://x", User: "u", Password: "p"}, true},
-		{"no URL", JellyfinConfig{Token: "t"}, false},
-		{"no auth", JellyfinConfig{URL: "http://x"}, false},
-		{"user without password", JellyfinConfig{URL: "http://x", User: "u"}, false},
-		{"empty", JellyfinConfig{}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.IsSet(); got != tt.want {
-				t.Errorf("IsSet() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestYouTubeMusicIsSet(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  YouTubeMusicConfig
 		want bool
 	}{
-		{"enabled section", YouTubeMusicConfig{Enabled: true}, true},
+		{"not configured", YouTubeMusicConfig{}, true},
 		{"cookies_from set", YouTubeMusicConfig{CookiesFrom: "chrome"}, true},
-		{"cookies_from whitespace only", YouTubeMusicConfig{CookiesFrom: "   \t\n"}, false},
 		{"cookies_from with disabled", YouTubeMusicConfig{Disabled: true, CookiesFrom: "chrome"}, false},
 		{"disabled", YouTubeMusicConfig{Disabled: true}, false},
-		{"credentials without section", YouTubeMusicConfig{ClientID: "id", ClientSecret: "secret"}, false},
-		{"not configured", YouTubeMusicConfig{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -967,37 +704,6 @@ func TestOverridesApplyExpanded(t *testing.T) {
 	Overrides{Expanded: &expanded}.Apply(&cfg)
 	if !cfg.Expanded {
 		t.Error("Expanded should be true after applying the override")
-	}
-}
-
-func TestLoadNavidromeFormat(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want string
-	}{
-		{"absent", "[navidrome]\nurl = \"https://e.com\"\nuser = \"a\"\npassword = \"b\"\n", ""},
-		{"raw", "[navidrome]\nurl = \"https://e.com\"\nuser = \"a\"\npassword = \"b\"\nformat = \"raw\"\n", "raw"},
-		{"mp3", "[navidrome]\nurl = \"https://e.com\"\nuser = \"a\"\npassword = \"b\"\nformat = \"mp3\"\n", "mp3"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			path := filepath.Join(os.Getenv("HOME"), ".config", "cliamp-x", "config.toml")
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatalf("MkdirAll: %v", err)
-			}
-			if err := os.WriteFile(path, []byte(tt.body), 0o644); err != nil {
-				t.Fatalf("WriteFile: %v", err)
-			}
-			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
-			}
-			if cfg.Navidrome.Format != tt.want {
-				t.Errorf("Navidrome.Format = %q, want %q", cfg.Navidrome.Format, tt.want)
-			}
-		})
 	}
 }
 

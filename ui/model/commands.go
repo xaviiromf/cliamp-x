@@ -3,12 +3,10 @@ package model
 import (
 	"context"
 	"fmt"
-	"maps"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/xaviiromf/cliamp-x/external/radio"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/player"
@@ -213,40 +211,10 @@ func authenticateProviderCmd(auth playlist.Authenticator, providerName string, g
 	}
 }
 
-// radioListsRefreshMsg requests a projection of current in-memory Radio state.
-// Unlike remote provider results it never carries a potentially stale row snapshot.
-type radioListsRefreshMsg struct{ gen uint64 }
-
 func fetchPlaylistsCmd(prov playlist.Provider, gen uint64) tea.Cmd {
-	if _, ok := prov.(*radio.Provider); ok {
-		return func() tea.Msg { return radioListsRefreshMsg{gen: gen} }
-	}
 	return func() tea.Msg {
 		pls, err := prov.Playlists()
 		return playlistsLoadedMsg{playlists: pls, providerName: prov.Name(), gen: gen, err: err}
-	}
-}
-
-// radioListenersLoadedMsg carries live listener counts per cliamp channel
-// slug. A nil map means the fetch failed: rows show no counts, never zero.
-type radioListenersLoadedMsg struct {
-	counts map[string]int
-	gen    uint64
-}
-
-// radioListenersTimeout bounds both statistics documents behind one fetch.
-// A failure stays silent: the provider rows simply show no listener counts.
-const radioListenersTimeout = 30 * time.Second
-
-func fetchRadioListenersCmd(gen uint64) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), radioListenersTimeout)
-		defer cancel()
-		counts, err := radio.FetchListenerCounts(ctx)
-		if err != nil {
-			return radioListenersLoadedMsg{gen: gen}
-		}
-		return radioListenersLoadedMsg{counts: counts, gen: gen}
 	}
 }
 
@@ -353,14 +321,7 @@ func resolveWrapperURLs(tracks []playlist.Track) ([]playlist.Track, bool) {
 			resolved, err := resolve.Remote([]string{t.Path})
 			if err == nil && len(resolved) > 0 {
 				expanded = true
-				// Preserve station identity separately from the resolved playback
-				// URL. Do not turn arbitrary provider wrappers into radio stations.
-				_, radioStation := radio.StationFromTrack(t)
 				for i := range resolved {
-					if radioStation {
-						resolved[i].ProviderMeta = maps.Clone(t.ProviderMeta)
-						resolved[i].Genre = t.Genre
-					}
 					if resolved[i].Title == "" || resolved[i].Title == resolved[i].Path {
 						resolved[i].Title = t.Title
 					}

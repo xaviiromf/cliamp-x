@@ -28,7 +28,7 @@ func TestSaveToCopiesTemporaryDownload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(home, "Music", "cliamp", "Artist - Song.flac")
+	want := filepath.Join(home, "Music", "cliamp-x", "Artist - Song.flac")
 	if destination != want {
 		t.Fatalf("destination = %q, want %q", destination, want)
 	}
@@ -55,7 +55,7 @@ func setTestHome(t *testing.T) string {
 func TestDirectory(t *testing.T) {
 	home := setTestHome(t)
 	got, err := Directory("")
-	if err != nil || got != filepath.Join(home, "Music", "cliamp") {
+	if err != nil || got != filepath.Join(home, "Music", "cliamp-x") {
 		t.Fatalf("directory=%q err=%v", got, err)
 	}
 	custom := t.TempDir()

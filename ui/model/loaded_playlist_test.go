@@ -454,49 +454,6 @@ func TestPlaylistManagerEditsKeepOtherWriters(t *testing.T) {
 	}
 }
 
-// Favorites can hold a radio station, because f on a station row in a saved
-// playlist adds it there. A key load of Favorites keeps the list as the saved
-// list of the ♥ rule, so f on that row removes it from Favorites and does not
-// toggle the station favorite. Favorites is still no playlist file.
-func TestStationRowInFavoritesTogglesTrackFavorite(t *testing.T) {
-	m, _, tracks := radioFavoriteTestModel(t)
-	station := tracks[0]
-	favs := favorites.New()
-	lp := local.New(favs, nil)
-	if _, err := favs.Toggle(station); err != nil {
-		t.Fatal(err)
-	}
-	m.provider, m.localProvider, m.favStore = lp, lp, favs
-	m.refreshFavSet()
-
-	m.requests.tracks = 1
-	updated, _ := m.Update(fetchTracksCmd(lp, favorites.PlaylistName, 1)())
-	m = updated.(Model)
-	row, ok := m.playlist.Track(0)
-	if !ok || row.Path != station.Path || !row.Realtime || row.Meta("radio.name") == "" {
-		t.Fatalf("Favorites row = %+v, want the station with its radio metadata", row)
-	}
-	if m.loadedPlaylist != favorites.PlaylistName || m.writableLoadedPlaylist() != "" {
-		t.Fatalf("loaded %q, writable %q; want Favorites as the saved list and no writable name", m.loadedPlaylist, m.writableLoadedPlaylist())
-	}
-	if !m.playlistTrackFavorited(row) {
-		t.Fatal("the station row in Favorites shows no ♥")
-	}
-
-	m.focus = focusPlaylist
-	m.plCursor = 0
-	m.handleKey(tea.KeyPressMsg{Text: "f"})
-	if favs.IsFavorited(station.Path) {
-		t.Fatal("f did not remove the station from Favorites")
-	}
-	if m.radioFavorites.Count() != 0 {
-		t.Fatal("f toggled the station favorite for a row in Favorites")
-	}
-	if m.playlistTrackFavorited(row) {
-		t.Fatal("the row still shows a ♥ after f")
-	}
-}
-
 // The runtime snapshot names the loaded local list, or else the provider
 // list of the last IPC load as key:id. cliamp status --json shows it. A
 // queue change that drops the loaded list drops the name too.

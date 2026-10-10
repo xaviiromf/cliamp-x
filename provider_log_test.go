@@ -64,19 +64,14 @@ func TestLogProviderSkipped(t *testing.T) {
 	}
 }
 
-func TestLogYouTubeSkippedCoversAllThreeProviders(t *testing.T) {
+func TestLogYouTubeSkipped(t *testing.T) {
 	readBack := readLog(t)
 
 	logYouTubeSkipped("no credentials available")
 
 	got := readBack()
-	for _, key := range []string{"key=yt ", "key=youtube ", "key=ytmusic "} {
-		if !strings.Contains(got, key) {
-			t.Errorf("log missing %q: %s", key, got)
-		}
-	}
-	if strings.Count(got, "provider skipped") != 3 {
-		t.Errorf("expected 3 skip lines, got: %s", got)
+	if !strings.Contains(got, "key=ytmusic ") || strings.Count(got, "provider skipped") != 1 {
+		t.Errorf("expected one ytmusic skip line, got: %s", got)
 	}
 }
 
@@ -84,9 +79,8 @@ func TestLogProviderWiring(t *testing.T) {
 	readBack := readLog(t)
 
 	providers := []provider.Entry{
-		{Key: "cliamp", Name: "cliamp radio"},
-		{Key: "radio", Name: "Radio"},
-		{Key: "spotify", Name: "Spotify"},
+		{Key: "ytmusic", Name: "YouTube Music"},
+		{Key: "local", Name: "Local"},
 	}
 	logProviderWiring(providers)
 
@@ -99,25 +93,7 @@ func TestLogProviderWiring(t *testing.T) {
 			t.Errorf("log missing registration for %q: %s", p.Key, got)
 		}
 	}
-
-	// Spotify is optional but is registered above, so it must not also be
-	// logged as skipped.
-	if strings.Contains(got, "key=spotify reason=not configured") {
-		t.Errorf("registered provider spotify was also logged as skipped: %s", got)
-	}
-
-	// Every other optional provider is absent from the registry, so each
-	// must be logged as skipped with "not configured".
-	wantSkips := -1
-	for _, pk := range providerKeys {
-		if pk.optional {
-			wantSkips++
-		}
-	}
-	if n := strings.Count(got, "reason=not configured"); n != wantSkips {
-		t.Errorf("expected %d not-configured skips, got %d: %s", wantSkips, n, got)
-	}
-	if !strings.Contains(got, "key=navidrome reason=not configured") {
-		t.Errorf("log missing navidrome skip: %s", got)
+	if strings.Contains(got, "reason=not configured") {
+		t.Errorf("no optional provider exists, so none may be logged as skipped: %s", got)
 	}
 }

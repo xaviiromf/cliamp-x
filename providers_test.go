@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -14,12 +13,8 @@ import (
 	"github.com/gopxl/beep/v2"
 
 	"github.com/xaviiromf/cliamp-x/config"
-	"github.com/xaviiromf/cliamp-x/external/emby"
-	"github.com/xaviiromf/cliamp-x/external/jellyfin"
-	"github.com/xaviiromf/cliamp-x/external/navidrome"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
-	"github.com/xaviiromf/cliamp-x/internal/resume"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
@@ -32,41 +27,19 @@ import (
 func isolateProviderEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	for _, name := range []string{"CLIAMP_CONFIG_DIR", "XDG_CONFIG_HOME", "NAVIDROME_URL", "LYRION_URL"} {
+	for _, name := range []string{"CLIAMP_CONFIG_DIR", "XDG_CONFIG_HOME", "YTMUSIC_COOKIES_FROM"} {
 		t.Setenv(name, "")
 	}
 }
 
 func TestBuildProviders(t *testing.T) {
-	always := []string{"cliamp", "radio", "local", "podcast"}
 	for _, tt := range []struct {
 		name string
 		cfg  config.Config
 		want []string
 	}{
-		{name: "empty config", want: always},
-		{
-			name: "jellyfin only",
-			cfg: config.Config{Jellyfin: config.JellyfinConfig{
-				URL: "https://jf.example.com", Token: "token", UserID: "user-1",
-			}},
-			want: append(slices.Clone(always), "jellyfin"),
-		},
-		{
-			name: "emby only",
-			cfg: config.Config{Emby: config.EmbyConfig{
-				URL: "https://emby.example.com", Token: "token", UserID: "user-1",
-			}},
-			want: append(slices.Clone(always), "emby"),
-		},
-		{
-			name: "navidrome and plex",
-			cfg: config.Config{
-				Navidrome: config.NavidromeConfig{URL: "https://nd.example.com", User: "user", Password: "secret"},
-				Plex:      config.PlexConfig{URL: "https://plex.example.com", Token: "token"},
-			},
-			want: append(slices.Clone(always), "navidrome", "plex"),
-		},
+		{name: "empty config", want: []string{"ytmusic", "local"}},
+		{name: "ytmusic disabled", cfg: config.Config{YouTubeMusic: config.YouTubeMusicConfig{Disabled: true}}, want: []string{"local"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			isolateProviderEnv(t)
@@ -86,19 +59,8 @@ func TestBuildProviders(t *testing.T) {
 			if !slices.Equal(keys, tt.want) {
 				t.Fatalf("keys = %v, want %v", keys, tt.want)
 			}
-			if set.local == nil || set.radioFavorites == nil {
-				t.Fatal("the local provider and the radio favorites must be set")
-			}
-			for _, key := range []string{"jellyfin", "emby", "plex"} {
-				want := key != "plex" && slices.Contains(tt.want, key)
-				if got := set.resumeServer(key) != nil; got != want {
-					t.Errorf("resumeServer(%q) set = %v, want %v", key, got, want)
-				}
-			}
-			for _, e := range set.entries {
-				if nav, ok := e.Provider.(*navidrome.NavidromeClient); ok && nav.SaveSort == nil {
-					t.Error("the Navidrome album sort is not saved to the config")
-				}
+			if set.local == nil {
+				t.Fatal("the local provider must be set")
 			}
 		})
 	}
@@ -134,7 +96,7 @@ func TestBuildProvidersSharesTheStores(t *testing.T) {
 // does not panic.
 func TestBuildProvidersWithoutConfigDir(t *testing.T) {
 	// APPDATA and USERPROFILE are the config dir fallbacks on Windows.
-	for _, name := range []string{"HOME", "CLIAMP_CONFIG_DIR", "XDG_CONFIG_HOME", "APPDATA", "USERPROFILE", "NAVIDROME_URL", "LYRION_URL"} {
+	for _, name := range []string{"HOME", "CLIAMP_CONFIG_DIR", "XDG_CONFIG_HOME", "APPDATA", "USERPROFILE", "YTMUSIC_COOKIES_FROM"} {
 		t.Setenv(name, "")
 	}
 	set := buildProviders(config.Config{}, false)
@@ -150,7 +112,7 @@ func TestBuildProvidersWithoutConfigDir(t *testing.T) {
 	if lp := set.localPlaylists(); lp != nil {
 		t.Fatalf("localPlaylists() = %#v, want a nil interface", lp)
 	}
-	model.New(&player.Player{}, playlist.New(), set.entries, "cliamp", set.localPlaylists(), set.favorites, set.history, nil, nil, config.SaveFunc{})
+	model.New(&player.Player{}, playlist.New(), set.entries, "ytmusic", set.localPlaylists(), set.favorites, set.history, nil, nil, config.SaveFunc{})
 }
 
 // fakeStreamer decodes fake: URIs, as Spotify decodes spotify: URIs, and
@@ -197,8 +159,7 @@ func TestProviderSetUsesCapabilities(t *testing.T) {
 	}
 }
 
-// A page URL that playlist.IsYTDL accepts opens through yt-dlp, also when a
-// Jellyfin server registers a source resolver for every https URL.
+// A page URL that playlist.IsYTDL accepts opens through yt-dlp.
 func TestPlayerHooksSendYTDLPagesToYTDLP(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses POSIX shell fixtures")
@@ -216,9 +177,7 @@ func TestPlayerHooksSendYTDLPagesToYTDLP(t *testing.T) {
 	// A request that reaches the network fails at once.
 	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:1")
 
-	set := &providerSet{entries: []provider.Entry{
-		{Key: "jellyfin", Name: "Jellyfin", Provider: jellyfin.NewFromConfig(config.JellyfinConfig{URL: "http://127.0.0.1:1", Token: "token", UserID: "user-1"})},
-	}}
+	set := &providerSet{}
 	engine := &player.Player{}
 	set.registerPlayerHooks(engine)
 	for _, op := range []struct {
@@ -243,37 +202,3 @@ type fakeRadio struct{}
 func (fakeRadio) Name() string                                { return "Radio" }
 func (fakeRadio) Playlists() ([]playlist.PlaylistInfo, error) { return nil, nil }
 func (fakeRadio) Tracks(string) ([]playlist.Track, error)     { return nil, nil }
-
-// serverResumeSaver saves the play context only for a track that the server
-// owns. A track from another server or a local file leaves no resume state.
-func TestServerResumeSaver(t *testing.T) {
-	server := emby.NewFromConfig(config.EmbyConfig{
-		URL: "https://emby.example.com", Token: "token", UserID: "user-1",
-	})
-	owned := "https://emby.example.com/Items/two/Download?api_key=token"
-	context := []playlist.Track{
-		{Path: "https://emby.example.com/Items/one/Download?api_key=token", Title: "One"},
-		{Path: owned, Title: "Two"},
-	}
-	for _, tt := range []struct {
-		name string
-		path string
-		want resume.State
-	}{
-		{
-			name: "owned stream",
-			path: owned,
-			want: resume.State{Path: owned, PositionSec: 42, Context: context, ContextIndex: 1},
-		},
-		{name: "other server", path: "https://jf.example.com/Items/two/Download?api_key=token"},
-		{name: "local file", path: "/music/two.mp3"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
-			serverResumeSaver(server.Provider)(playlist.Track{Path: tt.path, Title: "Two"}, 42, context, 1)
-			if got := resume.Load(); !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("saved state = %+v, want %+v", got, tt.want)
-			}
-		})
-	}
-}

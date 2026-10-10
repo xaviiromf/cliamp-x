@@ -477,15 +477,10 @@ func TestHeaderStateManualOverride(t *testing.T) {
 
 func TestProviderKeyForShortcut(t *testing.T) {
 	tests := map[string]string{
-		"S": "spotify",
-		"N": "navidrome",
-		"P": "plex",
-		"J": "jellyfin",
-		"Y": "yt",
-		"X": "mixcloud",
+		"Y": "ytmusic",
 		"L": "local",
-		"R": "radio",
-		"O": "podcast",
+		"S": "",
+		"R": "",
 		"o": "",
 		"x": "",
 		"":  "",
