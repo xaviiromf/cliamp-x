@@ -276,6 +276,7 @@ type Config struct {
 	HideHelpBar      bool                         // hide the key-binding hint bar above the status line
 	HideSettingsPane bool                         // close the settings pane beside the playlist
 	HidePreview      bool                         // hide the artwork preview pane under the lists
+	PreviewImages    string                       // preview pictures: "auto", "kitty" or "blocks" (default "auto")
 	ShowMetadata     bool                         // expand highlighted-track metadata below settings (default false)
 	Expanded         bool                         // start with the playlist expanded (the Ctrl+X state)
 	PaddingH         int                          // horizontal padding for the UI frame (default 3)
@@ -532,6 +533,12 @@ func (c *Config) setTopLevel(key, val string) {
 	case "hide_preview":
 		if v, ok := parseBool(val); ok {
 			c.HidePreview = v
+		}
+	case "preview_images":
+		mode := strings.ToLower(parseString(val))
+		switch mode {
+		case "auto", "kitty", "blocks":
+			c.PreviewImages = mode
 		}
 	case "show_metadata":
 		if v, ok := parseBool(val); ok {

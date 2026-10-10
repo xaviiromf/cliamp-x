@@ -93,6 +93,12 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # with its details. It appears only when the terminal has rows to spare.
 # hide_preview = true
 
+# How the preview pane draws pictures: "kitty" sends real images with the
+# kitty graphics protocol (kitty, Ghostty), "blocks" draws them with colored
+# half-block characters (any terminal, lower detail), and "auto" picks kitty
+# where the terminal supports it.
+# preview_images = "auto"
+
 # Show read-only metadata below Settings for the highlighted playlist item.
 # Hidden by default; Ctrl+I toggles and saves. Enabling it without room for the
 # section opens full info instead. Closing Settings preserves this preference.

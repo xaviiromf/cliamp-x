@@ -48,10 +48,39 @@ type previewItem struct {
 // artworkLoadedMsg tells the Model that an image finished loading.
 type artworkLoadedMsg struct{}
 
+// kittyImageMsg carries the escape sequences that put an image in a
+// kitty-protocol terminal ("" when it could not be prepared), and
+// kittyShownMsg follows once they are written.
+type kittyImageMsg struct{ url, seq string }
+type kittyShownMsg struct{ url string }
+
+// handleKittyImage writes the image to the terminal, then marks it shown so
+// the next frame prints its placeholders. Messages are handled in order, so
+// the shown mark lands after the terminal has the image.
+func (m *Model) handleKittyImage(msg kittyImageMsg) tea.Cmd {
+	if msg.seq == "" {
+		return nil
+	}
+	url := msg.url
+	return tea.Sequence(tea.Raw(msg.seq), func() tea.Msg { return kittyShownMsg{url: url} })
+}
+
 // previewDetailsMsg carries the details a PreviewLoader found.
 type previewDetailsMsg struct {
 	id      string
 	details provider.PreviewDetails
+}
+
+// SetPreviewImages picks how the pane draws pictures: "kitty" for the kitty
+// graphics protocol, "blocks" for half-block characters, or "auto" (or "")
+// for kitty where the terminal supports it.
+func (m *Model) SetPreviewImages(mode string) {
+	if m.art == nil {
+		return
+	}
+	if mode == "kitty" || ((mode == "" || mode == "auto") && artwork.KittySupported()) {
+		m.art.EnableKitty()
+	}
 }
 
 // SetPreview turns the preview pane on or off. The pane is off until a
@@ -300,6 +329,17 @@ func (m *Model) previewCmds() tea.Cmd {
 	if t, idx := m.currentPlaybackTrack(); idx >= 0 {
 		want(trackPreview(t), false)
 	}
+	// In a kitty-protocol terminal the shown image is sent to the terminal
+	// once it is loaded; half blocks stand in until then.
+	if it, ok := m.previewTarget(); ok {
+		maxCols, body := m.previewBox()
+		if send := m.art.KittyUpdate(it.imageURL, maxCols, body); send != nil {
+			url := it.imageURL
+			cmds = append(cmds, func() tea.Msg {
+				return kittyImageMsg{url: url, seq: send()}
+			})
+		}
+	}
 	return tea.Batch(cmds...)
 }
 
@@ -332,6 +372,14 @@ func (m *Model) handlePreviewDetails(msg previewDetailsMsg) {
 	m.previewDetails[msg.id] = msg.details
 }
 
+// previewBox returns the most cells the picture may take: as tall as the
+// pane below its header, and as wide as a 16:9 thumbnail of that height,
+// but never more than half the panel.
+func (m Model) previewBox() (maxCols, rows int) {
+	rows = max(0, m.layout.previewRows-1)
+	return max(2, min(m.layout.panelWidth/2, (2*rows*16+8)/9)), rows
+}
+
 // renderPreview draws the pane: a header rule, then the picture with the
 // title and the detail lines beside it.
 func (m Model) renderPreview() string {
@@ -359,10 +407,13 @@ func (m Model) renderPreview() string {
 
 	// The picture is as tall as the pane and may be as wide as a 16:9
 	// thumbnail, but never more than half the panel.
-	maxCols := max(2, min(width/2, (2*body*16+8)/9))
+	maxCols, _ := m.previewBox()
 	picW := min(maxCols, 2*body) // a square placeholder until the image loads
 	var picture []string
-	if drawn, cols, imgRows, loaded := m.art.Draw(it.imageURL, maxCols, body); loaded {
+	if drawn, cols, imgRows, shown := m.art.KittyDraw(it.imageURL, maxCols, body); shown {
+		picW = cols
+		picture = append(make([]string, (body-imgRows)/2), drawn...)
+	} else if drawn, cols, imgRows, loaded := m.art.Draw(it.imageURL, maxCols, body); loaded {
 		picW = cols
 		picture = append(make([]string, (body-imgRows)/2), drawn...)
 	} else {

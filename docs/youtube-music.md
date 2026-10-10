@@ -104,7 +104,10 @@ Un video normal de YouTube (un remix no oficial, por ejemplo) se ve con su
 miniatura en 16:9 o 4:3, sin recortar. Las imágenes de las filas cercanas se
 descargan por adelantado y quedan guardadas en
 `~/.local/share/cliamp-x/artwork`, así que al recorrer la lista aparecen sin
-esperar. `hide_preview = true` en `config.toml` la oculta.
+esperar. En kitty y Ghostty la carátula se ve como imagen real (protocolo
+gráfico de kitty); en otras terminales, o dentro de tmux, se dibuja con
+bloques de colores, con menos detalle. `preview_images = "blocks"` fuerza los
+bloques y `hide_preview = true` en `config.toml` oculta la vista previa.
 
 ## Radio automática
 

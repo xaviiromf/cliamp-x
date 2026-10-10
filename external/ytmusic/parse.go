@@ -1,6 +1,7 @@
 package ytmusic
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -101,16 +102,45 @@ func thumbnailURL(o any) string {
 		switch {
 		case best == "":
 			best, bestW = url, width
-		case bestW < 120 && width > bestW:
+		case bestW < thumbnailWidth && width > bestW:
 			best, bestW = url, width
-		case width >= 120 && width < bestW:
+		case width >= thumbnailWidth && width < bestW:
 			best, bestW = url, width
 		}
 	}
 	if strings.HasPrefix(best, "//") {
 		best = "https:" + best
 	}
-	return best
+	return resizeThumbnail(best, thumbnailWidth)
+}
+
+// thumbnailWidth is the picture size the preview pane wants: sharp in a
+// terminal that draws images, and still a small download.
+const thumbnailWidth = 400
+
+// thumbSize matches the "=w120-h120" size of a googleusercontent image URL.
+var thumbSize = regexp.MustCompile(`=w(\d+)-h(\d+)`)
+
+// resizeThumbnail asks a googleusercontent image URL for a picture whose
+// longest side is size pixels, keeping its aspect. The server scales the
+// image to the size in the URL, so a small listed thumbnail can be fetched
+// sharp. Other URLs are returned unchanged.
+func resizeThumbnail(url string, size int) string {
+	if !strings.Contains(url, "googleusercontent.com/") && !strings.Contains(url, "ggpht.com/") {
+		return url
+	}
+	m := thumbSize.FindStringSubmatchIndex(url)
+	if m == nil {
+		return url
+	}
+	w, _ := strconv.Atoi(url[m[2]:m[3]])
+	h, _ := strconv.Atoi(url[m[4]:m[5]])
+	if w <= 0 || h <= 0 {
+		return url
+	}
+	long := max(w, h)
+	w, h = max(1, w*size/long), max(1, h*size/long)
+	return url[:m[0]] + fmt.Sprintf("=w%d-h%d", w, h) + url[m[1]:]
 }
 
 // isPlays reports whether a subtitle segment counts plays or views.

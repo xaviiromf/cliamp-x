@@ -120,6 +120,9 @@ hide_settings_pane = false
 # Hide the artwork preview pane under the lists.
 hide_preview = false
 
+# Preview pictures: "auto", "kitty" (kitty graphics protocol) or "blocks".
+preview_images = "auto"
+
 # Show highlighted-playlist metadata below Settings (Ctrl+I toggles and saves).
 show_metadata = false
 
@@ -230,8 +233,11 @@ artist or playlist, or the thumbnail of the highlighted song, with a few
 details: artist, year, length, number of songs, listeners or plays. Where
 nothing is highlighted it shows the song that plays. The picture keeps its
 shape, so a plain YouTube video shows as a 16:9 thumbnail and a YouTube Music
-album as a square cover. Images are drawn with half-block characters, which
-any terminal with true color shows. Covers load in the background, and the
+album as a square cover. In kitty and Ghostty the pane shows the real image
+through the kitty graphics protocol; other terminals, and tmux, get a
+lower-detail version drawn with colored half-block characters.
+`preview_images` picks the method: `"auto"` (the default), `"kitty"` or
+`"blocks"`. Covers load in the background, and the
 rows just below and above the cursor load ahead of it, so moving through a
 list rarely waits; they are cached in `~/.local/share/cliamp-x/artwork`.
 `hide_preview = true` removes the pane.

@@ -182,8 +182,10 @@ func TestThumbnailURL(t *testing.T) {
 		in   any
 		want string
 	}{
-		{"smallest at least 120 wide", thumbs("a60", 60, "b544", 544, "c226", 226, "d120", 120), "d120"},
+		{"smallest at least 400 wide", thumbs("a60", 60, "b544", 544, "c226", 226, "d420", 420), "d420"},
 		{"largest when all are small", thumbs("a32", 32, "b60", 60), "b60"},
+		{"googleusercontent asked for 400", thumbs("https://lh3.googleusercontent.com/x=w120-h120-l90-rj", 120), "https://lh3.googleusercontent.com/x=w400-h400-l90-rj"},
+		{"wide banner keeps its aspect", thumbs("https://yt3.googleusercontent.com/b=w1440-h600-p-l90", 1440), "https://yt3.googleusercontent.com/b=w400-h166-p-l90"},
 		{"protocol-relative url", thumbs("//yt3.example/x", 176), "https://yt3.example/x"},
 		{"no thumbnails", map[string]any{}, ""},
 	}

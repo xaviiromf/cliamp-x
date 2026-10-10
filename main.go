@@ -316,6 +316,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	}
 	if !headless {
 		m.SetPreview(!cfg.HidePreview)
+		m.SetPreviewImages(cfg.PreviewImages)
 	}
 	if cfg.ShowMetadata {
 		m.SetShowMetadata(true)

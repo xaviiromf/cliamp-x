@@ -98,6 +98,13 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case artworkLoadedMsg:
 		return m, nil
 
+	case kittyImageMsg:
+		return m, m.handleKittyImage(msg)
+
+	case kittyShownMsg:
+		m.art.KittyShown(msg.url)
+		return m, nil
+
 	case previewDetailsMsg:
 		m.handlePreviewDetails(msg)
 		return m, nil

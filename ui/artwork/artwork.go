@@ -55,6 +55,12 @@ type Cache struct {
 	order    []string // least recently stored first
 	inflight map[string]bool
 	failed   map[string]time.Time
+
+	// kitty graphics: see kitty.go.
+	kitty     bool
+	kittyBase uint32                 // high byte of this run's image IDs
+	kittyNext int                    // last slot taken, 1..kittySlots
+	kittySlot [kittySlots + 1]string // URL of the image in each slot
 }
 
 type entry struct {
@@ -63,6 +69,7 @@ type entry struct {
 	// second at the same size.
 	lines      []string
 	cols, rows int
+	kitty      kittyState
 }
 
 // New returns a cache that keeps downloaded bytes in dir. An empty dir keeps
@@ -151,6 +158,12 @@ func (c *Cache) Load(ctx context.Context, url string) error {
 }
 
 func (c *Cache) fetch(ctx context.Context, url string) (image.Image, error) {
+	return c.decode(ctx, url, maxPixels)
+}
+
+// decode reads url and returns its image shrunk to at most limit pixels a
+// side.
+func (c *Cache) decode(ctx context.Context, url string, limit int) (image.Image, error) {
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
@@ -165,7 +178,7 @@ func (c *Cache) fetch(ctx context.Context, url string) (image.Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("artwork: decode %s: %w", url, err)
 	}
-	return downscale(img, maxPixels), nil
+	return downscale(img, limit), nil
 }
 
 // readBytes returns the image bytes from the disk cache, a local audio
