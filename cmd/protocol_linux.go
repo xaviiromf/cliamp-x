@@ -10,7 +10,7 @@ import (
 )
 
 // desktopFileName is a dedicated entry rather than a MimeType line added to
-// the packaged cliamp.desktop. Keeping them separate means registering and
+// the packaged cliamp-x.desktop. Keeping them separate means registering and
 // unregistering the scheme never rewrites the launcher entry that install.sh
 // owns, and `cliamp protocol unregister` can simply delete this file.
 const desktopFileName = "cliamp-x-url-handler.desktop"
@@ -61,7 +61,7 @@ func applicationsDir() (string, error) {
 // handlerSearchDirs lists the application directories a handler entry can
 // live in, in XDG precedence order.
 //
-// install.sh writes the same entry next to cliamp.desktop, which for an
+// install.sh writes the same entry next to cliamp-x.desktop, which for an
 // install outside the home directory is a system-wide, root-owned path. Only
 // looking under XDG_DATA_HOME would report the scheme as unregistered while
 // links kept working.

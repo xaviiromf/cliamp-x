@@ -1,0 +1,56 @@
+name: Install on Linux distributions
+
+# Runs scripts/install.sh from source in a container of each family of
+# distributions, then checks that the binary starts.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/install.sh
+      - .github/workflows/distros.yml
+      - go.mod
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ubuntu:24.04
+          - debian:12
+          - fedora:41
+          - archlinux:latest
+          - opensuse/tumbleweed
+          - alpine:3.20
+          - ghcr.io/void-linux/void-glibc-full:latest
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    timeout-minutes: 30
+    steps:
+      - name: Base tools
+        shell: sh
+        run: |
+          if command -v apt-get >/dev/null; then apt-get update && apt-get install -y git curl ca-certificates make procps; fi
+          if command -v dnf >/dev/null; then dnf install -y git curl make procps-ng tar gzip; fi
+          if command -v pacman >/dev/null; then pacman -Sy --noconfirm git curl make procps-ng; fi
+          if command -v zypper >/dev/null; then zypper --non-interactive install git curl make procps tar gzip; fi
+          if command -v apk >/dev/null; then apk add git curl make procps; fi
+          if command -v xbps-install >/dev/null; then xbps-install -Syu xbps || true; xbps-install -Syu git curl make procps-ng; fi
+      - name: Checkout
+        shell: sh
+        env:
+          TOKEN: ${{ github.token }}
+        run: git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" src
+      - name: Install
+        shell: sh
+        run: ./src/scripts/install.sh --yes
+      - name: Smoke test
+        shell: sh
+        run: |
+          cliamp-x --version
+          cliamp-x --help | head -20
+          cliamp-x ytmusic status

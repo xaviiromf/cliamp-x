@@ -35,7 +35,7 @@ let
 in
 
 buildGoModule {
-  pname = "cliamp";
+  pname = "cliamp-x";
   inherit version;
 
   # Leave out the local media, scratch data and secrets that sit in a working
@@ -56,7 +56,9 @@ buildGoModule {
       src = lib.cleanSource ../.;
       filter = path: _type: !(builtins.elem path excluded);
     };
-  vendorHash = "sha256-cKMGAVLRs6FwX9Gqq6wj11OPwK1TsTuVMR7uwI6Mwfg=";
+  # The module list changed in the fork. Run `nix build` once: it fails and
+  # prints the right hash to put here.
+  vendorHash = lib.fakeHash;
 
   nativeBuildInputs = [
     makeWrapper
@@ -97,7 +99,7 @@ buildGoModule {
   __darwinAllowLocalNetworking = true;
 
   postInstall = ''
-    wrapProgram "$out/bin/cliamp" \
+    wrapProgram "$out/bin/cliamp-x" \
       --prefix PATH : ${lib.makeBinPath [
         ffmpeg-headless
         yt-dlp
@@ -105,15 +107,15 @@ buildGoModule {
       ${lib.optionalString stdenv.hostPlatform.isLinux "--set-default ALSA_PLUGIN_DIR ${alsaPluginDir}"}
   ''
   + lib.optionalString stdenv.hostPlatform.isLinux ''
-    install -Dm644 Cliamp.png "$out/share/icons/hicolor/512x512/apps/cliamp.png"
-    install -Dm644 cliamp.desktop "$out/share/applications/cliamp.desktop"
+    install -Dm644 Cliamp.png "$out/share/icons/hicolor/512x512/apps/cliamp-x.png"
+    install -Dm644 cliamp-x.desktop "$out/share/applications/cliamp-x.desktop"
   '';
 
   meta = {
     description = "Retro terminal music player inspired by Winamp";
     homepage = "https://github.com/xaviiromf/cliamp-x";
     license = lib.licenses.mit;
-    mainProgram = "cliamp";
+    mainProgram = "cliamp-x";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 }

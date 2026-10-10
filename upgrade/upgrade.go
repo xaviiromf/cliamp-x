@@ -74,7 +74,7 @@ func Run(currentVersion string, prerelease bool) error {
 		fmt.Printf("Upgrading %s → %s\n", currentVersion, latest)
 	}
 
-	binaryName := fmt.Sprintf("cliamp-%s-%s", runtime.GOOS, runtime.GOARCH)
+	binaryName := fmt.Sprintf("cliamp-x-%s-%s", runtime.GOOS, runtime.GOARCH)
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
 	}

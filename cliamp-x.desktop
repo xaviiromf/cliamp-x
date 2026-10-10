@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=cliamp-x
+GenericName=Music Player
+GenericName[es]=Reproductor de música
+Comment=Terminal YouTube Music player inspired by Winamp
+Comment[es]=Reproductor de YouTube Music para la terminal, inspirado en Winamp
+Exec=cliamp-x
+Icon=cliamp-x
+Terminal=true
+Type=Application
+Categories=Audio;Music;Player;AudioVideo;ConsoleOnly;
+Keywords=music;audio;player;terminal;tui;winamp;youtube;ytmusic;musica;
+StartupNotify=false

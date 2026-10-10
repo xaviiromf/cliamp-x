@@ -1,0 +1,37 @@
+# Maintainer: xaviiromf
+# Builds cliamp-x from the git repository: makepkg -si
+pkgname=cliamp-x-git
+pkgver=r0
+pkgrel=1
+pkgdesc="Terminal YouTube Music player inspired by Winamp (fork of cliamp)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/xaviiromf/cliamp-x"
+license=('MIT')
+depends=('alsa-lib' 'ffmpeg' 'yt-dlp')
+optdepends=('pipewire-alsa: audio output on PipeWire systems'
+            'pulseaudio-alsa: audio output on PulseAudio systems')
+makedepends=('go' 'git')
+provides=('cliamp-x')
+conflicts=('cliamp-x')
+source=("cliamp-x::git+https://github.com/xaviiromf/cliamp-x.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd cliamp-x
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd cliamp-x
+  export CGO_CPPFLAGS="${CPPFLAGS}" CGO_CFLAGS="${CFLAGS}" CGO_CXXFLAGS="${CXXFLAGS}" CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  GOTOOLCHAIN=auto make build
+}
+
+package() {
+  cd cliamp-x
+  install -Dm755 cliamp-x "$pkgdir/usr/bin/cliamp-x"
+  install -Dm644 cliamp-x.desktop "$pkgdir/usr/share/applications/cliamp-x.desktop"
+  install -Dm644 Cliamp.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/cliamp-x.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
