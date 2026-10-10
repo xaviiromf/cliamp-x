@@ -3,6 +3,7 @@
 package upgrade
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -46,16 +48,85 @@ const (
 )
 
 type release struct {
-	TagName string `json:"tag_name"`
-	Draft   bool   `json:"draft"`
+	TagName string  `json:"tag_name"`
+	Draft   bool    `json:"draft"`
+	Assets  []asset `json:"assets"`
+}
+
+// asset is a release file. URL is its API address, which serves the file
+// to an authorized client even when the repository is private.
+type asset struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+// apiHost is the only host that gets the GitHub token. Asset downloads
+// redirect to a storage host with a signed URL, and the HTTP client drops
+// the Authorization header on that cross-host redirect.
+const apiHost = "api.github.com"
+
+// tokenSource returns a GitHub token, or "" for anonymous requests. A token
+// is needed while the repository is private.
+var tokenSource = githubToken
+
+// githubToken reads GITHUB_TOKEN or GH_TOKEN, then asks the GitHub CLI.
+func githubToken() string {
+	for _, key := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
+		if tok := strings.TrimSpace(os.Getenv(key)); tok != "" {
+			return tok
+		}
+	}
+	if _, err := exec.LookPath("gh"); err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var out bytes.Buffer
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", "github.com")
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out.String())
+}
+
+// newRequest builds a GET request for url. API requests carry the token,
+// and asset requests ask for the raw file instead of its JSON description.
+func newRequest(ctx context.Context, url string, token string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if req.URL.Host == apiHost {
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if strings.Contains(req.URL.Path, "/releases/assets/") {
+			req.Header.Set("Accept", "application/octet-stream")
+		} else {
+			req.Header.Set("Accept", "application/vnd.github+json")
+		}
+	}
+	return req, nil
+}
+
+// privateHint explains a 404 from GitHub when no token was sent: a private
+// repository answers 404 to anonymous requests.
+func privateHint(status int, token string) string {
+	if status == http.StatusNotFound && token == "" {
+		return " (if the repository is private, run `gh auth login` or set GITHUB_TOKEN)"
+	}
+	return ""
 }
 
 // Run checks for a newer release and replaces the current binary if one is found.
 func Run(currentVersion string, prerelease bool) error {
-	latest, err := latestVersion(prerelease)
+	token := tokenSource()
+	rel, err := latestRelease(prerelease, token)
 	if err != nil {
 		return fmt.Errorf("checking latest version: %w", err)
 	}
+	latest := rel.TagName
 
 	// With prerelease, the user can run a build newer than every listed
 	// release. An older release must not replace it.
@@ -79,9 +150,19 @@ func Run(currentVersion string, prerelease bool) error {
 		binaryName += ".exe"
 	}
 
+	// The API asset URLs work for private repositories too. A release
+	// response without assets falls back to the public download URLs.
 	baseURL := fmt.Sprintf("https://github.com/%s/releases/download/%s", repo, latest)
 	checksumURL := baseURL + "/checksums.txt"
 	binaryURL := baseURL + "/" + binaryName
+	for _, a := range rel.Assets {
+		switch a.Name {
+		case "checksums.txt":
+			checksumURL = a.URL
+		case binaryName:
+			binaryURL = a.URL
+		}
+	}
 
 	fmt.Printf("Downloading %s...\n", binaryName)
 
@@ -94,11 +175,11 @@ func Run(currentVersion string, prerelease bool) error {
 		return fmt.Errorf("resolving binary path: %w", err)
 	}
 
-	expectedHash, err := releaseChecksum(checksumURL, binaryName)
+	expectedHash, err := releaseChecksumWith(checksumURL, binaryName, token)
 	if err != nil {
 		return fmt.Errorf("verifying release checksum: %w", err)
 	}
-	if err := downloadAndReplace(binaryURL, exe, expectedHash); err != nil {
+	if err := downloadAndReplaceWith(binaryURL, exe, expectedHash, token); err != nil {
 		return err
 	}
 
@@ -107,32 +188,44 @@ func Run(currentVersion string, prerelease bool) error {
 }
 
 func latestVersion(prerelease bool) (string, error) {
+	r, err := latestRelease(prerelease, tokenSource())
+	return r.TagName, err
+}
+
+// latestRelease returns the newest release with its assets.
+func latestRelease(prerelease bool, token string) (release, error) {
 	endpoint := "releases/latest"
 	if prerelease {
 		endpoint = "releases?per_page=100"
 	}
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s", repo, endpoint)
-	resp, err := httpClient.Get(url)
+	url := fmt.Sprintf("https://%s/repos/%s/%s", apiHost, repo, endpoint)
+	req, err := newRequest(context.Background(), url, token)
 	if err != nil {
-		return "", err
+		return release{}, err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return release{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub API returned %s", resp.Status)
+		return release{}, fmt.Errorf("GitHub API returned %s%s", resp.Status, privateHint(resp.StatusCode, token))
 	}
 
 	if !prerelease {
 		var r release
 		if err := httpclient.ReadJSON(resp.Body, releaseMaxBytes, &r); err != nil {
-			return "", fmt.Errorf("parsing response: %w", err)
+			return release{}, fmt.Errorf("parsing response: %w", err)
 		}
-		return validTag(r.TagName)
+		tag, err := validTag(r.TagName)
+		r.TagName = tag
+		return r, err
 	}
 
 	var releases []release
 	if err := httpclient.ReadJSON(resp.Body, releaseListMaxBytes, &releases); err != nil {
-		return "", fmt.Errorf("parsing response: %w", err)
+		return release{}, fmt.Errorf("parsing response: %w", err)
 	}
 	return newestRelease(releases)
 }
@@ -141,22 +234,24 @@ func latestVersion(prerelease bool) (string, error) {
 // version that is not a draft. Stable releases count too, so a stable release
 // that follows a prerelease wins over it. Tags that are not SemVer versions
 // are skipped.
-func newestRelease(releases []release) (string, error) {
-	var best string
+func newestRelease(releases []release) (release, error) {
+	var best release
 	var bestVersion version
 	for _, r := range releases {
 		v, ok := parseVersion(r.TagName)
 		if r.Draft || !ok {
 			continue
 		}
-		if best == "" || v.compare(bestVersion) > 0 {
-			best, bestVersion = r.TagName, v
+		if best.TagName == "" || v.compare(bestVersion) > 0 {
+			best, bestVersion = r, v
 		}
 	}
-	if best == "" {
-		return "", errors.New("no releases found")
+	if best.TagName == "" {
+		return release{}, errors.New("no releases found")
 	}
-	return validTag(best)
+	tag, err := validTag(best.TagName)
+	best.TagName = tag
+	return best, err
 }
 
 func validTag(tag string) (string, error) {
@@ -167,13 +262,21 @@ func validTag(tag string) (string, error) {
 }
 
 func releaseChecksum(url, binaryName string) (string, error) {
-	resp, err := httpClient.Get(url)
+	return releaseChecksumWith(url, binaryName, "")
+}
+
+func releaseChecksumWith(url, binaryName, token string) (string, error) {
+	req, err := newRequest(context.Background(), url, token)
+	if err != nil {
+		return "", err
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("checksum download failed: %s", resp.Status)
+		return "", fmt.Errorf("checksum download failed: %s%s", resp.Status, privateHint(resp.StatusCode, token))
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
 	if err != nil {
@@ -199,6 +302,10 @@ func releaseChecksum(url, binaryName string) (string, error) {
 }
 
 func downloadAndReplace(url, destPath, expectedHash string) error {
+	return downloadAndReplaceWith(url, destPath, expectedHash, "")
+}
+
+func downloadAndReplaceWith(url, destPath, expectedHash, token string) error {
 	if len(expectedHash) != sha256.Size*2 {
 		return errors.New("valid expected SHA-256 is required")
 	}
@@ -208,7 +315,7 @@ func downloadAndReplace(url, destPath, expectedHash string) error {
 		cancel(fmt.Errorf("%w: no data for %s", errDownloadStalled, downloadIdleTimeout))
 	})
 	defer idle.Stop()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := newRequest(ctx, url, token)
 	if err != nil {
 		return fmt.Errorf("downloading: %w", err)
 	}
@@ -224,7 +331,7 @@ func downloadAndReplace(url, destPath, expectedHash string) error {
 	idle.Reset(downloadIdleTimeout)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed: %s", resp.Status)
+		return fmt.Errorf("download failed: %s%s", resp.Status, privateHint(resp.StatusCode, token))
 	}
 
 	// Write to a temp file in the same directory as the target so

@@ -93,6 +93,13 @@ cliamp-x upgrade --prerelease   # newest release, betas and release candidates i
 
 Select prerelease updates for each upgrade. `--prerelease` installs the release with the highest SemVer version, stable or prerelease. It never installs a version older than the one you run. Normal installs and `cliamp-x upgrade` use stable releases only.
 
+`cliamp-x upgrade` downloads the release files through the GitHub API and
+checks the SHA-256 in `checksums.txt` before it replaces the binary. While
+the repository is private, it needs a GitHub token: it uses `GITHUB_TOKEN` or
+`GH_TOKEN` when set, and otherwise asks the GitHub CLI (`gh auth token`). The
+token goes only to `api.github.com`. Without one, a private repository answers
+404 and the command says to run `gh auth login`.
+
 ## General
 
 | Flag | Short | Description |
