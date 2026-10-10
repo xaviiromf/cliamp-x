@@ -279,6 +279,7 @@ type Config struct {
 	HideFullCover    bool                         // hide the cover beside the full-screen visualizer
 	MouseOff         bool                         // true when mouse = false
 	Language         string                       // interface language: "es", "en", or "" to follow $LANG
+	NotifyOff        bool                         // true when notifications = false
 	VisSensitivity   int                          // visualizer sensitivity 1-10, or 0 for the default (7)
 	PreviewImages    string                       // preview pictures: "auto", "kitty" or "blocks" (default "auto")
 	ShowMetadata     bool                         // expand highlighted-track metadata below settings (default false)
@@ -543,6 +544,10 @@ func (c *Config) setTopLevel(key, val string) {
 	case "hide_preview":
 		if v, ok := parseBool(val); ok {
 			c.HidePreview = v
+		}
+	case "notifications":
+		if v, ok := parseBool(val); ok {
+			c.NotifyOff = !v
 		}
 	case "language":
 		switch v := strings.ToLower(parseString(val)); v {

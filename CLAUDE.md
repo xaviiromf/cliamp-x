@@ -41,6 +41,12 @@ Each directory below is a Go package:
 | `playlist/` | The `Track` model, the queue with shuffle, repeat and play-next, M3U and PLS, the track TOML format, and the base `playlist.Provider` interface in `provider.go` |
 | `provider/` | The optional capability interfaces in `interfaces.go`, `Entry`, the `ProviderMeta` keys in `types.go`, and `AddTracks` |
 | `external/<name>/` | One package per provider: `ytmusic` (YouTube Music, signed in with browser cookies) and `local` (local playlists, favorites and history) |
+| `ui/artwork/` | Cover and thumbnail loading with a disk and memory cache, half-block drawing, the kitty graphics protocol (Unicode placeholders) and the cover palette |
+| `internal/sponsorblock/` | SponsorBlock segment lookups (hash-prefix privacy mode) |
+| `internal/loudstore/` | Remembered loudness per track for normalization, with ReplayGain tags for local files |
+| `internal/offline/` | Offline downloads (yt-dlp + ffmpeg tags and cover) and the manifest that lets the player play a downloaded copy |
+| `internal/stats/` | The play log and its summary for the statistics screen |
+| `internal/desktopnotify/` | Now-playing desktop notifications over D-Bus with Next and Like actions |
 | `favorites/`, `history/` | The ♥ favorites and Recently Played stores in the config directory. `buildProviders` makes one of each and shares them with the local provider and the Model |
 | `resolve/` | Turns the user arguments into tracks: files, directories, globs, URLs, M3U, PLS, feeds and yt-dlp playlists |
 | `tracksave/` | Saves a downloaded track in the download directory |

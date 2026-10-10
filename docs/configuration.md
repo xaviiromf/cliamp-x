@@ -135,6 +135,9 @@ mouse = true
 # Interface language: "es" or "en"; empty follows $LANG.
 language = ""
 
+# Desktop notification for each song that starts (cover, Next and Like buttons).
+notifications = true
+
 # Preview pictures: "auto", "kitty" (kitty graphics protocol) or "blocks".
 preview_images = "auto"
 

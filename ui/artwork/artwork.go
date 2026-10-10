@@ -19,7 +19,7 @@ import (
 	"image"
 	_ "image/gif"  // registers GIF decoding
 	_ "image/jpeg" // registers JPEG decoding
-	_ "image/png"  // registers PNG decoding
+	"image/png"
 	"io"
 	"net/http"
 	"os"
@@ -117,6 +117,34 @@ func (c *Cache) Draw(url string, maxCols, maxRows int) (lines []string, cols, ro
 		e.lines, e.cols, e.rows = Render(e.img, cols, rows), cols, rows
 	}
 	return e.lines, cols, rows, true
+}
+
+// ImageFile writes the loaded image of url as a PNG under the cache folder
+// and returns its path, for programs that take a picture by path such as a
+// notification server. ok is false while the image is not loaded or the
+// cache keeps nothing on disk.
+func (c *Cache) ImageFile(url string) (string, bool) {
+	img, ok := c.Get(url)
+	if !ok || c.dir == "" {
+		return "", false
+	}
+	sum := sha1.Sum([]byte(url))
+	path := filepath.Join(c.dir, "png", hex.EncodeToString(sum[:])+".png")
+	if _, err := os.Stat(path); err == nil {
+		return path, true
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", false
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", false
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+		return "", false
+	}
+	return path, os.Rename(tmp, path) == nil
 }
 
 // Claim marks url as loading and reports whether the caller should load it:

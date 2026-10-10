@@ -37,6 +37,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cc := nm.coverCmds(); cc != nil {
 				cmd = tea.Batch(cmd, cc)
 			}
+			if nc := nm.notifyCmds(); nc != nil {
+				cmd = tea.Batch(cmd, nc)
+			}
 		}
 		// A load that starts now gets its own redraws at once. The main tick
 		// can still wait up to ui.TickIdle before it runs at the spinner rate.
@@ -113,6 +116,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case artworkLoadedMsg:
 		return m, nil
+
+	case NotifyActionMsg:
+		return m, m.handleNotifyAction(msg)
 
 	case queueSavedMsg:
 		m.handleQueueSaved(msg)

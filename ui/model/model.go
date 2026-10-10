@@ -590,6 +590,7 @@ type Model struct {
 	saveQueue       saveQueueState
 	plMarks         map[string]bool // paths of the queue rows marked with *
 	mouseOn         bool            // mouse support
+	notify          notifyState     // desktop notifications
 
 	// Cached per-tick to avoid repeated speaker.Lock() calls in View().
 	cachedPos  time.Duration

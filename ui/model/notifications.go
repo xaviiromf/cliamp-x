@@ -185,6 +185,7 @@ func (m *Model) stopByUser() {
 func (m *Model) nowPlaying(track playlist.Track) {
 	m.playingTrackStarted = true
 	m.applyAutoEQ(track)
+	m.notifyTrack(track)
 	if m.luaMgr != nil && m.luaMgr.HasHook(luaplugin.EventTrackChange) {
 		m.emitPlugin(luaplugin.EventTrackChange, trackEventData(track, m.player.Duration()))
 	}

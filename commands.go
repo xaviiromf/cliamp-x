@@ -83,6 +83,7 @@ func buildApp() *cli.Command {
 			ipcSimpleCommand("play", "resume playback"),
 			ipcSimpleCommand("pause", "pause playback"),
 			ipcSimpleCommand("toggle", "play/pause toggle"),
+			waybarCommand(),
 			ipcSimpleCommand("next", "next track"),
 			ipcSimpleCommand("prev", "previous track"),
 			ipcSimpleCommand("stop", "stop playback"),

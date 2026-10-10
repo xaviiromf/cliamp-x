@@ -277,3 +277,12 @@ Each command waits up to 30 seconds for its result. `cliamp-x load` waits up to 
 `cliamp-x theme list` reads the theme files itself, so it works when cliamp-x is not running. It prints each theme file that it skips on stderr.
 
 See [remote-control.md](remote-control.md) for the protocol specification.
+
+## Waybar
+
+```sh
+cliamp-x waybar                          # JSON lines for a Waybar custom module
+cliamp-x waybar --format "{icon} {title}" --max-length 30
+```
+
+See [Waybar module and desktop notifications](waybar.md).

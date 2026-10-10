@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/config"
 	"github.com/xaviiromf/cliamp-x/internal/appdir"
 	"github.com/xaviiromf/cliamp-x/internal/appmeta"
+	"github.com/xaviiromf/cliamp-x/internal/desktopnotify"
 	"github.com/xaviiromf/cliamp-x/internal/loudstore"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
@@ -175,7 +177,27 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		m.SetResume(resumeState.Path, resumeState.PositionSec)
 	}
 
+	// Notification buttons reach the program once it exists.
+	var sendToProgram atomic.Pointer[func(tea.Msg)]
+	if !cfg.NotifyOff {
+		if notifier, nerr := desktopnotify.New(model.L("Next"), model.L("Like"), func(action string) {
+			if send := sendToProgram.Load(); send != nil {
+				(*send)(model.NotifyActionMsg{Action: action})
+			}
+		}); nerr == nil {
+			defer notifier.Close()
+			if headless {
+				m.SetPreview(false) // the cover cache serves the notifications
+			}
+			m.SetDesktopNotifier(notifier)
+		} else {
+			applog.Info("%v", nerr)
+		}
+	}
+
 	prog := tea.NewProgram(m, programOptions(headless, cfg.LowPower)...)
+	send := prog.Send
+	sendToProgram.Store(&send)
 	stopSignals := quitOnSignals(prog.Send)
 	defer stopSignals()
 	defer providers.observeAuthURLs(prog.Send)()

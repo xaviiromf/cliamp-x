@@ -109,6 +109,10 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Interface language: "es" (Spanish) or "en" (English). Empty follows $LANG.
 # language = "es"
 
+# Desktop notification for each song that starts, with its cover and Next and
+# Like buttons where the notification server supports them. Default: true.
+# notifications = false
+
 # How the preview pane draws pictures: "kitty" sends real images with the
 # kitty graphics protocol (kitty, Ghostty), "blocks" draws them with colored
 # half-block characters (any terminal, lower detail), and "auto" picks kitty

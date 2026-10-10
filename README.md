@@ -44,6 +44,11 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   quitarlas juntas y guarda la cola como playlist de YouTube Music con `W`.
 - **Interfaz en español**: menús, ayuda, teclas y avisos, según tu `LANG` o
   `language = "es"`.
+- **Notificaciones de escritorio**: cada canción nueva avisa con su carátula
+  y botones Siguiente y Me gusta.
+- **Módulo para Waybar** (`cliamp-x waybar`): la canción que suena en tu
+  barra, con clic para pausar y rueda para el volumen. Ver
+  [docs/waybar.md](docs/waybar.md).
 - **Radio automática**: cuando la cola termina, sigue con canciones parecidas
   a la última (`R` la activa o desactiva).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
@@ -231,6 +236,7 @@ Ejecuta `cliamp-x --daemon` para reproducir sin interfaz. Ver
 - [Plugins](docs/plugins.md) y [plugins de la comunidad](docs/community-plugins.md)
 - [Control remoto (IPC)](docs/remote-control.md)
 - [Modo sin interfaz](docs/headless.md)
+- [Módulo de Waybar y notificaciones](docs/waybar.md)
 - [Controles multimedia (MPRIS)](docs/mediactl.md)
 - [Links cliamp-x://](docs/url-scheme.md)
 
