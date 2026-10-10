@@ -252,19 +252,39 @@ func (p *Provider) GenreTracks(genreID, sortType string) ([]playlist.Track, erro
 		}
 		return page.Songs
 	}
+	tag := func(tracks []playlist.Track) []playlist.Track {
+		title := p.categoryTitle(genreID)
+		for i := range tracks {
+			tracks[i].Genre = title
+		}
+		return tracks
+	}
 	switch sortType {
 	case "songs":
-		return songTracks(songs), nil
+		return tag(songTracks(songs)), nil
 	case "featured":
-		return songTracks(playlistSongs(0)), nil
+		return tag(songTracks(playlistSongs(0))), nil
 	case "community":
 		if len(lists) > 1 {
-			return songTracks(playlistSongs(1)), nil
+			return tag(songTracks(playlistSongs(1))), nil
 		}
-		return songTracks(playlistSongs(0)), nil
+		return tag(songTracks(playlistSongs(0))), nil
 	default:
 		mix := append(append([]Song(nil), songs...), playlistSongs(0)...)
 		rand.Shuffle(len(mix), func(i, j int) { mix[i], mix[j] = mix[j], mix[i] })
-		return songTracks(mix), nil
+		return tag(songTracks(mix)), nil
 	}
+}
+
+// categoryTitle returns the name of a mood or genre, by its params.
+func (p *Provider) categoryTitle(params string) string {
+	for _, c := range p.cachedCategories() {
+		if c.Params == params {
+			return c.Title
+		}
+	}
+	if title, ok := p.genres.snapshot()[params]; ok {
+		return title
+	}
+	return ""
 }

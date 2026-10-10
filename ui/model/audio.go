@@ -67,10 +67,20 @@ func (m *Model) applyEQBands(bands [eqBandCount]float64) {
 	for i, gain := range bands {
 		m.player.SetEQBand(i, gain)
 	}
+	m.updateEQHeadroom()
+}
+
+// updateEQHeadroom sets the pre-amp cut that keeps the current curve's
+// boosts clear of clipping.
+func (m *Model) updateEQHeadroom() {
+	if p, ok := m.player.(preampEngine); ok {
+		p.SetPreamp(eqHeadroom(m.player.EQBands()))
+	}
 }
 
 func (m *Model) setCustomEQBand(band int, gain float64) {
 	m.player.SetEQBand(band, gain)
+	m.updateEQHeadroom()
 	m.eqPresetIdx = -1
 	m.eqCustomLabel = ""
 	m.eqCustomBands = m.player.EQBands()

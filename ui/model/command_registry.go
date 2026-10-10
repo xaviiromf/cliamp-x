@@ -50,6 +50,7 @@ const (
 	commandModeSubs
 	commandModeSubsFilter
 	commandModeFullVis
+	commandModeEQPanel
 )
 
 const commandModeAny = ^commandMode(0)
@@ -117,6 +118,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeVolume | commandModeShuffle | commandModeRepeat, Keys: []string{"r"}, KeyLabel: "r", Label: "Cycle repeat", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"m"}, KeyLabel: "m", Label: "Toggle mono", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"e"}, KeyLabel: "e", Label: "Cycle EQ preset", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"E"}, KeyLabel: "E", Label: "Open the equalizer panel", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"t"}, KeyLabel: "t", Label: "Choose theme", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+v"}, KeyLabel: "Ctrl+V", Label: "Choose visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
@@ -160,7 +162,7 @@ var commandRegistry = []commandSpec{
 	}},
 	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+g"}, KeyLabel: "Ctrl+G", Label: "Toggle key-binding hint bar", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"R"}, KeyLabel: "R", Label: "Toggle auto radio (similar songs after the queue)", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"R"}, KeyLabel: "R", Label: "Toggle auto radio (similar songs after the queue)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
 		return !m.simplified && m.layout.tier == layoutFull
 	}, Keymap: true},
@@ -240,6 +242,15 @@ var commandRegistry = []commandSpec{
 			m.searchOverlay.cursor >= 0 && m.searchOverlay.cursor < len(m.searchOverlay.results)
 	}},
 	{Mode: commandModeEQ, Keys: []string{"up", "down"}, KeyLabel: "Up Down", Label: "Gain", ContextHelp: true},
+	{Mode: commandModeEQPanel, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Preset (live preview) / band gain", ContextHelp: true, Primary: true},
+	{Mode: commandModeEQPanel, Keys: []string{"left", "right", "h", "l"}, KeyLabel: "Left Right", Label: "Select band", ContextHelp: true},
+	{Mode: commandModeEQPanel, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab", Label: "Presets / bands", ContextHelp: true},
+	{Mode: commandModeEQPanel, Keys: []string{"+", "=", "-"}, KeyLabel: "+ -", Label: "Band gain +/-1 dB"},
+	{Mode: commandModeEQPanel, Keys: []string{"0"}, KeyLabel: "0", Label: "Band to 0 dB"},
+	{Mode: commandModeEQPanel, Keys: []string{"r"}, KeyLabel: "r", Label: "Reset to Flat"},
+	{Mode: commandModeEQPanel, Keys: []string{"b"}, KeyLabel: "b", Label: "Bypass (A/B compare)", ContextHelp: true},
+	{Mode: commandModeEQPanel, Keys: []string{"a"}, KeyLabel: "a", Label: "Auto EQ by genre", ContextHelp: true},
+	{Mode: commandModeEQPanel, Keys: []string{"esc", "q", "E", "enter"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", ContextHelp: true, Cancel: true},
 	{Mode: commandModeSpeed, Keys: []string{"left", "right"}, KeyLabel: "Left Right", Label: "Speed", ContextHelp: true},
 	{Mode: commandModeVolume, Keys: []string{"left", "right", "up", "down", "h", "l", "k", "j"}, KeyLabel: "Arrows", Label: "Volume +/-1dB", ContextHelp: true, Primary: true},
 	{Mode: commandModeShuffle, Keys: []string{"enter", "left", "right", "up", "down", "h", "l", "k", "j"}, KeyLabel: "Enter / Arrows", RunKey: "enter", Label: "Toggle shuffle", ContextHelp: true, Primary: true},

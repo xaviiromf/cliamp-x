@@ -57,6 +57,7 @@ type Player struct {
 	volume          atomic.Uint64     // dB stored as Float64bits, range [volMin, +6]
 	speed           atomic.Uint64     // playback speed ratio as Float64bits; 1.0 = normal
 	eqBands         [10]atomic.Uint64 // dB stored as math.Float64bits
+	preamp          atomic.Uint64     // EQ pre-amp dB stored as math.Float64bits
 	tap             *tap
 	playing         atomic.Bool
 	paused          atomic.Bool
@@ -287,6 +288,7 @@ func (p *Player) playPipelineForGeneration(tp *trackPipeline, generation uint64)
 		for i := range 10 {
 			s = newBiquad(s, eqFreqs[i], 1.4, &p.eqBands[i], float64(p.sr))
 		}
+		s = newPreampStreamer(s, &p.preamp)
 
 		p.tap = newTap(s, p.tapBufferFrames, int(p.sr), p.speakerBufferFrames)
 		s = &volumeStreamer{s: p.tap, vol: &p.volume, mono: &p.mono, cachedDB: math.NaN()}

@@ -257,6 +257,7 @@ type Config struct {
 	VisVolumeLinked  bool        // when true, visualizer bar height follows volume; default true
 	EQ               [10]float64 // per-band gain in dB, range [-12, +12]
 	EQPreset         string      // preset name, or "" for custom
+	EQAuto           bool        // pick the EQ preset from each song's genre
 	Repeat           string      // "off", "all", or "one"
 	Shuffle          bool
 	Mono             bool
@@ -539,6 +540,10 @@ func (c *Config) setTopLevel(key, val string) {
 		c.AudioDevice = parseString(val)
 	case "initial_directory":
 		c.InitialDirectory = parseString(val)
+	case "eq_auto":
+		if v, ok := parseBool(val); ok {
+			c.EQAuto = v
+		}
 	case "music_dir":
 		c.MusicDir = strings.TrimSpace(parseString(val))
 	case "padding_horizontal":

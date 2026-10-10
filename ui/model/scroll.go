@@ -163,6 +163,8 @@ func (m *Model) clampActiveScrollState() {
 		m.visPickerMaybeAdjustScroll(m.effectivePlaylistVisible())
 	case screenDevicePicker:
 		clampScroll(&m.devicePicker.cursor, &m.devicePicker.scroll, len(m.devicePicker.devices), m.effectivePlaylistVisible())
+	case screenEQPanel:
+		m.eqPanelAdjustScroll()
 	case screenPlaylistPicker:
 		m.plPickerMaybeAdjustScroll(m.plPickerVisible())
 	case screenFileBrowser:

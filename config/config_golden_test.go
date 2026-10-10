@@ -80,6 +80,7 @@ seek_large_step_sec = 45
 lyrics_offset_ms = -250
 eq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 eq_preset = "Custom"
+eq_auto = true
 theme = "Tokyo Night"
 provider = "Local"
 visualizer = "Wave"
@@ -150,6 +151,7 @@ func TestLoadGolden(t *testing.T) {
 	topWant.LyricsOffsetMs = -250
 	topWant.EQ = [10]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	topWant.EQPreset = "Custom"
+	topWant.EQAuto = true
 	topWant.Theme = "Tokyo Night"
 	topWant.Provider = "local"
 	topWant.Visualizer = "Wave"

@@ -96,6 +96,7 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | Key | Action |
 |---|---|
 | `e` | Cycle EQ preset, including the saved Custom curve |
+| `E` | Open the equalizer panel (see below) |
 | `t` | Choose theme |
 | `v` | Cycle visualizer and save the choice in `config.toml` |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
@@ -109,6 +110,28 @@ Theme and visualizer pickers support `/` filtering. While you browse, arrow
 keys preview the selected option. `Enter` keeps it. `Esc` or `q` restores the option
 active when the picker opened. While you type a filter, `Enter` completes it
 and `Esc` clears it.
+
+## Equalizer panel (`E` key)
+
+The panel draws the ten bands as a curve from +12 to -12 dB, grouped into
+bass (70-320 Hz), mids (600 Hz-3 kHz) and treble (6-16 kHz), and lists the
+presets in two groups: genres (Rock, Metal, Pop, Electronic, Hip-Hop,
+Reggaeton, Cumbia, Jazz, Classical, Acoustic, R&B, Indie, Lo-Fi, Soundtrack,
+Blues) and utility curves (Flat, Bass Boost, Vocal, Loudness, Late Night,
+Podcast, ...). A pre-amp cut follows the largest boost, and a soft clipper
+rounds off the peaks, so boosts do not distort.
+
+| Key | Action |
+|-----|--------|
+| `Up` `Down` / `k` `j` | Previous / next preset, applied at once as a preview; on the bands, gain +/-1 dB |
+| `Left` `Right` / `h` `l` | Select a band |
+| `Tab` | Switch between the preset list and the bands |
+| `+` `-` | Band gain +/-1 dB |
+| `0` | Set the band to 0 dB |
+| `r` | Reset to Flat |
+| `b` | Bypass the EQ to compare (A/B) |
+| `a` | Auto EQ: switch to the preset of each song's genre (local tags, YouTube Music genre mixes); saved as `eq_auto` |
+| `Esc` / `Enter` / `E` | Close the panel |
 
 ## Features
 

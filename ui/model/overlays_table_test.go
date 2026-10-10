@@ -16,6 +16,7 @@ var overlayOpeners = map[topLevelScreen]func(*Model){
 	screenFullVisualizer:  func(m *Model) { m.fullVis = true },
 	screenKeymap:          func(m *Model) { m.keymap.visible = true },
 	screenDevicePicker:    func(m *Model) { m.devicePicker.visible = true },
+	screenEQPanel:         func(m *Model) { m.eqPanel.visible = true },
 	screenPlaylistPicker:  func(m *Model) { m.plPicker.visible = true },
 	screenFileBrowser:     func(m *Model) { m.fileBrowser.visible = true },
 	screenSearchOverlay:   func(m *Model) { m.searchOverlay.visible = true },

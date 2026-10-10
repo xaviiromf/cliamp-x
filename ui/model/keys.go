@@ -278,6 +278,10 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "q":
 		return m.quit()
+	case "E":
+		m.openEQPanel()
+	case "R":
+		m.toggleAutoRadio()
 	case "F":
 		m.openSubsOverlay()
 	case "l":
@@ -693,6 +697,9 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "R":
 		m.toggleAutoRadio()
+
+	case "E":
+		m.openEQPanel()
 
 	case "ctrl+b":
 		m.toggleSettingsPane()

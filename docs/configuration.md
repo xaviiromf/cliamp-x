@@ -58,9 +58,14 @@ seek_large_step_sec = 30
 # EQ preset: "Flat", "Rock", "Pop", "Jazz", "Classical",
 #             "Bass Boost", "Treble Boost", "Vocal", "Electronic", "Acoustic",
 #             "Hip-Hop", "R&B", "Loudness", "Late Night", "Podcast",
-#             "Small Speakers"
+#             "Small Speakers", "Metal", "Reggaeton", "Cumbia", "Indie",
+#             "Lo-Fi", "Soundtrack", "Blues"
 # Leave empty or "Custom" to use manual eq values below
 eq_preset = "Flat"
+
+# Auto EQ: switch to the preset that fits each song's genre (local tags and
+# YouTube Music genre mixes). Toggle it with "a" in the EQ panel (E).
+# eq_auto = false
 
 # 10-band EQ gains in dB (range: -12 to 12)
 # Bands: 70Hz, 180Hz, 320Hz, 600Hz, 1kHz, 3kHz, 6kHz, 12kHz, 14kHz, 16kHz

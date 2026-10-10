@@ -216,6 +216,7 @@ const (
 	screenURLInput
 	screenLyrics
 	screenJump
+	screenEQPanel
 	// screenFullVisualizer stays last. TestOverlayStackOrder checks that
 	// overlayStack holds each screen up to it.
 	screenFullVisualizer
@@ -255,6 +256,8 @@ func (s topLevelScreen) label() string {
 		return "Lyrics"
 	case screenJump:
 		return "Jump to Time"
+	case screenEQPanel:
+		return "Equalizer"
 	case screenFullVisualizer:
 		return "Visualizer"
 	default:
@@ -356,6 +359,11 @@ type Model struct {
 	eqPresetIdx             int              // -1 = custom, 0+ = index into eqPresets
 	eqCustomLabel           string           // non-empty = plugin-defined preset label (shown instead of "Custom")
 	eqCustomBands           [eqBandCount]float64
+	eqPanel                 eqPanelState
+	eqBypass                bool                 // the EQ is off for an A/B comparison
+	eqBypassBands           [eqBandCount]float64 // the curve to restore after a bypass
+	eqAuto                  bool                 // the preset follows each song's genre
+	eqAutoLabel             string               // the genre the auto EQ last matched
 
 	// Overlay / feature state (see state.go for struct definitions)
 	search         searchState
