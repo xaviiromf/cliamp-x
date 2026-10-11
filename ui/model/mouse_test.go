@@ -66,3 +66,21 @@ func TestLineKinds(t *testing.T) {
 		t.Fatal("nearest cursor line")
 	}
 }
+
+func TestHitsActionsPill(t *testing.T) {
+	line := "  Esc  Back  Enter  Go  F1  Actions  a  Queue"
+	start := strings.Index(line, " F1 ")
+	for _, tc := range []struct {
+		x    int
+		want bool
+	}{
+		{start - 1, false}, {start, true}, {start + 6, true}, {start + 12, false},
+	} {
+		if got := hitsActionsPill(line, tc.x); got != tc.want {
+			t.Errorf("x=%d: got %v, want %v", tc.x, got, tc.want)
+		}
+	}
+	if hitsActionsPill("no hint here", 3) {
+		t.Error("a line without the hint must not hit")
+	}
+}

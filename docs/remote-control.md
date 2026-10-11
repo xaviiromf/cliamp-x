@@ -120,7 +120,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 
 | Group | Operations |
 | --- | --- |
-| Playback | `play`, `pause`, `toggle`, `stop`, `next`, `prev`, `volume`, `volume.adjust`, `seek`, `seek.absolute`, `speed`, `speed.adjust`, `shuffle`, `repeat`, `mono`, `eq`, `device` |
+| Playback | `play`, `pause`, `toggle`, `stop`, `next`, `prev`, `volume`, `volume.adjust`, `seek`, `seek.absolute`, `speed`, `speed.adjust`, `sleep`, `shuffle`, `repeat`, `mono`, `eq`, `device` |
 | Appearance | `theme`, `vis` |
 | Live playlist | `queue`, `queue.list`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
@@ -128,6 +128,11 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Plugins | `plugin.call`, `plugin.commands` |
+
+`sleep` sets the sleep timer with `value` in whole minutes, up to 1440. The
+music fades out over the last 10 seconds, then pauses. `0` turns the timer
+off, and `-1` pauses when the playing song ends. `cliamp-x sleep 30`,
+`cliamp-x sleep end` and `cliamp-x sleep off` send it.
 
 `queue.*` applies to the live playlist. `playnext.*` applies only to the
 play-next list. They use separate zero-based indexes.

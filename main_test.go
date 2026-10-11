@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/xaviiromf/cliamp-x/internal/resume"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // cliamp search and cliamp search-sc play the first match of the query. Any
@@ -77,10 +78,21 @@ func TestSaveExitResume(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
-			saveExitResume(tt.path, tt.secs, "Mix")
+			saveExitResume(resume.State{Path: tt.path, PositionSec: tt.secs, Playlist: "Mix"})
 			if got := resume.Load(); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("saved state = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+// With the live playlist, the exit saves the session even without a position.
+func TestSaveExitResumeKeepsTheSession(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	tracks := []playlist.Track{{Path: "/music/a.mp3", Title: "A"}, {Path: "/music/b.mp3", Title: "B"}}
+	want := resume.State{Path: "/music/b.mp3", Context: tracks, ContextIndex: 1, Queue: []int{0}}
+	saveExitResume(want)
+	if got := resume.Load(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("saved state = %+v, want %+v", got, want)
 	}
 }

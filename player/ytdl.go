@@ -227,6 +227,21 @@ func monitorExit(cmd *exec.Cmd, stderr *limitedBuffer, name string) (<-chan erro
 // and returns a streaming PCM decoder. If startSec > 0, ffmpeg -ss is used
 // to skip to the desired position in the input stream.
 func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
+	return decodeYTDLPipeInfo(pageURL, "", sr, bitDepth, startSec)
+}
+
+// ytdlFormat picks the audio format yt-dlp downloads. Prefer direct
+// HTTPS/HTTP streams over HLS (m3u8): HLS requires segment downloading and
+// muxing which doesn't pipe cleanly to stdout. Live streams (e.g. YouTube
+// live) expose no audio-only formats at all, only muxed video+audio over HLS,
+// so fall back to "best" as a last resort; the ffmpeg stage outputs PCM audio
+// and drops the video.
+const ytdlFormat = "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best"
+
+// decodeYTDLPipeInfo is decodeYTDLPipe that, with infoPath, has yt-dlp load
+// the page info prefetched there instead of extracting it again, which
+// starts the audio seconds sooner.
+func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp is required — install: %s", ytdlp.InstallHint())
 	}
@@ -241,13 +256,8 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 	}
 
 	// Start yt-dlp: download best audio to stdout.
-	// Prefer direct HTTPS/HTTP streams over HLS (m3u8). HLS requires segment
-	// downloading and muxing which doesn't pipe cleanly to stdout.
-	// Live streams (e.g. YouTube live) expose no audio-only formats at all,
-	// only muxed video+audio over HLS, so fall back to "best" as a last
-	// resort; the ffmpeg stage below outputs PCM audio and drops the video.
 	ytdlArgs := []string{
-		"-f", "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best",
+		"-f", ytdlFormat,
 		"--no-playlist",
 		"--quiet",
 		"--no-warnings",
@@ -255,7 +265,11 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 		"-o", "-",
 	}
 	ytdlArgs = appendYTDLCookieArgs(ytdlArgs, pageURL)
-	ytdlArgs = append(ytdlArgs, "--", pageURL)
+	if infoPath != "" {
+		ytdlArgs = append(ytdlArgs, "--load-info-json", infoPath)
+	} else {
+		ytdlArgs = append(ytdlArgs, "--", pageURL)
+	}
 	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
 	ytdlCmd.Stdout = pw
 	var ytdlStderr limitedBuffer
@@ -340,13 +354,31 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
+	// A start at the beginning uses the page info prefetched for it, if any.
+	info := ""
+	if startSec == 0 {
+		info = p.ytdlInfo.take(pageURL)
+	}
+	defer func() {
+		if info != "" {
+			_ = os.Remove(info)
+		}
+	}()
 	for attempt := 1; ; attempt++ {
-		decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, startSec)
+		decoder, format, err := decodeYTDLPipeInfo(pageURL, info, p.sr, p.bitDepth, startSec)
 		if err != nil {
 			return nil, err
 		}
 
 		if err := prefillYTDLPipe(decoder); err != nil {
+			if info != "" {
+				// The prefetched info went stale: extract the page again,
+				// which does not count as a retry.
+				_ = os.Remove(info)
+				info = ""
+				attempt--
+				continue
+			}
 			if attempt == ytdlPipelineMaxAttempts || !isTransientYTDL403(err) {
 				return nil, err
 			}

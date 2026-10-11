@@ -162,10 +162,10 @@ func (m *Model) tickSponsor() tea.Cmd {
 			if s.Start <= sponsorMinSkip {
 				return nil // the whole song is marked; play it
 			}
-			m.status.Showf(statusTTLMedium, "SponsorBlock: %s %s", tr("saltado", "skipped"), label)
+			m.status.Showf(statusTTLMedium, "SponsorBlock: %s %s", L("skipped"), label)
 			return m.nextTrack()
 		}
-		m.status.Showf(statusTTLMedium, "SponsorBlock: %s %s (%s)", tr("saltado", "skipped"), label, formatTrackTime(int(s.End-pos+0.5)))
+		m.status.Showf(statusTTLMedium, "SponsorBlock: %s %s (%s)", L("skipped"), label, formatTrackTime(int(s.End-pos+0.5)))
 		return m.seekAbsolute(time.Duration(s.End * float64(time.Second)))
 	}
 	return nil
@@ -175,21 +175,21 @@ func (m *Model) tickSponsor() tea.Cmd {
 func sponsorCategoryLabel(category string) string {
 	switch category {
 	case "intro":
-		return tr("intro", "intro")
+		return L("intro")
 	case "outro":
-		return tr("final", "outro")
+		return L("outro")
 	case "sponsor":
-		return tr("patrocinio", "sponsor")
+		return L("sponsor")
 	case "selfpromo":
-		return tr("autopromoción", "self-promotion")
+		return L("self-promotion")
 	case "music_offtopic":
-		return tr("parte sin música", "non-music part")
+		return L("non-music part")
 	case "interaction":
-		return tr("recordatorio de suscripción", "interaction reminder")
+		return L("interaction reminder")
 	case "preview":
-		return tr("avance", "preview")
+		return L("preview")
 	case "filler":
-		return tr("relleno", "filler")
+		return L("filler")
 	}
 	return category
 }

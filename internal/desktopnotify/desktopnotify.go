@@ -22,8 +22,9 @@ const (
 
 // Action keys sent to the action callback.
 const (
-	ActionNext = "next"
-	ActionLike = "like"
+	ActionPause = "pause"
+	ActionNext  = "next"
+	ActionLike  = "like"
 )
 
 // Notifier sends notifications. It is safe for concurrent use.
@@ -31,7 +32,7 @@ type Notifier struct {
 	conn     *dbus.Conn
 	obj      dbus.BusObject
 	actions  bool
-	labels   [2]string // Next and Like button labels
+	labels   [3]string // Pause, Next and Like button labels
 	onAction func(action string)
 
 	mu     sync.Mutex
@@ -39,13 +40,13 @@ type Notifier struct {
 }
 
 // New connects to the session bus. onAction gets the key of a pressed
-// button; next and like are the button labels.
-func New(next, like string, onAction func(action string)) (*Notifier, error) {
+// button; pause, next and like are the button labels.
+func New(pause, next, like string, onAction func(action string)) (*Notifier, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return nil, fmt.Errorf("desktop notifications: %w", err)
 	}
-	n := &Notifier{conn: conn, obj: conn.Object(busName, objPath), labels: [2]string{next, like}, onAction: onAction}
+	n := &Notifier{conn: conn, obj: conn.Object(busName, objPath), labels: [3]string{pause, next, like}, onAction: onAction}
 	var caps []string
 	if err := n.obj.Call(iface+".GetCapabilities", 0).Store(&caps); err != nil {
 		conn.Close()
@@ -72,7 +73,7 @@ func (n *Notifier) watch(ch chan *dbus.Signal) {
 		n.mu.Lock()
 		ours := id == n.lastID
 		n.mu.Unlock()
-		if ours && (key == ActionNext || key == ActionLike) {
+		if ours && (key == ActionPause || key == ActionNext || key == ActionLike) {
 			n.onAction(key)
 		}
 	}
@@ -86,7 +87,7 @@ func (n *Notifier) Show(summary, body, image string) error {
 	}
 	var actions []string
 	if n.actions {
-		actions = []string{ActionNext, n.labels[0], ActionLike, n.labels[1]}
+		actions = []string{ActionPause, n.labels[0], ActionNext, n.labels[1], ActionLike, n.labels[2]}
 	}
 	hints := map[string]dbus.Variant{
 		"desktop-entry": dbus.MakeVariant("cliamp-x"),

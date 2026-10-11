@@ -191,6 +191,14 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		m.saveSpeed()
 		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true, Speed: m.player.Speed()})
 		return nil
+	case "sleep":
+		if request.Value != math.Trunc(request.Value) || request.Value < -1 || request.Value > 24*60 {
+			m.failV2Job(msg.Jobs, msg.JobID, v2InvalidParamsError())
+			return nil
+		}
+		m.setSleepMinutes(int(request.Value))
+		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true})
+		return nil
 	case "queue", "track.play", "track.queue", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "queue.list":
 		return m.handleV2QueueRequest(ctx, msg.Jobs, msg.JobID, request)
 	case "playnext.list", "playnext.remove", "playnext.move", "playnext.clear":

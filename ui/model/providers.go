@@ -780,23 +780,11 @@ type selectedTrackArtistTarget struct {
 }
 
 func (m Model) selectedTrackArtistBrowserTarget() (selectedTrackArtistTarget, bool) {
-	if m.focus != focusPlaylist || m.playlist == nil {
-		return selectedTrackArtistTarget{}, false
-	}
-	track, ok := m.playlist.Track(m.plCursor)
+	track, ok := m.selectedPlaylistTrack()
 	if !ok {
 		return selectedTrackArtistTarget{}, false
 	}
-	candidates := make([]playlist.Provider, 0, len(m.providers)+1)
-	if m.provider != nil {
-		candidates = append(candidates, m.provider)
-	}
-	for _, entry := range m.providers {
-		if entry.Provider != nil {
-			candidates = append(candidates, entry.Provider)
-		}
-	}
-	for _, candidate := range candidates {
+	for _, candidate := range m.trackProviders() {
 		resolver, ok := candidate.(provider.TrackArtistResolver)
 		if !ok {
 			continue
@@ -811,6 +799,70 @@ func (m Model) selectedTrackArtistBrowserTarget() (selectedTrackArtistTarget, bo
 		}
 	}
 	return selectedTrackArtistTarget{}, false
+}
+
+// selectedPlaylistTrack returns the playlist track under the cursor while
+// the playlist has the focus.
+func (m Model) selectedPlaylistTrack() (playlist.Track, bool) {
+	if m.focus != focusPlaylist || m.playlist == nil {
+		return playlist.Track{}, false
+	}
+	return m.playlist.Track(m.plCursor)
+}
+
+// trackProviders lists the active provider first, then every registered
+// one, for the lookups that find which provider knows a track.
+func (m Model) trackProviders() []playlist.Provider {
+	out := make([]playlist.Provider, 0, len(m.providers)+1)
+	if m.provider != nil {
+		out = append(out, m.provider)
+	}
+	for _, entry := range m.providers {
+		if entry.Provider != nil {
+			out = append(out, entry.Provider)
+		}
+	}
+	return out
+}
+
+// selectedTrackAlbum finds the provider that can list the album of the
+// highlighted playlist track.
+func (m Model) selectedTrackAlbum() (playlist.Provider, provider.AlbumTrackLoader, provider.AlbumInfo, bool) {
+	track, ok := m.selectedPlaylistTrack()
+	if !ok {
+		return nil, nil, provider.AlbumInfo{}, false
+	}
+	for _, candidate := range m.trackProviders() {
+		resolver, ok := candidate.(provider.TrackAlbumResolver)
+		if !ok {
+			continue
+		}
+		album, ok := resolver.AlbumForTrack(track)
+		if !ok {
+			continue
+		}
+		if loader, ok := candidate.(provider.AlbumTrackLoader); ok {
+			return candidate, loader, album, true
+		}
+	}
+	return nil, nil, provider.AlbumInfo{}, false
+}
+
+// openSelectedTrackAlbum opens the album of the highlighted track in the
+// browser, on its track list.
+func (m *Model) openSelectedTrackAlbum() tea.Cmd {
+	prov, loader, album, ok := m.selectedTrackAlbum()
+	if !ok {
+		m.status.Show(L("This song has no album to open"), statusTTLMedium)
+		return nil
+	}
+	m.openNavBrowserWith(prov)
+	m.navBrowser.mode = navBrowseModeByAlbum
+	m.navBrowser.screen = navBrowseScreenTracks
+	m.navBrowser.selAlbum = album
+	m.navBrowser.directTrackJump = true
+	m.navBrowser.loading = true
+	return fetchNavAlbumTracksCmd(loader, album.ID, m.nextNavRequest())
 }
 
 // openSelectedTrackArtistBrowser jumps from the highlighted track to its

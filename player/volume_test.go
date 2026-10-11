@@ -177,3 +177,19 @@ func TestVolumeStreamerErr(t *testing.T) {
 
 // Ensure fakeStreamer implements beep.Streamer at compile time.
 var _ beep.Streamer = (*fakeStreamer)(nil)
+
+func TestVolumeStreamerFade(t *testing.T) {
+	var vol atomic.Uint64
+	var mono atomic.Bool
+	p := &Player{}
+	src := &fakeStreamer{val: [2]float64{1, 1}, count: 1 << 20}
+	vs := &volumeStreamer{s: src, vol: &vol, mono: &mono, fadeCut: &p.fadeCut, cachedDB: math.NaN()}
+	for _, tc := range []struct{ level, want float64 }{{1, 1}, {0.25, 0.25}, {0, 0}, {-3, 0}, {7, 1}} {
+		p.SetFade(tc.level)
+		buf := make([][2]float64, 4)
+		vs.Stream(buf)
+		if math.Abs(buf[0][0]-tc.want) > 1e-9 {
+			t.Errorf("fade %v: sample %v, want %v", tc.level, buf[0][0], tc.want)
+		}
+	}
+}

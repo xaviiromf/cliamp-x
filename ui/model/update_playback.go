@@ -141,7 +141,11 @@ func (m *Model) handleStreamPlayed(msg streamPlayedMsg) tea.Cmd {
 		applog.Warn("play %q: %v", msg.path, msg.err)
 		// A local file is never gated, so m.err alone reports its failure.
 		if track, idx := m.currentPlaybackTrack(); idx >= 0 && !player.UsesLocalFFmpeg(msg.path) {
-			m.status.Errorf(statusTTLLong, "Couldn't play %s — track is gated, restricted, or unavailable.", track.DisplayName())
+			if hint := playErrorHint(msg.err); hint != "" {
+				m.status.Errorf(statusTTLLong, "Couldn't play %s: %s", track.DisplayName(), hint)
+			} else {
+				m.status.Errorf(statusTTLLong, "Couldn't play %s — track is gated, restricted, or unavailable.", track.DisplayName())
+			}
 		}
 	} else {
 		m.err = nil

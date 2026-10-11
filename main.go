@@ -31,6 +31,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
+	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/mediactl"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -157,6 +158,10 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	if cfg.Playlist != "" && len(resolved.Tracks) == 0 && len(resolved.Pending) == 0 {
 		m.SetLoadedPlaylist(cfg.Playlist)
 	}
+	// A start with nothing to play brings the last session back.
+	if len(positional) == 0 && cfg.Playlist == "" {
+		m.RestoreSession(resumeState)
+	}
 	if !headless && len(resolved.Tracks) == 0 && len(resolved.Pending) == 0 && pl.Len() == 0 {
 		m.StartInProvider()
 	}
@@ -171,6 +176,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		m.SetOffline(manifest, cfg.Downloads.Directory)
 		// The statistics screen sums up this log of listened songs.
 		m.SetStatsLog(stats.Open(filepath.Join(dir, "plays.jsonl")))
+		lyrics.SetCacheDir(filepath.Join(dir, "lyrics"))
+		m.SetSearchHistory(filepath.Join(dir, "search_history.json"))
 	}
 
 	if resumeState.Path != "" && resumeState.PositionSec > 0 && len(positional) > 0 {
@@ -180,7 +187,7 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	// Notification buttons reach the program once it exists.
 	var sendToProgram atomic.Pointer[func(tea.Msg)]
 	if !cfg.NotifyOff {
-		if notifier, nerr := desktopnotify.New(model.L("Next"), model.L("Like"), func(action string) {
+		if notifier, nerr := desktopnotify.New(model.L("Pause"), model.L("Next"), model.L("Like"), func(action string) {
 			if send := sendToProgram.Load(); send != nil {
 				(*send)(model.NotifyActionMsg{Action: action})
 			}
@@ -422,15 +429,17 @@ func saveOnExit(final tea.Model, headless bool) {
 	}
 
 	path, secs, playlistName := fm.ResumeState()
-	saveExitResume(path, secs, playlistName)
+	tracks, index, queue := fm.ResumeContext()
+	saveExitResume(resume.State{Path: path, PositionSec: secs, Playlist: playlistName, Context: tracks, ContextIndex: index, Queue: queue})
 }
 
-// saveExitResume saves the track and the position of the exit.
-func saveExitResume(path string, secs int, playlistName string) {
-	if path == "" || secs <= 0 {
+// saveExitResume saves the session of the exit: the live playlist with the
+// song that played, and its position when it had one.
+func saveExitResume(state resume.State) {
+	if state.Path == "" || (state.PositionSec <= 0 && len(state.Context) == 0) {
 		return
 	}
-	resume.Save(path, secs, playlistName)
+	resume.SaveState(state)
 }
 
 // programOptions returns the Bubbletea options of the TUI, or of headless

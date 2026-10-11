@@ -147,15 +147,15 @@ func (m Model) settingsNetwork(w int) string {
 
 // settingsEQPreset renders the "EQ [Preset]" row.
 func (m Model) settingsEQPreset() string {
-	label := labelStyle.Render("EQ  ")
+	label := paint(labelStyle, "EQ  ")
 	if m.focus == focusEQ {
-		label = activeToggle.Render("EQ ▸ ")
+		label = paint(activeToggle, "EQ ▸ ")
 		// The band rows may be shed for space; editing must still show which
 		// band changes and its gain before the lower-priority preset name.
 		bands := m.player.EQBands()
-		label += eqActiveStyle.Render(fmt.Sprintf("%s %+.0fdB ", eqBandLabels[m.eqCursor], bands[m.eqCursor]))
+		label += paint(eqActiveStyle, fmt.Sprintf("%s %+.0fdB ", eqBandLabels[m.eqCursor], bands[m.eqCursor]))
 	}
-	return label + dimStyle.Render("[") + activeToggle.Render(m.EQPresetName()) + dimStyle.Render("]")
+	return label + paint(dimStyle, "[") + paint(activeToggle, m.EQPresetName()) + paint(dimStyle, "]")
 }
 
 // The band rows are indented so their cells line up just under the preset
@@ -186,7 +186,7 @@ func (m Model) settingsEQBands() []string {
 			if m.focus == focusEQ && i == m.eqCursor {
 				style = eqActiveStyle
 			}
-			cells = append(cells, style.Render(fmt.Sprintf("%*s", eqBandCellWidth, label)))
+			cells = append(cells, paint(style, fmt.Sprintf("%*s", eqBandCellWidth, label)))
 		}
 		rows = append(rows, eqBandIndent+strings.Join(cells, " "))
 	}
@@ -241,13 +241,13 @@ func (m Model) settingsSpeed() string {
 	}
 	val := fmt.Sprintf("%.2gx", speed)
 
-	label := labelStyle.Render("SPD ")
-	value := dimStyle.Render("[") + trackStyle.Render(val) + dimStyle.Render("]")
+	label := paint(labelStyle, "SPD ")
+	value := paint(dimStyle, "[") + paint(trackStyle, val) + paint(dimStyle, "]")
 	if m.focus == focusSpeed {
-		label = activeToggle.Render("SPD ▸ ")
-		value = activeToggle.Render("[" + val + "]")
+		label = paint(activeToggle, "SPD ▸ ")
+		value = paint(activeToggle, "["+val+"]")
 	} else if speed != 1.0 {
-		value = activeToggle.Render("[" + val + "]")
+		value = paint(activeToggle, "["+val+"]")
 	}
 	return label + value
 }
@@ -273,12 +273,12 @@ func (m Model) settingsRepeat() string {
 // it is away from its default and marking the focused control.
 func settingsRow(label, value string, active, focused bool) string {
 	if focused {
-		return activeToggle.Render(label+"▸ ") + activeToggle.Render("["+value+"]")
+		return paint(activeToggle, label+"▸ ") + paint(activeToggle, "["+value+"]")
 	}
 	if active {
-		return labelStyle.Render(label) + activeToggle.Render("["+value+"]")
+		return paint(labelStyle, label) + paint(activeToggle, "["+value+"]")
 	}
-	return labelStyle.Render(label) + dimStyle.Render("[") + trackStyle.Render(value) + dimStyle.Render("]")
+	return paint(labelStyle, label) + paint(dimStyle, "[") + paint(trackStyle, value) + paint(dimStyle, "]")
 }
 
 // columnLines clips each line of a rendered block to w cells and pads it back
@@ -293,8 +293,12 @@ func columnLines(block string, w, rows int) []string {
 		lines = append(lines, "")
 	}
 	for i, line := range lines {
-		line = ansi.Truncate(line, w, "")
-		if pad := w - lipgloss.Width(line); pad > 0 {
+		lw := textWidth(line)
+		if lw > w {
+			line = ansi.Truncate(line, w, "")
+			lw = textWidth(line)
+		}
+		if pad := w - lw; pad > 0 {
 			line += strings.Repeat(" ", pad)
 		}
 		lines[i] = line

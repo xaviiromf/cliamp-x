@@ -2,9 +2,11 @@ package model
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // TestHideHelpBarReleasesFixedRow checks that hiding the hint bar hands its row
@@ -172,5 +174,19 @@ func TestHintBarFollowsFocusOnEveryTier(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A wide terminal still shows a short help bar that leads to the actions
+// menu.
+func TestHelpBarStaysShortOnWideTerminals(t *testing.T) {
+	m := newLayoutTestModel(240, 40)
+	help := ansi.Strip(m.renderHelp())
+	if !strings.Contains(help, "F1  Actions") {
+		t.Fatalf("help bar %q must offer F1 Actions", help)
+	}
+	pill, _, _ := strings.Cut(helpKeyStyle.Render("X"), "X")
+	if pills := strings.Count(m.renderHelp(), pill); pills > maxHelpHints {
+		t.Fatalf("help bar has %d hints, want at most %d: %q", pills, maxHelpHints, help)
 	}
 }

@@ -8,15 +8,83 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// keymapEntry is a row in the Ctrl+K overlay. Rows with `divider = true` are
-// unselectable section headers (e.g. "— plugins —").
+// keymapEntry is a row in the actions menu (F1 / Ctrl+K). Rows with
+// `divider = true` are unselectable section headers (e.g. "— Playback —").
 type keymapEntry struct {
 	key, action string
 	divider     bool
 	// run is the key that Enter sends to run the entry. When run is empty,
 	// Enter shows hint instead.
 	run, hint string
+	// main marks an entry of the player screen. When the screen under the
+	// menu cannot run it, Enter first closes that screen.
+	main bool
+	// do runs an entry that has no key of its own, such as "Go to the
+	// album" in the row menu.
+	do func(*Model) tea.Cmd
 }
+
+// actionButton is one button of the actions menu: the key that Enter sends,
+// with the label of the registry command that key runs unless label is set.
+// A key pair such as Left/Right becomes two buttons with their own labels.
+type actionButton struct {
+	run, keyLabel, label string
+	// replaces is the KeyLabel of a registry command this button stands for
+	// although run is not one of its keys, such as Nj for the jump prompt.
+	replaces string
+}
+
+// actionGroups sorts the player commands of the actions menu into sections,
+// so someone who does not know the keys can find a command by what it does.
+// A player command that no button covers is listed under "Navigation", so a
+// new command cannot go missing from the menu.
+var actionGroups = []struct {
+	name    string
+	buttons []actionButton
+}{
+	{"Playback", []actionButton{
+		{run: "space"}, {run: "s"}, {run: ">"}, {run: "<"},
+		{run: "left", keyLabel: "Left", label: "Seek back 5 seconds"},
+		{run: "right", keyLabel: "Right", label: "Seek forward 5 seconds"},
+		{run: "shift+left", keyLabel: "Shift+Left", label: "Seek back a large step"},
+		{run: "shift+right", keyLabel: "Shift+Right", label: "Seek forward a large step"},
+		{run: "ctrl+j", keyLabel: "Ctrl+J / Nj", label: "Jump to a time or a percentage (7j = 70%)", replaces: "Nj"},
+		{run: "T"},
+		{run: "]", keyLabel: "]", label: "Speed up (+0.25x)"},
+		{run: "[", keyLabel: "[", label: "Speed down (-0.25x)"},
+	}},
+	{"Queue and playlist", []actionButton{
+		{run: "enter"}, {run: "O"}, {run: "c"}, {run: "a"}, {run: "A"}, {run: "z"}, {run: "r"}, {run: "*"}, {run: "x"},
+		{run: "shift+up", keyLabel: "Shift+Up", label: "Move track up"},
+		{run: "shift+down", keyLabel: "Shift+Down", label: "Move track down"},
+		{run: "home", keyLabel: "Home / g", label: "Go to the top of the list"},
+		{run: "end", keyLabel: "End / G", label: "Go to the end of the list"},
+		{run: "ctrl+z", keyLabel: "Ctrl+Z", label: "Undo the last playlist or queue change"},
+		{run: "w"}, {run: "W"}, {run: "p"},
+	}},
+	{"Search and browse", []actionButton{
+		{run: "ctrl+f"}, {run: "/"}, {run: "M"}, {run: "X"}, {run: "N"}, {run: "Y"}, {run: "L"}, {run: "F"},
+		{run: "u"}, {run: "o"}, {run: "esc"},
+	}},
+	{"Library", []actionButton{
+		{run: "f"}, {run: "D"}, {run: "ctrl+o"}, {run: "ctrl+s"}, {run: "i"}, {run: "y"}, {run: "S"}, {run: "R"},
+	}},
+	{"Sound", []actionButton{
+		{run: "+", keyLabel: "+", label: "Volume up"},
+		{run: "-", keyLabel: "-", label: "Volume down"},
+		{run: "e"}, {run: "E"}, {run: "n"}, {run: "m"}, {run: "d"},
+	}},
+	{"Screen", []actionButton{
+		{run: "t"}, {run: "v"}, {run: "ctrl+v"}, {run: "V"},
+		{run: "}", keyLabel: "}", label: "Visualizer more sensitive"},
+		{run: "{", keyLabel: "{", label: "Visualizer less sensitive"},
+		{run: "ctrl+b"}, {run: "ctrl+g"}, {run: "ctrl+h"}, {run: "ctrl+x"}, {run: "ctrl+i"},
+	}},
+	{"App", []actionButton{{run: "ctrl+c"}}},
+}
+
+// id names an entry for the duplicate check and the last-run memory.
+func (e keymapEntry) id() string { return e.key + "\x00" + e.action }
 
 // keyCodes holds the named keys that commands and plugins bind.
 var keyCodes = map[string]rune{
@@ -79,26 +147,25 @@ func ReservedKeys() map[string]bool {
 	return out
 }
 
-// buildKeymapEntries starts with commands for the screen that opened Ctrl+K,
-// then lists global player and library commands. The result is cached on open
+// buildKeymapEntries builds the actions menu. It starts with the commands of
+// the screen that opened it, then lists every player command as a button,
+// grouped by actionGroups, then the plugin keys. The result is cached on open
 // so navigation (which calls keymapCount many times per frame) is allocation-free.
 func (m Model) buildKeymapEntries() []keymapEntry {
 	out := make([]keymapEntry, 0, len(commandRegistry)+6)
 	seen := make(map[string]bool)
 	mode, screen := m.keymapContext()
 	add := func(command commandSpec) {
-		label := command.label(m)
-		id := command.KeyLabel + "\x00" + label
-		if seen[id] {
+		entry := keymapEntry{key: command.KeyLabel, action: command.label(m)}
+		if seen[entry.id()] {
 			return
 		}
-		seen[id] = true
-		entry := keymapEntry{key: command.KeyLabel, action: label}
+		seen[entry.id()] = true
 		switch run := command.runKey(); {
 		case run == "":
 			entry.hint = "Close the keymap. Then press " + command.KeyLabel + "."
 		case command.Mode&mode == 0:
-			entry.hint = label + " is not available in " + screen + "."
+			entry.hint = entry.action + " is not available in " + screen + "."
 		default:
 			entry.run = run
 		}
@@ -106,33 +173,67 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 	}
 
 	if mode != commandModeMain {
-		out = append(out, keymapEntry{action: "— current: " + screen + " —", divider: true})
+		out = append(out, keymapEntry{action: "— " + L("This screen") + ": " + L(screen) + " —", divider: true})
 		for _, command := range commandRegistry {
 			if command.Mode != commandModeAny && (command.Keymap || command.ContextHelp) && command.enabled(m) && command.Mode&mode != 0 {
 				add(command)
 			}
 		}
-		out = append(out, keymapEntry{action: "— player & library —", divider: true})
 	}
+	covered := map[string]bool{}
+	for _, group := range actionGroups {
+		var rows []keymapEntry
+		for _, b := range group.buttons {
+			command, ok := m.findCommand(commandModeMain, b.run)
+			if !ok {
+				continue
+			}
+			covered[command.KeyLabel] = true
+			if b.replaces != "" {
+				covered[b.replaces] = true
+			}
+			entry := keymapEntry{key: command.KeyLabel, action: command.label(m), run: b.run, main: true}
+			if b.label != "" {
+				entry.key, entry.action = b.keyLabel, L(b.label)
+			}
+			if seen[entry.id()] {
+				continue
+			}
+			seen[entry.id()] = true
+			rows = append(rows, entry)
+		}
+		if len(rows) > 0 {
+			out = append(out, keymapEntry{action: "— " + L(group.name) + " —", divider: true})
+			out = append(out, rows...)
+		}
+	}
+	var rest []commandSpec
 	for _, command := range commandRegistry {
-		if command.Keymap && command.enabled(m) {
+		if command.Keymap && command.enabled(m) && !covered[command.KeyLabel] &&
+			command.Mode&(commandModeMain|commandModeProvider) != 0 && !command.Help {
+			rest = append(rest, command)
+		}
+	}
+	if len(rest) > 0 {
+		out = append(out, keymapEntry{action: "— " + L("Navigation") + " —", divider: true})
+		for _, command := range rest {
 			add(command)
 		}
 	}
-	if mode != commandModeMain || m.luaMgr == nil {
+	if m.luaMgr == nil {
 		return out
 	}
 	binds := m.luaMgr.KeyBindings()
 	if len(binds) == 0 {
 		return out
 	}
-	out = append(out, keymapEntry{action: "— plugins —", divider: true})
+	out = append(out, keymapEntry{action: "— " + L("Plugins") + " —", divider: true})
 	for _, b := range binds {
 		label := b.Description
 		if b.Plugin != "" {
 			label += "  (" + b.Plugin + ")"
 		}
-		out = append(out, keymapEntry{key: b.Key, action: label, run: b.Key})
+		out = append(out, keymapEntry{key: b.Key, action: label, run: b.Key, main: true})
 	}
 	return out
 }
@@ -184,9 +285,13 @@ func (m *Model) keymapCount() int {
 // separator with the match count.
 func (m Model) keymapHeaderLine() string {
 	if m.keymap.isFiltered() {
-		return m.filterHeader("Filter: Keymap", "keymap", m.keymap.filter, fmt.Sprintf("%d/%d", m.keymapCount(), len(m.keymap.entries)))
+		return m.filterHeader("Filter: Actions", "keymap", m.keymap.filter, fmt.Sprintf("%d/%d", m.keymapCount(), len(m.keymap.entries)))
 	}
-	return sepHeaderN("Keymap", m.keymap.cursor+1, len(m.keymap.entries), m.layout.panelWidth)
+	title := L("Actions")
+	if m.keymap.title != "" {
+		title = m.keymap.title
+	}
+	return sepHeaderN(title, m.keymap.cursor+1, len(m.keymap.entries), m.layout.panelWidth)
 }
 
 // keymapMaybeAdjustScroll keeps the cursor visible in the current keymap window.
@@ -197,9 +302,23 @@ func (m *Model) keymapMaybeAdjustScroll(visible int) {
 // openKeymap resets the keymap state and shows it. Snapshots plugin bindings
 // once so the render/navigation code doesn't re-query the plugin manager.
 func (m *Model) openKeymap() {
+	m.showKeymap(m.buildKeymapEntries(), "")
+}
+
+// showKeymap opens the menu with entries under title ("" for the actions
+// menu), on the entry run last when it is there.
+func (m *Model) showKeymap(entries []keymapEntry, title string) {
 	m.keymap.filterList = filterList{}
-	m.keymap.entries = m.buildKeymapEntries()
+	m.keymap.entries = entries
+	m.keymap.title = title
 	m.keymap.visible = true
+	// Start on the action used last, so a repeated task is one Enter away.
+	for i, e := range m.keymap.entries {
+		if !e.divider && e.id() == m.keymap.last {
+			m.keymap.cursor = i
+		}
+	}
+	m.skipKeymapDivider(1)
 	// The keymap now renders in the playlist region; recompute chrome so its
 	// header/help are reflected in the visible-row budget, then fit the cursor.
 	m.refreshChrome()
@@ -237,11 +356,16 @@ func (m *Model) handleKeymapKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	visible := m.effectivePlaylistVisible()
 	if stepListCursor(key, &m.keymap.cursor, m.keymapCount(), visible) {
+		dir := 1
+		if key == "up" || key == "k" {
+			dir = -1
+		}
+		m.skipKeymapDivider(dir)
 		m.keymapMaybeAdjustScroll(visible)
 		return nil
 	}
 	switch key {
-	case "esc", "ctrl+k", "?", "q":
+	case "esc", "ctrl+k", "f1", "?", "q":
 		m.closeKeymap()
 
 	case "/":
@@ -268,6 +392,19 @@ func (m *Model) handleKeymapKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
+// skipKeymapDivider moves the cursor off a section header, one row at a time
+// in direction dir (1 down, -1 up), wrapping around the list.
+func (m *Model) skipKeymapDivider(dir int) {
+	n := m.keymapCount()
+	for range n {
+		e, ok := m.selectedKeymapEntry()
+		if !ok || !e.divider {
+			return
+		}
+		m.keymap.cursor = (m.keymap.cursor + dir + n) % n
+	}
+}
+
 // selectedKeymapEntry returns the entry under the keymap cursor.
 func (m *Model) selectedKeymapEntry() (keymapEntry, bool) {
 	idx, ok := m.keymap.rawIndex(m.keymap.cursor, len(m.keymap.entries))
@@ -286,6 +423,10 @@ func (m *Model) runKeymapEntry() tea.Cmd {
 	if !ok || entry.divider {
 		return nil
 	}
+	if entry.do != nil {
+		m.closeKeymap()
+		return entry.do(m)
+	}
 	msg, ok := keyPressFor(entry.run)
 	if !ok {
 		hint := entry.hint
@@ -295,8 +436,36 @@ func (m *Model) runKeymapEntry() tea.Cmd {
 		m.status.Warning(hint, statusTTLMedium)
 		return nil
 	}
+	m.keymap.last = entry.id()
 	m.closeKeymap()
-	return m.handleKey(msg)
+	var leave tea.Cmd
+	if mode, _ := m.commandContext(); entry.main && mode != commandModeMain {
+		// Run in place only when the open screen gives the key the same
+		// command; a screen that uses the key for something else is left.
+		here, ok := m.findCommand(mode, entry.run)
+		player, _ := m.findCommand(commandModeMain, entry.run)
+		if !ok || here.Label != player.Label {
+			leave = m.leaveToPlayer()
+		}
+	}
+	return tea.Batch(leave, m.handleKey(msg))
+}
+
+// leaveToPlayer closes the open screens with Esc, one at a time, and gives
+// the focus to the playlist, so a player command from the actions menu runs
+// as on the player screen. The bound stops a screen that Esc cannot close.
+func (m *Model) leaveToPlayer() tea.Cmd {
+	var cmds []tea.Cmd
+	for range 8 {
+		if _, open := m.topOverlay(); !open {
+			break
+		}
+		cmds = append(cmds, m.handleKey(keyPress(tea.KeyEscape)))
+	}
+	if _, open := m.topOverlay(); !open {
+		m.focus = focusPlaylist
+	}
+	return tea.Batch(cmds...)
 }
 
 // updateKeymapFilter rebuilds the filtered indices and clamps the cursor. An
@@ -331,19 +500,40 @@ func (m Model) renderKeymapList() string {
 		return strings.Join(fitLines([]string{dimStyle.Render("  " + msg)}, budget), "\n")
 	}
 
+	width := m.helpWidth()
+	if len(visible) > budget {
+		width -= scrollbarCols
+	}
 	lines := make([]string, 0, budget)
 	for i := m.keymap.scroll; i < len(visible) && len(lines) < budget; i++ {
 		entry := visible[i]
 		if entry.divider {
-			lines = append(lines, dimStyle.Render("  "+entry.action))
+			lines = append(lines, labelStyle.Render("  "+entry.action))
 			continue
 		}
-		line := fmt.Sprintf("%-10s %s", entry.key, entry.action)
-		if m.keymap.filtering {
-			lines = append(lines, dimStyle.Render("  "+line))
-		} else {
-			lines = append(lines, cursorLine(line, i == m.keymap.cursor))
-		}
+		lines = append(lines, m.actionButtonLine(entry, !m.keymap.filtering && i == m.keymap.cursor, width))
 	}
-	return strings.Join(padLines(lines, budget, len(lines)), "\n")
+	lines = padLines(lines, budget, len(lines))
+	if len(visible) > budget {
+		lines = withScrollbar(lines, width, len(visible), m.keymap.scroll)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// actionButtonLine draws one row of the actions menu as a button: the action
+// on the left and its key on the right, as a pill when selected, so the menu
+// reads by what a command does and still teaches its key.
+func (m Model) actionButtonLine(entry keymapEntry, selected bool, width int) string {
+	key := " " + entry.key + " "
+	keyW := textWidth(key)
+	action := truncate(entry.action, max(1, width-2-keyW-1))
+	gap := strings.Repeat(" ", max(1, width-2-textWidth(action)-keyW))
+	switch {
+	case selected:
+		return playlistSelectedStyle.Render("> "+action) + gap + helpKeyStyle.Render(key)
+	case m.keymap.filtering:
+		return dimStyle.Render("  " + action + gap + key)
+	default:
+		return playlistItemStyle.Render("  "+action) + gap + dimStyle.Render(key)
+	}
 }

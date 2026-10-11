@@ -183,6 +183,6 @@ func (m *Model) adjustVisSensitivity(delta int) {
 	}
 	m.vis.SetSensitivity(m.vis.Sensitivity() + delta)
 	level := m.vis.Sensitivity()
-	m.status.Showf(statusTTLMedium, "%s: %d/%d", tr("Sensibilidad del visualizador", "Visualizer sensitivity"), level, ui.MaxVisSensitivity)
+	m.status.Showf(statusTTLMedium, "%s: %d/%d", L("Visualizer sensitivity"), level, ui.MaxVisSensitivity)
 	_ = m.saveConfigFloat("vis_sensitivity", float64(level), 0)
 }

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
+	"github.com/xaviiromf/cliamp-x/internal/resume"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -307,9 +309,75 @@ func (m Model) ResumeState() (path string, secs int, playlist string) {
 	return m.exitResume.path, m.exitResume.secs, m.exitResume.playlist
 }
 
-// ResumeContext returns the complete list the active track was selected from.
-func (m Model) ResumeContext() ([]playlist.Track, int) {
-	return cloneTracks(m.exitResume.context), m.exitResume.contextIndex
+// ResumeContext returns the complete list the active track was selected
+// from, its index there, and the indexes queued to play next when that list
+// is the live playlist.
+func (m Model) ResumeContext() ([]playlist.Track, int, []int) {
+	return cloneTracks(m.exitResume.context), m.exitResume.contextIndex, append([]int(nil), m.exitResume.queue...)
+}
+
+// captureSession completes the exit state for the next start. With no
+// position kept (stopped, paused at 0, a live stream), it keeps the live
+// playlist and the song selected in it. It keeps the play-next queue when the
+// kept list is the live playlist, the only list its indexes point into.
+func (m *Model) captureSession() {
+	if m.playlist == nil || m.playlist.Len() == 0 {
+		return
+	}
+	live := m.playlist.Tracks()
+	if m.exitResume.context == nil {
+		track, idx := m.playlist.Current()
+		if idx < 0 {
+			return
+		}
+		m.exitResume.path = track.Path
+		m.exitResume.context = live
+		m.exitResume.contextIndex = idx
+	}
+	if !samePaths(m.exitResume.context, live) {
+		return
+	}
+	for _, e := range m.playlist.QueueEntries() {
+		m.exitResume.queue = append(m.exitResume.queue, e.TrackIndex)
+	}
+}
+
+// samePaths reports whether a and b list the same paths in the same order.
+func samePaths(a, b []playlist.Track) bool {
+	return slices.EqualFunc(a, b, func(x, y playlist.Track) bool { return x.Path == y.Path })
+}
+
+// RestoreSession puts the playlist of the last run back, selected on the
+// song that played, without starting it. When the session kept a position,
+// that song starts there. A start with tracks or a playlist of its own
+// skips this.
+func (m *Model) RestoreSession(state resume.State) bool {
+	if m.playlist == nil || m.playlist.Len() > 0 || len(state.Context) == 0 {
+		return false
+	}
+	m.playlist.Add(state.Context...)
+	for _, idx := range state.Queue {
+		if idx >= 0 && idx < m.playlist.Len() {
+			m.playlist.Queue(idx)
+		}
+	}
+	idx := state.ContextIndex
+	if idx < 0 || idx >= len(state.Context) || state.Context[idx].Path != state.Path {
+		idx = slices.IndexFunc(state.Context, func(t playlist.Track) bool { return t.Path == state.Path })
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	m.SetInitialTrack(idx)
+	m.adjustScroll()
+	track := state.Context[idx]
+	if state.PositionSec > 0 && track.Path == state.Path {
+		m.SetResume(state.Path, state.PositionSec)
+		m.status.Showf(statusTTLLong, "%s: %s · %s", L("Space continues"), trackViewName(track), formatTrackTime(state.PositionSec))
+	} else {
+		m.status.Showf(statusTTLLong, "%s: %s", L("Your last session is back"), trackViewName(track))
+	}
+	return true
 }
 
 // ThemeName returns the current theme name.

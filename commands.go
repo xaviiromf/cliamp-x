@@ -99,6 +99,7 @@ func buildApp() *cli.Command {
 			repeatCommand(),
 			monoCommand(),
 			speedCommand(),
+			sleepCommand(),
 			eqCommand(),
 			deviceCommand(),
 			remoteCommand(),
@@ -1059,6 +1060,41 @@ func speedCommand() *cli.Command {
 				return err
 			}
 			fmt.Printf("Speed: %.2fx\n", resp.Speed)
+			return nil
+		},
+	}
+}
+
+func sleepCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "sleep",
+		Usage:     "pause playback after some minutes, at the end of the song, or turn the timer off",
+		ArgsUsage: "<minutes|end|off>",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			arg := strings.ToLower(c.Args().First())
+			var minutes float64
+			switch arg {
+			case "off", "0":
+			case "end":
+				minutes = -1
+			default:
+				n, err := strconv.Atoi(arg)
+				if err != nil || n <= 0 || n > 24*60 {
+					return fmt.Errorf("usage: cliamp-x sleep <minutes|end|off>  (e.g. 30)")
+				}
+				minutes = float64(n)
+			}
+			if _, err := ipcSend("sleep", ipc.Request{Value: minutes}); err != nil {
+				return err
+			}
+			switch {
+			case minutes == 0:
+				fmt.Println("Sleep timer off")
+			case minutes < 0:
+				fmt.Println("Sleep timer: at the end of the song")
+			default:
+				fmt.Printf("Sleep timer: %d min\n", int(minutes))
+			}
 			return nil
 		},
 	}

@@ -137,7 +137,7 @@ func truncate(s string, maxW int) string {
 	if maxW <= 0 {
 		return ""
 	}
-	if lipgloss.Width(s) <= maxW {
+	if textWidth(s) <= maxW {
 		return s
 	}
 	return ansi.Truncate(s, maxW, "…")
@@ -180,6 +180,7 @@ type markerColumns struct {
 	queue    bool
 	favorite bool
 	played   bool
+	offline  bool // ↓ marks the downloaded songs
 }
 
 // markerColumns decides the reserved marker columns for one render pass. It is
@@ -192,6 +193,7 @@ func (m Model) markerColumns() markerColumns {
 		queue:    m.playlist.QueueLen() > 0,
 		favorite: true,
 		played:   m.hasPlaybackState(),
+		offline:  m.downloads.manifest.Len() > 0,
 	}
 }
 
@@ -242,7 +244,7 @@ func fitLines(lines []string, budget int) []string {
 
 // helpKey renders a key as a pill (background-highlighted) followed by a dim label.
 func helpKey(key, label string) string {
-	return helpKeyStyle.Render(" "+key+" ") + helpStyle.Render(" "+label)
+	return paint(helpKeyStyle, " "+key+" ") + paint(helpStyle, " "+label)
 }
 
 // fitHelpLine keeps a hint line to a single row width cells wide. A longer
@@ -490,8 +492,12 @@ func fillSeparator(line string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if w := lipgloss.Width(line); w < width {
-		return line + dimStyle.Render(strings.Repeat("─", width-w))
+	w := textWidth(line)
+	switch {
+	case w < width:
+		return line + paint(dimStyle, strings.Repeat("─", width-w))
+	case w == width:
+		return line
 	}
 	return ansi.Truncate(line, width, "")
 }

@@ -625,6 +625,12 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.navClearSearch()
 		m.navBrowser.cursor = 0
 		m.navBrowser.scroll = 0
+		if m.navBrowser.directTrackJump && m.navBrowser.mode == navBrowseModeByAlbum {
+			// An album opened from a song has no album list to go back to.
+			m.navBrowser.directTrackJump = false
+			m.navBrowser.visible = false
+			return nil
+		}
 		switch m.navBrowser.mode {
 		case navBrowseModeByAlbum:
 			m.navBrowser.screen = navBrowseScreenList

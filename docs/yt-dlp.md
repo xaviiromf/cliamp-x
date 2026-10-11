@@ -12,6 +12,8 @@ You can play playlists and albums. Press `Ctrl+S` to download the current track 
 
 You can also play live streams, such as 24/7 YouTube lofi radios. They have no audio-only formats. cliamp-x uses the best muxed stream and plays only its audio track.
 
+While a song plays, cliamp-x asks yt-dlp in the background for the page of the next YouTube song in the queue. Skipping to that song then starts in about half a second instead of about three, because yt-dlp only downloads the audio. When the saved page went stale, cliamp-x asks yt-dlp again as usual. The saved pages stay in a temporary folder that cliamp-x removes when it quits.
+
 ## Search
 
 In the TUI, press `Ctrl+F` to search YouTube Music. See [YouTube Music](youtube-music.md).

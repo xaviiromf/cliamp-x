@@ -27,14 +27,28 @@ type statsState struct {
 	visible bool
 	loading bool
 	period  stats.Period
-	plays   []stats.Play
-	err     string
-	scroll  int
+	// summaries holds the sums of each period, by stats.Period. They are
+	// made once per opening: summing every play on each frame cost
+	// milliseconds per frame with a long history.
+	summaries []stats.Summary
+	empty     bool // nothing listened yet
+	err       string
+	scroll    int
 }
 
 type statsLoadedMsg struct {
-	plays []stats.Play
-	err   error
+	plays     []stats.Play
+	summaries []stats.Summary // nil to make them from plays
+	err       error
+}
+
+// summarizeStats sums plays for each period, at now.
+func summarizeStats(plays []stats.Play, now time.Time) []stats.Summary {
+	out := make([]stats.Summary, stats.All+1)
+	for p := stats.Week; p <= stats.All; p++ {
+		out[p] = stats.Summarize(plays, p, now, statsTop, statsDays)
+	}
+	return out
 }
 
 // SetStatsLog sets where listened songs are recorded.
@@ -62,13 +76,17 @@ func (m *Model) openStats() tea.Cmd {
 	log := m.statsLog
 	return func() tea.Msg {
 		plays, err := log.Load()
-		return statsLoadedMsg{plays: plays, err: err}
+		return statsLoadedMsg{plays: plays, summaries: summarizeStats(plays, time.Now()), err: err}
 	}
 }
 
 func (m *Model) handleStatsLoaded(msg statsLoadedMsg) {
 	m.stats.loading = false
-	m.stats.plays = msg.plays
+	m.stats.empty = len(msg.plays) == 0
+	m.stats.summaries = msg.summaries
+	if m.stats.summaries == nil {
+		m.stats.summaries = summarizeStats(msg.plays, time.Now())
+	}
 	if msg.err != nil {
 		m.stats.err = msg.err.Error()
 	}
@@ -97,13 +115,13 @@ func (m *Model) handleStatsKey(msg tea.KeyPressMsg) tea.Cmd {
 func statsPeriodName(p stats.Period) string {
 	switch p {
 	case stats.Week:
-		return tr("Semana", "Week")
+		return L("Week")
 	case stats.Month:
-		return tr("Mes", "Month")
+		return L("Month")
 	case stats.Year:
-		return tr("Año", "Year")
+		return L("Year")
 	}
-	return tr("Todo", "All time")
+	return L("All time")
 }
 
 func (m Model) statsHeaderLine() string {
@@ -115,7 +133,7 @@ func (m Model) statsHeaderLine() string {
 		}
 		parts = append(parts, name)
 	}
-	return sepHeader(tr("Estadísticas", "Statistics")+" · "+strings.Join(parts, " "), m.layout.panelWidth)
+	return sepHeader(L("Statistics")+" · "+strings.Join(parts, " "), m.layout.panelWidth)
 }
 
 // formatListenTime turns seconds into "12 h 30 min" or "45 min".
@@ -127,23 +145,48 @@ func formatListenTime(secs float64) string {
 	return fmt.Sprintf("%d h %d min", mins/60, mins%60)
 }
 
-// sparkline draws values as block heights.
-func sparkline(values []float64) string {
-	const blocks = "▁▂▃▄▅▆▇█"
+// eighthBlocks are the bar tops from empty to full, in eighths of a cell.
+var eighthBlocks = []string{" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
+
+// statsChartRows is the height of the activity chart.
+const statsChartRows = 4
+
+// activityChart draws values as bars rows high, each bar as wide as width
+// allows (up to 3 cells with a gap), with eighth blocks for the top of each
+// bar, like the bar visualizers.
+func activityChart(values []float64, rows, width int) []string {
+	if len(values) == 0 || rows <= 0 {
+		return nil
+	}
+	colW := max(1, min(3, width/len(values)))
 	peak := 0.0
 	for _, v := range values {
 		peak = math.Max(peak, v)
 	}
-	var b strings.Builder
-	for _, v := range values {
-		if v <= 0 || peak == 0 {
-			b.WriteRune(' ')
-			continue
+	out := make([]string, rows)
+	for r := range rows {
+		var b strings.Builder
+		floor := float64(rows-1-r) * 8 // eighths below this row
+		for _, v := range values {
+			level := 0.0
+			if peak > 0 && v > 0 {
+				level = math.Max(1, math.Round(v/peak*float64(rows*8)))
+			}
+			cell := " "
+			switch fill := level - floor; {
+			case fill >= 8:
+				cell = "█"
+			case fill > 0:
+				cell = eighthBlocks[int(fill)]
+			}
+			b.WriteString(strings.Repeat(cell, max(1, colW-1)))
+			if colW > 1 {
+				b.WriteByte(' ')
+			}
 		}
-		i := int(v / peak * 7)
-		b.WriteRune([]rune(blocks)[min(7, i)])
+		out[r] = b.String()
 	}
-	return b.String()
+	return out
 }
 
 func (m Model) renderStatsBody() string {
@@ -152,31 +195,32 @@ func (m Model) renderStatsBody() string {
 	var lines []string
 	switch {
 	case m.stats.loading:
-		lines = []string{dimStyle.Render("  " + tr("Cargando…", "Loading…"))}
+		lines = []string{dimStyle.Render("  " + L("Loading…"))}
 	case m.stats.err != "":
 		lines = []string{errorStyle.Render("  " + m.stats.err)}
-	case len(m.stats.plays) == 0:
-		lines = []string{dimStyle.Render("  " + tr("Todavía no hay canciones escuchadas. Una canción cuenta después de 30 segundos.", "Nothing listened yet. A song counts after 30 seconds."))}
+	case m.stats.empty:
+		lines = []string{dimStyle.Render("  " + L("Nothing listened yet. A song counts after 30 seconds."))}
 	default:
 		lines = m.statsLines(width)
 	}
-	if m.stats.scroll > 0 && m.stats.scroll < len(lines) {
-		lines = lines[m.stats.scroll:]
-	}
+	lines = scrolledLines(lines, m.stats.scroll)
 	return bodyLines(lines, budget)
 }
 
 func (m Model) statsLines(width int) []string {
-	s := stats.Summarize(m.stats.plays, m.stats.period, time.Now(), statsTop, statsDays)
+	s := m.stats.summaries[m.stats.period]
 	var lines []string
 	summary := fmt.Sprintf("  %s · %d %s · %d %s · %d %s",
-		formatListenTime(s.Secs), s.Plays, tr("reproducciones", "plays"), s.Songs, tr("canciones", "songs"), s.Artists, tr("artistas", "artists"))
+		formatListenTime(s.Secs), s.Plays, L("plays"), s.Songs, L("songs"), s.Artists, L("artists"))
 	if s.Streak > 0 {
-		summary += fmt.Sprintf(" · %s %d %s", tr("racha de", "streak of"), s.Streak, tr("días", "days"))
+		summary += fmt.Sprintf(" · %s %d %s", L("streak of"), s.Streak, L("days"))
 	}
 	lines = append(lines, trackStyle.Render(truncate(summary, width)), "")
-	lines = append(lines, dimStyle.Render("  "+tr("Actividad de los últimos 30 días", "Activity of the last 30 days")))
-	lines = append(lines, "  "+trackStyle.Render(sparkline(s.Daily)), "")
+	lines = append(lines, dimStyle.Render("  "+L("Activity of the last 30 days")))
+	for _, row := range activityChart(s.Daily, statsChartRows, width-2) {
+		lines = append(lines, "  "+trackStyle.Render(row))
+	}
+	lines = append(lines, "")
 	section := func(title string, counts []stats.Count, withDetail bool) {
 		if len(counts) == 0 {
 			return
@@ -195,8 +239,8 @@ func (m Model) statsLines(width int) []string {
 		}
 		lines = append(lines, "")
 	}
-	section(tr("Artistas más escuchados", "Top artists"), s.TopArtists, false)
-	section(tr("Canciones más escuchadas", "Top songs"), s.TopSongs, true)
-	section(tr("Géneros más escuchados", "Top genres"), s.TopGenres, false)
+	section(L("Top artists"), s.TopArtists, false)
+	section(L("Top songs"), s.TopSongs, true)
+	section(L("Top genres"), s.TopGenres, false)
 	return lines
 }

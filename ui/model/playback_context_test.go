@@ -66,7 +66,7 @@ func TestPlaybackContextOverlappingReplacement(t *testing.T) {
 			saved.check(t, old, 0)
 			detached := m
 			detached.quit()
-			if context, index := detached.ResumeContext(); index != 0 || !reflect.DeepEqual(context, old) {
+			if context, index, _ := detached.ResumeContext(); index != 0 || !reflect.DeepEqual(context, old) {
 				t.Fatalf("detached quit context = (%+v, %d), want old source", context, index)
 			}
 
@@ -197,7 +197,7 @@ func TestDuplicatePlaybackContextPersistenceAndRestore(t *testing.T) {
 				t.Fatalf("periodic save position = %d, want 17", saved.position)
 			}
 			m.quit()
-			context, index := m.ResumeContext()
+			context, index, _ := m.ResumeContext()
 			if index != 2 || !reflect.DeepEqual(context, tracks) {
 				t.Fatalf("quit context = (%+v, %d), want duplicate at index 2", context, index)
 			}
@@ -268,7 +268,7 @@ func TestPlaybackContextSelectionWithoutSaver(t *testing.T) {
 	pl.SetIndex(0)
 	m.playCurrentTrack()
 	m.quit()
-	if context, index := m.ResumeContext(); index != 0 || !reflect.DeepEqual(context, tracks) {
+	if context, index, _ := m.ResumeContext(); index != 0 || !reflect.DeepEqual(context, tracks) {
 		t.Fatalf("quit context = (%+v, %d), want active duplicate at index 0", context, index)
 	}
 }

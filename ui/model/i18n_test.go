@@ -14,14 +14,25 @@ var fmtVerb = regexp.MustCompile(`%[-+#0]*[0-9.]*[sdvqfxXtT%]`)
 // statusLiteral matches a status call whose text is a string literal.
 var statusLiteral = regexp.MustCompile(`status\.(?:Show|Showf|Warning|Warningf|Error|Errorf|Success|Successf|Activity|Activityf)\((?:statusTTL\w+,\s*)?"((?:[^"\\]|\\.)+)"`)
 
+// lLiteral matches an L call whose text is a string literal.
+var lLiteral = regexp.MustCompile(`\bL\("((?:[^"\\]|\\.)+)"\)`)
+
 // TestSpanishCatalog checks that the interface has no untranslated key
-// label, screen name or literal status message, and that every translation
+// label, screen name, L text or literal status message, and that every translation
 // keeps the format verbs of its English text, in order.
 func TestSpanishCatalog(t *testing.T) {
 	need := map[string]string{}
 	for _, c := range commandRegistry {
 		if c.Label != "" {
 			need[c.Label] = "key label"
+		}
+	}
+	for _, g := range actionGroups {
+		need[g.name] = "actions menu group"
+		for _, b := range g.buttons {
+			if b.label != "" {
+				need[b.label] = "actions menu button"
+			}
 		}
 	}
 	for s := screenMain + 1; s <= screenFullVisualizer; s++ {
@@ -37,6 +48,9 @@ func TestSpanishCatalog(t *testing.T) {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
+		}
+		for _, m := range lLiteral.FindAllStringSubmatch(string(data), -1) {
+			need[strings.ReplaceAll(m[1], `\"`, `"`)] = "L text in " + f
 		}
 		for _, m := range statusLiteral.FindAllStringSubmatch(string(data), -1) {
 			text := strings.ReplaceAll(m[1], `\"`, `"`)

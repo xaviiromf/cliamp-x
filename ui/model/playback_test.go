@@ -319,7 +319,7 @@ func TestQuitCapturesMixcloudResumePosition(t *testing.T) {
 	if m.exitResume.path != track.Path || m.exitResume.secs != 754 {
 		t.Fatalf("exit resume = (%q, %d), want (%q, 754)", m.exitResume.path, m.exitResume.secs, track.Path)
 	}
-	gotContext, gotIndex := m.ResumeContext()
+	gotContext, gotIndex, _ := m.ResumeContext()
 	if len(gotContext) != 3 || gotIndex != 1 || gotContext[gotIndex].Path != track.Path {
 		t.Fatalf("exit context = len:%d index:%d tracks:%+v", len(gotContext), gotIndex, gotContext)
 	}

@@ -59,6 +59,26 @@ func OpenManifest(path string) *Manifest {
 // LocalFile returns the downloaded file of a YouTube URL when it still
 // exists.
 func (m *Manifest) LocalFile(path string) (string, bool) {
+	file, ok := m.lookup(path)
+	if !ok {
+		return "", false
+	}
+	if _, err := os.Stat(file); err != nil {
+		return "", false
+	}
+	return file, true
+}
+
+// Recorded reports whether path was downloaded, from memory only. Unlike Has
+// it does not check that the file is still there, so drawing a list row on
+// every frame costs no file system call.
+func (m *Manifest) Recorded(path string) bool {
+	_, ok := m.lookup(path)
+	return ok
+}
+
+// lookup returns the recorded file of path, without checking it exists.
+func (m *Manifest) lookup(path string) (string, bool) {
 	if m == nil {
 		return "", false
 	}
@@ -67,15 +87,19 @@ func (m *Manifest) LocalFile(path string) (string, bool) {
 		return "", false
 	}
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	file, ok := m.files[id]
-	m.mu.Unlock()
-	if !ok {
-		return "", false
+	return file, ok
+}
+
+// Len returns the number of downloads recorded.
+func (m *Manifest) Len() int {
+	if m == nil {
+		return 0
 	}
-	if _, err := os.Stat(file); err != nil {
-		return "", false
-	}
-	return file, true
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.files)
 }
 
 // Has reports whether path has a downloaded file.

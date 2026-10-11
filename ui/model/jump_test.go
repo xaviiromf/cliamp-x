@@ -118,12 +118,12 @@ func TestFormatJumpPlaceholder(t *testing.T) {
 		in   time.Duration
 		want string
 	}{
-		{in: -1 * time.Second, want: "00:00"},
-		{in: 0, want: "00:00"},
-		{in: 59 * time.Second, want: "00:00"},
-		{in: 1 * time.Minute, want: "00:00"},
-		{in: 59*time.Minute + 59*time.Second, want: "00:00"},
-		{in: 1 * time.Hour, want: "00:00"},
+		{in: -1 * time.Second, want: "00:00  ·  70%"},
+		{in: 0, want: "00:00  ·  70%"},
+		{in: 59 * time.Second, want: "00:00  ·  70%"},
+		{in: 1 * time.Minute, want: "00:00  ·  70%"},
+		{in: 59*time.Minute + 59*time.Second, want: "00:00  ·  70%"},
+		{in: 1 * time.Hour, want: "00:00  ·  70%"},
 	}
 
 	for _, tt := range tests {
@@ -182,5 +182,28 @@ func TestOpeningAnInputClearsItsLastState(t *testing.T) {
 			m.handleKey(tt.key)
 			tt.check(t, m)
 		})
+	}
+}
+
+func TestJumpTargetTakesAPercentage(t *testing.T) {
+	dur := 200 * time.Second
+	for _, tc := range []struct {
+		in      string
+		dur     time.Duration
+		want    time.Duration
+		wantErr bool
+	}{
+		{in: "70%", dur: dur, want: 140 * time.Second},
+		{in: " 0 % ", dur: dur, want: 0},
+		{in: "100%", dur: dur, want: dur},
+		{in: "1:30", dur: dur, want: 90 * time.Second},
+		{in: "101%", dur: dur, wantErr: true},
+		{in: "x%", dur: dur, wantErr: true},
+		{in: "50%", dur: 0, wantErr: true},
+	} {
+		got, err := jumpTarget(tc.in, func() time.Duration { return tc.dur })
+		if (err != nil) != tc.wantErr || got != tc.want {
+			t.Errorf("jumpTarget(%q, %v) = %v, %v; want %v, error %v", tc.in, tc.dur, got, err, tc.want, tc.wantErr)
+		}
 	}
 }

@@ -23,7 +23,8 @@ type DesktopNotifier interface {
 	Show(summary, body, image string) error
 }
 
-// NotifyActionMsg carries a notification button press: "next" or "like".
+// NotifyActionMsg carries a notification button press: "pause", "next" or
+// "like".
 type NotifyActionMsg struct{ Action string }
 
 type notifyState struct {
@@ -37,7 +38,9 @@ func (m *Model) SetDesktopNotifier(n DesktopNotifier) { m.notify.n = n }
 
 // notifyTrack shows the notification of a song that started.
 func (m *Model) notifyTrack(track playlist.Track) {
-	if m.notify.n == nil {
+	// The full-screen visualizer on a focused terminal already shows the
+	// song, so a notification would only cover the screen.
+	if m.notify.n == nil || m.fullVis && !m.blurred {
 		return
 	}
 	image := ""
@@ -95,6 +98,8 @@ func (m *Model) notifyCmds() tea.Cmd {
 // handleNotifyAction runs a notification button.
 func (m *Model) handleNotifyAction(msg NotifyActionMsg) tea.Cmd {
 	switch msg.Action {
+	case "pause":
+		return m.togglePlayPause()
 	case "next":
 		return m.skipNext()
 	case "like":

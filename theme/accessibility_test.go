@@ -10,8 +10,8 @@ import (
 func TestBuiltinThemesMeetTextContrast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	themes := LoadAll()
-	if len(themes) != 23 {
-		t.Fatalf("LoadAll() returned %d built-in themes, want 23", len(themes))
+	if len(themes) != 25 {
+		t.Fatalf("LoadAll() returned %d built-in themes, want 25", len(themes))
 	}
 
 	for _, th := range themes {

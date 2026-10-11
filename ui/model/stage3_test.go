@@ -32,8 +32,8 @@ func TestQueueDownloadsSkipsWhatIsNotNeeded(t *testing.T) {
 		{Track: playlist.Track{Path: "https://music.youtube.com/watch?v=bbbbbbbbbbb"}}, // duplicate
 	}
 	m.queueDownloads("Album", jobs)
-	if len(m.downloads.queue) != 1 || m.downloads.total != 1 {
-		t.Fatalf("queue = %d (total %d), want only the one new song", len(m.downloads.queue), m.downloads.total)
+	if len(m.downloads.queue) != 1 {
+		t.Fatalf("queue = %d, want only the one new song", len(m.downloads.queue))
 	}
 	if !m.isDownloaded(playlist.Track{Path: "https://www.youtube.com/watch?v=aaaaaaaaaaa"}) {
 		t.Fatal("a manifest entry must count as downloaded")
@@ -43,7 +43,7 @@ func TestQueueDownloadsSkipsWhatIsNotNeeded(t *testing.T) {
 func TestHandleDownloadEventCounts(t *testing.T) {
 	m := &Model{}
 	m.SetOffline(offline.OpenManifest(""), t.TempDir())
-	m.downloads.running, m.downloads.total = true, 1
+	m.downloads.running = true
 	m.downloads.current = offline.Job{Track: playlist.Track{Path: "https://youtu.be/ccccccccccc", Title: "Song"}}
 	m.downloads.events = make(chan downloadEvent, 1)
 	if cmd := m.handleDownloadEvent(downloadEventMsg{ev: downloadEvent{percent: 40}}); cmd == nil || m.downloads.percent != 40 {
@@ -102,8 +102,14 @@ func TestStatsScreen(t *testing.T) {
 	}
 }
 
-func TestSparkline(t *testing.T) {
-	if got := sparkline([]float64{0, 1, 4, 8}); got != " ▁▄█" {
-		t.Fatalf("sparkline = %q", got)
+func TestActivityChart(t *testing.T) {
+	rows := activityChart([]float64{0, 2, 4, 8}, 2, 12)
+	if len(rows) != 2 {
+		t.Fatalf("%d rows, want 2", len(rows))
+	}
+	// 3 cells a day: two bar cells and a gap. The peak fills both rows,
+	// half of it fills the bottom row only, a day with nothing stays empty.
+	if rows[0] != "         ██ " || rows[1] != "   ▄▄ ██ ██ " {
+		t.Fatalf("chart = %q / %q", rows[0], rows[1])
 	}
 }

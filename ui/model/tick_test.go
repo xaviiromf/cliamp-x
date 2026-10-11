@@ -162,6 +162,17 @@ func TestTickIntervalVisualizer60FPS(t *testing.T) {
 		t.Fatalf("tickInterval() = %v, want %v", got, ui.TickAnim)
 	}
 
+	// A terminal without the focus may still show, so the visualizer keeps
+	// the normal cadence instead of stopping, and gets 60 FPS back on focus.
+	m, _ = updateModel(t, m, tea.BlurMsg{})
+	if got := m.tickInterval(); got != ui.TickFast {
+		t.Fatalf("tickInterval() without focus = %v, want %v", got, ui.TickFast)
+	}
+	m, _ = updateModel(t, m, tea.FocusMsg{})
+	if got := m.tickInterval(); got != ui.TickAnim {
+		t.Fatalf("tickInterval() after focus = %v, want %v", got, ui.TickAnim)
+	}
+
 	m.SetLowPower(true)
 	if got := m.tickInterval(); got != ui.TickLowPowerPlaying {
 		t.Fatalf("tickInterval() with low-power = %v, want %v", got, ui.TickLowPowerPlaying)
@@ -618,4 +629,15 @@ func TestTickReconnect(t *testing.T) {
 			}
 		})
 	}
+}
+
+// updateModel runs one message through Update and returns the new Model.
+func updateModel(t *testing.T, m Model, msg tea.Msg) (Model, tea.Cmd) {
+	t.Helper()
+	next, cmd := m.Update(msg)
+	nm, ok := next.(Model)
+	if !ok {
+		t.Fatalf("Update returned %T", next)
+	}
+	return nm, cmd
 }

@@ -119,7 +119,7 @@ func TestKeymapEnterRunsSelectedCommand(t *testing.T) {
 		},
 		{
 			name: "jump to time from the playlist",
-			key:  "Ctrl+J", action: "Jump to time",
+			key:  "Ctrl+J / Nj", action: "Jump to a time or a percentage (7j = 70%)",
 			check: func(m *Model) bool { return m.jump.active },
 		},
 		{
@@ -135,6 +135,17 @@ func TestKeymapEnterRunsSelectedCommand(t *testing.T) {
 			},
 			key: "Esc", action: "Back",
 			check: func(m *Model) bool { return m.focus == focusPlaylist },
+		},
+		{
+			name:  "player command over the file browser closes it first",
+			setup: func(m *Model) { m.fileBrowser.visible = true },
+			key:   "A", action: "Queue manager",
+			check: func(m *Model) bool { return !m.fileBrowser.visible && m.queue.visible },
+		},
+		{
+			name: "one direction of a key pair",
+			key:  "+", action: "Volume up",
+			check: func(m *Model) bool { return m.player.Volume() > 0 },
 		},
 		{
 			name:  "cancel an open playlist search",
@@ -170,20 +181,7 @@ func TestKeymapEnterExplainsCommandsItCannotRun(t *testing.T) {
 		key, action string
 		want        string
 	}{
-		{name: "key pair", key: "Left Right", action: "Seek +/-5s", want: "Close the keymap. Then press Left Right."},
-		{name: "count prefix", key: "Nj", action: "Seek to N x 10% of track (e.g. 7j = 70%)", want: "Then press Nj."},
-		{
-			name:  "player command over the file browser",
-			setup: func(m *Model) { m.fileBrowser.visible = true },
-			key:   "s", action: "Stop",
-			want: "Stop is not available in Files.",
-		},
-		{
-			name:  "quit over the file browser",
-			setup: func(m *Model) { m.fileBrowser.visible = true },
-			key:   "q", action: "Quit",
-			want: "Quit is not available in Files.",
-		},
+		{name: "key pair", key: "Up Down", action: "Playlist scroll / EQ adjust (wraps around)", want: "Close the keymap. Then press Up Down."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -253,5 +251,62 @@ func TestKeymapContextFollowsPlaylistManagerScreen(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Every button of the actions menu must run a player command, or the menu
+// would drop it without a word.
+func TestActionButtonsRunPlayerCommands(t *testing.T) {
+	for _, g := range actionGroups {
+		for _, b := range g.buttons {
+			found := false
+			for _, c := range commandRegistry {
+				if c.Mode&commandModeMain != 0 && slices.Contains(c.Keys, b.run) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("%s: button %q runs no player command", g.name, b.run)
+			}
+			if _, ok := keyPressFor(b.run); !ok {
+				t.Errorf("%s: button %q has no key press", g.name, b.run)
+			}
+		}
+	}
+}
+
+// The menu opens on a button, not on a section header, and comes back to the
+// action that ran last.
+func TestActionsMenuCursorSkipsHeadersAndRemembersLast(t *testing.T) {
+	m := keybindingTestModel()
+	m.openKeymap()
+	e, ok := m.selectedKeymapEntry()
+	if !ok || e.divider {
+		t.Fatalf("menu opens on %+v, want a button", e)
+	}
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyUp})
+	if e, _ := m.selectedKeymapEntry(); e.divider {
+		t.Fatalf("Up stopped on header %q", e.action)
+	}
+	m.closeKeymap()
+
+	selectKeymapEntry(t, &m, "A", "Queue manager")
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m.queue.visible = false
+	m.openKeymap()
+	if e, _ := m.selectedKeymapEntry(); e.action != "Queue manager" {
+		t.Fatalf("menu reopens on %q, want the last action", e.action)
+	}
+}
+
+func TestF1OpensTheActionsMenu(t *testing.T) {
+	m := keybindingTestModel()
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyF1})
+	if !m.keymap.visible {
+		t.Fatal("F1 did not open the actions menu")
+	}
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyF1})
+	if m.keymap.visible {
+		t.Fatal("F1 did not close the actions menu")
 	}
 }

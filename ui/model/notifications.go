@@ -184,6 +184,7 @@ func (m *Model) stopByUser() {
 // nowPlaying fires a now-playing notification for the given track if configured.
 func (m *Model) nowPlaying(track playlist.Track) {
 	m.playingTrackStarted = true
+	m.prefetchNext()
 	m.applyAutoEQ(track)
 	m.notifyTrack(track)
 	if m.luaMgr != nil && m.luaMgr.HasHook(luaplugin.EventTrackChange) {

@@ -2,8 +2,6 @@ package model
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -22,8 +20,9 @@ func (m *Model) quit() tea.Cmd {
 	// - finite Mixcloud shows (yt-dlp tracks with a counted PCM position)
 	// Other yt-dlp sites and live streams remain excluded. The live check
 	// is currentPlaybackIsLive, so a stream the player finds live counts.
+	// - YouTube songs with a known length, which seek by restarting yt-dlp
 	if track, _ := m.currentPlaybackTrack(); track.Path != "" &&
-		(!playlist.IsYTDL(track.Path) || playlist.IsMixcloudURL(track.Path)) &&
+		(!playlist.IsYTDL(track.Path) || playlist.IsMixcloudURL(track.Path) || track.DurationSecs > 0) &&
 		!m.currentPlaybackIsLive(track) &&
 		m.player.IsPlaying() && !m.buffering && !m.player.GaplessAdvanced() {
 		if secs := int(m.player.Position().Seconds()); secs > 0 {
@@ -35,6 +34,7 @@ func (m *Model) quit() tea.Cmd {
 			m.exitResume.contextIndex = contextIndex
 		}
 	}
+	m.captureSession()
 
 	m.flushPendingSpeedSave()
 	m.flushPendingEQSave()
@@ -62,116 +62,6 @@ func (m *Model) handleSpeedKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.togglePlayPause()
 	}
 	return nil
-}
-
-func (m *Model) providerScrollStep() int {
-	return max(1, m.effectivePlaylistVisible())
-}
-
-func (m *Model) providerMaybeAdjustScroll() {
-	visible := m.providerScrollStep()
-	total := len(m.provPane.lists)
-	if total == 0 {
-		m.provPane.scroll = 0
-		return
-	}
-
-	if m.provPane.cursor < m.provPane.scroll {
-		m.provPane.scroll = m.provPane.cursor
-	}
-
-	if m.provPane.scroll >= total {
-		m.provPane.scroll = max(0, total-1)
-	}
-
-	// Provider lists can add radio-prefix or PlaylistInfo.Section headers. Keep
-	// the logical cursor visible in their rendered-row viewport.
-	for m.provPane.scroll < total && m.providerRowsFromScroll(m.provPane.scroll, m.provPane.cursor) > visible {
-		m.provPane.scroll++
-	}
-}
-
-func (m *Model) providerRowsFromScroll(scroll, cursor int) int {
-	total := len(m.provPane.lists)
-	if total == 0 || cursor < scroll || scroll < 0 || cursor >= total {
-		return 0
-	}
-
-	rows := 0
-	sl, isRadio := m.provider.(provider.SectionedList)
-	// Must resolve the same heading the renderer does, or the two disagree on
-	// how many rows a window holds and the cursor scrolls out of view.
-	headerAt := func(i int) string {
-		if isRadio {
-			return m.providerSectionTitle(sl.IDPrefix(m.provPane.lists[i].ID))
-		}
-		return m.provPane.lists[i].Section
-	}
-
-	prevHeader := ""
-	if scroll > 0 {
-		prevHeader = headerAt(scroll - 1)
-	}
-
-	for i := scroll; i <= cursor && i < total; i++ {
-		header := headerAt(i)
-		if header != "" && header != prevHeader {
-			rows++ // section header row
-		}
-		rows++ // item row
-		prevHeader = header
-	}
-	return rows
-}
-
-func (m *Model) providerMoveUp() {
-	if m.provPane.cursor > 0 {
-		m.provPane.cursor--
-	} else if len(m.provPane.lists) > 0 {
-		m.provPane.cursor = len(m.provPane.lists) - 1
-	}
-	m.providerMaybeAdjustScroll()
-}
-
-func (m *Model) providerMoveDown() {
-	if m.provPane.cursor < len(m.provPane.lists)-1 {
-		m.provPane.cursor++
-	} else if len(m.provPane.lists) > 0 {
-		m.provPane.cursor = 0
-	}
-	m.providerMaybeAdjustScroll()
-}
-
-func (m *Model) providerPageUp() {
-	step := m.providerScrollStep()
-	if m.provPane.cursor > 0 {
-		m.provPane.cursor -= min(m.provPane.cursor, step)
-	}
-	// Top-anchor behavior: place cursor at top of viewport when paging up.
-	m.provPane.scroll = m.provPane.cursor
-	m.providerMaybeAdjustScroll()
-}
-
-func (m *Model) providerPageDown() {
-	step := m.providerScrollStep()
-	if m.provPane.cursor < len(m.provPane.lists)-1 {
-		m.provPane.cursor = min(len(m.provPane.lists)-1, m.provPane.cursor+step)
-	}
-	// Bottom-anchor behavior: bias viewport so cursor lands near bottom when paging down.
-	m.provPane.scroll = max(0, m.provPane.cursor-step+1)
-	m.providerMaybeAdjustScroll()
-}
-
-func (m *Model) providerToTop() {
-	m.provPane.cursor = 0
-	m.providerMaybeAdjustScroll()
-}
-
-func (m *Model) providerToBottom() {
-	if len(m.provPane.lists) > 0 {
-		m.provPane.cursor = len(m.provPane.lists) - 1
-	}
-	m.providerMaybeAdjustScroll()
 }
 
 func normalizeShiftedLetter(msg tea.KeyPressMsg) tea.KeyPressMsg {
@@ -243,7 +133,7 @@ func (m *Model) handleGlobalKey(msg tea.KeyPressMsg) (cmd tea.Cmd, ok bool) {
 	case "ctrl+z":
 		m.keepPlCursorRow(func() { cmd = m.undoPlaylistMutation() })
 		return cmd, true
-	case "ctrl+k":
+	case "ctrl+k", "f1":
 		if !m.keymap.visible {
 			if m.fullVis {
 				m.exitFullVisualizer()
@@ -253,158 +143,6 @@ func (m *Model) handleGlobalKey(msg tea.KeyPressMsg) (cmd tea.Cmd, ok bool) {
 		}
 	}
 	return nil, false
-}
-
-// handleProviderPaneKey processes a key press while the provider pane has
-// the focus.
-func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
-	// The location question owns the keyboard until it is answered: it is
-	// a yes/no about the listener's own data, so it must not be dismissed
-	// by a stray key that happens to mean something else in this pane.
-	if m.provPane.askLoc {
-		switch msg.String() {
-		case "y", "Y", "enter":
-			return m.answerLocationPrompt(true)
-		case "n", "N", "esc":
-			return m.answerLocationPrompt(false)
-		default:
-			m.status.Show("Answer y for yes, n for no.", statusTTLShort)
-		}
-		return nil
-	}
-
-	if cmd, ok := m.providerShortcut(msg.String()); ok {
-		return cmd
-	}
-	switch msg.String() {
-	case "q":
-		return m.quit()
-	case "E":
-		m.openEQPanel()
-	case "R":
-		m.toggleAutoRadio()
-	case "n":
-		m.cycleNormalize()
-	case "M":
-		return m.moreLikeThis()
-	case "X":
-		return m.findRemixes()
-	case "D":
-		return m.downloadHighlighted()
-	case "S":
-		return m.openStats()
-	case "F":
-		m.openSubsOverlay()
-	case "l":
-		return m.loadLatestFromProviderList()
-	case "a":
-		return m.appendShowFromProviderList()
-	case "p":
-		if m.localProvider != nil {
-			m.openPlaylistManager()
-		}
-	case "up", "k":
-		m.providerMoveUp()
-	case "space":
-		return m.togglePlayPause()
-	case "down", "j":
-		m.providerMoveDown()
-		// Auto-load next catalog page when scrolling near the bottom.
-		return m.maybeLoadCatalogBatch()
-	case "enter":
-		if m.provPane.signIn {
-			if auth, ok := m.provider.(playlist.Authenticator); ok {
-				m.provPane.signIn = false
-				m.provPane.loading = true
-				m.err = nil
-				return authenticateProviderCmd(auth, m.provider.Name(), nextRequest(&m.requests.auth))
-			}
-		}
-		if len(m.provPane.lists) > 0 && !m.provPane.loading {
-			return m.openProviderList(m.provPane.cursor)
-		}
-	case "tab", "shift+tab":
-		// Leave the content-first provider layout before choosing a control;
-		// the playback pane may be closed or too short to show every setting.
-		m.focus = focusPlaylist
-		m.recomputeLayout()
-		if msg.String() == "shift+tab" {
-			m.focus = m.previousMainFocus(focusPlaylist)
-		} else {
-			m.focus = m.nextMainFocus(focusPlaylist)
-		}
-	case "esc", "backspace", "b":
-		// Clear completed results or cancel a search still in flight.
-		if m.providerCatalogSearching() {
-			return m.restoreCatalog(m.provider.(provider.CatalogSearcher))
-		}
-		// Leave even with an empty playlist. Starting with nothing to play
-		// is what opens this view (StartInProvider), so gating the way out
-		// on a loaded playlist made the launch screen inescapable.
-		m.focus = focusPlaylist
-	case "/":
-		m.provSearch.active = true
-		m.provSearch.query = ""
-		m.provSearch.results = nil
-		m.provSearch.cursor = 0
-		m.provSearch.scroll = 0
-	case "ctrl+r":
-		return m.refreshActiveProvider(false)
-	case "f":
-		return m.toggleProviderFavorite()
-	case "o":
-		m.openFileBrowser()
-	case "N":
-		// Provider-pane browsing must stay scoped to the provider being
-		// viewed. Falling back to another registered browser can otherwise
-		// send (for example) Spotify's pane into Mixcloud.
-		if providerSupportsBrowse(m.provider) {
-			m.openNavBrowserWith(m.provider)
-		}
-	case "pgup", "ctrl+u":
-		m.providerPageUp()
-	case "pgdown", "ctrl+d":
-		m.providerPageDown()
-		return m.maybeLoadCatalogBatch()
-	case "g", "home":
-		m.providerToTop()
-	case "G", "end":
-		m.providerToBottom()
-		return m.maybeLoadCatalogBatch()
-	case "ctrl+j":
-		m.openJumpMode()
-	case "ctrl+x":
-		m.toggleExpandedView()
-	case "ctrl+f":
-		m.openProviderSearch()
-	}
-	return nil
-}
-
-// handleProvPillKey processes a key press while the source pills have the
-// focus.
-func (m *Model) handleProvPillKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "q":
-		return m.quit()
-	case "left", "h":
-		if m.provPillIdx > 0 {
-			m.provPillIdx--
-		}
-	case "right", "l":
-		if m.provPillIdx < len(m.providers)-1 {
-			m.provPillIdx++
-		}
-	case "enter":
-		return m.switchProvider(m.provPillIdx)
-	case "tab":
-		m.focus = m.nextMainFocus(focusProvPill)
-	case "shift+tab", "esc", "backspace":
-		m.focus = m.previousMainFocus(focusProvPill)
-	case "space":
-		return m.togglePlayPause()
-	}
-	return nil
 }
 
 // handleMainKey processes a key press for the playlist and the focused
@@ -796,6 +534,18 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "S":
 		return m.openStats()
 
+	case "T":
+		m.cycleSleepTimer()
+
+	case "ctrl+o":
+		m.openDownloads()
+
+	case "c":
+		m.revealPlayingTrack()
+
+	case "O":
+		m.openRowMenu()
+
 	case "W":
 		m.openSaveQueue()
 
@@ -808,113 +558,6 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 
-	return nil
-}
-
-// handleInfoKey processes key presses while the track info overlay is open.
-func (m *Model) handleInfoKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc", "i", "q":
-		m.info.visible = false
-	case "ctrl+i":
-		m.info.visible = false
-		m.toggleMetadata()
-	case "up", "k":
-		if m.info.scroll > 0 {
-			m.info.scroll--
-		}
-	case "down", "j":
-		m.info.scroll++
-		m.infoMaybeAdjustScroll()
-	}
-	return nil
-}
-
-// handleLyricsKey processes key presses while the lyrics overlay is open.
-func (m *Model) handleLyricsKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc", "y", "q":
-		nextRequest(&m.requests.lyrics)
-		m.lyrics.loading = false
-		m.lyrics.query = ""
-		m.lyrics.visible = false
-	case "r":
-		return m.retryLyrics()
-	case "[":
-		if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
-			return m.nudgeLyricsOffset(-250 * time.Millisecond)
-		}
-	case "]":
-		if m.lyricsSyncable() && m.lyricsHaveTimestamps() {
-			return m.nudgeLyricsOffset(250 * time.Millisecond)
-		}
-	case "up", "k":
-		if !(m.lyricsSyncable() && m.lyricsHaveTimestamps()) && m.lyrics.scroll > 0 {
-			m.lyrics.scroll--
-		}
-	case "down", "j":
-		if !(m.lyricsSyncable() && m.lyricsHaveTimestamps()) {
-			maxScroll := max(len(m.lyrics.lines)-1, 0)
-			if m.lyrics.scroll < maxScroll {
-				m.lyrics.scroll++
-			}
-		}
-	case "ctrl+x":
-		m.toggleExpandedView()
-	}
-	return nil
-}
-
-func (m *Model) exitFullVisualizer() {
-	m.fullVis = false
-	m.recomputeLayout()
-}
-
-func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc", "backspace", "b", "V", "q":
-		m.exitFullVisualizer()
-	case "space":
-		return m.togglePlayPause()
-	case ">", ".":
-		return m.skipNext()
-	case "<", ",":
-		return m.skipPrev()
-	case "left":
-		return m.doSeek(-5 * time.Second)
-	case "shift+left":
-		return m.doSeek(-m.seekStepLarge)
-	case "right":
-		return m.doSeek(5 * time.Second)
-	case "shift+right":
-		return m.doSeek(m.seekStepLarge)
-	case "+", "=":
-		m.adjustVolume(1)
-	case "-":
-		m.adjustVolume(-1)
-	case "v":
-		_ = m.cycleVisualizer()
-	case "}":
-		m.adjustVisSensitivity(1)
-	case "{":
-		m.adjustVisSensitivity(-1)
-	case "t":
-		// Hide the episode name so the full-screen visualizer can be put on a
-		// shared screen without naming what is playing.
-		m.hideTrackInfo = !m.hideTrackInfo
-	case "?":
-		m.exitFullVisualizer()
-		m.openKeymap()
-
-	default:
-		// Plugin bindings are global: a pomodoro or sleep-timer key is about
-		// the session, not about which screen happens to be open. Without
-		// this, every plugin key is dead in the full-screen visualizer —
-		// which is exactly where a plugin visualizer is being watched.
-		if m.luaMgr != nil {
-			m.luaMgr.EmitKey(msg.String())
-		}
-	}
 	return nil
 }
 
@@ -937,53 +580,6 @@ func (m *Model) saveTrack() tea.Cmd {
 		path, err := tracksave.SaveTo(context.Background(), track, directory)
 		return trackSavedMsg{path: path, err: err, download: download}
 	}
-}
-
-func (m *Model) openJumpMode() {
-	m.jump = jumpState{active: true}
-}
-
-func (m *Model) closeJumpMode() {
-	m.jump = jumpState{}
-}
-
-// handleJumpKey processes key presses while in jump-time mode.
-func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.Code {
-	case tea.KeyEscape:
-		m.closeJumpMode()
-		return nil
-	case tea.KeyEnter:
-		target, err := parseJumpTarget(m.jump.input)
-		if err != nil {
-			m.jump.err = "Invalid jump: " + err.Error()
-			m.status.Warning(m.jump.err, statusTTLDefault)
-			return nil
-		}
-		if !m.player.Seekable() {
-			m.jump.err = "This track cannot be seeked."
-			m.status.Warning(m.jump.err, statusTTLDefault)
-			return nil
-		}
-		if dur := m.player.Duration(); dur > 0 && target > dur {
-			m.jump.err = fmt.Sprintf("Jump exceeds track duration (%s).", formatJumpClock(dur))
-			m.status.Warning(m.jump.err, statusTTLDefault)
-			return nil
-		}
-		cmd, err := m.trySeekAbsolute(target)
-		if err != nil {
-			m.jump.err = "Seek failed: " + err.Error()
-			m.status.Warning(m.jump.err, statusTTLDefault)
-			return nil
-		}
-		m.closeJumpMode()
-		return cmd
-	}
-
-	if m.editText("jump", &m.jump.input, msg) {
-		m.jump.err = ""
-	}
-	return nil
 }
 
 // toggleExpandedView toggles the UI between default and expanded height.
@@ -1015,28 +611,5 @@ func (m *Model) handlePaste(content string) tea.Cmd {
 		return nil
 	}
 
-	return nil
-}
-
-// handleURLInputKey processes key presses while in URL input mode.
-func (m *Model) handleURLInputKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.Code {
-	case tea.KeyEscape:
-		m.urlInput.active = false
-	case tea.KeyEnter:
-		m.urlInput.active = false
-		input := strings.TrimSpace(m.urlInput.input)
-		if input != "" {
-			m.feedLoading = true
-			m.status.Activity("Loading URL...", statusTTLLong)
-			return resolveURLCmd(input, true)
-		}
-		m.urlInput.active = true
-		m.urlInput.err = "Enter a stream, track, or playlist URL."
-	default:
-		if m.editText("url", &m.urlInput.input, msg) {
-			m.urlInput.err = ""
-		}
-	}
 	return nil
 }

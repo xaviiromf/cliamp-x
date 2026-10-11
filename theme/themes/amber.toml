@@ -1,0 +1,9 @@
+# Amber phosphor CRT: one warm hue on black, like an old monochrome
+# terminal. The spectrum climbs from dim to bright amber.
+bg = "#0c0700"
+accent = "#ffb000"
+bright_fg = "#ffd27a"
+fg = "#c98a1c"
+green = "#d08a00"
+yellow = "#ffb000"
+red = "#ffcf5c"

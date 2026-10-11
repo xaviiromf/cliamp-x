@@ -46,7 +46,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) tea.Cmd {
 // handleMouseClick moves the cursor to the clicked row, opens the row that
 // is already selected, or seeks on the seek bar.
 func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
-	if msg.Button != tea.MouseLeft {
+	right := msg.Button == tea.MouseRight
+	if msg.Button != tea.MouseLeft && !right {
 		return nil
 	}
 	lines := strings.Split(m.View().Content, "\n")
@@ -60,11 +61,18 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	if isSeekBarLine(plain[msg.Y]) {
 		return m.clickSeek(msg.X)
 	}
+	if help := strings.TrimSpace(ansi.Strip(m.renderHelp())); help != "" && strings.Contains(plain[msg.Y], help) && hitsActionsPill(plain[msg.Y], msg.X) {
+		return m.handleKey(keyPress(tea.KeyF1))
+	}
 	cursor := nearestCursorLine(plain, msg.Y)
 	if cursor < 0 {
 		return nil
 	}
 	if cursor == msg.Y {
+		if right {
+			m.openRowMenu()
+			return nil
+		}
 		return m.handleKey(keyPress(tea.KeyEnter))
 	}
 	// Count the list rows between the cursor and the click.
@@ -85,6 +93,10 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	var cmds []tea.Cmd
 	for range steps {
 		cmds = append(cmds, m.handleKey(keyPress(key)))
+	}
+	// A right click selects the row, then offers what can be done with it.
+	if right {
+		m.openRowMenu()
 	}
 	return tea.Batch(cmds...)
 }
@@ -116,11 +128,23 @@ func isSeekBarLine(line string) bool {
 	return strings.Contains(s, "●") || strings.Count(s, "━") > 0
 }
 
-// isSeparatorLine reports whether a frame line is a section rule or blank,
-// which is no list row.
+// isSeparatorLine reports whether a frame line is a section rule, a section
+// header of the actions menu, or blank, which is no list row.
 func isSeparatorLine(line string) bool {
 	s := strings.TrimSpace(line)
-	return s == "" || strings.HasPrefix(s, "─") || strings.HasPrefix(s, "▸─")
+	return s == "" || strings.HasPrefix(s, "─") || strings.HasPrefix(s, "▸─") || strings.HasPrefix(s, "— ")
+}
+
+// hitsActionsPill reports whether column x of a frame line falls on the
+// "F1 Actions" hint of the help bar.
+func hitsActionsPill(line string, x int) bool {
+	i := strings.Index(line, " F1 ")
+	if i < 0 {
+		return false
+	}
+	start := ansi.StringWidth(line[:i])
+	end := start + ansi.StringWidth(" F1  "+L("Actions"))
+	return x >= start && x < end
 }
 
 // nearestCursorLine returns the line of the list cursor (a line starting

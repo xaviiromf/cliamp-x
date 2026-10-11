@@ -266,7 +266,7 @@ func (m Model) previewTarget() (previewItem, bool) {
 // trackItem describes a track for the pane, noting a downloaded copy.
 func (m Model) trackItem(t playlist.Track) previewItem {
 	it := trackPreview(t)
-	if m.isDownloaded(t) {
+	if m.downloads.manifest.Recorded(t.Path) { // no file system call while drawing
 		it.lines = append(it.lines, downloadLine())
 	}
 	return it
@@ -397,11 +397,11 @@ func (m Model) renderPreview() string {
 	width := m.layout.panelWidth
 	body := rows - 1
 	it, ok := m.previewTarget()
-	label := tr("Seleccionado", "Selected")
+	label := L("Selected")
 	if !ok {
-		label = tr("Vista previa", "Preview")
+		label = L("Preview")
 	} else if it.playing {
-		label = tr("Sonando ahora", "Now playing")
+		label = L("Now playing")
 	}
 	lines := make([]string, 0, rows)
 	lines = append(lines, sepHeader(label, width))

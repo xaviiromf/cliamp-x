@@ -3,32 +3,12 @@ package model
 import (
 	"fmt"
 	"math"
-	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/xaviiromf/cliamp-x/playlist"
 )
-
-// spanishUI reports whether the user's locale is Spanish. The screens that
-// cliamp-x added (the EQ panel, the auto radio messages) follow it.
-var spanishUI = func() bool {
-	for _, name := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		if v := os.Getenv(name); v != "" {
-			return strings.HasPrefix(strings.ToLower(v), "es")
-		}
-	}
-	return false
-}()
-
-// tr picks the Spanish or the English text after the locale.
-func tr(es, en string) string {
-	if spanishUI {
-		return es
-	}
-	return en
-}
 
 // eqPanelState is the EQ panel: a preset list, grouped by genre and use, and
 // the ten bands drawn as a curve.
@@ -49,13 +29,13 @@ type eqPanelRow struct {
 // eqPanelRows lists the genre presets, then the utility presets, then the
 // custom curve.
 func eqPanelRows() []eqPanelRow {
-	rows := []eqPanelRow{{preset: -2, heading: tr("Géneros", "Genres")}}
+	rows := []eqPanelRow{{preset: -2, heading: L("Genres")}}
 	for i, p := range eqPresets {
 		if eqGenrePresets[p.Name] {
 			rows = append(rows, eqPanelRow{preset: i})
 		}
 	}
-	rows = append(rows, eqPanelRow{preset: -2, heading: tr("Utilidad", "Utility")})
+	rows = append(rows, eqPanelRow{preset: -2, heading: L("Utility")})
 	for i, p := range eqPresets {
 		if !eqGenrePresets[p.Name] {
 			rows = append(rows, eqPanelRow{preset: i})
@@ -159,9 +139,9 @@ func (m *Model) handleEQPanelKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "b":
 		m.setEQBypass(!m.eqBypass)
 		if m.eqBypass {
-			m.status.Show(tr("Ecualizador desactivado (A/B): b para volver", "EQ bypassed (A/B): press b to compare"), statusTTLMedium)
+			m.status.Show(L("EQ bypassed (A/B): press b to compare"), statusTTLMedium)
 		} else {
-			m.status.Show(tr("Ecualizador activo", "EQ on"), statusTTLShort)
+			m.status.Show(L("EQ on"), statusTTLShort)
 		}
 	case "a":
 		m.toggleEQAuto()
@@ -190,12 +170,12 @@ func (m *Model) eqPanelAdjustScroll() {
 func (m *Model) toggleEQAuto() {
 	m.eqAuto = !m.eqAuto
 	if m.eqAuto {
-		m.status.Show(tr("EQ automático: el preset sigue el género de cada canción", "Auto EQ: the preset follows the genre of each song"), statusTTLMedium)
+		m.status.Show(L("Auto EQ: the preset follows the genre of each song"), statusTTLMedium)
 		track, _ := m.currentPlaybackTrack()
 		m.applyAutoEQ(track)
 	} else {
 		m.eqAutoLabel = ""
-		m.status.Show(tr("EQ automático desactivado", "Auto EQ off"), statusTTLMedium)
+		m.status.Show(L("Auto EQ off"), statusTTLMedium)
 	}
 	_ = m.saveConfigBool("eq_auto", m.eqAuto)
 }
@@ -233,7 +213,7 @@ func (m *Model) applyAutoEQ(track playlist.Track) {
 const eqCurveRows = 9
 
 func (m Model) eqPanelHeaderLine() string {
-	parts := []string{tr("Ecualizador", "Equalizer"), m.EQPresetName()}
+	parts := []string{L("Equalizer"), m.EQPresetName()}
 	if pre := m.eqPreamp(); pre < -0.05 {
 		parts = append(parts, fmt.Sprintf("preamp %+.1f dB", pre))
 	}
@@ -302,7 +282,7 @@ func (m Model) renderEQPanelBody() string {
 	}
 	lines = append(lines, freqs.String(), gains.String())
 	lines = append(lines, "     "+dimStyle.Render(fmt.Sprintf("%-*s%-*s%s",
-		colWidth*3, tr("Graves", "Bass"), colWidth*3, tr("Medios", "Mids"), tr("Agudos", "Treble"))))
+		colWidth*3, L("Bass"), colWidth*3, L("Mids"), L("Treble"))))
 
 	listBudget := budget - len(lines)
 	if listBudget <= 0 {
@@ -315,7 +295,7 @@ func (m Model) renderEQPanelBody() string {
 		case r.heading != "":
 			items[i] = dimStyle.Render("── " + r.heading)
 		case r.preset < 0:
-			items[i] = tr("Personalizado", "Custom")
+			items[i] = L("Custom")
 		default:
 			items[i] = eqPresets[r.preset].Name
 		}

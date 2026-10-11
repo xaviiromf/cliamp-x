@@ -28,6 +28,9 @@ const ytdlPreloadLeadTime = 15 * time.Second
 // playback is stopped, a track still buffers or a paged load runs. Call it
 // after any change that can alter which track plays next.
 func (m *Model) rearmStalePreload() tea.Cmd {
+	if m.player.IsPlaying() && !m.player.HasPreload() {
+		m.prefetchNext()
+	}
 	m.dropStalePreload()
 	if !m.player.IsPlaying() || m.buffering || m.tracksPaging || m.preloading || m.player.HasPreload() {
 		return nil
@@ -148,4 +151,23 @@ func (m *Model) dropStalePreload() {
 	}
 	m.preloading = false
 	m.player.ClearPreload()
+}
+
+// ytdlPrefetcher is the part of the real player that extracts a YouTube page
+// ahead of time; the test engines lack it.
+type ytdlPrefetcher interface {
+	PrefetchYTDL(pageURL string)
+}
+
+// prefetchNext has the player extract the page of the next YouTube track in
+// the background, so skipping to it starts in about half a second instead of
+// three. The gapless preload still arms the whole pipeline near the end.
+func (m *Model) prefetchNext() {
+	pf, ok := m.player.(ytdlPrefetcher)
+	if !ok {
+		return
+	}
+	if next, ok := m.playlist.PeekNext(); ok && playlist.IsYTDL(next.Path) {
+		pf.PrefetchYTDL(next.Path)
+	}
 }

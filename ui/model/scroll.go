@@ -1,6 +1,12 @@
 package model
 
-import "github.com/xaviiromf/cliamp-x/playlist"
+import (
+	"strings"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/xaviiromf/cliamp-x/playlist"
+)
 
 // clampScroll keeps cursor inside [0, count) and adjusts scroll so that
 // the cursor sits within the visible window of `visible` rows.
@@ -208,4 +214,45 @@ func (m *Model) clampActiveScrollState() {
 			m.adjustScroll()
 		}
 	}
+}
+
+// scrolledLines drops the first scroll lines of a text screen, keeping at
+// least the last one.
+func scrolledLines(lines []string, scroll int) []string {
+	if scroll > 0 && scroll < len(lines) {
+		return lines[scroll:]
+	}
+	return lines
+}
+
+// scrollbarCols is the room a scroll bar takes: a space and the bar.
+const scrollbarCols = 2
+
+// withScrollbar draws a scroll bar after lines, which hold the visible rows
+// of a list of total rows starting at offset. Each line is cut or padded to
+// width first, so the bar forms a straight column scrollbarCols wide.
+func withScrollbar(lines []string, width, total, offset int) []string {
+	visible := len(lines)
+	if visible == 0 || total <= visible {
+		return lines
+	}
+	thumb := max(1, visible*visible/total)
+	start := 0
+	if total > visible {
+		start = min(visible-thumb, offset*(visible-thumb)/(total-visible))
+	}
+	rail, knob := paint(dimStyle, "▕"), paint(trackStyle, "▐")
+	out := make([]string, visible)
+	for i, line := range lines {
+		w := textWidth(line)
+		if w > width {
+			line, w = ansi.Truncate(line, width, ""), width
+		}
+		bar := rail
+		if i >= start && i < start+thumb {
+			bar = knob
+		}
+		out[i] = line + strings.Repeat(" ", width-w+1) + bar
+	}
+	return out
 }

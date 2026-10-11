@@ -48,3 +48,31 @@ func TestNotifyActionNext(t *testing.T) {
 		t.Fatalf("index = %d after the Next button, want 1", idx)
 	}
 }
+
+func TestNotifyActionPauseAndFullScreenSilence(t *testing.T) {
+	m := newLayoutTestModel(100, 40)
+	eng := m.player.(*playbackFakeEngine)
+	eng.playing = true
+	m.handleNotifyAction(NotifyActionMsg{Action: "pause"})
+	if !eng.paused {
+		t.Fatal("the Pause button must pause playback")
+	}
+
+	d := &fakeDesktop{}
+	m.SetDesktopNotifier(d)
+	m.fullVis = true
+	m.notifyTrack(playlist.Track{Title: "Song", Path: "/a.flac"})
+	time.Sleep(20 * time.Millisecond)
+	if d.count() != 0 {
+		t.Fatal("no notification over the focused full-screen visualizer")
+	}
+	m.blurred = true
+	m.notifyTrack(playlist.Track{Title: "Song", Path: "/a.flac"})
+	deadline := time.Now().Add(time.Second)
+	for d.count() == 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if d.count() != 1 {
+		t.Fatal("a terminal without the focus still notifies")
+	}
+}

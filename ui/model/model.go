@@ -221,6 +221,7 @@ const (
 	screenEQPanel
 	screenStats
 	screenSaveQueue
+	screenDownloads
 	// screenFullVisualizer stays last. TestOverlayStackOrder checks that
 	// overlayStack holds each screen up to it.
 	screenFullVisualizer
@@ -232,7 +233,7 @@ func (s topLevelScreen) label() string { return L(s.labelEN()) }
 func (s topLevelScreen) labelEN() string {
 	switch s {
 	case screenKeymap:
-		return "Keys"
+		return "Actions"
 	case screenThemePicker:
 		return "Themes"
 	case screenVisPicker:
@@ -267,6 +268,8 @@ func (s topLevelScreen) labelEN() string {
 		return "Save Queue"
 	case screenStats:
 		return "Statistics"
+	case screenDownloads:
+		return "Downloads"
 	case screenEQPanel:
 		return "Equalizer"
 	case screenFullVisualizer:
@@ -462,6 +465,7 @@ type Model struct {
 		playlist     string
 		context      []playlist.Track
 		contextIndex int
+		queue        []int
 	}
 
 	// preloading is true while a preloadStreamCmd goroutine is in-flight.
@@ -565,6 +569,9 @@ type Model struct {
 	lowPower        bool // lower UI/render cadences in low-power mode
 	headless        bool // no screen: cliamp --daemon runs without a renderer
 	visualizer60FPS bool // render a visible visualizer at the animation cadence
+	blurred         bool // the terminal reported that it lost the focus
+	sleep           sleepTimer
+	searchHist      searchHistory
 	simplified      bool // simplified playback view: track summary and time strip
 	hideTrackInfo   bool // full-screen visualizer: show the source instead of the track
 	hideHelpBar     bool // hide the key-binding hint bar above the status line
@@ -587,6 +594,7 @@ type Model struct {
 	previewOff      bool   // the preview pane is turned off; the cover cache stays
 	fullVisCoverOff bool   // no cover beside the full-screen visualizer
 	coverThemeURL   string // the cover the cover theme took its colors from
+	coverFade       coverFade
 	saveQueue       saveQueueState
 	plMarks         map[string]bool // paths of the queue rows marked with *
 	mouseOn         bool            // mouse support

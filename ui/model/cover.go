@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -61,6 +62,7 @@ func (m *Model) coverCmds() tea.Cmd {
 	wantTheme := m.coverThemeActive()
 	if !wantTheme {
 		m.coverThemeURL = ""
+		m.coverFade = coverFade{}
 	}
 	if !wantTheme && !m.coverVisActive() && !m.fullVis {
 		return nil
@@ -78,7 +80,7 @@ func (m *Model) coverCmds() tea.Cmd {
 	m.vis.SetCover(img)
 	if wantTheme && url != m.coverThemeURL {
 		m.coverThemeURL = url
-		applyThemeAll(coverTheme(img, m.themes[m.themeIdx]))
+		m.startCoverFade(coverTheme(img, m.themes[m.themeIdx]), time.Now())
 	}
 	if cols, rows := m.fullVisCoverBox(); cols > 0 {
 		if send := m.art.KittyUpdate(url, cols, rows); send != nil {

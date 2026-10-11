@@ -85,6 +85,12 @@ func init() {
 			view:    overlayView{(*Model).statsHeaderLine, (*Model).renderStatsBody},
 		},
 		{
+			screen:  screenDownloads,
+			key:     (*Model).handleDownloadsKey,
+			context: fixedContext(commandModeDownloads, "Downloads"),
+			view:    overlayView{(*Model).downloadsHeaderLine, (*Model).renderDownloadsBody},
+		},
+		{
 			screen:  screenDevicePicker,
 			key:     (*Model).handleDeviceKey,
 			context: fixedContext(commandModeDevicePicker, "Audio Device"),
@@ -322,6 +328,8 @@ func (m *Model) overlayOpen(screen topLevelScreen) bool {
 		return m.eqPanel.visible
 	case screenStats:
 		return m.stats.visible
+	case screenDownloads:
+		return m.downloads.visible
 	case screenSaveQueue:
 		return m.saveQueue.active
 	case screenPlaylistPicker:
@@ -365,7 +373,7 @@ func (m *Model) overlayOpen(screen topLevelScreen) bool {
 // and reads as a view of it.
 func (m *Model) overlayContentFirst(screen topLevelScreen) bool {
 	switch screen {
-	case screenKeymap, screenDevicePicker, screenEQPanel, screenStats, screenFileBrowser, screenNavBrowser,
+	case screenKeymap, screenDevicePicker, screenEQPanel, screenStats, screenDownloads, screenFileBrowser, screenNavBrowser,
 		screenThemePicker, screenSubs, screenSearch:
 		return true
 	case screenPlaylistPicker:

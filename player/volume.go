@@ -14,8 +14,9 @@ type volumeStreamer struct {
 	s          beep.Streamer
 	vol        *atomic.Uint64 // dB stored as Float64bits
 	mono       *atomic.Bool
-	cachedDB   float64 // last dB value used to compute cachedGain; starts NaN to force first compute
-	cachedGain float64 // precomputed linear gain = 10^(dB/20)
+	fadeCut    *atomic.Uint64 // fade-out share, Float64bits; nil or 0 for none
+	cachedDB   float64        // last dB value used to compute cachedGain; starts NaN to force first compute
+	cachedGain float64        // precomputed linear gain = 10^(dB/20)
 }
 
 func (v *volumeStreamer) Stream(samples [][2]float64) (int, bool) {
@@ -31,6 +32,9 @@ func (v *volumeStreamer) Stream(samples [][2]float64) (int, bool) {
 		v.cachedDB = db
 	}
 	gain := v.cachedGain
+	if v.fadeCut != nil {
+		gain *= 1 - math.Float64frombits(v.fadeCut.Load())
+	}
 	for i := range n {
 		samples[i][0] *= gain
 		samples[i][1] *= gain

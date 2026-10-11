@@ -4,26 +4,12 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
-	"github.com/xaviiromf/cliamp-x/ui"
-)
-
-// Marquee for the now-playing title. A name that fits its row is drawn as it
-// is; a longer one loops through marqueeGap so its end and its restart do not
-// run together, and holds at the start of every pass for marqueeHoldTicks so
-// the beginning stays readable. titleScrollInterval is how often it advances.
-const (
-	marqueeGap          = "   ·   "
-	marqueeHoldTicks    = 8
-	titleScrollInterval = 200 * time.Millisecond
 )
 
 // favHeart is the small, text-presentation favorite heart used everywhere the
@@ -152,654 +138,6 @@ func playlistLabel(prefix string, p playlist.PlaylistInfo) string {
 		out += " · " + strings.Join(parts, " · ")
 	}
 	return out
-}
-
-// View renders the full TUI frame from the layout that Update keeps current.
-// A headless Model renders nothing.
-func (m Model) View() tea.View {
-	if m.quitting || m.headless {
-		return tea.NewView("")
-	}
-	if m.layout.tooSmall() {
-		content := fmt.Sprintf("Terminal too small. Resize to at least 40x10 (current: %dx%d).", m.width, m.height)
-		// Wrap the message, so a narrow terminal still shows both sizes.
-		content = ansi.Wrap(content, max(1, m.width), "")
-		view := tea.NewView(ui.FitRect(content, max(1, m.width), max(1, m.height)))
-		view.BackgroundColor = ui.ColorBackground
-		if ui.ColorBackground != nil {
-			view.ForegroundColor = ui.ColorText
-		}
-		view.AltScreen = true
-		return view
-	}
-
-	screen := m.activeScreen()
-	contentFirst := m.usesContentFirstLayout()
-	if m.visualizerVisible() {
-		m.refreshVisualizerIfPending()
-	}
-
-	var content string
-	switch screen {
-	case screenFullVisualizer:
-		content = m.renderFullVisualizer()
-	default:
-		// Overlays render in the playlist region (renderMainBody), with their
-		// header/help supplied by renderPlaylistHeader / renderHelp. List-heavy
-		// tasks collapse to a compact now-playing summary so they can use the
-		// reclaimed rows for browsing.
-		body := m.renderBodyRegion()
-		content = strings.Join(m.mainSections(body, true, contentFirst), "\n")
-	}
-
-	// Every screen now renders within the main frame, so frame and center
-	// uniformly.
-	rendered := m.centerFrame(m.layout.frameStyle().Render(content))
-	rendered = ui.FitRect(rendered, m.layout.frameWidth, max(1, m.height))
-
-	view := tea.NewView(rendered)
-	view.BackgroundColor = ui.ColorBackground
-	if ui.ColorBackground != nil {
-		view.ForegroundColor = ui.ColorText
-	}
-	view.AltScreen = true
-	view.WindowTitle = currentTerminalTitle(m.termTitle, m.width, m.terminalTitleValues())
-	if m.mouseOn {
-		view.MouseMode = tea.MouseModeCellMotion
-	}
-	return view
-}
-
-func trimTrailingEmpty(sections []string) []string {
-	for len(sections) > 0 && sections[len(sections)-1] == "" {
-		sections = sections[:len(sections)-1]
-	}
-	return sections
-}
-
-// frameHasSlackForTransient reports whether an empty transient row still fits
-// in the terminal after rows content rows plus frame padding. Reserving the
-// row only when it fits keeps a message from shifting the frame, without
-// hiding the message on exactly-full screens (where appearing and idle states
-// already share the same top padding).
-func (m Model) frameHasSlackForTransient(rows int) bool {
-	if m.height <= 0 {
-		return true
-	}
-	return rows+1+2*m.layout.paddingV <= m.height
-}
-
-// renderedRows counts the terminal rows that sections paint, including the
-// embedded newlines of multi-line sections such as the spectrum and the
-// playlist body.
-func renderedRows(sections []string) int {
-	rows := 0
-	for _, s := range sections {
-		rows += strings.Count(s, "\n") + 1
-	}
-	return rows
-}
-
-// mainSections builds the stacked rows of the playback screen for the active
-// layout tier, ending with the status line and, unless it is hidden, the hint
-// bar above it.
-func (m Model) mainSections(playlist string, includeTransient, contentFirst bool) []string {
-	if m.usesSimplifiedLayout() {
-		sections := []string{
-			m.renderSimplifiedTrackInfo(),
-			m.renderTimeStatus(),
-			m.renderSeekBar(),
-		}
-		sections = trimTrailingEmpty(sections)
-		if includeTransient {
-			if line := m.renderTransient(); line != "" || m.frameHasSlackForTransient(renderedRows(sections)) {
-				sections = append(sections, line)
-			}
-		}
-		return sections
-	}
-
-	var sections []string
-	if contentFirst {
-		if m.layout.tier == layoutMinimal {
-			sections = []string{
-				m.renderTrackInfo(),
-				m.renderTimeStatus(),
-				m.renderSeekBar(),
-				m.renderPlaylistHeader(),
-			}
-		} else {
-			sections = []string{
-				m.renderTitle(),
-				m.renderTrackInfo(),
-				m.renderTimeStatus(),
-			}
-			if m.layout.visualizerRows > 0 {
-				sections = append(sections, m.renderSpectrum())
-			}
-			sections = append(sections, m.renderSeekBar(), m.renderPlaylistHeader())
-		}
-	} else {
-		switch m.layout.tier {
-		case layoutCompact:
-			sections = []string{
-				m.renderTitle(),
-				m.renderTrackInfo(),
-				m.renderTimeStatus(),
-			}
-			if !m.visualizerDisabled() {
-				sections = append(sections, m.renderSpectrum())
-			}
-			sections = append(sections,
-				m.renderSeekBar(),
-				m.renderCompactControls(),
-				m.renderCompactSource(),
-				m.renderPlaylistHeader(),
-			)
-		case layoutMinimal:
-			sections = []string{
-				m.renderTrackInfo(),
-				m.renderTimeStatus(),
-				m.renderSeekBar(),
-				m.renderPlaylistHeader(),
-			}
-		default:
-			sections = []string{
-				m.renderTitle(),
-				m.renderTrackInfo(),
-				m.renderTimeStatus(),
-				"",
-			}
-			if !m.visualizerDisabled() {
-				sections = append(sections, m.renderSpectrum())
-			}
-			sections = append(sections, m.renderSeekBar())
-			switch {
-			case m.layout.twoColumn:
-				// EQ, volume, source, and speed move into the settings pane
-				// beside the playlist, so only the shared header row is left.
-				sections = append(sections, m.renderColumnHeaders())
-			case m.layout.closedSettings:
-				// Closing the pane keeps the two readouts worth a row of their
-				// own and drops the rest; "e" still cycles the EQ preset and
-				// "[" / "]" still change speed. With no pane to stop at, the
-				// playlist header rule runs the whole frame width.
-				sections = append(sections,
-					m.renderSourceVolume(),
-					fillSeparator(m.renderPlaylistHeader(), m.layout.panelWidth))
-			default:
-				sections = append(sections, m.renderControls())
-				if source := m.renderProviderPill(); source != "" {
-					sections = append(sections, source)
-				}
-				sections = append(sections, m.renderPlaylistHeader())
-			}
-		}
-	}
-	if playlist != "" {
-		sections = append(sections, playlist)
-	}
-	if preview := m.renderPreview(); preview != "" {
-		sections = append(sections, preview)
-	}
-	if !m.layout.twoColumn && m.layout.tier != layoutCompact {
-		// The two-column body needs no spacer above the hint bar: the settings
-		// pane's own blank tail already separates the footer from the columns.
-		// Compact chrome also omits it so the speed row stays on-screen.
-		sections = append(sections, "")
-	}
-	if !m.hideHelpBar {
-		sections = append(sections, m.renderHelp())
-	}
-	// The two-column pane carries speed and the download counters, and the
-	// closed layout deliberately shows neither.
-	if !m.layout.twoColumn && !m.layout.closedSettings {
-		sections = append(sections, m.renderBottomStatus())
-	}
-
-	sections = trimTrailingEmpty(sections)
-	if includeTransient {
-		if line := m.renderTransient(); line != "" || m.frameHasSlackForTransient(renderedRows(sections)) {
-			sections = append(sections, line)
-		}
-	}
-
-	return sections
-}
-
-func (m Model) renderSimplifiedTrackInfo() string {
-	track, _ := m.currentPlaybackTrack()
-	name := trackInfoName(track, m.streamTitle)
-
-	duration := formatTrackTime(int(m.cachedDur.Seconds()))
-	if duration == "" {
-		duration = formatTrackTime(track.DurationSecs)
-	}
-	if duration == "" {
-		duration = "LIVE"
-		if !track.Stream {
-			duration = "--:--"
-		}
-	}
-
-	name = scrollTrackName(name, max(1, m.layout.panelWidth-lipgloss.Width(duration)-1), m.titleOff)
-	gap := max(1, m.layout.panelWidth-lipgloss.Width(name)-lipgloss.Width(duration))
-	return trackStyle.Render(name) + strings.Repeat(" ", gap) + dimStyle.Render(duration)
-}
-
-func trackInfoName(track playlist.Track, streamTitle string) string {
-	if streamTitle != "" && track.Stream {
-		return streamTitle
-	}
-
-	name := trackViewName(track)
-	if track.Meta(provider.MetaPodcastFeed) != "" {
-		name = track.DisplayName()
-		if track.Restricted {
-			name = strings.TrimSpace(name) + restrictedViewSuffix
-		}
-	}
-	if name == "" {
-		name = L("No track loaded")
-	}
-	if track.Album != "" {
-		name += " · " + track.Album
-	}
-	return name
-}
-
-// scrollTrackName returns the width-cell window of name at the given tick.
-// Widths are measured in display cells rather than runes, so a title made of
-// wide glyphs fills its row exactly instead of overflowing it and wrapping the
-// frame onto an extra line.
-func scrollTrackName(name string, width, tick int) string {
-	if width <= 0 {
-		return ""
-	}
-	if lipgloss.Width(name) <= width {
-		return name
-	}
-
-	source := name + marqueeGap
-	cycle := lipgloss.Width(source)
-	phase := max(0, tick) % (cycle + marqueeHoldTicks)
-	offset := max(0, phase-marqueeHoldTicks)
-
-	// Doubling the source lets a window near the end wrap into the restart
-	// without a second case to get wrong.
-	return ansi.Truncate(ansi.TruncateLeft(source+source, offset, ""), width, "")
-}
-
-func (m *Model) resetTitleScroll() {
-	m.titleOff = 0
-	m.titleLastScroll = time.Time{}
-}
-
-func (m *Model) advanceTitleScroll(now time.Time) {
-	if m.player == nil || !m.player.IsPlaying() || m.player.IsPaused() {
-		return
-	}
-	if now.Sub(m.titleLastScroll) < titleScrollInterval {
-		return
-	}
-	m.titleLastScroll = now
-	m.titleOff++
-}
-
-func (m Model) renderTransient() string {
-	// Fresh status wins over a sticky m.err so confirmations are not masked
-	// by an older network error; the error reappears once status expires.
-	if text := m.save.activityText(); text != "" {
-		return ui.FitRect(feedbackActivityStyle.Render(text), m.layout.panelWidth, 1)
-	}
-	if m.status.text != "" {
-		text := m.status.text
-		style := feedbackSuccessStyle
-		switch m.status.kind {
-		case feedbackActivity:
-			style = feedbackActivityStyle
-		case feedbackWarning:
-			style = feedbackWarningStyle
-			text = "WARN: " + text
-		case feedbackError:
-			style = errorStyle
-			text = "ERR: " + text
-		}
-		return ui.FitRect(style.Render(text), m.layout.panelWidth, 1)
-	}
-	if m.err != nil {
-		return ui.FitRect(errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)), m.layout.panelWidth, 1)
-	}
-	if n := len(m.logLines); n > 0 {
-		return ui.FitRect(dimStyle.Render(m.logLines[n-1].text), m.layout.panelWidth, 1)
-	}
-	return ""
-}
-
-func (m Model) renderCompactControls() string {
-	mono := ""
-	if m.player.Mono() {
-		mono = " [M]"
-	}
-	eqLabel := labelStyle.Render("EQ ")
-	eqValue := activeToggle.Render("[" + m.EQPresetName() + "]")
-	if m.focus == focusEQ {
-		eqLabel = activeToggle.Render("EQ ▸ ")
-		bands := m.player.EQBands()
-		eqValue += " " + eqActiveStyle.Render(fmt.Sprintf("%s %+.0fdB", eqBandLabels[m.eqCursor], bands[m.eqCursor]))
-	}
-	volLabel := labelStyle.Render("VOL ")
-	if m.focus == focusVolume {
-		volLabel = activeToggle.Render("VOL ▸ ")
-	}
-	return eqLabel + eqValue + " " + volLabel + fmt.Sprintf("%+.0fdB", m.player.Volume()) + mono
-}
-
-func (m Model) renderCompactSource() string {
-	return m.settingsSource(m.layout.panelWidth)
-}
-
-// centerFrame centers a pre-rendered frame in the terminal.
-func (m Model) centerFrame(frame string) string {
-	frameW := lipgloss.Width(frame)
-	frameH := lipgloss.Height(frame)
-	padLeft := max(0, (m.width-frameW)/2)
-	padTop := max(0, (m.height-frameH)/2)
-
-	if padLeft == 0 {
-		return strings.Repeat("\n", padTop) + frame
-	}
-	// Indent every line by padLeft spaces.
-	prefix := strings.Repeat(" ", padLeft)
-	lines := strings.Split(frame, "\n")
-	for i, l := range lines {
-		lines[i] = prefix + l
-	}
-	return strings.Repeat("\n", padTop) + strings.Join(lines, "\n")
-}
-
-func (m Model) renderTitle() string {
-	title := titleStyle.Render("C L I A M P - X")
-	label := m.focus.label()
-	if screen := m.activeScreen(); screen != screenMain {
-		label = screen.label()
-	}
-	if label == "" {
-		return title
-	}
-	indicator := dimStyle.Render("[" + label + "]")
-	gap := max(m.layout.panelWidth-lipgloss.Width(title)-lipgloss.Width(indicator), 1)
-	return title + strings.Repeat(" ", gap) + indicator
-}
-
-func (m Model) renderTrackInfo() string {
-	track, _ := m.currentPlaybackTrack()
-	name := trackInfoName(track, m.streamTitle)
-	// The "♫ " prefix takes two cells; the rest of the row is the marquee's,
-	// so a name only scrolls once it genuinely cannot fit.
-	return trackStyle.Render("♫ " + scrollTrackName(name, m.layout.panelWidth-2, m.titleOff))
-}
-
-func (m Model) renderTimeStatus() string {
-	// Use per-tick cached values to avoid repeated speaker.Lock() calls.
-	pos := m.cachedPos
-	dur := m.cachedDur
-
-	track, _ := m.currentPlaybackTrack()
-	// A YouTube song has a known length before the engine reports one.
-	if dur <= 0 && track.DurationSecs > 0 {
-		dur = time.Duration(track.DurationSecs) * time.Second
-	}
-
-	posMin := int(pos.Minutes())
-	posSec := int(pos.Seconds()) % 60
-	durMin := int(dur.Minutes())
-	durSec := int(dur.Seconds()) % 60
-
-	timeStr := fmt.Sprintf("%02d:%02d / %02d:%02d", posMin, posSec, durMin, durSec)
-
-	if track.Stream && !m.player.Seekable() && (track.Realtime || dur <= 0) {
-		timeStr = fmt.Sprintf("%02d:%02d / LIVE", posMin, posSec)
-	}
-
-	var status string
-	switch {
-	case m.seek.active:
-		status = statusStyle.Render("⟳ Seeking...")
-	case m.buffering:
-		if elapsed := int(time.Since(m.bufferingAt).Seconds()); elapsed > 0 {
-			status = statusStyle.Render(fmt.Sprintf("◌ %s (%ds)", L("Buffering..."), elapsed))
-		} else {
-			status = statusStyle.Render("◌ " + L("Buffering..."))
-		}
-	case m.player.IsPlaying() && m.player.IsPaused():
-		status = statusStyle.Render("⏸ " + L("Paused"))
-	case m.player.IsPlaying() && track.Stream:
-		status = statusStyle.Render("● Streaming")
-	case m.player.IsPlaying():
-		status = statusStyle.Render("▶ " + L("Playing"))
-	default:
-		status = dimStyle.Render("■ " + L("Stopped"))
-	}
-
-	left := timeStyle.Render(timeStr)
-	gap := max(m.layout.panelWidth-lipgloss.Width(left)-lipgloss.Width(status), 1)
-
-	return left + strings.Repeat(" ", gap) + status
-}
-
-func (m Model) renderSpectrum() string {
-	if m.visualizerDisabled() {
-		return ""
-	}
-	return m.vis.Render()
-}
-
-// renderFullVisualizer renders a full-screen view showing only the visualizer
-// with minimal track info and a seek bar.
-func (m Model) renderFullVisualizer() string {
-	sections := []string{
-		m.fullVisTopLine(),
-		m.renderTimeStatus(),
-		"",
-		m.renderFullVisCover(m.renderSpectrum()),
-		m.renderSeekBar(),
-		"",
-		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol ") + helpKey("t", "Title ") + helpKey("?", "Keys"),
-	}
-
-	return strings.Join(sections, "\n")
-}
-
-// fullVisTopLine names what is playing, or just the source when the track has
-// been hidden. The full-screen visualizer is the view most likely to be on a
-// shared screen, so naming the episode has to be optional.
-func (m Model) fullVisTopLine() string {
-	if !m.hideTrackInfo {
-		return m.renderTrackInfo()
-	}
-	// The playing track may belong to a provider the listener has since
-	// switched away from, so prefer the one recorded when it started.
-	name := m.playingProvider
-	if name == "" && m.provider != nil {
-		name = m.provider.Name()
-	}
-	if name == "" {
-		name = "Playing"
-	}
-	return dimStyle.Render("[" + name + "]")
-}
-
-func (m Model) renderSeekBar() string {
-	if m.layout.panelWidth <= 0 {
-		return ""
-	}
-	// During buffering, show a dim bar — avoids speaker.Lock() contention.
-	if m.buffering {
-		return seekDimStyle.Render(strings.Repeat(seekEmptyGlyph, m.layout.panelWidth))
-	}
-	// Show a static streaming bar for non-seekable streams with no known duration.
-	if !m.player.Seekable() && m.player.IsPlaying() && m.cachedDur == 0 {
-		label := " STREAMING "
-		pad := m.layout.panelWidth - lipgloss.Width(label)
-		if pad < 0 {
-			return seekFillStyle.Render(label[:m.layout.panelWidth])
-		}
-		left := pad / 2
-		right := pad - left
-		return seekFillStyle.Render(strings.Repeat("━", left) + label + strings.Repeat("━", right))
-	}
-
-	pos := m.cachedPos
-	dur := m.cachedDur
-
-	var progress float64
-	if dur > 0 {
-		progress = float64(pos) / float64(dur)
-	}
-	progress = max(0, min(1, progress))
-
-	w := m.layout.panelWidth
-	filled := min(int(progress*float64(w)), w)
-	if filled >= w {
-		// Finished: there is no cell left to put the head in.
-		return seekFillStyle.Render(strings.Repeat(seekFillGlyph, w))
-	}
-
-	var b strings.Builder
-	b.WriteString(seekFillStyle.Render(strings.Repeat(seekFillGlyph, filled)))
-	b.WriteString(seekFillStyle.Render(seekHeadGlyph))
-	b.WriteString(m.renderSeekRest(filled+1, w, dur))
-	return b.String()
-}
-
-func (m Model) renderControls() string {
-	// ── EQ [Preset] (left)  ·····  VOL bar dB [Mono] (right) ──
-
-	bands := m.player.EQBands()
-	presetName := m.EQPresetName()
-
-	eqParts := make([]string, len(eqBandLabels))
-	for i, label := range eqBandLabels {
-		style := eqInactiveStyle
-		if bands[i] != 0 {
-			label = fmt.Sprintf("%+.0f", bands[i])
-		}
-		if m.focus == focusEQ && i == m.eqCursor {
-			style = eqActiveStyle
-		}
-		eqParts[i] = style.Render(label)
-	}
-
-	eqLabel := labelStyle.Render("EQ ")
-	if m.focus == focusEQ {
-		eqLabel = activeToggle.Render("EQ ▸ ")
-	}
-	left := eqLabel + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
-
-	vol := m.player.Volume()
-	volMin := m.player.VolumeMin()
-	frac := max(0, min(1, (vol-volMin)/(6-volMin)))
-	dbStr := fmt.Sprintf(" %+.0fdB", vol)
-	monoStr := ""
-	if m.player.Mono() {
-		monoStr = " " + activeToggle.Render("[M]")
-	}
-
-	leftW := lipgloss.Width(left)
-	volLabel := labelStyle.Render("VOL ")
-	if m.focus == focusVolume {
-		volLabel = activeToggle.Render("VOL ▸ ")
-	}
-	volSuffix := dimStyle.Render(dbStr) + monoStr
-	volLabelW := lipgloss.Width(volLabel)
-	volSuffixW := lipgloss.Width(volSuffix)
-	barW := max(6, (m.layout.panelWidth-leftW-2-volLabelW-volSuffixW)*3/4)
-	filled := int(frac * float64(barW))
-
-	bar := volBarStyle.Render(strings.Repeat("█", filled)) +
-		dimStyle.Render(strings.Repeat("░", barW-filled))
-
-	right := volLabel + bar + volSuffix
-	rightW := lipgloss.Width(right)
-	gap := max(1, m.layout.panelWidth-leftW-rightW)
-
-	return left + strings.Repeat(" ", gap) + right
-}
-
-// renderSourceVolume is the single chrome row of the closed-pane layout: the
-// active source on the left and the volume meter on the right. It is the same
-// pair the pane's SRC and VOL rows show, folded onto one row because a closed
-// pane is a request for playlist space.
-func (m Model) renderSourceVolume() string {
-	left := m.renderProviderPill()
-	if left == "" {
-		left = labelStyle.Render("SRC ") + dimStyle.Render("[") +
-			trackStyle.Render(m.providerName()) + dimStyle.Render("]")
-	}
-
-	vol := m.player.Volume()
-	volMin := m.player.VolumeMin()
-	frac := max(0, min(1, (vol-volMin)/(6-volMin)))
-
-	dbStr := fmt.Sprintf(" %+.0fdB", vol)
-	mono := ""
-	if m.player.Mono() {
-		mono = " " + activeToggle.Render("[M]")
-	}
-	label := labelStyle.Render("VOL ")
-	if m.focus == focusVolume {
-		label = activeToggle.Render("VOL ▸ ")
-	}
-
-	leftW := lipgloss.Width(left)
-	fixedW := lipgloss.Width(label) + lipgloss.Width(dbStr) + lipgloss.Width(mono)
-	barW := max(6, (m.layout.panelWidth-leftW-2-fixedW)*3/4)
-	filled := int(frac * float64(barW))
-
-	right := label + volBarStyle.Render(strings.Repeat("█", filled)) +
-		dimStyle.Render(strings.Repeat("░", barW-filled)) + dimStyle.Render(dbStr) + mono
-
-	gap := max(1, m.layout.panelWidth-leftW-lipgloss.Width(right))
-	return left + strings.Repeat(" ", gap) + right
-}
-
-// providerName names the active provider for chrome that always shows a source
-// row, even when there is only one provider to name.
-func (m Model) providerName() string {
-	if m.provider != nil {
-		return m.provider.Name()
-	}
-	return "Unknown"
-}
-
-func (m Model) renderProviderPill() string {
-	if len(m.providers) <= 1 {
-		return ""
-	}
-
-	srcLabel := labelStyle.Render("SRC ")
-	if m.focus == focusProvPill {
-		srcLabel = activeToggle.Render("SRC ▸ ")
-	}
-	current := m.providers[m.provPillIdx].Name
-	indicator := dimStyle.Render("[") + trackStyle.Render(current) + dimStyle.Render("]") +
-		dimStyle.Render(fmt.Sprintf(" %d/%d", m.provPillIdx+1, len(m.providers)))
-	if m.focus == focusProvPill {
-		indicator = activeToggle.Render("["+current+"]") + dimStyle.Render(fmt.Sprintf(" %d/%d", m.provPillIdx+1, len(m.providers)))
-	}
-	if m.layout.panelWidth < 110 {
-		return srcLabel + indicator
-	}
-
-	var neighbors []string
-	if m.provPillIdx > 0 {
-		neighbors = append(neighbors, dimStyle.Render("["+m.providers[m.provPillIdx-1].Name+"]"))
-	}
-	if m.provPillIdx+1 < len(m.providers) {
-		neighbors = append(neighbors, dimStyle.Render("["+m.providers[m.provPillIdx+1].Name+"]"))
-	}
-	return srcLabel + strings.Join(append([]string{indicator}, neighbors...), " ")
 }
 
 func (m Model) renderPlaylistHeader() string {
@@ -1074,7 +412,7 @@ func (m Model) renderPlaylist() string {
 		if m.feedLoading || (m.provPane.loading && m.activeProviderPlaylistID != "") {
 			lines = append(lines, loadingLine("Loading feed…"))
 		} else {
-			lines = append(lines, dimStyle.Render("  "+L("No tracks loaded.")), dimStyle.Render("  "+L("To add music, press one of these keys:")), "")
+			lines = append(lines, paint(dimStyle, "  "+L("No tracks loaded.")), paint(dimStyle, "  "+L("To add music, press one of these keys:")), "")
 			for _, key := range []string{"esc", "o", "u", "ctrl+f"} {
 				if hint := m.commandHint(commandModeMain, key); hint != "" {
 					lines = append(lines, hint)
@@ -1092,6 +430,11 @@ func (m Model) renderPlaylist() string {
 
 	lines := make([]string, 0, budget)
 	numWidth := len(fmt.Sprintf("%d", trackCount))
+	// A list longer than the window gives its last column to a scroll bar.
+	width := m.layout.panelWidth
+	if trackCount > budget {
+		width -= scrollbarCols
+	}
 	cols := m.markerColumns()
 	var stateReporters []provider.PlaybackStateReporter
 	if cols.played {
@@ -1144,7 +487,7 @@ func (m Model) renderPlaylist() string {
 			stateMarker = "▶"
 		}
 		markers := cursorMarker + stateMarker
-		styledMarkers := dimStyle.Render(cursorMarker) + stateStyle.Render(stateMarker)
+		styledMarkers := paint(dimStyle, cursorMarker) + paint(stateStyle, stateMarker)
 
 		queuePosition := m.playlist.QueuePosition(i)
 		if cols.queue {
@@ -1153,7 +496,7 @@ func (m Model) renderPlaylist() string {
 				mark = "Q"
 			}
 			markers += mark
-			styledMarkers += activeToggle.Render(mark)
+			styledMarkers += paint(activeToggle, mark)
 		}
 		if cols.favorite {
 			mark := " "
@@ -1161,7 +504,15 @@ func (m Model) renderPlaylist() string {
 				mark = favHeart
 			}
 			markers += mark
-			styledMarkers += favMarkerStyle.Render(mark)
+			styledMarkers += paint(favMarkerStyle, mark)
+		}
+		if cols.offline {
+			mark := " "
+			if m.downloads.manifest.Recorded(t.Path) {
+				mark = "↓"
+			}
+			markers += mark
+			styledMarkers += paint(trackStyle, mark)
 		}
 		if cols.played {
 			mark, markStyle := " ", dimStyle
@@ -1174,7 +525,7 @@ func (m Model) renderPlaylist() string {
 				}
 			}
 			markers += mark
-			styledMarkers += markStyle.Render(mark)
+			styledMarkers += paint(markStyle, mark)
 		}
 		markers += " "
 		styledMarkers += " "
@@ -1184,51 +535,55 @@ func (m Model) renderPlaylist() string {
 		if queuePosition > 0 && m.layout.panelWidth >= 64 {
 			queueSuffix = fmt.Sprintf(" [Q%d]", queuePosition)
 		}
-		queueLen := lipgloss.Width(queueSuffix)
+		queueLen := textWidth(queueSuffix)
 		duration := formatTrackTime(t.DurationSecs)
-		durationLen := lipgloss.Width(duration)
+		durationLen := textWidth(duration)
 		durationGap := 0
 		if duration != "" {
 			durationGap = durationLen + 1
 		}
 
-		linePrefixWidth := lipgloss.Width(markers) + numWidth + 2 // 2 for ". "
+		linePrefixWidth := textWidth(markers) + numWidth + 2 // 2 for ". "
 
 		// State markers always occupy the same cells; low-priority queue position,
 		// album, and unavailable labels appear only when the terminal has room.
-		name = truncate(name, m.layout.panelWidth-linePrefixWidth-queueLen-durationGap)
+		name = truncate(name, width-linePrefixWidth-queueLen-durationGap)
 		// Truncate the album to fit whatever space remains after the track name.
 		albumSuffix := ""
-		nameLen := lipgloss.Width(name)
+		nameLen := textWidth(name)
 		if t.Unplayable && m.layout.panelWidth >= 68 {
-			remaining := m.layout.panelWidth - linePrefixWidth - nameLen - queueLen - durationGap
+			remaining := width - linePrefixWidth - nameLen - queueLen - durationGap
 			if remaining >= len(" (unavailable)") {
 				albumSuffix = truncate(" (unavailable)", remaining)
 			}
 		} else if album := t.Album; album != "" && !m.showAlbumHeaders && m.layout.panelWidth >= 56 {
-			remaining := m.layout.panelWidth - linePrefixWidth - nameLen - queueLen - durationGap - 3 // 3 = " · "
+			remaining := width - linePrefixWidth - nameLen - queueLen - durationGap - 3 // 3 = " · "
 			if remaining >= 4 {
 				albumSuffix = " · " + truncate(album, remaining)
 			}
 		}
 
 		numStr := fmt.Sprintf("%*d. ", numWidth, i+1)
-		line := styledMarkers + style.Render(numStr)
-		line += style.Render(name)
+		line := styledMarkers + paint(style, numStr)
+		line += paint(style, name)
 		if albumSuffix != "" {
-			line += dimStyle.Render(albumSuffix)
+			line += paint(dimStyle, albumSuffix)
 		}
 		if queueSuffix != "" {
-			line += activeToggle.Render(queueSuffix)
+			line += paint(activeToggle, queueSuffix)
 		}
 		if duration != "" {
-			padding := max(1, m.layout.panelWidth-lipgloss.Width(line)-durationLen)
-			line += strings.Repeat(" ", padding) + dimStyle.Render(duration)
+			padding := max(1, width-textWidth(line)-durationLen)
+			line += strings.Repeat(" ", padding) + paint(dimStyle, duration)
 		}
 		lines = append(lines, line)
 	}
 
-	return strings.Join(padLines(lines, budget, len(lines)), "\n")
+	lines = padLines(lines, budget, len(lines))
+	if width < m.layout.panelWidth {
+		lines = withScrollbar(lines, width, trackCount, scroll)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // renderHelp renders the key hints of what owns the keys.
@@ -1299,41 +654,4 @@ func (m Model) networkStatsText() string {
 		}
 	}
 	return text
-}
-
-// renderSeekRest draws the unplayed cells from..w of the seek bar. Parts that
-// SponsorBlock will skip show in the warning colour.
-func (m Model) renderSeekRest(from, w int, dur time.Duration) string {
-	if from >= w {
-		return ""
-	}
-	track, _ := m.currentPlaybackTrack()
-	segs := m.sponsorSegments(track)
-	if len(segs) == 0 || dur <= 0 {
-		return seekDimStyle.Render(strings.Repeat(seekEmptyGlyph, w-from))
-	}
-	cellSecs := dur.Seconds() / float64(w)
-	marked := func(cell int) bool {
-		lo, hi := float64(cell)*cellSecs, float64(cell+1)*cellSecs
-		for _, s := range segs {
-			if s.Start < hi && s.End > lo {
-				return true
-			}
-		}
-		return false
-	}
-	var b strings.Builder
-	for cell := from; cell < w; {
-		run, skip := cell, marked(cell)
-		for run < w && marked(run) == skip {
-			run++
-		}
-		style := seekDimStyle
-		if skip {
-			style = seekSkipStyle
-		}
-		b.WriteString(style.Render(strings.Repeat(seekEmptyGlyph, run-cell)))
-		cell = run
-	}
-	return b.String()
 }

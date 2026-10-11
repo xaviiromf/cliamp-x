@@ -61,6 +61,11 @@ El panel de YouTube Music tiene estas secciones:
 | Novedades de tus artistas | Lanzamientos | Los singles y álbumes de este año de los artistas a los que estás suscrito, los más recientes primero. Los que aún no abriste llevan `●`. Se actualiza en segundo plano cada 6 horas |
 | Inicio | Mixes y estantes | Selecciones rápidas, tus mixes, lanzamientos y recomendaciones |
 
+Al iniciar, Inicio, Tus playlists y los géneros aparecen al instante con lo
+que mostraban la última vez, guardado en `~/.local/share/cliamp-x/browse.json`.
+cliamp-x los actualiza en segundo plano y la próxima vez que abras la sección
+ya ves la versión nueva. `Ctrl+R` en el panel fuerza la actualización.
+
 ### Favoritos
 
 `f` marca o desmarca según lo seleccionado:
@@ -136,7 +141,9 @@ artistas, en la búsqueda y en la cola.
   [Configuración](configuration.md#offline-downloads).
 - Las letras de YouTube Music se suman a las de LRCLIB y NetEase. Como YouTube
   Music no trae tiempos, las letras sincronizadas de LRCLIB tienen prioridad y
-  las de YouTube Music se usan cuando no hay otras.
+  las de YouTube Music se usan cuando no hay otras. Las letras encontradas se
+  guardan en `~/.local/share/cliamp-x/lyrics/`, así que una canción repetida
+  muestra su letra al instante, también sin conexión.
 
 ## SponsorBlock
 
@@ -185,5 +192,8 @@ Pon `enabled = false` para desactivar el proveedor. Consulta
   navegador con `--browser` si tienes varios.
 - **No suena nada**: comprueba que `yt-dlp` y `ffmpeg` están instalados y
   actualiza yt-dlp (`yt-dlp -U` o el gestor de paquetes de tu sistema).
+- **Una canción no arranca**: el aviso dice qué hacer cuando reconoce la
+  causa: sin conexión, sesión caducada (`cliamp-x login`), yt-dlp
+  desactualizado (`yt-dlp -U`) o video no disponible en tu país.
 - **Errores**: revisa `~/.config/cliamp-x/cliamp.log`, o arranca con
   `cliamp-x --log-level debug`.

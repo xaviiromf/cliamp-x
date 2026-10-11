@@ -47,6 +47,13 @@ type TrackArtistResolver interface {
 	ArtistForTrack(track playlist.Track) (ArtistInfo, bool)
 }
 
+// TrackAlbumResolver lets the UI jump from a provider-originated track to the
+// tracks of its album. It should return false for tracks the provider does
+// not recognize or that belong to no album.
+type TrackAlbumResolver interface {
+	AlbumForTrack(track playlist.Track) (AlbumInfo, bool)
+}
+
 // BrowseMode identifies a useful entry point into the hierarchical provider
 // browser. Providers can expose these routes alongside their playlist pane
 // through BrowseEntryProvider without representing them as playable lists.

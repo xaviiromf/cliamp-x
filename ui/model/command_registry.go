@@ -4,8 +4,6 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-
 	"github.com/xaviiromf/cliamp-x/provider"
 )
 
@@ -53,6 +51,7 @@ const (
 	commandModeEQPanel
 	commandModeStats
 	commandModeSaveQueue
+	commandModeDownloads
 )
 
 const commandModeAny = ^commandMode(0)
@@ -135,6 +134,8 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Favorite track", Enabled: func(m Model) bool { return m.selectedPlaylistStarAction() != starUnavailable }, Keymap: true, ContextHelp: true, Prominent: true},
 	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"c"}, KeyLabel: "c", Label: "Go to the playing song in the list", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"O"}, KeyLabel: "O", Label: "Options for the highlighted song (also a right click)", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"F"}, KeyLabel: "F", Label: "Subscribed shows", Enabled: func(m Model) bool { return m.hasSubscriptions() }, Keymap: true},
 
 	{Mode: commandModeSubs, Keys: []string{"up", "down", "j", "k"}, KeyLabel: "Up Down", Label: "Navigate", Keymap: true},
@@ -172,6 +173,8 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"X"}, KeyLabel: "X", Label: "Find remixes and other versions of the song", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"D"}, KeyLabel: "D", Label: "Download for offline: the highlighted song, album or playlist", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"S"}, KeyLabel: "S", Label: "Listening statistics", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"ctrl+o"}, KeyLabel: "Ctrl+O", Label: "Downloads: progress, cancel, retry the failed ones", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"T"}, KeyLabel: "T", Label: "Sleep timer: 15 / 30 / 45 / 60 / 90 min, end of song, off", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"W"}, KeyLabel: "W", Label: "Save the queue as a YouTube Music playlist", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
 		return !m.simplified && m.layout.tier == layoutFull
@@ -190,8 +193,8 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider | commandModeProviderPill | commandModeVolume | commandModeEQ | commandModeShuffle | commandModeRepeat | commandModeSpeed, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab/Shift+Tab", Label: "Focus", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", RunKey: "esc", Label: "Back to provider", Keymap: true, ContextHelp: true, Cancel: true},
-	{Mode: commandModeAny, Keys: []string{"ctrl+k"}, KeyLabel: "Ctrl+K", Label: "Help", Keymap: true, ContextHelp: true, Help: true},
-	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
+	{Mode: commandModeAny, Keys: []string{"f1", "ctrl+k"}, KeyLabel: "F1", RunKey: "f1", Label: "Actions", Keymap: true, ContextHelp: true, Help: true},
+	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
 	{Mode: commandModeAny, Keys: []string{"ctrl+c"}, KeyLabel: "Ctrl+C", Label: "Quit", Keymap: true},
 	// q quits only from the player and its focused controls. Overlays use it
 	// to close or to queue, so the keymap must not run it as quit there.
@@ -257,6 +260,10 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeStats, Keys: []string{"left", "right", "h", "l", "tab", "shift+tab"}, KeyLabel: "Left Right", Label: "Period: week / month / year / all time", ContextHelp: true, Primary: true},
 	{Mode: commandModeStats, Keys: []string{"up", "down", "k", "j", "home", "g"}, KeyLabel: "Up Down", Label: "Scroll", ContextHelp: true},
 	{Mode: commandModeStats, Keys: []string{"esc", "q", "S", "backspace"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", ContextHelp: true, Cancel: true},
+	{Mode: commandModeDownloads, Keys: []string{"r"}, KeyLabel: "r", Label: "Retry the failed downloads", ContextHelp: true, Primary: true, Keymap: true},
+	{Mode: commandModeDownloads, Keys: []string{"x"}, KeyLabel: "x", Label: "Cancel all downloads", ContextHelp: true, Destructive: true, Keymap: true},
+	{Mode: commandModeDownloads, Keys: []string{"up", "down", "k", "j", "home", "g"}, KeyLabel: "Up Down", Label: "Scroll", ContextHelp: true},
+	{Mode: commandModeDownloads, Keys: []string{"esc", "q", "ctrl+o", "backspace"}, KeyLabel: "Esc", RunKey: "esc", Label: "Close", ContextHelp: true, Cancel: true},
 	{Mode: commandModeEQPanel, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Preset (live preview) / band gain", ContextHelp: true, Primary: true},
 	{Mode: commandModeEQPanel, Keys: []string{"left", "right", "h", "l"}, KeyLabel: "Left Right", Label: "Select band", ContextHelp: true},
 	{Mode: commandModeEQPanel, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab", Label: "Presets / bands", ContextHelp: true},
@@ -372,7 +379,7 @@ var commandRegistry = []commandSpec{
 		return m.fileBrowser.visible && m.fileBrowser.targetPlaylist != ""
 	}},
 	{Mode: commandModeQueue, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Reorder", Keymap: true, ContextHelp: true},
-	{Mode: commandModeQueue, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
+	{Mode: commandModeQueue, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", Keymap: true, ContextHelp: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"space"}, KeyLabel: "Space", Label: "Select", Keymap: true, ContextHelp: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"a"}, KeyLabel: "a", Label: "Select/unselect all audio", Keymap: true},
@@ -412,7 +419,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeFullVis, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"}", "{"}, KeyLabel: "} {", Label: "Visualizer sensitivity up/down", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"t"}, KeyLabel: "t", Label: "Hide track info", Keymap: true, ContextHelp: true},
-	{Mode: commandModeFullVis, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
+	{Mode: commandModeFullVis, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
 }
 
 func (m Model) commandHelp(mode commandMode) string {
@@ -450,8 +457,15 @@ func (m Model) commandHelp(mode commandMode) string {
 	}
 	ordered = append(ordered, prominent...)
 	ordered = append(ordered, optional...)
+	// A calm bar: the rest of the keys are one F1 away in the actions menu.
+	if len(ordered) > maxHelpHints {
+		ordered = ordered[:maxHelpHints]
+	}
 	return renderCommandHelp(ordered, m.helpWidth(), m)
 }
+
+// maxHelpHints bounds the hints of the help bar on a wide terminal.
+const maxHelpHints = 6
 
 // findCommand returns the enabled command that key runs in mode.
 func (m Model) findCommand(mode commandMode, key string) (commandSpec, bool) {
@@ -507,7 +521,7 @@ func renderCommandHelp(commands []commandSpec, width int, m Model) string {
 			// Key pill only (no "Favorite track" text): at ~40 cols even
 			// one full label would eat the whole row, so fill the rest
 			// with keys and let Ctrl+K explain them.
-			hint = helpKeyStyle.Render(" " + command.KeyLabel + " ")
+			hint = paint(helpKeyStyle, " "+command.KeyLabel+" ")
 		} else {
 			if narrow {
 				switch {
@@ -524,15 +538,15 @@ func renderCommandHelp(commands []commandSpec, width int, m Model) string {
 		if b.Len() > 0 {
 			hint = " " + hint
 		}
-		if lipgloss.Width(b.String()+hint) > width {
+		if textWidth(b.String()+hint) > width {
 			dropped++
 			continue
 		}
 		b.WriteString(hint)
 	}
 	if narrow && dropped > 0 {
-		more := helpStyle.Render(" +…")
-		if lipgloss.Width(b.String()+more) <= width {
+		more := paint(helpStyle, " +…")
+		if textWidth(b.String()+more) <= width {
 			b.WriteString(more)
 		}
 	}

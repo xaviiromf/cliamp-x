@@ -1,6 +1,20 @@
 package model
 
-import "strings"
+import (
+	"os"
+	"strings"
+)
+
+// spanishUI reports whether the interface is in Spanish. It starts from the
+// locale; SetLanguage overrides it from the config.
+var spanishUI = func() bool {
+	for _, name := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := os.Getenv(name); v != "" {
+			return strings.HasPrefix(strings.ToLower(v), "es")
+		}
+	}
+	return false
+}()
 
 // L translates an English interface text to the interface language. Texts
 // with no entry, such as names and other dynamic text, come back unchanged.

@@ -384,10 +384,11 @@ const (
 	MinVisSensitivity = 1
 	MaxVisSensitivity = 10
 	// DefaultVisSensitivity reacts to quiet passages and soft instruments
-	// without pinning loud masters to the top.
+	// without pinning loud masters to the top. Its response is the original
+	// one, so the golden frames and existing configs keep their look.
 	DefaultVisSensitivity = 7
 	// visSensitivityStepDB is the spectrum gain of one sensitivity level.
-	visSensitivityStepDB = 3
+	visSensitivityStepDB = 6.0
 )
 
 // Sensitivity returns the spectrum gain level, MinVisSensitivity to
@@ -404,8 +405,35 @@ func (v *Visualizer) SetSensitivity(level int) {
 	v.sensitivity = max(MinVisSensitivity, min(MaxVisSensitivity, level))
 }
 
-// sensitivityGainDB is the gain the level adds to every band. Level 5 is
-// the original response.
-func (v *Visualizer) sensitivityGainDB() float64 {
-	return float64((v.Sensitivity() - 5) * visSensitivityStepDB)
+// visResponse is how the spectrum analysis maps power to bar height at one
+// sensitivity level.
+type visResponse struct {
+	gainDB   float64 // added to every band before scaling
+	contrast float64 // stretch of the heights around visContrastPivot
+	attack   float64 // share of a rising value taken at once
+	decay    float64 // share of a falling value taken at once
+}
+
+// visContrastPivot is the bar height the contrast stretches around: about the
+// median height of music at the default level, so more contrast moves loud
+// and quiet bands apart without lifting every bar to the top.
+const visContrastPivot = 0.4
+
+// sensitivityResponse spreads the levels far apart. Above the default, a
+// level adds a little gain, more contrast between loud and quiet bands and
+// faster bars, so they follow every beat without sticking to the top. Below
+// it, a level cuts gain and contrast and slows the bars, down to a nearly
+// flat display at level 1. DefaultVisSensitivity is the original response.
+func (v *Visualizer) sensitivityResponse() visResponse {
+	d := float64(v.Sensitivity() - DefaultVisSensitivity)
+	gainStep, contrastStep := visSensitivityStepDB, 0.08
+	if d > 0 {
+		gainStep, contrastStep = visSensitivityStepDB/4, 0.25
+	}
+	return visResponse{
+		gainDB:   6 + d*gainStep,
+		contrast: 1 + d*contrastStep,
+		attack:   max(0.5, min(0.95, 0.8+0.05*d)),
+		decay:    max(0.1, min(0.75, 0.4+0.1*d)),
+	}
 }

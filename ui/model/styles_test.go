@@ -2,9 +2,13 @@ package model
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
+
+	"charm.land/lipgloss/v2"
 
 	"github.com/xaviiromf/cliamp-x/theme"
 )
@@ -88,5 +92,84 @@ func TestFavoriteMarksFollowThemeChange(t *testing.T) {
 				t.Fatalf("marker = %s under %s, want %s", got, after.Name, tc.wantAfter)
 			}
 		})
+	}
+}
+
+// TestPaintMatchesRender proves the fast paint gives the exact bytes of
+// lipgloss Render for every model style under every built-in theme, and
+// falls back to Render for texts and styles it does not handle.
+func TestPaintMatchesRender(t *testing.T) {
+	t.Cleanup(func() { applyThemeAll(theme.Default()) })
+	texts := []string{" ", "♥", "> Song", "  12. ", "音楽 wide", "a\nb", "tab\there", "\x1b[1mpre\x1b[m"}
+	extra := []lipgloss.Style{
+		lipgloss.NewStyle(),
+		lipgloss.NewStyle().Width(10),
+		lipgloss.NewStyle().Padding(0, 1).Foreground(lipgloss.Color("1")),
+		lipgloss.NewStyle().Underline(true),
+		lipgloss.NewStyle().Italic(true).Faint(true),
+		lipgloss.NewStyle().Border(lipgloss.NormalBorder()),
+		lipgloss.NewStyle().BorderLeft(true),
+		lipgloss.NewStyle().Margin(0, 2),
+	}
+	for _, th := range append([]theme.Theme{theme.Default()}, theme.LoadAll()...) {
+		applyThemeAll(th)
+		styles := append([]lipgloss.Style{
+			titleStyle, trackStyle, timeStyle, statusStyle, dimStyle, labelStyle, eqActiveStyle, eqInactiveStyle,
+			playlistActiveStyle, playlistItemStyle, playlistSelectedStyle, playlistUnavailableStyle, helpStyle,
+			helpKeyStyle, errorStyle, seekFillStyle, seekDimStyle, seekSkipStyle, volBarStyle, activeToggle,
+			favMarkerStyle, favRemovedStyle,
+		}, extra...)
+		for i, st := range styles {
+			for _, s := range texts {
+				if got, want := paint(st, s), st.Render(s); got != want {
+					t.Fatalf("theme %q style %d text %q: paint %q, Render %q", th.Name, i, s, got, want)
+				}
+			}
+		}
+	}
+}
+
+// TestTextWidthMatchesLipgloss checks the fast width against lipgloss on the
+// lines of real frames and on random mixes of the characters it handles and
+// the ones it must hand over.
+func TestTextWidthMatchesLipgloss(t *testing.T) {
+	check := func(s string) {
+		t.Helper()
+		if got, want := textWidth(s), lipgloss.Width(s); got != want {
+			t.Fatalf("textWidth(%q) = %d, lipgloss.Width = %d", s, got, want)
+		}
+	}
+	for _, size := range [][2]int{{80, 24}, {120, 40}, {200, 60}} {
+		m := newLayoutTestModel(size[0], size[1])
+		for _, open := range []func(*Model){func(*Model) {}, (*Model).openKeymap, func(m *Model) { m.fullVis = true }} {
+			open(&m)
+			for _, line := range strings.Split(m.View().Content, "\n") {
+				check(line)
+			}
+		}
+	}
+	pieces := []string{"a", " ", "─", "█", "⣿", "●", "♫", "♥", "…", "·", "ñ", "Ø", "→", "\u00ad", "\u200b", "\u2028", "✓", "❚", "音", "é", "e\u0301", "♥\ufe0f", "👍🏽", "\u200d",
+		"\x1b[1;38;5;15m", "\x1b[m", "\x1b]8;;http://x\x07", "\x1b]8;;\x1b\\", "\x1b", "\x1b[", "\t", "\x7f"}
+	rng := rand.New(rand.NewPCG(1, 2))
+	for range 5000 {
+		var b strings.Builder
+		for range rng.IntN(12) {
+			b.WriteString(pieces[rng.IntN(len(pieces))])
+		}
+		check(b.String())
+	}
+}
+
+func TestNarrowRunesAreNarrow(t *testing.T) {
+	for r := rune(0); r <= 0x2fff; r++ {
+		if !narrowRune(r) {
+			continue
+		}
+		if w := lipgloss.Width(string(r)); w != 1 {
+			t.Errorf("narrowRune(%U %q) but lipgloss.Width = %d", r, r, w)
+		}
+		if w := lipgloss.Width("a" + string(r) + "b"); w != 3 {
+			t.Errorf("%U joins its neighbours: width %d", r, w)
+		}
 	}
 }

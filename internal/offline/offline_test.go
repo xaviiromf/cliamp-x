@@ -64,3 +64,21 @@ func TestProgressLine(t *testing.T) {
 		t.Fatalf("progress line not parsed: %v", m)
 	}
 }
+
+func TestManifestRecordedAndLen(t *testing.T) {
+	m := OpenManifest(filepath.Join(t.TempDir(), "offline.json"))
+	url := "https://music.youtube.com/watch?v=dQw4w9WgXcQ"
+	if m.Recorded(url) || m.Len() != 0 {
+		t.Fatal("a new manifest records nothing")
+	}
+	if err := m.Add(url, "/gone/file.opus"); err != nil {
+		t.Fatal(err)
+	}
+	if !m.Recorded(url) || m.Len() != 1 {
+		t.Fatal("Recorded and Len must see the download without its file")
+	}
+	var none *Manifest
+	if none.Recorded(url) || none.Len() != 0 {
+		t.Fatal("a nil manifest records nothing")
+	}
+}

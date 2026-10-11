@@ -1,0 +1,9 @@
+# After the Winamp 5 Modern skin: dark slate panels, orange highlights and a
+# blue-to-orange spectrum.
+bg = "#15181d"
+accent = "#ff9a1f"
+bright_fg = "#e8edf3"
+fg = "#9aa6b4"
+green = "#4fa8ff"
+yellow = "#ffc145"
+red = "#ff6a3d"

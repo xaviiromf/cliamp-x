@@ -15,6 +15,8 @@ cliamp-x --playlist "Blade Runner"      # load a local TOML playlist (add --auto
 cliamp-x --provider ytmusic             # open on one provider for this session
 ```
 
+`cliamp-x` with no file, URL or `--playlist` brings the last session back: the playlist, the song selected in it, the songs queued to play next and, when the song had one, its position. Nothing plays until you press `Space` or `Enter`. YouTube Music songs keep their position too. With no saved session, cliamp-x opens the provider browser.
+
 `--provider` overrides `provider` in config.toml. It accepts the values in [Default Provider](configuration.md#default-provider). Run `cliamp-x --help` to see the list.
 
 ## Audio engine
@@ -40,7 +42,7 @@ cliamp-x --visualizer Wave ~/Music             # start with one visualizer mode
 cliamp-x --visualizer-60fps ~/Music            # smoother visualizer animation (higher CPU use)
 ```
 
-`--visualizer-60fps` renders a visible visualizer at about 60 FPS during playback. `Wave`, `Scope`, `Heartbeat`, and `Stereo` already use this rate because they draw from audio samples. The flag does not affect overlays or low-power mode.
+`--visualizer-60fps` renders a visible visualizer at about 60 FPS during playback. `Wave`, `Scope`, `Heartbeat`, and `Stereo` already use this rate because they draw from audio samples. The flag does not affect overlays or low-power mode. When the terminal reports that it lost the focus, these modes drop to the normal 20 FPS until it gets the focus back. The visualizer keeps moving, because a tiling window manager can still show the window.
 
 ## Diagnostics
 
@@ -139,7 +141,7 @@ cliamp-x track.mp3 --repeat all --mono ~/Music
 | `--mono` / `--no-mono` | bool | false | |
 | `--auto-play` / `--no-auto-play` | bool | false | |
 | `--simplified` / `--no-simplified` | bool | false | artist/title and time strip; no visualizer or playlist |
-| `--help-bar` / `--no-help-bar` | bool | true | show or hide the key-binding hint bar; `?` still opens the full keymap |
+| `--help-bar` / `--no-help-bar` | bool | true | show or hide the key-binding hint bar; `F1` or `?` still opens the actions menu |
 | `--expanded` / `--no-expanded` | bool | false | start with the playlist expanded (the `Ctrl+X` state) |
 | `--provider` | string | ytmusic | provider to open at start: ytmusic |
 | `--visualizer` | string | Bars | visualizer mode, such as Bars, Wave or None. See [configuration.md](configuration.md#options) for all modes. |
@@ -256,6 +258,9 @@ cliamp-x shuffle [on|off|toggle]         # toggle or set shuffle
 cliamp-x repeat [off|all|one|cycle]      # set or cycle repeat mode
 cliamp-x mono [on|off|toggle]            # toggle or set mono output
 cliamp-x speed 1.5                       # set playback speed (0.25–2.0)
+cliamp-x sleep 30                        # pause in 30 minutes, after a 10 s fade-out
+cliamp-x sleep end                       # pause when the playing song ends
+cliamp-x sleep off                       # turn the sleep timer off
 cliamp-x eq Rock                         # set EQ preset by name
 cliamp-x eq --band 0 6.0                 # set EQ band 0 to +6 dB
 cliamp-x device list                     # list audio output devices

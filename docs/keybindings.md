@@ -1,14 +1,23 @@
 # Keybindings
 
-Press `Ctrl+K` in any mode, or `?` in the player, to view keybindings. The
-keymap first shows commands for the active screen. It then shows player and
-library commands.
+## Actions menu
 
-To run a command, select it and press `Enter`. The command acts as if you
-pressed its key on the screen that opened the keymap. Press `/` to filter the
-list first. The keymap cannot run key pairs such as `Left` `Right`, the `N`
-then `j` seek, or a player command while another screen is open. For these
-entries, a status message tells you which key to press.
+You do not need to learn the keys. Press `F1` (or `Ctrl+K`, or `?` in the
+player) in any screen to open the actions menu. With the mouse on, you can also
+click `F1 Actions` in the hint bar. The menu lists every command as a button,
+grouped by what it does: Playback, Queue and playlist, Search and browse,
+Library, Sound, Screen and App. When another screen is open, its own commands
+come first, under "This screen". Plugin keys are listed last.
+
+Move with the arrow keys (or `j` `k`) and press `Enter` to run the selected
+action. Each button shows its key on the right, so the menu also teaches the
+shortcuts. A key pair such as `Left` / `Right` or `+` / `-` is two buttons,
+one for each direction. The `N` then `j` seek is the "Jump to a time or a
+percentage" button, which opens the `Ctrl+J` prompt. A player action chosen
+over another screen closes that screen first, then runs. Press `/` to filter
+the list. The menu opens on the action you ran last. Only cursor keys that
+move through lists, such as `Up` `Down`, stay as hints: the status line says
+which key to press.
 
 ## Playback
 
@@ -28,10 +37,12 @@ entries, a status message tells you which key to press.
 | `W` | Save the whole queue as a new private YouTube Music playlist |
 | `n` | Volume normalization: off, by song, by album (saved in `normalize`) |
 | `M` | More like this: replace the queue with a radio of the highlighted song, album, artist or playlist (or of the playing song) |
-| `D` | Download the highlighted song, album or playlist for offline listening |
+| `D` | Download the highlighted song, album or playlist for offline listening. Downloaded songs show `↓` in the playlist |
+| `Ctrl+O` | Downloads: the song downloading, the ones waiting and the ones that failed with why. `r` retries the failed ones, `x` cancels all |
 | `S` | Listening statistics (Left/Right: week, month, year, all time) |
+| `T` | Sleep timer: each press steps through 15, 30, 45, 60 and 90 minutes, the end of the song, and off. The music fades out over the last 10 seconds, then pauses. The header shows the time left |
 | `X` | Find remixes and other versions of the highlighted or playing song, grouped by kind, in the search overlay |
-| `Ctrl+J` | Jump to time |
+| `Ctrl+J` | Jump to a time (`1:30`) or a percentage of the track (`70%`) |
 
 ## Navigation
 
@@ -91,7 +102,10 @@ The Metadata shortcut is inactive while a text input is active.
 ### Search and filter modes
 
 `/` filters the list on the screen. `Ctrl+F` searches YouTube Music, or your
-saved playlists when the active provider is Local.
+saved playlists when the active provider is Local. Under an empty search field,
+`Ctrl+F` lists your last 20 searches. `Up` and `Down` put an older or newer one
+in the field, and `Enter` runs it. They are kept in
+`~/.local/share/cliamp-x/search_history.json`.
 
 While a search or filter input is open, its line starts with a badge that
 names the mode and the source, such as `[Filter: Playlist]`, `[Filter: Files]`
@@ -106,13 +120,18 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | `E` | Open the equalizer panel (see below) |
 | `t` | Choose theme |
 | `v` | Cycle visualizer and save the choice in `config.toml` |
-| `}` / `{` | Visualizer sensitivity up / down (1-10, saved in `vis_sensitivity`). Also works in the full screen visualizer |
+| `}` / `{` | Visualizer sensitivity up / down (1 nearly flat, 10 follows every beat; saved in `vis_sensitivity`). Also works in the full screen visualizer |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
 | `V` | Full screen visualizer, with the cover of the playing song beside it when the terminal has room (a real image in kitty and Ghostty; `hide_fullscreen_cover = true` removes it). Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
 | `Ctrl+H` | Toggle album headers |
 | `Ctrl+G` | Toggle the key-binding hint bar (remembered in `hide_help_bar`) |
 | `R` | Toggle the auto radio: when the queue ends, keep playing songs similar to the last one (remembered in `[ytmusic] auto_radio`) |
 | `Ctrl+B` | Open/close the settings pane (remembered in `hide_settings_pane`) |
+
+The title row names the modes that are on, so you can tell after their
+message is gone: `RADIO` (auto radio), `XFADE` (crossfade), `AUTO EQ`, `↓3`
+(three songs left to download) and `SLEEP 25m` (sleep timer). The tags that do
+not fit a narrow terminal are left out.
 
 Theme and visualizer pickers support `/` filtering. While you browse, arrow
 keys preview the selected option. `Enter` keeps it. `Esc` or `q` restores the option
@@ -172,6 +191,8 @@ preference remains saved for a wider layout. See
 |---|---|
 | `a` | Toggle the queue (play next) |
 | `A` | Queue manager |
+| `c` | Go back to the playing song in the list after browsing away from it |
+| `O` | Options for the highlighted song: play, play next, more like this, remixes, download, favorite, save to a playlist, go to the artist, go to the album, info. A right click on any list row opens the same menu for that row |
 | `c` | In the queue manager: clear the queue (press again to confirm when more than one track) |
 | `d` | In the queue manager: remove the highlighted track |
 | `x` | Remove the highlighted track from the current playlist |
@@ -344,10 +365,10 @@ matching rules.
 
 | Key | Action |
 |---|---|
-| `?` / `Ctrl+K` | Show keymap. `Enter` runs the selected command. `Esc` or `q` closes it. |
+| `F1` / `Ctrl+K` / `?` | Open the [actions menu](#actions-menu). `Enter` runs the selected action. `Esc`, `F1` or `q` closes it. |
 | `q` / `Ctrl+C` | Quit |
 
-cliamp-x also quits as the `q` key does when it gets `SIGINT`, `SIGTERM` or `SIGHUP`. It then saves the resume position. The terminal sends `SIGHUP` when you close its window.
+cliamp-x also quits as the `q` key does when it gets `SIGINT`, `SIGTERM` or `SIGHUP`. It then saves the session: the playlist, the song, its position and the play-next queue, which come back the next time cliamp-x starts with nothing to play. The terminal sends `SIGHUP` when you close its window.
 
 ## Mouse
 
@@ -357,6 +378,8 @@ With `mouse = true` (the default):
   screen visualizer it changes the volume.
 - A click on a list row selects it; a second click on the selected row plays
   or opens it, like `Enter`.
+- A right click on a list row selects it and opens its options, like `O`.
 - A click on the seek bar seeks there.
+- A click on `F1 Actions` in the hint bar opens the actions menu.
 
 Hold `Shift` while dragging to select text in the terminal.

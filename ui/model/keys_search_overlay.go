@@ -30,6 +30,8 @@ func (m *Model) handleSearchOverlayInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.Code {
 	case tea.KeyEscape:
 		m.closeSearchOverlay()
+	case tea.KeyUp, tea.KeyDown:
+		m.stepSearchHistory(msg.Code == tea.KeyUp)
 	case tea.KeyEnter:
 		if m.searchOverlay.query == "" {
 			m.setSearchOverlayError("Enter a search query.")
@@ -42,11 +44,13 @@ func (m *Model) handleSearchOverlayInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			m.searchOverlay.loading = true
 			m.searchOverlay.err = ""
-			return fetchSearchOverlayCmd(m.newSearchOverlayRequestContext(30*time.Second), s, m.searchOverlay.prov.Name(), m.searchOverlay.query, nextRequest(&m.requests.searchOverlay))
+			return tea.Batch(m.rememberSearch(m.searchOverlay.query),
+				fetchSearchOverlayCmd(m.newSearchOverlayRequestContext(30*time.Second), s, m.searchOverlay.prov.Name(), m.searchOverlay.query, nextRequest(&m.requests.searchOverlay)))
 		}
 	default:
 		if m.editText("search-overlay", &m.searchOverlay.query, msg) {
 			m.searchOverlay.err = ""
+			m.searchOverlay.histPos = 0
 		}
 	}
 	return nil

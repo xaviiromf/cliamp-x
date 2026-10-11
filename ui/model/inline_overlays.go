@@ -30,7 +30,7 @@ import (
 // sepHeader renders a labeled separator width cells wide. The label is
 // embedded before the "─" fill, so separatorLine truncates it: it never wraps.
 func sepHeader(label string, width int) string {
-	return dimStyle.Render(labeledSeparator("", L(label), width))
+	return paint(dimStyle, labeledSeparator("", L(label), width))
 }
 
 // sepHeaderN appends an "n/total" position counter to a separator label.
@@ -600,6 +600,7 @@ func (m Model) renderSearchOverlayBody() string {
 			lines = append(lines, loadingLine("Searching "+providerName(m.searchOverlay.prov)+"..."))
 		} else {
 			lines = append(lines, dimStyle.Render("  Type a query and press Enter to search."))
+			lines = append(lines, m.recentSearchLines()...)
 		}
 		body = bodyLines(lines, bodyBudget)
 	}

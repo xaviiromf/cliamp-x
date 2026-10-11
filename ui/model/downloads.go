@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -28,10 +29,19 @@ type downloadState struct {
 	percent  float64
 	done     int
 	failed   int
-	total    int
-	lastErr  string
 	events   chan downloadEvent
 	cancel   context.CancelFunc
+	// failedJobs are the songs that failed, kept for a retry from the
+	// downloads screen.
+	failedJobs []failedDownload
+	visible    bool // the downloads screen (Ctrl+O) is open
+	scroll     int
+}
+
+// failedDownload is a song whose download failed, with the reason.
+type failedDownload struct {
+	job offline.Job
+	err string
 }
 
 // downloadEvent is one step of the running download.
@@ -71,7 +81,7 @@ func (m *Model) downloadHighlighted() tea.Cmd {
 	}
 	seed, ok := m.discoverTarget()
 	if !ok {
-		m.status.Show(tr("Selecciona una canción, álbum o playlist para descargar", "Highlight a song, album or playlist to download"), statusTTLMedium)
+		m.status.Show(L("Highlight a song, album or playlist to download"), statusTTLMedium)
 		return nil
 	}
 	if seed.itemID == "" {
@@ -82,7 +92,7 @@ func (m *Model) downloadHighlighted() tea.Cmd {
 		prov = m.provider
 	}
 	id, label := seed.itemID, seed.label
-	m.status.Activityf(statusTTLLong, "%s %s…", tr("Preparando la descarga de", "Preparing the download of"), label)
+	m.status.Activityf(statusTTLLong, "%s %s…", L("Preparing the download of"), label)
 	return func() tea.Msg {
 		tracks, album, err := rowTracks(prov, id)
 		if err != nil {
@@ -117,7 +127,7 @@ func isAlbumID(id string) bool {
 
 func (m *Model) handleDownloadResolved(msg downloadResolvedMsg) tea.Cmd {
 	if msg.err != nil {
-		m.status.Warningf(statusTTLMedium, "%s: %s", tr("Descarga", "Download"), msg.err)
+		m.status.Warningf(statusTTLMedium, "%s: %s", L("Download"), msg.err)
 		return nil
 	}
 	return m.queueDownloads(msg.label, msg.jobs)
@@ -133,14 +143,13 @@ func (m *Model) queueDownloads(label string, jobs []offline.Job) tea.Cmd {
 		}
 		m.downloads.queued[p] = true
 		m.downloads.queue = append(m.downloads.queue, j)
-		m.downloads.total++
 		added++
 	}
 	if added == 0 {
-		m.status.Show(tr("Ya está descargado (o no se puede descargar)", "Already downloaded (or not downloadable)"), statusTTLMedium)
+		m.status.Show(L("Already downloaded (or not downloadable)"), statusTTLMedium)
 		return nil
 	}
-	m.status.Activityf(statusTTLMedium, "↓ %s: %d %s", label, added, tr("en cola", "queued"))
+	m.status.Activityf(statusTTLMedium, "↓ %s: %d %s", label, added, L("queued"))
 	if m.downloads.running {
 		return nil
 	}
@@ -160,7 +169,7 @@ func (m *Model) startNextDownload() tea.Cmd {
 	dir, err := tracksave.Directory(d.dir)
 	if err != nil {
 		d.running = false
-		m.status.Warningf(statusTTLMedium, "%s: %s", tr("Descarga", "Download"), err)
+		m.status.Warningf(statusTTLMedium, "%s: %s", L("Download"), err)
 		return nil
 	}
 	events := make(chan downloadEvent, 16)
@@ -191,7 +200,7 @@ func waitDownloadEvent(ch chan downloadEvent) tea.Cmd {
 func (m *Model) showDownloadProgress() {
 	d := m.downloads
 	n := d.done + d.failed + 1
-	m.status.Activityf(statusTTLLong, "↓ %d/%d · %s %.0f%%", n, d.total, d.current.Track.DisplayName(), d.percent)
+	m.status.Activityf(statusTTLLong, "↓ %d/%d · %s %.0f%%", n, n+len(d.queue), d.current.Track.DisplayName(), d.percent)
 }
 
 // handleDownloadEvent shows progress, and on a finished song starts the next.
@@ -203,23 +212,29 @@ func (m *Model) handleDownloadEvent(msg downloadEventMsg) tea.Cmd {
 		return waitDownloadEvent(d.events)
 	}
 	delete(d.queued, d.current.Track.Path)
-	if msg.ev.err != nil {
+	switch {
+	case errors.Is(msg.ev.err, context.Canceled):
+		// Stopped by x on the downloads screen: not a failure.
+	case msg.ev.err != nil:
 		d.failed++
-		d.lastErr = msg.ev.err.Error()
-	} else {
+		d.failedJobs = append(d.failedJobs, failedDownload{job: d.current, err: msg.ev.err.Error()})
+	default:
 		d.done++
 	}
 	if len(d.queue) > 0 {
 		return m.startNextDownload()
 	}
 	d.running = false
-	if d.failed > 0 {
-		m.status.Warningf(statusTTLLong, "↓ %d %s, %d %s: %s", d.done, tr("descargadas", "downloaded"), d.failed, tr("fallaron", "failed"), d.lastErr)
-	} else {
+	switch {
+	case d.done == 0 && d.failed == 0:
+		// Canceled before a song finished: nothing to report.
+	case d.failed > 0:
+		m.status.Warningf(statusTTLLong, "↓ %d %s, %d %s: %s", d.done, L("downloaded"), d.failed, L("failed"), d.failedJobs[len(d.failedJobs)-1].err)
+	default:
 		dir, _ := tracksave.Directory(d.dir)
-		m.status.Successf(statusTTLLong, "↓ %d %s %s", d.done, tr("descargadas en", "downloaded to"), dir)
+		m.status.Successf(statusTTLLong, "↓ %d %s %s", d.done, L("downloaded to"), dir)
 	}
-	d.done, d.failed, d.total, d.lastErr = 0, 0, 0, ""
+	d.done, d.failed = 0, 0
 	// The local music menus pick the new files up on their next read.
 	for _, pe := range m.providers {
 		if r, ok := pe.Provider.(interface{ Refresh() }); ok {
@@ -231,7 +246,7 @@ func (m *Model) handleDownloadEvent(msg downloadEventMsg) tea.Cmd {
 
 // downloadLine is the preview pane's note for a downloaded song.
 func downloadLine() string {
-	return "↓ " + tr("Descargada: suena sin conexión", "Downloaded: plays offline")
+	return "↓ " + L("Downloaded: plays offline")
 }
 
 // cancelDownloads stops the running download and empties the queue.
@@ -242,4 +257,19 @@ func (m *Model) cancelDownloads() {
 	}
 	d.queue = nil
 	clear(d.queued)
+}
+
+// retryFailedDownloads queues the failed songs again.
+func (m *Model) retryFailedDownloads() tea.Cmd {
+	d := &m.downloads
+	if len(d.failedJobs) == 0 {
+		m.status.Show(L("No failed downloads"), statusTTLShort)
+		return nil
+	}
+	jobs := make([]offline.Job, len(d.failedJobs))
+	for i, f := range d.failedJobs {
+		jobs[i] = f.job
+	}
+	d.failedJobs = nil
+	return m.queueDownloads(L("Retry"), jobs)
 }

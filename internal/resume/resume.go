@@ -12,13 +12,16 @@ import (
 	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
-// State holds enough information to resume a previous playback session.
+// State holds enough information to resume a previous playback session:
+// the live playlist (Context), the song that played in it and where, and the
+// songs queued to play next.
 type State struct {
 	Path         string           `json:"path"`
 	PositionSec  int              `json:"position_sec"`
 	Playlist     string           `json:"playlist,omitempty"`
 	Context      []playlist.Track `json:"context,omitempty"`
 	ContextIndex int              `json:"context_index,omitempty"`
+	Queue        []int            `json:"queue,omitempty"` // Context indexes, in play-next order
 }
 
 func stateFile() (string, error) {

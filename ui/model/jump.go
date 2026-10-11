@@ -148,5 +148,23 @@ func formatJumpClock(d time.Duration) string {
 }
 
 func formatJumpPlaceholder(d time.Duration) string {
-	return "00:00"
+	return "00:00  ·  70%"
+}
+
+// jumpTarget reads the jump input: a time, or a share of the track such as
+// "70%". duration is asked for the track length only for a share.
+func jumpTarget(raw string, duration func() time.Duration) (time.Duration, error) {
+	pct, ok := strings.CutSuffix(strings.TrimSpace(raw), "%")
+	if !ok {
+		return parseJumpTarget(raw)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(pct))
+	if err != nil || n < 0 || n > 100 {
+		return 0, fmt.Errorf("a percentage goes from 0%% to 100%%")
+	}
+	dur := duration()
+	if dur <= 0 {
+		return 0, fmt.Errorf("the track length is unknown")
+	}
+	return dur * time.Duration(n) / 100, nil
 }

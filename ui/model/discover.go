@@ -99,18 +99,18 @@ type moreLikeThisMsg struct {
 func (m *Model) moreLikeThis() tea.Cmd {
 	seed, ok := m.discoverTarget()
 	if !ok {
-		m.status.Show(tr("Selecciona una canción, álbum o artista", "Highlight a song, album or artist"), statusTTLMedium)
+		m.status.Show(L("Highlight a song, album or artist"), statusTTLMedium)
 		return nil
 	}
 	gen := nextRequest(&m.requests.discover)
-	m.status.Activityf(statusTTLLong, "%s %s…", tr("Buscando canciones como", "Finding songs like"), seed.label)
+	m.status.Activityf(statusTTLLong, "%s %s…", L("Finding songs like"), seed.label)
 	if seed.itemID != "" {
 		relater, ok := seed.prov.(provider.ItemRelater)
 		if !ok {
 			relater, _ = findCapable(m, func(provider.ItemRelater) bool { return true })
 		}
 		if relater == nil {
-			m.status.Show(tr("Esta fila no permite buscar canciones parecidas", "This row has no related songs"), statusTTLMedium)
+			m.status.Show(L("This row has no related songs"), statusTTLMedium)
 			return nil
 		}
 		id, label := seed.itemID, seed.label
@@ -126,7 +126,7 @@ func (m *Model) moreLikeThis() tea.Cmd {
 	}
 	relater, _ := findCapable(m, func(r provider.Relater) bool { return r.CanRelate(seed.track) })
 	if relater == nil {
-		m.status.Show(tr("Solo funciona con canciones de YouTube Music", "Works only with YouTube Music songs"), statusTTLMedium)
+		m.status.Show(L("Works only with YouTube Music songs"), statusTTLMedium)
 		return nil
 	}
 	track, label := seed.track, seed.label
@@ -147,11 +147,11 @@ func (m *Model) handleMoreLikeThis(msg moreLikeThisMsg) tea.Cmd {
 		return nil
 	}
 	if msg.err != nil {
-		m.status.Warningf(statusTTLMedium, "%s: %s", tr("Más como esto", "More like this"), msg.err)
+		m.status.Warningf(statusTTLMedium, "%s: %s", L("More like this"), msg.err)
 		return nil
 	}
 	if len(msg.tracks) < 2 {
-		m.status.Show(tr("No se encontraron canciones parecidas", "No related songs found"), statusTTLMedium)
+		m.status.Show(L("No related songs found"), statusTTLMedium)
 		return nil
 	}
 	m.stopPlayback()
@@ -167,7 +167,7 @@ func (m *Model) handleMoreLikeThis(msg moreLikeThisMsg) tea.Cmd {
 	if m.searchOverlay.visible {
 		m.closeSearchOverlay()
 	}
-	m.status.Successf(statusTTLDefault, "%s %s: %d %s", tr("Radio de", "Radio of"), msg.label, len(msg.tracks), tr("canciones", "songs"))
+	m.status.Successf(statusTTLDefault, "%s %s: %d %s", L("Radio of"), msg.label, len(msg.tracks), L("songs"))
 	return m.playCurrentTrack()
 }
 
@@ -181,12 +181,12 @@ type remixVariant struct {
 
 func remixVariants() []remixVariant {
 	return []remixVariant{
-		{tr("Remixes", "Remixes"), "remix", []string{"remix", "rmx", "edit", "flip", "rework", "vip"}},
+		{L("Remixes"), "remix", []string{"remix", "rmx", "edit", "flip", "rework", "vip"}},
 		{"Slowed + reverb", "slowed reverb", []string{"slowed", "reverb"}},
 		{"Sped up", "sped up", []string{"sped up", "speed up", "nightcore"}},
 		{"Nightcore", "nightcore", []string{"nightcore"}},
-		{tr("Bootlegs y mashups", "Bootlegs and mashups"), "bootleg mashup", []string{"bootleg", "mashup", "mash up", "phonk", "funk", "montagem"}},
-		{tr("Versiones y covers", "Versions and covers"), "cover version", []string{"cover", "version", "versión", "acoustic", "acústic", "live", "en vivo", "instrumental"}},
+		{L("Bootlegs and mashups"), "bootleg mashup", []string{"bootleg", "mashup", "mash up", "phonk", "funk", "montagem"}},
+		{L("Versions and covers"), "cover version", []string{"cover", "version", "versión", "acoustic", "acústic", "live", "en vivo", "instrumental"}},
 	}
 }
 
@@ -195,7 +195,7 @@ func remixVariants() []remixVariant {
 func (m *Model) findRemixes() tea.Cmd {
 	seed, ok := m.discoverTarget()
 	if !ok || seed.itemID != "" || seed.track.Title == "" {
-		m.status.Show(tr("Selecciona una canción para buscar sus remixes", "Highlight a song to find its remixes"), statusTTLMedium)
+		m.status.Show(L("Highlight a song to find its remixes"), statusTTLMedium)
 		return nil
 	}
 	prov := seed.prov
@@ -207,7 +207,7 @@ func (m *Model) findRemixes() tea.Cmd {
 	}
 	searcher, ok := prov.(provider.Searcher)
 	if !ok {
-		m.status.Show(tr("No hay un proveedor con búsqueda", "No provider can search"), statusTTLMedium)
+		m.status.Show(L("No provider can search"), statusTTLMedium)
 		return nil
 	}
 	base := cleanSongTitle(seed.track.Title)

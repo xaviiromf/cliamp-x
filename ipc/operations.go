@@ -131,6 +131,7 @@ func DefaultOperationRegistry() *OperationRegistry {
 		{Name: "seek.absolute", Description: "seek to an absolute position", Parameters: []string{"value"}},
 		{Name: "speed", Description: "set playback speed", Parameters: []string{"value"}},
 		{Name: "speed.adjust", Description: "adjust playback speed", Parameters: []string{"value"}},
+		{Name: "sleep", Description: "set the sleep timer in minutes: 0 turns it off, -1 pauses at the end of the song", Parameters: []string{"value"}},
 		{Name: "shuffle", Description: "set shuffle mode", Parameters: []string{"name"}},
 		{Name: "repeat", Description: "set repeat mode", Parameters: []string{"name"}},
 		{Name: "mono", Description: "set mono output", Parameters: []string{"name"}},

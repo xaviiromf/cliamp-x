@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -105,12 +106,15 @@ func TestLocaleFromEnv(t *testing.T) {
 type fakeAPI struct {
 	t        *testing.T
 	handlers map[string]func(body map[string]any, query string) string
+	mu       sync.Mutex // guards headers: background refreshes request at once
 	headers  []http.Header
 }
 
 func (f *fakeAPI) client(auth *Auth) *Client {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
 		f.headers = append(f.headers, r.Header.Clone())
+		f.mu.Unlock()
 		endpoint := strings.TrimPrefix(r.URL.Path, "/")
 		data, _ := io.ReadAll(r.Body)
 		var body map[string]any

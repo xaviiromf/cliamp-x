@@ -261,14 +261,14 @@ local p = plugin.register({
     permissions = {"keymap"},
 })
 
--- Listed in the Ctrl+K overlay under "— plugins —":
+-- Listed in the actions menu (F1) under "— Plugins —":
 p:bind("ctrl+n", "Extract chapters", function(key) ... end)
 
 -- Not listed (hidden binding):
 p:bind("ctrl+t", function(key) ... end)
 ```
 
-Returns `true` on success. Returns `false, reason` when cliamp-x's core UI owns the key or the plugin lacks the `keymap` permission. Pass a description as the middle argument to show the binding in the `Ctrl+K` keymap overlay. Omit it for an internal-only binding.
+Returns `true` on success. Returns `false, reason` when cliamp-x's core UI owns the key or the plugin lacks the `keymap` permission. Pass a description as the middle argument to show the binding in the actions menu (`F1` / `Ctrl+K`). Omit it for an internal-only binding.
 
 Use Bubbletea's `msg.String()` form for key strings: lowercase letters and the `ctrl+`, `shift+`, or `alt+` prefixes. For example: `"alt+n"`, `"ctrl+y"`, and `"shift+f1"`. Key strings are case-insensitive.
 

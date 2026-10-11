@@ -46,11 +46,11 @@ func normalizeModeName(mode player.NormalizeMode) string {
 func normalizeModeLabel(mode player.NormalizeMode) string {
 	switch mode {
 	case player.NormalizeOff:
-		return tr("desactivada", "off")
+		return L("off")
 	case player.NormalizeAlbum:
-		return tr("por álbum", "by album")
+		return L("by album")
 	}
-	return tr("por canción", "by song")
+	return L("by song")
 }
 
 // SetNormalize applies the normalization config: mode is "track", "album" or
@@ -77,7 +77,7 @@ func (m *Model) cycleNormalize() {
 		mode = player.NormalizeOff
 	}
 	n.SetNormalize(mode, target)
-	m.status.Showf(statusTTLMedium, "%s: %s", tr("Normalización de volumen", "Volume normalization"), normalizeModeLabel(mode))
+	m.status.Showf(statusTTLMedium, "%s: %s", L("Volume normalization"), normalizeModeLabel(mode))
 	_ = m.saveConfigString("normalize", normalizeModeName(mode))
 }
 

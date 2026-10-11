@@ -1,6 +1,8 @@
-# CLAUDE.md — cliamp-x
+# CLAUDE.md
 
-> A retro terminal music player (Go + Bubbletea). This file tells AI agents where things live, what conventions the codebase uses, and which skills to lean on.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+> cliamp-x is a retro terminal music player (Go + Bubbletea). This file tells AI agents where things live, what conventions the codebase uses, and which skills to lean on.
 
 `AGENTS.md` is a symlink to this file. Edit `CLAUDE.md` only.
 
@@ -30,6 +32,7 @@ Package `main` at the repo root:
 | `commands.go` | The root flags and every subcommand |
 | `ipc_client.go` | The V2 client of the subcommands, `cliamp-x open` and `cliamp-x remote`. Each call waits a bounded time |
 | `open.go` | `cliamp-x open` for `cliamp-x://` links. It maps each parsed link to a fixed set of operations |
+| `waybar.go` | `cliamp-x waybar`: a Waybar custom module that prints one JSON line per playback change from `state.get` and the IPC events |
 | `main_darwin.go` | Locks the main goroutine to the main OS thread on macOS with cgo |
 
 Each directory below is a Go package:
@@ -37,10 +40,11 @@ Each directory below is a Go package:
 | Path | Responsibility |
 |------|----------------|
 | `config/` | Loads `config.toml` with a hand-written parser in `config.go`. CLI overrides are in `flags.go`. `config` is the only config writer: `save` and `SaveSection` in `config.go`, and the typed savers in `saver.go` |
-| `player/` | The audio engine: decoding, FFmpeg and yt-dlp pipelines, the buffered provider pipeline, gapless, the 10-band EQ, volume, speed, ICY and the visualizer tap. `audio_device_*.go` holds the platform audio devices |
+| `player/` | The audio engine: decoding, FFmpeg and yt-dlp pipelines, the buffered provider pipeline, gapless, the 10-band EQ, volume, speed, ICY and the visualizer tap. `player.go` holds the `Player`, playback and preload. `player_seek.go`, `player_effects.go` (volume, the sleep-timer fade, speed, mono, EQ, crossfade), `player_metadata.go` and `player_hooks.go` (what providers register) hold the rest. `ytdl_info.go` prefetches the yt-dlp page info of the next song, so a skip to it starts in about 0.5 s instead of 3 s. `audio_device_*.go` holds the platform audio devices |
 | `playlist/` | The `Track` model, the queue with shuffle, repeat and play-next, M3U and PLS, the track TOML format, and the base `playlist.Provider` interface in `provider.go` |
 | `provider/` | The optional capability interfaces in `interfaces.go`, `Entry`, the `ProviderMeta` keys in `types.go`, and `AddTracks` |
-| `external/<name>/` | One package per provider: `ytmusic` (YouTube Music, signed in with browser cookies) and `local` (local playlists, favorites and history) |
+| `external/<name>/` | One package per provider: `ytmusic` (YouTube Music, signed in with browser cookies) and `local` (local playlists, favorites and history). `ytmusic/snapshot.go` keeps home, the library and the genres on disk, shown at once at start and refreshed behind |
+| `locallib/` | Indexes the tags of the local music folder in SQLite (`modernc.org/sqlite`), so local albums, artists and genres sit in the same menus as the YouTube Music ones. Refreshed incrementally |
 | `ui/artwork/` | Cover and thumbnail loading with a disk and memory cache, half-block drawing, the kitty graphics protocol (Unicode placeholders) and the cover palette |
 | `internal/sponsorblock/` | SponsorBlock segment lookups (hash-prefix privacy mode) |
 | `internal/loudstore/` | Remembered loudness per track for normalization, with ReplayGain tags for local files |
@@ -57,14 +61,14 @@ Each directory below is a Go package:
 | `pluginmgr/` | `cliamp-x plugins install`, `remove`, `list` and `trust`. Resolves GitHub, GitLab, Codeberg and direct URL sources |
 | `ipc/` | The V2 protocol over a Unix socket: the envelope, the operation registry, jobs and the event broker. See [IPC](#ipc) |
 | `mediactl/` | Media controls: MPRIS over D-Bus on Linux (bus name `org.mpris.MediaPlayer2.cliamp_x`). The macOS and Windows backends and `service_stub.go` are kept from upstream |
-| `lyrics/` | The lyrics lookup: embedded lyrics, LRCLIB and NetEase |
+| `lyrics/` | The lyrics lookup: embedded lyrics, LRCLIB and NetEase, with a disk cache of found lyrics in `cache.go` |
 | `theme/` | The theme loader and the built-in themes in `themes/` |
 | `cmd/` | The bodies of the `playlist`, `history` and `protocol` subcommands |
 | `applog/` | The log file `cliamp.log` in the config directory |
 | `upgrade/` | Self-update for `cliamp-x upgrade` |
 | `internal/` | Private helpers: `appdir` for the config, data and plugin directories, `appmeta` for the version, `authurl` for sign-in URLs, `browser`, `credstore` for credential files, `deeplink` for `cliamp-x://` parsing, `fileutil`, `fuzzy`, `httpclient` for the stream client and `NewAPI`, `netdiag`, `playback` for the shared messages and `Notifier`, `plugintrust`, `resume`, `sshurl`, `tomlutil` for `[[section]]` files, `ytdlcookies` and `ytdlp` |
 
-Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/install.sh` is the installer. `nix/package.nix` and `flake.nix` build the Nix package. `.github/workflows/` holds CI and release.
+Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/install.sh` is the installer. `packaging/` holds the AUR package and the `nfpm.yaml` for deb and rpm. `nix/package.nix` and `flake.nix` build the Nix package. `.github/workflows/` holds `ci.yml`, `release.yml` and `distros.yml`, which runs the installer in a container of each distribution family.
 
 ### Runtime flow (read this before touching `main.go`)
 
@@ -126,12 +130,14 @@ To add an operation:
 | Update loop | `update.go` is one type switch. After each message it lays out the frame, drops a stale preload, tells the media controls, emits the plugin events and publishes the IPC and plugin state. `update_load.go`, `update_nav.go`, `update_playback.go`, `update_provider.go` and `update_search.go` hold the message bodies. `tick.go` runs the frame tick. `commands.go` holds the `tea.Cmd` constructors and their messages |
 | Actions | `actions.go` holds one verb for each user intent that more than one entry point starts: keys, media controls, Lua and IPC. `queue_ops.go` holds the one queue edit rule for keys, IPC and Lua. `playback.go`, `playback_state.go`, `preload.go`, `seek.go` and `audio.go` run playback, the gapless preload, seek, EQ and speed. `eq_presets.go` holds the built-in EQ presets. `ytdl_batch.go` loads a long YouTube playlist in batches |
 | Reports | `notifications.go` updates the media controls. At track start it records history and sends the now-playing report. When a track that played past half its length is left, it sends the scrobble. `report_queue.go` keeps the provider reports in order. `favorites.go` copies a ♥ favorite to the service |
-| Keys | `keys.go` holds `handleKey` and the global keys. `keys_*.go` hold the keys of each screen. `command_registry.go` lists every key with its mode. It feeds the help bar, the `Ctrl+K` keymap in `keymap.go` and `ReservedKeys` for plugins |
+| Keys | `keys.go` holds `handleKey` and the global keys. `keys_*.go` hold the keys of each screen. `keys_provider.go` holds the provider pane keys and `keys_screens.go` the small screens. `command_registry.go` lists every key with its mode. It feeds the help bar (at most `maxHelpHints`), the actions menu and `ReservedKeys` for plugins. `keymap.go` is the actions menu (`F1`, `Ctrl+K`, `?`): `actionGroups` sorts every player command into sections, and a player command not in a group falls under "Navigation". `row_menu.go` reuses it as the row menu (`O`, right click) |
 | Overlays | `overlays_table.go` holds `overlayStack`. The first open overlay in it renders, gets the keys and gets pasted text. `overlays.go`, `inline_overlays.go`, `inline_overlays_nav.go`, `filebrowser.go`, `pl_picker.go`, `plmgr_append.go`, `lyrics.go`, `metadata.go`, `jump.go` and the `*_subs.go` files implement the overlays. `filter_list.go` holds the cursor, the scroll and the `/` filter of a list overlay. `search.go` filters the playlist for the `/` search |
-| View | `view.go`, `view_columns.go`, `view_helpers.go`, `view_nav.go`, `view_overlays.go`, `layout.go`, `scroll.go`, `playlist_rows.go`, `styles.go` and `title.go`. `textinput.go` edits the inline text inputs and draws their cursor |
+| View | `view_frame.go` (`View`, the sections and `renderFrame`), `view_header.go` (title, mode tags, clock, seek bar, controls), `view.go` (provider list and playlist), `view_columns.go`, `view_helpers.go`, `view_nav.go`, `view_overlays.go`, `layout.go`, `scroll.go` (also `withScrollbar`), `playlist_rows.go`, `styles.go` and `title.go`. `textinput.go` edits the inline text inputs and draws their cursor. `view_bench_test.go` has `BenchmarkView` and the test that `renderFrame` matches the lipgloss frame byte for byte |
 | Providers | `providers.go` switches providers, loads the provider pane and maps the `Y` (YouTube Music) and `L` (Local) shortcuts. `keys_favorites.go` handles the favorite keys. `nav_labels.go` names the browse levels |
 | IPC | `ipc_runtime.go` and `ipc_extended.go`. See [IPC](#ipc) |
 | Plugins | `plugin_events.go` emits the Lua events after each Update. `plugin_state.go` publishes the `PluginState` snapshot that Lua reads. `plugin_queue.go` applies `PluginQueueMsg` |
+| Fork features | `discover.go` (`M` more like this, `X` remixes), `autoradio.go` (`R`), `downloads.go` (`D` offline), `stats_view.go` (`S`), `queue_save.go` (`W` and the `*` marks), `eq_panel.go` (`E`), `sponsor.go` (SponsorBlock), `desktop.go` (desktop notifications), `mouse.go`, `cover.go` (cover visualizers, cover theme, fullscreen cover), `cover_fade.go` (the cover theme blends between songs) and `preview.go` (the cover pane under a list). `sleep.go` (`T` sleep timer), `downloads_view.go` (`Ctrl+O`), `search_history.go` (`Ctrl+F` history), `play_errors.go` (what to do when a YouTube song fails). `RestoreSession` and `captureSession` in `init.go` keep the playlist, song, position and play-next queue between runs. `audio_extras.go` adapts normalization and crossfade to the test engines; optional engine features (`SetFade`, `PrefetchYTDL`) are small interfaces checked with a type assertion, so the test engines need no stubs |
+| Language | `i18n.go` holds `L(en)` and `SetLanguage`. `i18n_es.go` is the Spanish catalog. Every fixed interface text (key labels, screen names, literal status messages, `actionGroups` labels) goes through `L`. `TestSpanishCatalog` in `i18n_test.go` fails `make test` when a key label, screen name, `L("...")` literal, actions menu label or literal status message has no Spanish entry, or when an entry changes its format verbs. A status text built only from verbs and symbols, such as `"%s: %d min"`, still needs an entry |
 
 Overlays are rows in `overlayStack`, not a mode stack. `Update` dispatches with a type switch, not a message-handler interface.
 
@@ -149,7 +155,7 @@ Lua plugins run in isolated `gopher-lua` VMs. A crash stays in its plugin. Each 
 
 ## Build, test, and local workflow
 
-`mise.toml` pins Go 1.26.6 and shellcheck 0.10.0. Run the targets through mise to use the pins, for example `mise exec -- make ci`.
+`mise.toml` pins Go 1.26.9 and shellcheck 0.10.0. Run the targets through mise to use the pins, for example `mise exec -- make ci`.
 
 | Target | What it does |
 |--------|--------------|
@@ -168,6 +174,8 @@ Lua plugins run in isolated `gopher-lua` VMs. A crash stays in its plugin. Each 
 | `make check` | `fmt`, `vet` and `test` |
 | `make install` | Builds and installs the binary into `~/.local/bin` |
 | `make clean` | Removes the binary |
+
+One test or one package: `mise exec -- go test ./ui/model -run 'TestSpanishCatalog' -count=1`. Add `-race` for the concurrency tests in `player/` and `luaplugin/`. The visualizer golden tests live in `ui/` and read `ui/testdata`.
 
 Keep these versions in step:
 
@@ -192,6 +200,7 @@ Config lives at `~/.config/cliamp-x/config.toml` (example at `config.toml.exampl
 - **Keep `docs/` in sync** on any user-visible change (keybindings, plugin APIs, config keys).
 - **Don't add emojis** to code or docs unless the user asks for them.
 - **Minimal diffs:** prefer editing in place over rewriting files. No speculative abstractions.
+- **Render hot paths:** `View` runs on every visualizer frame. In row and bar code, use `paint(style, s)` instead of `style.Render(s)` and `textWidth(s)` instead of `lipgloss.Width(s)`, both in `ui/model/styles.go`. They give the same bytes and widths (tests check every theme and random text) without the layout and grapheme work. Never call the file system while drawing: for example `offline.Manifest.Recorded`, not `Has`.
 
 ---
 

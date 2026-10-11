@@ -155,6 +155,8 @@ type keymapOverlay struct {
 	filterList
 	visible bool
 	entries []keymapEntry // core keys + plugin keys, rebuilt on openKeymap
+	last    string        // key and action of the entry run last
+	title   string        // the header of the row menu; "" for the actions menu
 }
 
 // queueOverlay holds state for the queue manager overlay.
@@ -350,6 +352,7 @@ type searchOverlayState struct {
 	newName      string                  // new playlist name input
 	err          string
 	cancel       func()
+	histPos      int // 0 = typed query, n = the nth remembered search
 }
 
 // catalogBatchState holds state for lazy-loading catalog entries from a provider.CatalogLoader.

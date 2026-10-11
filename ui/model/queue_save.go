@@ -39,14 +39,14 @@ func (m *Model) findQueueSaver() queueSaver {
 
 func (m *Model) openSaveQueue() {
 	if m.playlist == nil || m.playlist.Len() == 0 {
-		m.status.Show(tr("La cola está vacía", "The queue is empty"), statusTTLMedium)
+		m.status.Show(L("The queue is empty"), statusTTLMedium)
 		return
 	}
 	if m.findQueueSaver() == nil {
-		m.status.Show(tr("Ningún proveedor puede crear playlists", "No provider can create playlists"), statusTTLMedium)
+		m.status.Show(L("No provider can create playlists"), statusTTLMedium)
 		return
 	}
-	m.saveQueue = saveQueueState{active: true, name: tr("Cola ", "Queue ") + time.Now().Format("2006-01-02 15:04")}
+	m.saveQueue = saveQueueState{active: true, name: L("Queue ") + time.Now().Format("2006-01-02 15:04")}
 }
 
 func (m *Model) handleSaveQueueKey(msg tea.KeyPressMsg) tea.Cmd {
@@ -56,7 +56,7 @@ func (m *Model) handleSaveQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 	case tea.KeyEnter:
 		name := strings.TrimSpace(m.saveQueue.name)
 		if name == "" {
-			m.saveQueue.err = tr("Escribe un nombre para la playlist.", "Enter a name for the playlist.")
+			m.saveQueue.err = L("Enter a name for the playlist.")
 			return nil
 		}
 		saver := m.findQueueSaver()
@@ -65,7 +65,7 @@ func (m *Model) handleSaveQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		tracks := append([]playlist.Track(nil), m.playlist.Tracks()...)
 		m.saveQueue = saveQueueState{}
-		m.status.Activityf(statusTTLLong, "%s %q…", tr("Guardando la cola en", "Saving the queue to"), name)
+		m.status.Activityf(statusTTLLong, "%s %q…", L("Saving the queue to"), name)
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -86,12 +86,12 @@ func (m *Model) handleSaveQueueKey(msg tea.KeyPressMsg) tea.Cmd {
 
 func (m *Model) handleQueueSaved(msg queueSavedMsg) {
 	if msg.err != nil {
-		m.status.Errorf(statusTTLDefault, "%s: %s", tr("No se pudo guardar la cola", "Saving the queue failed"), msg.err)
+		m.status.Errorf(statusTTLDefault, "%s: %s", L("Saving the queue failed"), msg.err)
 		return
 	}
-	text := tr("Playlist %q creada con %d canciones", "Playlist %q created with %d songs")
+	text := L("Playlist %q created with %d songs")
 	if msg.skipped > 0 {
-		text += tr(" (%d locales omitidas)", " (%d local skipped)")
+		text += L(" (%d local skipped)")
 		m.status.Successf(statusTTLDefault, text, msg.name, msg.added, msg.skipped)
 	} else {
 		m.status.Successf(statusTTLDefault, text, msg.name, msg.added)
@@ -104,11 +104,11 @@ func (m *Model) handleQueueSaved(msg queueSavedMsg) {
 }
 
 func (m Model) saveQueueHeaderLine() string {
-	return m.promptHeader("save-queue", tr("Nombre de la playlist de YouTube Music", "YouTube Music playlist name"), m.saveQueue.name)
+	return m.promptHeader("save-queue", L("YouTube Music playlist name"), m.saveQueue.name)
 }
 
 func (m Model) renderSaveQueueBody() string {
-	lines := []string{dimStyle.Render("  " + tr("Enter guarda toda la cola como una playlist privada nueva en tu cuenta. Esc cancela.", "Enter saves the whole queue as a new private playlist in your account. Esc cancels."))}
+	lines := []string{dimStyle.Render("  " + L("Enter saves the whole queue as a new private playlist in your account. Esc cancels."))}
 	if m.saveQueue.err != "" {
 		lines = append(lines, errorStyle.Render("  "+m.saveQueue.err))
 	}
@@ -134,7 +134,7 @@ func (m *Model) toggleMark() {
 		m.adjustScroll()
 	}
 	if n := len(m.plMarks); n > 0 {
-		m.status.Showf(statusTTLMedium, "%d %s · x %s · Esc %s", n, tr("marcadas", "marked"), tr("las quita", "removes them"), tr("desmarca", "clears"))
+		m.status.Showf(statusTTLMedium, "%d %s · x %s · Esc %s", n, L("marked"), L("removes them"), L("clears"))
 	}
 }
 
@@ -162,6 +162,6 @@ func (m *Model) removeMarkedTracks() tea.Cmd {
 		}
 	})
 	clear(m.plMarks)
-	m.status.Showf(statusTTLMedium, "%d %s", removed, tr("canciones quitadas", "songs removed"))
+	m.status.Showf(statusTTLMedium, "%d %s", removed, L("songs removed"))
 	return tea.Batch(cmds...)
 }

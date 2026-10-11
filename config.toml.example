@@ -16,9 +16,11 @@ volume = 0
 # when the terminal cannot spare them. Range 1-40.
 # vis_rows = 7
 
-# How strongly the visualizers react to the music, 1 (calm) to 10 (very
-# sensitive). Each step is 3 dB of gain. "}" and "{" change it while playing
-# and save it here. Default: 7.
+# How strongly the visualizers react to the music, 1 (nearly flat) to 10
+# (follows every beat). Each step above 7 adds contrast between loud and quiet
+# bands and makes the bars rise and fall faster; each step below cuts 6 dB of
+# gain and slows them. "}" and "{" change it while playing and save it here.
+# Default: 7.
 # vis_sensitivity = 7
 
 # Repeat mode: "off", "all", or "one"
@@ -109,8 +111,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Interface language: "es" (Spanish) or "en" (English). Empty follows $LANG.
 # language = "es"
 
-# Desktop notification for each song that starts, with its cover and Next and
-# Like buttons where the notification server supports them. Default: true.
+# Desktop notification for each song that starts, with its cover and Pause,
+# Next and Like buttons where the notification server supports them. None
+# shows over the full-screen visualizer of a focused terminal. Default: true.
 # notifications = false
 
 # How the preview pane draws pictures: "kitty" sends real images with the

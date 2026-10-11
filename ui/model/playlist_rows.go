@@ -28,6 +28,18 @@ func (m *Model) setPlCursorRow(row int) {
 	m.adjustScroll()
 }
 
+// revealPlayingTrack puts the playlist cursor on the song that plays and
+// scrolls it into view, after browsing far away from it.
+func (m *Model) revealPlayingTrack() {
+	_, idx := m.currentPlaybackTrack()
+	if idx < 0 || idx >= m.playlist.Len() {
+		m.status.Show(L("Nothing is playing"), statusTTLShort)
+		return
+	}
+	m.plCursor = idx
+	m.adjustScroll()
+}
+
 // keepPlCursorRow runs change, then puts the playlist cursor back on its
 // view row. While shuffle is on, a change to the tracks can move the track
 // under the cursor to a different row.

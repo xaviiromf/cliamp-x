@@ -34,7 +34,8 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   que sigues, marcados mientras no los abras.
 - **Descargas para escuchar sin conexión** (`D`): canciones, álbumes y
   playlists con su carátula y etiquetas, ordenados por artista y álbum en
-  `~/Music/cliamp-x`. Lo descargado suena desde el disco.
+  `~/Music/cliamp-x`. Lo descargado suena desde el disco y lleva `↓` en la
+  lista. `Ctrl+O` muestra el progreso, cancela o reintenta las fallidas.
 - **Estadísticas** (`S`): tiempo escuchado, racha de días, actividad y tus
   artistas, canciones y géneros más escuchados por semana, mes o año.
 - **Letras de YouTube Music**: además de las sincronizadas de LRCLIB.
@@ -45,10 +46,20 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
 - **Interfaz en español**: menús, ayuda, teclas y avisos, según tu `LANG` o
   `language = "es"`.
 - **Notificaciones de escritorio**: cada canción nueva avisa con su carátula
-  y botones Siguiente y Me gusta.
+  y botones Pausar, Siguiente y Me gusta. No aparecen sobre el visualizador
+  a pantalla completa mientras lo miras.
 - **Módulo para Waybar** (`cliamp-x waybar`): la canción que suena en tu
   barra, con clic para pausar y rueda para el volumen. Ver
   [docs/waybar.md](docs/waybar.md).
+- **Sigue donde lo dejaste**: al abrir `cliamp-x` sin argumentos vuelve tu
+  última sesión, con la lista, la canción, el minuto y la cola, en pausa
+  hasta que pulses `Espacio`.
+- **Temporizador de apagado** (`T`): pausa la música tras 15 a 90 minutos o
+  al terminar la canción, con un fundido final.
+- **Menú de acciones** (`F1`): todos los comandos como botones, para usar
+  cliamp-x sin aprenderse las teclas. `O` o un clic derecho sobre una fila
+  muestra solo lo que se puede hacer con ella, incluido ir a su artista o a
+  su álbum.
 - **Radio automática**: cuando la cola termina, sigue con canciones parecidas
   a la última (`R` la activa o desactiva).
 - **Archivos locales integrados en los mismos menús**: tus álbumes, artistas y
@@ -175,6 +186,11 @@ cliamp-x https://example.com/stream  # una URL
 
 ## Teclas principales
 
+No hace falta aprenderse las teclas: `F1` abre el menú de acciones, con todos
+los comandos como botones agrupados (Reproducción, Cola, Buscar, Biblioteca,
+Sonido, Pantalla). Elige uno con las flechas y pulsa `Enter`. Cada botón
+muestra su tecla, así que el menú también sirve para aprenderlas.
+
 | Tecla | Acción |
 |---|---|
 | `Space` | Reproducir / pausar |
@@ -196,11 +212,12 @@ cliamp-x https://example.com/stream  # una URL
 | `X` | Buscar remixes y otras versiones de la canción |
 | `D` | Descargar la canción, álbum o playlist seleccionado |
 | `S` | Estadísticas de lo que escuchas |
+| `T` | Temporizador de apagado: 15, 30, 45, 60, 90 min o al terminar la canción, con fundido final |
 | `*` / `x` | Marcar canciones de la cola / quitar las marcadas |
 | `W` | Guardar la cola como playlist de YouTube Music |
 | `y` | Mostrar las letras |
 | `z` / `r` | Aleatorio / modo de repetición |
-| `Ctrl+K` / `?` | Ver todas las teclas |
+| `F1` / `Ctrl+K` / `?` | Menú de acciones: todos los comandos como botones |
 | `q` | Salir |
 
 La lista completa está en [docs/keybindings.md](docs/keybindings.md).

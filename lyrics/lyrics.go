@@ -93,10 +93,24 @@ type Source func(ctx context.Context) ([]Line, error)
 // returns the last LRCLIB or NetEase error, so a network failure does not
 // read as ErrNotFound. When both answer that they have none, it returns
 // ErrNotFound.
+//
+// With SetCacheDir, lyrics found once come from the disk cache after that.
 func Lookup(ctx context.Context, embedded, artist, title string, sources ...Source) ([]Line, error) {
 	if lines := ParseEmbedded(embedded); len(lines) > 0 {
 		return lines, nil
 	}
+	if lines, ok := readCache(artist, title); ok {
+		return lines, nil
+	}
+	lines, err := lookup(ctx, artist, title, sources)
+	if err == nil {
+		writeCache(artist, title, lines)
+	}
+	return lines, err
+}
+
+// lookup asks the sources, then LRCLIB and NetEase, as Lookup describes.
+func lookup(ctx context.Context, artist, title string, sources []Source) ([]Line, error) {
 	var plain []Line
 	for _, source := range sources {
 		sourceCtx, cancel := context.WithTimeout(ctx, sourceTimeout)

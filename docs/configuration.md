@@ -102,7 +102,8 @@ vis_volume_linked = true
 # The full screen visualizer (V) is unaffected: it always fills the terminal.
 vis_rows = 7
 
-# Visualizer sensitivity, 1 (calm) to 10 (very sensitive); "}" / "{" change it.
+# Visualizer sensitivity, 1 (nearly flat) to 10 (follows every beat); "}" / "{"
+# change it. Levels above 7 add contrast and speed, levels below cut gain.
 vis_sensitivity = 7
 
 # Reduce CPU usage by lowering UI cadence and disabling visualization.
@@ -135,7 +136,8 @@ mouse = true
 # Interface language: "es" or "en"; empty follows $LANG.
 language = ""
 
-# Desktop notification for each song that starts (cover, Next and Like buttons).
+# Desktop notification for each song that starts (cover, Pause, Next and Like
+# buttons). None shows over the full-screen visualizer of a focused terminal.
 notifications = true
 
 # Preview pictures: "auto", "kitty" (kitty graphics protocol) or "blocks".
@@ -233,8 +235,8 @@ controls, and playlist. Provider browsing and overlays keep their list-focused
 layout. Start one session with `cliamp-x --simplified`.
 
 `hide_help_bar = true` removes the key-binding hint bar above the status line
-and gives that row back to the playlist. The full keymap stays available with
-`?`. `Ctrl+G` toggles the bar and writes the new value back to this key, so the
+and gives that row back to the playlist. The actions menu stays available with
+`F1` or `?`. `Ctrl+G` toggles the bar and writes the new value back to this key, so the
 bar comes back the way you left it. Use `cliamp-x --no-help-bar` to hide it for
 one session, or `cliamp-x --help-bar` to show it despite this setting. Simplified
 mode draws neither the hint bar nor a playlist, so it is unaffected by this

@@ -198,7 +198,10 @@ func (m *Model) tickInterval() time.Duration {
 		if m.lowPower {
 			return ui.TickLowPowerPlaying
 		}
-		if m.visualizerVisible() && (m.visualizer60FPS || m.vis.UsesRawSamples()) {
+		// Without the focus the terminal may still be on screen (a tiling
+		// window manager shows it beside the focused one), so the visualizer
+		// keeps moving, at the normal cadence instead of 60 FPS.
+		if m.visualizerVisible() && (m.visualizer60FPS || m.vis.UsesRawSamples()) && !m.blurred {
 			return ui.TickAnim
 		}
 		if m.visualizerVisible() && m.vis.DriverOwnsCadence() {
@@ -231,7 +234,7 @@ func (m *Model) isFullyIdle() bool {
 	if m.visualizerSettlingPaused() {
 		return false
 	}
-	if m.buffering || m.termTitle.introActive || m.spinnerVisible() {
+	if m.buffering || m.termTitle.introActive || m.spinnerVisible() || m.coverFade.active {
 		return false
 	}
 	if !m.status.expiresAt.IsZero() || len(m.logLines) > 0 {
@@ -348,6 +351,8 @@ func (m *Model) handleTick(msg tickMsg) tea.Cmd {
 		cmds = append(cmds, gaplessCmds...)
 	}
 	m.tickResumeSave(now)
+	m.tickSleep(now)
+	m.tickCoverFade(now)
 	if cmd := m.tickSponsor(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}

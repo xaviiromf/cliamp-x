@@ -29,9 +29,9 @@ func TestVisSensitivityKeys(t *testing.T) {
 func TestVisSensitivityInKeymap(t *testing.T) {
 	m := newLayoutTestModel(120, 40)
 	for _, e := range m.buildKeymapEntries() {
-		if e.key == "} {" {
+		if e.key == "}" && e.run == "}" {
 			return
 		}
 	}
-	t.Fatal("the keymap must list } { for the visualizer sensitivity")
+	t.Fatal("the actions menu must list } for the visualizer sensitivity")
 }

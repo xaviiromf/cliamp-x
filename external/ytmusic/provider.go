@@ -89,6 +89,15 @@ type Provider struct {
 
 	previews previewCache
 
+	// The browse snapshot on disk: what home, the library and the genres held
+	// last run. Each flag marks a list that came from it and still waits for
+	// its first refresh.
+	snapLoaded                      bool
+	homeDisk, libraryDisk, catsDisk bool
+	snapSeq                         uint64     // snapshots taken, under mu
+	snapWriteMu                     sync.Mutex // orders the snapshot writes
+	snapWritten                     uint64     // newest snapshot written, under snapWriteMu
+
 	savedAlbums map[string]bool // library albums, by browse ID
 	subscribed  map[string]bool // subscribed artists, by channel ID
 }
@@ -172,11 +181,23 @@ func trackVideoID(t playlist.Track) string {
 
 func (p *Provider) cachedHome() []Shelf {
 	p.mu.Lock()
+	p.loadSnapshotLocked()
 	if p.home != nil && time.Since(p.homeAt) < cacheTTL {
 		defer p.mu.Unlock()
 		return p.home
 	}
+	if p.homeDisk {
+		p.homeDisk = false
+		defer p.mu.Unlock()
+		go p.fetchHome()
+		return p.home
+	}
 	p.mu.Unlock()
+	return p.fetchHome()
+}
+
+// fetchHome reads the home page from YouTube Music and keeps it.
+func (p *Provider) fetchHome() []Shelf {
 	ctx, cancel := budget()
 	defer cancel()
 	home, err := p.client.Home(ctx, 10)
@@ -187,6 +208,7 @@ func (p *Provider) cachedHome() []Shelf {
 	defer p.mu.Unlock()
 	if err == nil {
 		p.home, p.homeAt = home, time.Now()
+		p.saveSnapshotLocked()
 	}
 	return p.home
 }
@@ -196,11 +218,24 @@ func (p *Provider) cachedLibrary() []Item {
 		return nil
 	}
 	p.mu.Lock()
+	p.loadSnapshotLocked()
 	if p.library != nil && time.Since(p.libraryAt) < cacheTTL {
 		defer p.mu.Unlock()
 		return p.library
 	}
+	if p.libraryDisk {
+		p.libraryDisk = false
+		defer p.mu.Unlock()
+		go p.fetchLibrary()
+		return p.library
+	}
 	p.mu.Unlock()
+	return p.fetchLibrary()
+}
+
+// fetchLibrary reads the account's playlists from YouTube Music and keeps
+// them.
+func (p *Provider) fetchLibrary() []Item {
 	ctx, cancel := budget()
 	defer cancel()
 	items, err := p.client.LibraryPlaylists(ctx)
@@ -214,6 +249,7 @@ func (p *Provider) cachedLibrary() []Item {
 			items = []Item{}
 		}
 		p.library, p.libraryAt = items, time.Now()
+		p.saveSnapshotLocked()
 	}
 	return p.library
 }
@@ -257,11 +293,24 @@ func (p *Provider) cachedLiked() []Song {
 
 func (p *Provider) cachedCategories() []Category {
 	p.mu.Lock()
+	p.loadSnapshotLocked()
 	if p.cats != nil && time.Since(p.catsAt) < cacheTTL*4 {
 		defer p.mu.Unlock()
 		return p.cats
 	}
+	if p.catsDisk {
+		p.catsDisk = false
+		defer p.mu.Unlock()
+		go p.fetchCategories()
+		return p.cats
+	}
 	p.mu.Unlock()
+	return p.fetchCategories()
+}
+
+// fetchCategories reads the genres and moods from YouTube Music and keeps
+// them.
+func (p *Provider) fetchCategories() []Category {
 	ctx, cancel := budget()
 	defer cancel()
 	cats, err := p.client.Categories(ctx)
@@ -272,6 +321,7 @@ func (p *Provider) cachedCategories() []Category {
 	defer p.mu.Unlock()
 	if err == nil {
 		p.cats, p.catsAt = cats, time.Now()
+		p.saveSnapshotLocked()
 	}
 	return p.cats
 }
@@ -283,6 +333,7 @@ func (p *Provider) Refresh() {
 	p.opts.Local.Refresh()
 	var zero time.Time
 	p.homeAt, p.libraryAt, p.likedAt, p.catsAt, p.albumsAt, p.artistsAt = zero, zero, zero, zero, zero, zero
+	p.homeDisk, p.libraryDisk, p.catsDisk = false, false, false
 }
 
 // CanRefreshPlaylist reports that every row reloads in place.
@@ -932,6 +983,15 @@ func (p *Provider) ArtistForTrack(track playlist.Track) (provider.ArtistInfo, bo
 		name = name[:i]
 	}
 	return provider.ArtistInfo{ID: id, Name: name}, true
+}
+
+// AlbumForTrack resolves a YouTube Music song to its album.
+func (p *Provider) AlbumForTrack(track playlist.Track) (provider.AlbumInfo, bool) {
+	id := track.Meta(MetaAlbumID)
+	if id == "" {
+		return provider.AlbumInfo{}, false
+	}
+	return provider.AlbumInfo{ID: id, Name: track.Album, Artist: track.Artist, ArtistID: track.Meta(MetaArtistID)}, true
 }
 
 // --- favorites, history and playlists ---
