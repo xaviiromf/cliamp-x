@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -73,9 +74,9 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	if cursor < 0 {
 		return nil
 	}
-	// The seek bar and the playlist header sit above every list, and the
-	// preview pane and the hint bar below it, so a click on or past one is on
-	// the chrome, not on a row.
+	// The seek bar and the playlist header sit above every list, the EQ
+	// curve above the preset list, and the preview pane and the hint bar
+	// below it, so a click on or past one is on the chrome, not on a row.
 	preview := ""
 	if m.layout.previewRows > 1 {
 		preview, _, _ = strings.Cut(ansi.Strip(m.renderPreview()), "\n")
@@ -83,7 +84,7 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	}
 	for i := min(cursor+1, msg.Y); i <= max(cursor-1, msg.Y); i++ {
 		line := strings.TrimSpace(plain[i])
-		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(line, "▸─") || (preview != "" && line == preview) {
+		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(line, "▸─") || (preview != "" && line == preview) || isEQBandNames(line) {
 			return nil
 		}
 	}
@@ -145,6 +146,12 @@ func isSeekBarLine(line string) bool {
 		}
 	}
 	return strings.Contains(s, "●") || strings.Count(s, "━") > 0
+}
+
+// isEQBandNames reports whether a frame line is the Bass, Mids and Treble
+// row of the EQ panel, the last row above its preset list.
+func isEQBandNames(line string) bool {
+	return slices.Equal(strings.Fields(line), []string{L("Bass"), L("Mids"), L("Treble")})
 }
 
 // isSeparatorLine reports whether a frame line is a section rule, a section
