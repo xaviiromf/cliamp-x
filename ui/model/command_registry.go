@@ -139,6 +139,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider | commandModeNavBrowser, Keys: []string{"I"}, KeyLabel: "I", Label: "I'm interested (more like this)", Keymap: true, ContextHelp: true, Enabled: ratingEnabled},
 	{Mode: commandModeMain | commandModeProvider | commandModeNavBrowser, Keys: []string{"H"}, KeyLabel: "H", Label: "Not interested (hide)", Keymap: true, ContextHelp: true, Enabled: ratingEnabled},
 	{Mode: commandModeMain, Keys: []string{"f5", "ctrl+r"}, KeyLabel: "F5 / Ctrl+R", RunKey: "f5", Label: "Reload the open provider playlist", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider, Keys: []string{"P"}, KeyLabel: "P", Label: "Your ratings: undo an interested or not interested", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"O"}, KeyLabel: "O", Label: "Options for the highlighted song (also a right click)", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"F"}, KeyLabel: "F", Label: "Subscribed shows", Enabled: func(m Model) bool { return m.hasSubscriptions() }, Keymap: true},
 

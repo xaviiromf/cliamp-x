@@ -67,7 +67,7 @@ var actionGroups = []struct {
 		{run: "u"}, {run: "o"}, {run: "f5"}, {run: "esc"},
 	}},
 	{"Library", []actionButton{
-		{run: "f"}, {run: "I"}, {run: "H"}, {run: "D"}, {run: "ctrl+o"}, {run: "ctrl+s"}, {run: "i"}, {run: "y"}, {run: "S"}, {run: "R"},
+		{run: "f"}, {run: "I"}, {run: "H"}, {run: "P"}, {run: "D"}, {run: "ctrl+o"}, {run: "ctrl+s"}, {run: "i"}, {run: "y"}, {run: "S"}, {run: "R"},
 	}},
 	{"Sound", []actionButton{
 		{run: "+", keyLabel: "+", label: "Volume up"},

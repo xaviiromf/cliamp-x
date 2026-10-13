@@ -1,6 +1,7 @@
 package taste
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -44,5 +45,24 @@ func TestRateRoundTrip(t *testing.T) {
 	}
 	if got, _ := s.Rate("UC1", Item{}, Neutral); got != Neutral || s.Hidden([]string{"UC1"}, "Some Band") {
 		t.Fatal("neutral rating kept the artist hidden")
+	}
+}
+
+func TestOnlyItemsCanBeRated(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "taste.json")
+	old := `{"interested":{},"not_interested":{"browse:genres":{"kind":"list","name":"Genres"},"UC1":{"kind":"artist","name":"Band"}},"blocked_words":[],"blocked_artists":[]}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewAt(path)
+	if s.Interest("browse:genres") != Neutral || s.Interest("UC1") != NotInterested {
+		t.Fatal("a menu rating survived the load, or an artist rating did not")
+	}
+	if _, err := s.Rate("pl:x", Item{Kind: "list"}, NotInterested); err == nil {
+		t.Fatal("a list was rated")
+	}
+	got := s.Ratings()
+	if len(got) != 1 || got[0].ID != "UC1" {
+		t.Fatalf("Ratings = %+v", got)
 	}
 }

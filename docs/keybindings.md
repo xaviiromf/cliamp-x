@@ -166,8 +166,9 @@ rounds off the peaks, so boosts do not distort.
 | Key | Action |
 |---|---|
 | `f` | Toggle the favorite ♥ on the selected track. Favorites appear in the "Favorites" virtual playlist. |
-| `I` | I'm interested: in the queue, the Explore pane and the browser, on a song, album, artist, genre or list. The recommendations bring more like it. On a song it is also a like (the ♥ favorite, copied to YouTube Music) |
-| `H` | Not interested: the song, album, artist, genre or list leaves the list and never comes back in the recommendations. On a song it is also a dislike on YouTube Music; a playing song is skipped, another one leaves the queue (`Ctrl+Z` undoes that). The row menu (`O`) also has "Not interested in this artist" |
+| `I` | I'm interested: in the queue, the Explore pane and the browser, on one song, album, artist or genre (not on a menu such as Genres, or on a playlist). The recommendations bring more like it. On a song it is also a like (the ♥ favorite, copied to YouTube Music) |
+| `H` | Not interested: the song, album, artist or genre leaves the list and never comes back in the recommendations. On a song it is also a dislike on YouTube Music; a playing song is skipped, another one leaves the queue (`Ctrl+Z` undoes that). The row menu (`O`) also has "Not interested in this artist" |
+| `P` | Your ratings: everything marked interested or not interested. Enter on a row takes its rating back, so a mistaken `H` can be undone |
 | `Ctrl+F` | Search YouTube Music by name or link, or your saved playlists in the Local provider. Available in playlist and provider-browser views. The search line names the source. See [Search and filter modes](#search-and-filter-modes). |
 | `u` | Load URL (stream/playlist) |
 | `d` | Open the audio device picker |
@@ -330,7 +331,8 @@ Music or Local Playlists:
 | `/` | Filter the playlist list |
 | `Ctrl+F` | Search YouTube Music |
 | `F5` `Ctrl+R` | Refresh the provider: new recommendations, reload the currently open playlist in place, or return to the playlist list |
-| `I` `H` | I'm interested / not interested in the highlighted list (see [Features](#features)) |
+| `I` `H` | I'm interested / not interested in the highlighted album, artist or genre row (see [Features](#features)) |
+| `P` | Your ratings, to undo one |
 | `p` | Open the playlist as an overlay (the Local source shows it directly; create, rename, delete, add dirs/tracks) |
 | `Y` `L` | Switch to that provider |
 | `N` | Open the browser of the provider on screen |

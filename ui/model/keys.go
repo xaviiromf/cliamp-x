@@ -212,6 +212,8 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.rateInterest(taste.Interested)
 	case "H":
 		return m.rateInterest(taste.NotInterested)
+	case "P":
+		m.openRatingsMenu()
 	case "esc", "backspace", "b":
 		if m.focus == focusPlaylist && len(m.plMarks) > 0 {
 			// Esc first drops the marks.

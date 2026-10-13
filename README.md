@@ -26,7 +26,7 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   nueva de artistas parecidos a los tuyos y cargan más mientras bajas. `F5`
   muestra otros resultados.
 - **Me interesa / No me interesa** (`I` / `H`): en canciones, álbumes,
-  artistas, géneros y listas. Lo que no te interesa desaparece y no vuelve; en
+  artistas y géneros. `P` lista lo que calificaste y deshace un error. Lo que no te interesa desaparece y no vuelve; en
   una canción también es "me gusta" o "no me gusta" en tu cuenta. Por defecto
   se ocultan el reguetón, el urbano, el trap, la bachata y la salsa (editable
   en `taste.json`).

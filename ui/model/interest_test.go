@@ -2,8 +2,10 @@ package model
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 	"github.com/xaviiromf/cliamp-x/taste"
 )
@@ -46,4 +48,50 @@ func TestNotInterestedHidesTheRow(t *testing.T) {
 			t.Fatal("interest changed the list or was not stored")
 		}
 	})
+}
+
+func TestRatingsRules(t *testing.T) {
+	t.Run("a menu row in the pane cannot be rated", func(t *testing.T) {
+		m := newLayoutTestModel(80, 24)
+		m.SetTaste(taste.NewAt(filepath.Join(t.TempDir(), "taste.json")))
+		m.provider = ratingKindProvider{}
+		m.focus = focusProvider
+		m.provPane.lists = []playlist.PlaylistInfo{{ID: "browse:genres", Name: "Genres"}, {ID: "al:x", Name: "Record"}}
+		m.rateInterest(taste.NotInterested)
+		if len(m.provPane.lists) != 2 || len(m.taste.Ratings()) != 0 {
+			t.Fatal("the Genres menu row was rated")
+		}
+		m.provPane.cursor = 1
+		m.rateInterest(taste.NotInterested)
+		if len(m.provPane.lists) != 1 || m.taste.Interest("al:x") != taste.NotInterested {
+			t.Fatal("the album row was not rated")
+		}
+	})
+	t.Run("the ratings menu undoes a rating", func(t *testing.T) {
+		m := newLayoutTestModel(80, 24)
+		m.SetTaste(taste.NewAt(filepath.Join(t.TempDir(), "taste.json")))
+		if _, err := m.taste.Rate("UC1", taste.Item{Kind: taste.Artist, Name: "Band"}, taste.NotInterested); err != nil {
+			t.Fatal(err)
+		}
+		m.openRatingsMenu()
+		if !m.keymap.visible || len(m.keymap.entries) != 2 {
+			t.Fatalf("menu entries = %+v", m.keymap.entries)
+		}
+		m.keymap.entries[1].do(&m)
+		if m.taste.Interest("UC1") != taste.Neutral {
+			t.Fatal("the rating was not undone")
+		}
+	})
+}
+
+type ratingKindProvider struct{}
+
+func (ratingKindProvider) Name() string                                { return "Test" }
+func (ratingKindProvider) Playlists() ([]playlist.PlaylistInfo, error) { return nil, nil }
+func (ratingKindProvider) Tracks(string) ([]playlist.Track, error)     { return nil, nil }
+func (ratingKindProvider) RatingKind(id string) string {
+	if strings.HasPrefix(id, "al:") {
+		return "album"
+	}
+	return ""
 }

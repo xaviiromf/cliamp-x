@@ -84,7 +84,8 @@ un género, arma otra mezcla.
 
 En la cola, en el panel Explorar y en el navegador:
 
-- `I` (**me interesa**) en una canción, álbum, artista, género o lista: las
+- `I` (**me interesa**) en una canción, un álbum, un artista o un género
+  concreto (no en un menú como "Géneros" ni en una playlist): las
   recomendaciones traen más como eso. En una canción también es "me gusta"
   (♥) en tu cuenta.
 - `H` (**no me interesa**): la fila desaparece y no vuelve en las
@@ -92,6 +93,10 @@ En la cola, en el panel Explorar y en el navegador:
   canción también es "no me gusta" en tu cuenta, así YouTube Music aprende
   también; si suena, pasa a la siguiente. El menú de la fila (`O`) tiene
   además "No me interesa este artista".
+
+- `P` (**tus calificaciones**) lista todo lo que marcaste, separado en "No me
+  interesa" y "Me interesa". `Enter` sobre una fila deshace esa calificación,
+  por si te equivocaste.
 
 Las calificaciones se guardan en `~/.config/cliamp-x/taste.json`. Ahí también
 están las palabras y artistas que se ocultan siempre (`blocked_words` y

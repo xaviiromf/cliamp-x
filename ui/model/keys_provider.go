@@ -224,6 +224,8 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.rateInterest(taste.Interested)
 	case "H":
 		return m.rateInterest(taste.NotInterested)
+	case "P":
+		m.openRatingsMenu()
 	case "f":
 		return m.toggleProviderFavorite()
 	case "o":

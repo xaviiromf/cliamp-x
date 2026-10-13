@@ -10,6 +10,7 @@ package taste
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -31,8 +32,13 @@ const (
 	Album  Kind = "album"
 	Artist Kind = "artist"
 	Genre  Kind = "genre"
-	List   Kind = "list" // a playlist or another browse row
 )
+
+// rateable reports whether a kind can be rated: one song, album, artist or
+// genre, never a menu or a list.
+func (k Kind) rateable() bool {
+	return k == Song || k == Album || k == Artist || k == Genre
+}
 
 // Interest values.
 const (
@@ -132,6 +138,19 @@ func (s *Store) load() {
 	if s.d.NotInterested == nil {
 		s.d.NotInterested = map[string]Item{}
 	}
+	// v2.2.0 let a menu row such as "Genres" be rated; drop those.
+	dropped := false
+	for _, m := range []map[string]Item{s.d.Interested, s.d.NotInterested} {
+		for id, it := range m {
+			if !it.Kind.rateable() {
+				delete(m, id)
+				dropped = true
+			}
+		}
+	}
+	if dropped && !fresh {
+		_ = s.saveLocked()
+	}
 	if fresh {
 		s.d.BlockedWords = slices.Clone(DefaultBlockedWords)
 		s.d.BlockedArtists = slices.Clone(DefaultBlockedArtists)
@@ -185,6 +204,9 @@ func (s *Store) saveLocked() error {
 func (s *Store) Rate(id string, it Item, interest int) (int, error) {
 	if s == nil || id == "" {
 		return Neutral, nil
+	}
+	if interest != Neutral && !it.Kind.rateable() {
+		return Neutral, fmt.Errorf("taste: %q cannot be rated", it.Kind)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -277,6 +299,37 @@ func (s *Store) Liked(kind Kind) []string {
 		ids[i] = r.id
 	}
 	return ids
+}
+
+// Rated is one rating, for the list that undoes ratings.
+type Rated struct {
+	ID       string
+	Item     Item
+	Interest int
+}
+
+// Ratings returns every rating, "not interested" first, newest first in
+// each group.
+func (s *Store) Ratings() []Rated {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Rated
+	for id, it := range s.d.NotInterested {
+		out = append(out, Rated{id, it, NotInterested})
+	}
+	for id, it := range s.d.Interested {
+		out = append(out, Rated{id, it, Interested})
+	}
+	slices.SortFunc(out, func(a, b Rated) int {
+		if a.Interest != b.Interest {
+			return a.Interest - b.Interest
+		}
+		return b.Item.At.Compare(a.Item.At)
+	})
+	return out
 }
 
 // Path returns the file of the store, or "" in memory.

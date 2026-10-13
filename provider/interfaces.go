@@ -464,3 +464,10 @@ type ArtistPager interface {
 type TrackDisliker interface {
 	DislikeTrack(ctx context.Context, track playlist.Track) error
 }
+
+// RatingKinder tells which provider-pane rows are one album, artist or genre,
+// so "interested" (I) and "not interested" (H) apply to them and not to a
+// menu or a playlist. It returns "album", "artist", "genre" or "".
+type RatingKinder interface {
+	RatingKind(id string) string
+}

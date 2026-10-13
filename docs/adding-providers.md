@@ -67,6 +67,7 @@ and `playlist/provider.go` has `Authenticator`, `Refresher` and
 | `provider.ArtistPager` | An artist list that loads more as the listener scrolls |
 | `provider.TrackFavoriter` | `f` copies the ♥ favorite to your service |
 | `provider.TrackDisliker` | `H` (not interested) sends a dislike to your service |
+| `provider.RatingKinder` | Names the pane rows that are one album, artist or genre, so `I` and `H` work on them |
 | `provider.Relater` | `M` (more like this) and the auto radio |
 | `provider.PreviewLoader` | Details in the preview pane |
 | `provider.CustomStreamer` | Your own URI scheme, such as `myradio://` |

@@ -43,7 +43,13 @@ func (m *Model) currentInterestTarget() (interestTarget, bool) {
 			return interestTarget{}, false
 		}
 		row := m.provPane.lists[i]
-		return interestTarget{kind: taste.List, id: row.ID, name: row.Name, hide: func(m *Model) tea.Cmd {
+		// Only a row that is one album, artist or genre can be rated, never
+		// a menu such as "Genres" or a playlist.
+		rk, _ := m.provider.(provider.RatingKinder)
+		if rk == nil || rk.RatingKind(row.ID) == "" {
+			return interestTarget{}, false
+		}
+		return interestTarget{kind: taste.Kind(rk.RatingKind(row.ID)), id: row.ID, name: trimHeart(row.Name), hide: func(m *Model) tea.Cmd {
 			m.provPane.lists = slices.Delete(m.provPane.lists, i, i+1)
 			m.provPane.cursor = min(m.provPane.cursor, max(0, len(m.provPane.lists)-1))
 			m.providerMaybeAdjustScroll()
@@ -136,7 +142,7 @@ func trimHeart(name string) string { return setHeart(name, false) }
 func (m *Model) rateInterest(interest int) tea.Cmd {
 	target, ok := m.currentInterestTarget()
 	if !ok {
-		m.status.Show(L("Nothing to rate here"), statusTTLShort)
+		m.status.Show(L("Only a song, album, artist or genre can be rated"), statusTTLShort)
 		return nil
 	}
 	return m.applyInterest(target, interest)
@@ -263,4 +269,45 @@ func (m *Model) hideTrackArtist(track playlist.Track) tea.Cmd {
 		target.hide = (*Model).skipNext
 	}
 	return m.applyInterest(target, taste.NotInterested)
+}
+
+// ratingKindLabels name the rated kinds in the ratings menu.
+var ratingKindLabels = map[taste.Kind]string{
+	taste.Song: "Song", taste.Album: "Album", taste.Artist: "Artist", taste.Genre: "Genre",
+}
+
+// openRatingsMenu lists what was rated "not interested" and "interested" (P).
+// Choosing a row takes its rating back, so a mistaken H can be undone.
+func (m *Model) openRatingsMenu() {
+	ratings := m.taste.Ratings()
+	if len(ratings) == 0 {
+		m.status.Show(L("Nothing rated yet: I and H rate the highlighted song, album, artist or genre"), statusTTLMedium)
+		return
+	}
+	var entries []keymapEntry
+	group := 0
+	for _, r := range ratings {
+		if r.Interest != group {
+			group = r.Interest
+			title := L("Not interested")
+			if group > 0 {
+				title = L("Interested")
+			}
+			entries = append(entries, keymapEntry{action: "— " + title + " —", divider: true})
+		}
+		entries = append(entries, keymapEntry{key: L(ratingKindLabels[r.Item.Kind]), action: r.Item.Name, do: func(m *Model) tea.Cmd {
+			if _, err := m.taste.Rate(r.ID, r.Item, taste.Neutral); err != nil {
+				m.status.Errorf(statusTTLDefault, "%s: %s", L("Rating not saved"), err)
+				return nil
+			}
+			m.openRatingsMenu()
+			m.status.Successf(statusTTLMedium, "%s: %s", L("Rating undone"), r.Item.Name)
+			// The pane shows what was hidden again; the browser on F5.
+			if m.provider != nil && !m.provPane.loading {
+				return m.fetchProviderPlaylists()
+			}
+			return nil
+		}})
+	}
+	m.showKeymap(entries, L("Your ratings: Enter undoes one"))
 }

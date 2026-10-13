@@ -431,3 +431,17 @@ func (p *Provider) DislikeTrack(ctx context.Context, track playlist.Track) error
 	}
 	return p.client.SetDislike(ctx, id)
 }
+
+// RatingKind tells which pane rows can be rated: the albums (new releases),
+// the artists and the starred genres. Menus and playlists cannot.
+func (p *Provider) RatingKind(id string) string {
+	switch {
+	case strings.HasPrefix(id, prefixAlbum):
+		return "album"
+	case strings.HasPrefix(id, prefixArtist):
+		return "artist"
+	case strings.HasPrefix(id, prefixGenre):
+		return "genre"
+	}
+	return ""
+}
