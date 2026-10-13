@@ -883,6 +883,18 @@ func (p *Playlist) OrderWindow(start, limit int) ([]int, []Track) {
 	return indices, p.cloneTracksAt(indices)
 }
 
+// OrderCursor returns the play order position that Next continues from: the
+// playing track, or while a play-next track plays, the track before it. It
+// returns -1 for an empty playlist.
+func (p *Playlist) OrderCursor() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.order) == 0 {
+		return -1
+	}
+	return p.pos
+}
+
 // OrderPosition returns the play order position of the track at index idx.
 // It returns -1 if idx is out of range.
 func (p *Playlist) OrderPosition(idx int) int {

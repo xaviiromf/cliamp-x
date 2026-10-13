@@ -65,6 +65,8 @@ type Response struct {
 	Lyrics     []LyricLine    `json:"lyrics,omitempty"`
 	History    []HistoryInfo  `json:"history,omitempty"`
 	Devices    []DeviceInfo   `json:"devices,omitempty"`
+	Favorite   *bool          `json:"favorite,omitempty"`
+	Themes     []ThemeInfo    `json:"themes,omitempty"`
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.
@@ -123,6 +125,7 @@ type ProviderInfo struct {
 	BrowseArtists bool   `json:"browse_artists,omitempty"`
 	BrowseAlbums  bool   `json:"browse_albums,omitempty"`
 	Catalog       bool   `json:"catalog,omitempty"`
+	SignedIn      *bool  `json:"signed_in,omitempty"`
 }
 
 type ArtistInfo struct {

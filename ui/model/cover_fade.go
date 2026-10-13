@@ -41,6 +41,26 @@ func (m *Model) startCoverFade(next theme.Theme, now time.Time) {
 	*f = coverFade{shown: f.shown, to: next, from: from, at: to, start: now, active: true}
 }
 
+// themePalette returns the active theme with the colors on screen. The
+// cover theme reports the cover it shows or blends to, under its own name.
+func (m Model) themePalette() theme.Theme {
+	if m.themeIdx < 0 || m.themeIdx >= len(m.themes) {
+		return theme.Theme{Name: theme.DefaultName}
+	}
+	entry := m.themes[m.themeIdx]
+	if m.coverThemeActive() {
+		cover := m.coverFade.shown
+		if m.coverFade.active {
+			cover = m.coverFade.to
+		}
+		if cover.BG != "" {
+			cover.Name = entry.Name
+			return cover
+		}
+	}
+	return entry
+}
+
 // tickCoverFade moves a running blend to its share at now.
 func (m *Model) tickCoverFade(now time.Time) {
 	f := &m.coverFade

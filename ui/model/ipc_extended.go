@@ -225,7 +225,12 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			_, browseArtists := entry.Provider.(provider.ArtistBrowser)
 			_, browseAlbums := entry.Provider.(provider.AlbumBrowser)
 			_, catalog := entry.Provider.(provider.CatalogLoader)
-			items = append(items, ipc.ProviderInfo{Key: entry.Key, Name: entry.Name, Searchable: searchable, BrowseArtists: browseArtists, BrowseAlbums: browseAlbums, Catalog: catalog})
+			info := ipc.ProviderInfo{Key: entry.Key, Name: entry.Name, Searchable: searchable, BrowseArtists: browseArtists, BrowseAlbums: browseAlbums, Catalog: catalog}
+			if account, ok := entry.Provider.(interface{ SignedIn() bool }); ok {
+				signedIn := account.SignedIn()
+				info.SignedIn = &signedIn
+			}
+			items = append(items, info)
 		}
 		request.Reply <- ipc.Response{OK: true, Providers: items}
 		return nil
@@ -248,8 +253,12 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			if request.Context != nil && request.Context.Err() != nil {
 				return nil
 			}
-			_, err := creator.CreatePlaylist(requestContext(request.Context), request.Playlist)
-			request.Reply <- ipcResponseError(err)
+			id, err := creator.CreatePlaylist(requestContext(request.Context), request.Playlist)
+			response := ipcResponseError(err)
+			if err == nil {
+				response.Playlist = id
+			}
+			request.Reply <- response
 			return nil
 		}
 	case "playlist.rename":
@@ -334,7 +343,12 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 		}
 		track := ipcTrackFromInfo(*request.Track)
 		cmd, err := m.togglePlaylistTrackFavorite(track, m.savedPlaylistRow(track))
-		request.Reply <- ipcResponseError(err)
+		response := ipcResponseError(err)
+		if err == nil {
+			favorite := m.playlistTrackFavorited(track)
+			response.Favorite = &favorite
+		}
+		request.Reply <- response
 		return cmd
 	case "provider.playlists":
 		return func() tea.Msg {
@@ -497,8 +511,12 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			return nil
 		}
 		return func() tea.Msg {
-			_, _, err := favorites.ToggleFavorite(request.Playlist)
-			request.Reply <- ipcResponseError(err)
+			added, _, err := favorites.ToggleFavorite(request.Playlist)
+			response := ipcResponseError(err)
+			if err == nil {
+				response.Favorite = &added
+			}
+			request.Reply <- response
 			return nil
 		}
 	default:
@@ -579,9 +597,16 @@ func (m *Model) handleIPCProviderLoad(result ipcProviderLoadResult) tea.Cmd {
 		m.playlistSource = result.source
 	}
 	m.setHeaderStateFromTracks(result.tracks)
-	m.playlist.SetIndex(0)
-	m.plCursor = 0
-	result.request.Reply <- ipc.Response{OK: true, Tracks: ipcTrackInfos(result.tracks, m.trackFavoriteLookup(true)), Playlist: result.request.Playlist, Total: len(result.tracks)}
+	start := 0
+	if i := result.request.Index; i > 0 && i < len(result.tracks) {
+		start = i
+	}
+	m.playlist.SetIndex(start)
+	m.plCursor = start
+	// The first page only: a long list would not fit in one frame.
+	resp := m.v2PlaylistResponse()
+	resp.Playlist = result.request.Playlist
+	result.request.Reply <- resp
 	return m.playCurrentTrack()
 }
 

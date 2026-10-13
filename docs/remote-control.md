@@ -97,10 +97,31 @@ operation reported.
 }
 ```
 
+The snapshot also carries these fields. Each one is left out when it is
+false, zero or empty.
+
+| Field | Meaning |
+| --- | --- |
+| `buffering` | A track is starting. `position` is 0 until it plays |
+| `seeking` | A seek that restarts the decoder, as on a YouTube track, is running. `position` holds its target until it lands |
+| `error`, `error_kind`, `error_path` | Why the last track start failed, and the path of that track. `error_kind` is `network`, `session`, `ytdlp`, `unavailable` or empty. A start that works clears them. Browse errors never appear here |
+| `notice` | The status line while it shows: `{"text":"…","kind":"…"}`, with the kind `activity`, `success`, `warning` or `error`. The text is in the interface language |
+| `sleep_minutes`, `sleep_at` | The sleep timer in minutes, `-1` for the end of the song, and the Unix time when it pauses |
+| `auto_radio` | The auto radio is on |
+| `normalize` | The volume normalization: `off`, `track` or `album` |
+| `crossfade` | The crossfade between songs of different albums, in seconds |
+| `eq_auto` | The EQ preset follows the genre of each song |
+
+`theme` holds the colors on screen. With the cover theme, they are the
+colors of the cover it shows, or of the cover it blends to, under the name
+of the cover theme.
+
 `revision` changes when meaningful runtime state changes. `playlist_revision`
 changes when the live playlist or play-next list changes. Position-only playback
-ticks do not create events. Send `if_revision` with destructive live-playlist or
-play-next operations to reject stale GUI actions with the `conflict` error code.
+ticks do not create events. A seek that lands, a failed start, a status line
+that appears or expires, and a new cover palette create one. Send
+`if_revision` with destructive live-playlist or play-next operations to reject
+stale GUI actions with the `conflict` error code.
 
 `track` keeps `provider_meta`, embedded playback flags, and directory-source
 state. A GUI can send a provider result through `track.play`,
@@ -122,7 +143,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | --- | --- |
 | Playback | `play`, `pause`, `toggle`, `stop`, `next`, `prev`, `volume`, `volume.adjust`, `seek`, `seek.absolute`, `speed`, `speed.adjust`, `sleep`, `shuffle`, `repeat`, `mono`, `eq`, `device` |
 | Appearance | `theme`, `vis`, `ui.render` |
-| Live playlist | `queue`, `queue.list`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
+| Live playlist | `queue`, `queue.list`, `queue.replace`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog` |
@@ -136,6 +157,29 @@ off, and `-1` pauses when the playing song ends. `cliamp-x sleep 30`,
 
 `queue.*` applies to the live playlist. `playnext.*` applies only to the
 play-next list. They use separate zero-based indexes.
+
+`queue.list` pages the live playlist in track order with `offset` and
+`limit`, at most 200 tracks a page. With the `sort` `upnext`, it lists the
+tracks after the playing one in play order, the shuffle order while shuffle
+is on. After a play-next track, the order goes on after the track it
+interrupted. `total` then counts the tracks after the playing one, and the
+`index` of each track stays its index in the live playlist, for `queue.play`
+and `queue.remove`.
+
+`queue.replace` replaces the live playlist with `tracks`, from 1 to 1000
+tracks as other operations return them, and plays the one at `index`. An
+index out of range plays the nearest track. The result is the first page of
+the new live playlist. The live playlist then mirrors no saved playlist.
+Empty or too many `tracks` fail with `invalid_params`.
+
+```sh
+cliamp-x remote call queue.replace --params '{"tracks":[{"path":"/music/a.flac"},{"path":"/music/b.flac"}],"index":1}' --wait
+```
+
+`provider.load` and `provider.load_album` replace the live playlist with the
+list or the album and play the track at `index`, or the first one when
+`index` is out of range. The result is the first page of the new live
+playlist, as `queue.list` gives it, with `playlist` naming the loaded list.
 
 `queue`, `queue.move`, and `queue.remove` follow the rules of the
 `Shift+Up`, `Shift+Down`, and `x` keys. The Lua `cliamp.queue` functions
@@ -172,7 +216,9 @@ cliamp-x remote call vis --params '{"name":"list"}' --wait
 
 `theme list` and `cliamp-x theme list` return `Default - Terminal colors` as
 the first item. `theme` accepts that name or `default` to select the terminal
-colors.
+colors. The `list` result also gives `themes`, the same themes in the same
+order with their colors in the form of the snapshot `theme`. The Default
+theme has its name only.
 
 `ui.render` takes the `name` `off` or `on`. `off` stops drawing the screen
 and lowers the frame rate to the low-power cadence. Playback and every other
@@ -186,7 +232,9 @@ cliamp-x remote call ui.render --params '{"name":"off"}' --wait
 
 `eq` takes a built-in preset name, such as `Rock`, or a `band` and a `value`.
 It also accepts `Custom` to restore the saved custom curve. An unknown
-preset name fails the job and does not change the EQ.
+preset name fails the job and does not change the EQ. The name `list` returns
+the built-in presets and `Custom` in `items`, and the active preset in
+`eq_preset`.
 
 `shuffle` and `mono` take the `name` `on`, `off` or `toggle`. `repeat` takes
 `off`, `all`, `one` or `cycle`. With no `name`, they toggle or cycle. Any
@@ -195,7 +243,16 @@ other name fails the job with `invalid_params` and changes nothing.
 `playlist.bookmark` keeps its name for existing scripts. It toggles the favorite
 ♥ of `track`, as `f` does in the TUI. It needs a known `provider` key, but it
 does not change the playlist. The `bookmark` field of that row in
-`queue.list` changes. cliamp-x matches the row by path.
+`queue.list` changes. cliamp-x matches the row by path. The result gives
+the new state in `favorite`.
+
+`provider.favorite` saves or removes an album, artist or playlist in the
+provider account and gives the new state in `favorite`.
+`playlist.create` gives the ID of the new playlist in `playlist`. YouTube
+Music IDs look like `pl:VL…`. A local playlist's ID is its name.
+
+`provider.list` gives `signed_in` for a provider with an account, such as
+YouTube Music. It reads the stored session and makes no request.
 
 Use IDs returned by `provider.playlists` for subsequent provider operations.
 
@@ -225,7 +282,9 @@ If a client cannot keep up, it receives `system.overflow` with
 `cliamp-x visstream` uses V2 `spectrum.get` internally. It outputs one plain
 NDJSON frame at 30 FPS by default for status-bar and visualizer integrations.
 Use `--fps` to set a rate from 1 through 60. GUI clients can request one current
-frame with `spectrum.get`.
+frame with `spectrum.get`. While `ui.render` is `off`, and in headless mode,
+each `spectrum.get` analyzes the audio that plays at that moment, so a
+client that polls at its own frame rate gets live bands.
 
 ## CLI V2 Client
 

@@ -97,9 +97,12 @@ func (m *Model) handleYTDLUnpauseReconnect(msg ytdlUnpauseReconnectMsg) {
 	}
 	if msg.err != nil {
 		m.err = msg.err
+		track, _ := m.currentPlaybackTrack()
+		m.setPlayError(track.Path, msg.err)
 		return
 	}
 	m.err = nil
+	m.setPlayError("", nil)
 	if m.player.IsPaused() {
 		m.togglePlayerPause()
 	}
@@ -130,6 +133,7 @@ func (m *Model) handleStreamPlayed(msg streamPlayedMsg) tea.Cmd {
 		return m.nextTrack()
 	}
 	var resumeCmd, backfillCmd tea.Cmd
+	m.setPlayError(msg.path, msg.err)
 	if errors.Is(msg.err, playlist.ErrNeedsAuth) {
 		// The provider session went stale, for example after Spotify
 		// rejected the stream keys. Ask for sign-in, not a raw error.

@@ -259,7 +259,9 @@ func (m *Model) spinnerVisible() bool {
 }
 
 func (m *Model) tickVisualizer(now time.Time) {
-	if m.vis == nil {
+	// While nothing is drawn, the spectrum client drives the analysis, and a
+	// Suspend here would reset its smoothing between requests.
+	if m.vis == nil || (m.renderPaused && !m.headless) {
 		return
 	}
 	if !m.visualizerVisible() {
@@ -267,6 +269,25 @@ func (m *Model) tickVisualizer(now time.Time) {
 		return
 	}
 	m.vis.Tick(m.visualizerTickContext(now))
+}
+
+// tickVisualizerForClient analyzes the audio that plays now for a
+// spectrum client while nothing is drawn. The hidden layout may give the
+// visualizer no rows (simplified mode, the minimal tier), so the analysis
+// gets at least one row and a column count.
+func (m *Model) tickVisualizerForClient(now time.Time) {
+	if m.vis == nil || m.player == nil || m.vis.Mode == ui.VisNone {
+		return
+	}
+	m.vis.Rows = max(1, m.vis.Rows)
+	if m.vis.Cols <= 0 {
+		m.vis.Cols = 80
+	}
+	ctx := m.visualizerTickContext(now)
+	ctx.Playing = m.player.IsPlaying() && !m.player.IsPaused()
+	ctx.Paused = m.player.IsPlaying() && m.player.IsPaused()
+	ctx.OverlayActive = false
+	m.vis.Tick(ctx)
 }
 
 func (m Model) refreshVisualizerIfPending() {
@@ -284,7 +305,7 @@ func (m Model) refreshVisualizerIfPending() {
 }
 
 func (m Model) maybeRequestVisualizerRefresh(msg tea.Msg, wasScreen topLevelScreen, wasVisible bool, wasMode ui.VisMode, wasPlaying, wasPaused bool) {
-	if m.vis == nil {
+	if m.vis == nil || m.renderPaused {
 		return
 	}
 	if _, ok := msg.(tickMsg); ok {
