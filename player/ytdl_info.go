@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/xaviiromf/cliamp-x/internal/extbin"
 )
 
 // Extracting a YouTube page takes yt-dlp most of the seconds before the first
@@ -84,10 +82,7 @@ func (p *Player) PrefetchYTDL(pageURL string) {
 
 // fetchYTDLInfo writes the page info of pageURL to path with yt-dlp -J.
 func fetchYTDLInfo(ctx context.Context, pageURL, path string) error {
-	args := []string{"-f", ytdlFormat, "--no-playlist", "--quiet", "--no-warnings", "--socket-timeout", "15", "-J"}
-	args = appendYTDLCookieArgs(args, pageURL)
-	args = append(args, "--", pageURL)
-	out, err := extbin.Command(ctx, "yt-dlp", args...).Output()
+	out, err := ytdlOutput(ctx, pageURL, "-f", ytdlFormat, "--no-playlist", "--quiet", "--no-warnings", "--socket-timeout", "15", "-J")
 	if err != nil {
 		return err
 	}

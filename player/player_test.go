@@ -834,7 +834,7 @@ func blockedYTDLPlayback(t *testing.T) (*trackPipeline, <-chan struct{}, <-chan 
 	if err != nil {
 		t.Fatalf("decodeYTDLPipe() error = %v", err)
 	}
-	if err := prefillYTDLPipe(decoder); err != nil {
+	if err := prefillYTDLPipe(decoder, ytdlPipeTimeout); err != nil {
 		t.Fatalf("prefillYTDLPipe() error = %v", err)
 	}
 	tp := &trackPipeline{decoder: decoder, stream: decoder, format: format, ytdlSeek: true}
