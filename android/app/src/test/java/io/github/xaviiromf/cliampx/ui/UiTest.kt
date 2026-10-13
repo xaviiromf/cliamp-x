@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 class ArtUrlTest {
     private val song = "https://yt3.googleusercontent.com/qrY7xjd=w400-h400-l90-rj"
@@ -82,5 +83,20 @@ class GlyphTest {
         val canDisplay = awt.getMethod("canDisplay", Char::class.javaPrimitiveType)
         val missing = Glyphs.ALL.filterNot { canDisplay.invoke(font, it) as Boolean }
         assertTrue("missing: $missing", missing.isEmpty())
+    }
+}
+
+class PlayerArtTest {
+    @Test
+    fun neverNegative() {
+        // Portrait, the height left inside the insets: 343 dp art and the strip (§3.9).
+        assertEquals(343.dp to true, playerArt(411.dp, 763.dp))
+        for ((w, h) in listOf(411.dp to 891.dp, 891.dp to 411.dp, 891.dp to 300.dp, 20.dp to 20.dp, 0.dp to 0.dp)) {
+            val (art, strip) = playerArt(w, h)
+            assertTrue("$w × $h: $art", art >= 0.dp)
+            assertTrue("$w × $h: $art", art <= w)
+            if (strip) assertTrue(art >= 240.dp)
+        }
+        assertEquals(63.dp to false, playerArt(891.dp, 411.dp)) // landscape: 411 − 420 + 72
     }
 }

@@ -185,8 +185,8 @@ object PlaybackClock {
     }
 }
 
-/** A search row's kind, from its albumID (§5.3 Buscar). */
-enum class Kind { SONG, ARTIST, ALBUM, PLAYLIST }
+/** What a row or a tile is: a search row's kind comes from its albumID (§5.3 Buscar). */
+enum class Kind { SONG, ARTIST, ALBUM, PLAYLIST, GENRE }
 
 val Track.kind: Kind
     get() {
@@ -198,12 +198,148 @@ val Track.kind: Kind
         }
     }
 
+/** The ♥ of t: the state the core last reported for its path (Remote.liked), else the row's own. */
+fun Map<String, Boolean>.likes(t: Track) = this[t.path] ?: t.favorite
+
+/** A search placeholder row as the item its page and sheet open. */
+fun Track.item() = Item(kind, meta["albumID"].orEmpty().removePrefix("ar:"), title, artist, artUrl)
+
 @Immutable
 data class Section(val title: String, val rows: List<Track>)
 
 /** Search results grouped by provider_meta.section, in arrival order. */
 fun searchSections(tracks: List<Track>): List<Section> =
     tracks.groupBy { it.meta["section"].orEmpty() }.map { (title, rows) -> Section(title, rows) }
+
+/**
+ * What a tile, a row or an action sheet shows (§2.6): a song (with its
+ * track), an album, an artist, a playlist or a genre. id is what the
+ * provider operations take. section is the row's section, or a genre's group.
+ */
+@Immutable
+data class Item(
+    val kind: Kind,
+    val id: String,
+    val title: String,
+    val subtitle: String = "",
+    val art: String = "",
+    val track: Track? = null,
+    val favorite: Boolean = false,
+    val unseen: Boolean = false,
+    val provider: String = "ytmusic",
+    val artistId: String = "",
+    val writable: Boolean = false,
+    val count: Int = 0,
+    val section: String = "",
+) {
+    val local get() = id.startsWith("local:") || provider == "local"
+}
+
+/** A home shelf: its title and cards. */
+@Immutable
+data class Shelf(val title: String, val items: List<Item>)
+
+/** The picture and detail lines of an album, artist or playlist; favorite is null while unknown (signed out). */
+@Immutable
+data class Preview(val art: String, val lines: List<String>, val favorite: Boolean?)
+
+/** A genre's play order. */
+@Immutable
+data class Sort(val id: String, val label: String)
+
+/** The browse results of the core (docs/remote-control.md) as items. */
+object Items {
+    private fun objects(result: JSONObject, name: String): List<JSONObject> {
+        val a = result.optJSONArray(name) ?: return emptyList()
+        return List(a.length()) { a.getJSONObject(it) }
+    }
+
+    /** provider.albums and provider.artist_albums rows. */
+    fun albums(result: JSONObject) = objects(result, "albums").map {
+        val single = it.optBoolean("single")
+        Item(
+            Kind.ALBUM, it.optString("id"), RowName.of(it.optString("name"), single),
+            listOf(it.optString("artist"), it.optInt("year").takeIf { y -> y > 0 }?.toString().orEmpty()).filter(String::isNotEmpty).joinToString(" · "),
+            it.optString("image_url"), favorite = it.optBoolean("favorite"), artistId = it.optString("artist_id"),
+            count = it.optInt("track_count"), section = if (single) "single" else "",
+        )
+    }
+
+    /** provider.artists rows. */
+    fun artists(result: JSONObject) = objects(result, "artists").map {
+        Item(Kind.ARTIST, it.optString("id"), RowName.of(it.optString("name")), art = it.optString("image_url"), favorite = it.optBoolean("favorite"))
+    }
+
+    /**
+     * provider.playlists rows: a release (al:, named `Title · Artist[ · Single]`)
+     * is an album, a starred genre (genre:) a genre by the ID after the
+     * prefix, anything else a playlist.
+     */
+    fun playlists(result: JSONObject) = objects(result, "playlists").map {
+        val id = it.optString("id")
+        val name = RowName.of(it.optString("name"))
+        val base = Item(
+            Kind.PLAYLIST, id, name, art = it.optString("image_url"), favorite = it.optBoolean("favorite"),
+            unseen = it.optBoolean("unseen"), provider = it.optString("provider"), writable = it.optBoolean("writable"),
+            count = it.optInt("track_count"), section = it.optString("section"),
+        )
+        when {
+            id.startsWith("al:") -> base.copy(kind = Kind.ALBUM, title = name.substringBefore(" · "), subtitle = name.substringAfter(" · ", ""))
+            id.startsWith("genre:") -> base.copy(kind = Kind.GENRE, id = id.removePrefix("genre:"))
+            else -> base
+        }
+    }
+
+    /** provider.genres: the genres (group in section) and the play orders. */
+    fun genres(result: JSONObject): Pair<List<Item>, List<Sort>> =
+        objects(result, "genres").map {
+            Item(Kind.GENRE, it.optString("id"), RowName.of(it.optString("name")), favorite = it.optBoolean("favorite"), section = it.optString("group"))
+        } to objects(result, "sorts").map { Sort(it.optString("id"), it.optString("label")) }
+
+    /** provider.home shelves. */
+    fun shelves(result: JSONObject) = objects(result, "shelves").map { shelf ->
+        Shelf(
+            shelf.optString("title"),
+            objects(shelf, "items").map {
+                val kind = when (it.optString("kind")) {
+                    "song" -> Kind.SONG
+                    "artist" -> Kind.ARTIST
+                    "playlist" -> Kind.PLAYLIST
+                    else -> Kind.ALBUM
+                }
+                Item(kind, it.optString("id"), it.optString("title"), it.optString("subtitle"), it.optString("image_url"), it.optJSONObject("track")?.let(Track::parse))
+            },
+        )
+    }
+
+    /** provider.preview; blank lines and an artist's leading "♫ " dropped. */
+    fun preview(result: JSONObject): Preview {
+        val o = result.optJSONObject("preview") ?: JSONObject()
+        val lines = o.optJSONArray("lines")?.let { a -> List(a.length()) { a.optString(it).removePrefix("♫ ") } }.orEmpty().filter(String::isNotBlank)
+        return Preview(o.optString("image_url"), lines, if (o.has("favorite")) o.optBoolean("favorite") else null)
+    }
+
+    /** The history tracks, newest first, each song once, at most 20. */
+    fun history(result: JSONObject) = objects(result, "history").mapNotNull { it.optJSONObject("track")?.let(Track::parse) }.distinctBy { it.path }.take(20)
+}
+
+/** Row names as shown (§5.6): the core's marks and tags stay out of the label. */
+object RowName {
+    private val MARKS = Regex("^((♥|●|★) )+")
+
+    /** name without its ♥, ● and ★ marks and its ` · local` tag; a single also drops its ` · Singles & EPs` group. */
+    fun of(name: String, single: Boolean = false): String {
+        val n = name.replace(MARKS, "").removeSuffix(" · local")
+        return if (single && " · " in n) n.substringBeforeLast(" · ") else n
+    }
+}
+
+/** The last 10 search queries, newest first, each once (case aside). */
+fun recents(list: List<String>, query: String): List<String> {
+    val q = query.trim()
+    if (q.isEmpty()) return list
+    return (listOf(q) + list.filterNot { it.equals(q, ignoreCase = true) }).take(10)
+}
 
 /** mm:ss, or h:mm:ss. */
 fun clock(secs: Int): String {
@@ -281,7 +417,18 @@ fun playlistRevision(job: JSONObject): Long = job.optJSONObject("snapshot")?.opt
 object Paging {
     /** The offset of the next page of a whole list after loaded rows, or null at its end. */
     fun next(loaded: Int, total: Int): Int? = loaded.takeIf { it < total }
+
+    /** The next offset of a foryou list (§5.5): offset + limit, whatever came back; an empty page ends it. */
+    fun foryou(offset: Int, limit: Int, returned: Int): Int? = if (returned == 0) null else offset + limit
 }
+
+/**
+ * A play request of the song at path still loads (§2.2): it is the song
+ * on screen and neither plays nor failed. The yt-dlp extraction takes
+ * seconds, and the core reports no buffering meanwhile.
+ */
+fun loads(path: String, s: Snapshot): Boolean =
+    s.track?.path == path && !(s.playing && !s.buffering) && s.playError == null
 
 /**
  * A move from from to to as the adjacent swaps the core takes (§7.7), each
@@ -310,8 +457,8 @@ suspend fun sendSwaps(from: Int, to: Int, revision: Long?, send: suspend (JSONOb
  * The seek bar after a release (§5.4) shows the target until a snapshot
  * reports a position within 2 s of it, 5 s pass, or another song plays.
  */
-fun seekHolds(target: Double, path: String?, releasedAt: Long, s: Snapshot, now: Long): Boolean =
-    s.track?.path == path && now - releasedAt < 5000 &&
+fun seekHolds(target: Double, path: String?, releasedAt: Long, s: Snapshot, now: Long, holdMs: Long = 5000): Boolean =
+    s.track?.path == path && now - releasedAt < holdMs &&
         (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
 
 /** The spectrum bands linearly resampled to n bars. */

@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.xaviiromf.cliampx.Item
 import io.github.xaviiromf.cliampx.PlaybackClock
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
@@ -75,6 +76,16 @@ import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Track
 import io.github.xaviiromf.cliampx.clock
 import io.github.xaviiromf.cliampx.seekHolds
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -82,7 +93,7 @@ import kotlin.math.abs
 
 object Glyphs {
     /** Text glyphs drawn in JetBrains Mono; GlyphTest checks each one is in the font. */
-    const val ALL = "─▸▶◌✓✕✗░·…>_[]●‖■×"
+    const val ALL = "─▸▶◌✓✕✗░·…>_[]●‖■×◉≈◎→↓+"
 
     /** JetBrains Mono 2.304 has no braille: Android draws these with its fallback font. */
     const val SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -170,7 +181,7 @@ fun TrackRow(
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
     Row(
-        modifier.fillMaxWidth().height(64.dp).background(p.bg)
+        modifier.fillMaxWidth().heightIn(min = 64.dp).background(p.bg)
             .combinedClickable(
                 onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
                 onClick = onClick,
@@ -407,3 +418,161 @@ fun Banner(tag: String, content: @Composable RowScope.() -> Unit) {
 
 /** Bold variant of a style, for the active tab and chips. */
 fun TextStyle.bold(on: Boolean) = if (on) copy(fontWeight = FontWeight.Bold) else this
+
+/** A screen part's data (§2.10): loading, failed with the message to show, or done. */
+@Immutable
+sealed interface Load<out T> {
+    data object Loading : Load<Nothing>
+    data class Failed(val message: String) : Load<Nothing>
+    data class Done<T>(val value: T) : Load<T>
+}
+
+/**
+ * What load gives (a Remote read cached under key): the cached value at
+ * once when there is one, so a screen that comes back keeps its scroll,
+ * else Loading. It loads again on a reconnect, a pull and retry().
+ */
+@Composable
+fun <T> rememberLoad(key: String, load: suspend () -> T): Pair<Load<T>, () -> Unit> {
+    val reloads by Remote.reloads.collectAsStateWithLifecycle()
+    var attempt by remember(key) { mutableIntStateOf(0) }
+    var state by remember(key) { mutableStateOf<Load<T>>(Remote.peek<T>(key)?.let { Load.Done(it) } ?: Load.Loading) }
+    LaunchedEffect(key, reloads, attempt) {
+        if (state is Load.Failed) state = Load.Loading
+        state = try {
+            Load.Done(load())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Load.Failed(Remote.message(e))
+        }
+    }
+    return state to { attempt++ }
+}
+
+/** A detail page's top row: ← and, when given, ⋮ (§3.6). */
+@Composable
+fun TopBar(title: String = "", more: (() -> Unit)? = null) {
+    val p = LocalPalette.current
+    Row(Modifier.fillMaxWidth().height(48.dp).padding(end = if (more == null) 16.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("detail_back")) { Nav.pop() }
+        Text(
+            if (title.isEmpty()) "" else "▸─ $title " + "─".repeat(80), Modifier.weight(1f),
+            color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+        )
+        if (more != null) IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("detail_more"), onClick = more)
+    }
+}
+
+/**
+ * A 136 dp tile (§3.2): square art, the title and a dim subtitle. A tap
+ * opens or plays it, a long-press its actions. ● marks an unseen release.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Tile(item: Item, modifier: Modifier = Modifier, width: Dp = 136.dp, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    val haptic = LocalHapticFeedback.current
+    Column(
+        modifier.width(width).combinedClickable(
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                Nav.sheet = item.track?.let { Sheet.Song(it) } ?: Sheet.Of(item)
+            },
+            onClick = onClick,
+        ),
+    ) {
+        Box {
+            ArtBox(item.art.ifEmpty { item.track?.art.orEmpty() }, width)
+            if (item.unseen) Text("●", Modifier.background(p.bg).padding(horizontal = 4.dp), color = p.accent, style = Type.body)
+        }
+        Text(item.title, Modifier.padding(top = 6.dp), color = p.textPrimary, style = Type.tile, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(item.subtitle, color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A tile-sized spinner while a carousel loads (§2.10). */
+@Composable
+fun SpinnerTile(modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Box(modifier.size(136.dp).background(p.surface), contentAlignment = Alignment.Center) {
+        Text(spinner(), color = p.accent, style = Type.headline)
+    }
+}
+
+/** `── Title ──` and a row of tiles; tag names each tile `tile_<tag>_<i>`. */
+@Composable
+fun Carousel(title: String, items: List<Item>, tag: String, action: @Composable (() -> Unit)? = null, onClick: (Int, Item) -> Unit) {
+    SectionRule(title, action)
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(items, key = { i, it -> "$i:${it.id}" }) { i, item -> Tile(item, Modifier.testTag("tile_${tag}_$i")) { onClick(i, item) } }
+    }
+}
+
+/**
+ * Opens item: a song plays songs (the list it sits in) from its place,
+ * anything else pushes its page.
+ */
+fun openItem(item: Item, songs: List<Item>) {
+    val track = item.track
+    if (track == null) {
+        item.screen()?.let(Nav::open)
+        return
+    }
+    val tracks = songs.mapNotNull { it.track }
+    Remote.play(tracks, tracks.indexOf(track).coerceAtLeast(0))
+}
+
+/** Pull to refresh (§7.5) with the braille spinner in place of Material's disc. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun Pull(onRefresh: suspend () -> Unit, content: @Composable () -> Unit) {
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val state = rememberPullToRefreshState()
+    PullToRefreshBox(
+        refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                try {
+                    onRefresh()
+                } finally {
+                    refreshing = false
+                }
+            }
+        },
+        Modifier.fillMaxSize(),
+        state = state,
+        indicator = {
+            if (refreshing || state.distanceFraction > 0f) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).background(LocalPalette.current.surface).padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    SpinnerLine(stringResource(R.string.loading), Type.caption)
+                }
+            }
+        },
+    ) { content() }
+}
+
+/** The common pull of Inicio and the detail pages: the provider drops its caches, then everything on show loads again. */
+suspend fun refreshAll() {
+    if (!Remote.online()) Remote.showOffline()
+    try {
+        Remote.call("provider.refresh", JSONObject().put("provider", "ytmusic"))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Remote.showError(e)
+    }
+    Remote.reload()
+}
+
+/** A detail page's rows of state: loading, the error with Reintentar, or nothing. */
+@Composable
+fun <T> LoadState(load: Load<T>, retry: () -> Unit) {
+    when (load) {
+        Load.Loading -> Loading()
+        is Load.Failed -> ErrorState(load.message, retry)
+        is Load.Done -> {}
+    }
+}

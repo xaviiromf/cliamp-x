@@ -1,5 +1,6 @@
 package io.github.xaviiromf.cliampx.ui
 
+import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.provider.Settings
@@ -19,6 +20,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,6 +29,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
@@ -64,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.ErrorMap
@@ -74,10 +79,15 @@ import io.github.xaviiromf.cliampx.SettingsActivity
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Updates
 import io.github.xaviiromf.cliampx.Ytdlp
+import io.github.xaviiromf.cliampx.likes
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
 /** The app shell (UI-SPEC §2): the open tab, the status line, the mini-player and the tab bar. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun App(firstRun: Boolean) {
     val p = LocalPalette.current
@@ -85,18 +95,29 @@ fun App(firstRun: Boolean) {
     val stopped by Remote.stopped.collectAsStateWithLifecycle()
     val snap by Remote.state.collectAsStateWithLifecycle()
     if (!connected && snap == null) return Splash(firstRun, stopped)
-    BackHandler(enabled = Nav.tab != Tab.Home) { Nav.back() }
+    BackHandler(enabled = Nav.canBack) { Nav.back() }
     val holder = rememberSaveableStateHolder()
+    // A popped screen's lists and scroll go with it.
+    LaunchedEffect(Nav.dropped.size) {
+        Nav.dropped.forEach(holder::removeState)
+        Nav.dropped.clear()
+    }
     // The bars' backgrounds run to the screen edges; their content keeps clear of a side nav bar and the cutout.
     val sides = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
     Column(Modifier.fillMaxSize().background(p.bg).imePadding()) {
         Column(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-            AnimatedContent(Nav.tab, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "tab") { tab ->
-                holder.SaveableStateProvider(tab.name) {
-                    when (tab) {
-                        Tab.Home -> HomeScreen()
-                        Tab.Search -> SearchScreen()
-                        Tab.Library -> LibraryScreen()
+            AnimatedContent(Nav.top, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "screen") { entry ->
+                holder.SaveableStateProvider(entry.key) {
+                    when (val screen = entry.screen) {
+                        Screen.Home -> HomeScreen()
+                        Screen.Search -> SearchScreen()
+                        Screen.Library -> LibraryScreen()
+                        is Screen.Album -> AlbumScreen(screen)
+                        is Screen.Artist -> ArtistScreen(screen)
+                        is Screen.Playlist -> PlaylistScreen(screen)
+                        is Screen.Genre -> GenreScreen(screen)
+                        is Screen.ParaTi -> ParaTiScreen(screen)
+                        is Screen.Remixes -> RemixesScreen(screen)
                     }
                 }
             }
@@ -109,6 +130,9 @@ fun App(firstRun: Boolean) {
     // A sheet takes the focus from the search field, so closing it never brings the keyboard back (§1.2).
     val focus = LocalFocusManager.current
     LaunchedEffect(Nav.player || Nav.sheet != null) { if (Nav.player || Nav.sheet != null) focus.clearFocus() }
+    // A keyboard hidden with back leaves no focused field, which a recreated window would open again.
+    val ime = WindowInsets.isImeVisible
+    LaunchedEffect(ime) { if (!ime) focus.clearFocus() }
     // No song or no core: the sheet closes (an open request too), so it does not open by itself later and the shell's banner shows.
     val s = snap
     val gone = s?.track == null || stopped
@@ -119,6 +143,10 @@ fun App(firstRun: Boolean) {
         }
     }
     if (Nav.player && !stopped && s?.track != null) PlayerSheet(s)
+    // The battery card waits for the first song (§2.10).
+    val context = LocalContext.current
+    val playing = s?.playing == true
+    LaunchedEffect(playing) { if (playing) context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit { putBoolean(PLAYED, true) } }
     SheetHost(snap)
 }
 
@@ -159,8 +187,9 @@ private fun CoreStopped() {
 @Composable
 fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
-    val appError by produceState<String?>(null) {
-        Remote.errors.collect {
+    // An app message for 4 s: a failed call (true), or a done action the core does not report.
+    val app by produceState<Pair<String, Boolean>?>(null) {
+        merge(Remote.errors.map { it to true }, Remote.info.map { it to false }).collectLatest {
             value = it
             delay(4000)
             value = null
@@ -168,7 +197,8 @@ fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
     }
     val notice = snap?.notice?.takeUnless { it.kind in setOf("warning", "error") && snap.playError != null }
     val (text, color) = when {
-        appError != null -> "ERR: $appError" to p.error
+        app?.second == true -> "ERR: ${app?.first}" to p.error
+        app != null -> app?.first.orEmpty() to p.playing
         notice == null -> return
         notice.kind == "success" -> notice.text to p.playing
         notice.kind == "warning" -> "WARN: ${notice.text}" to p.warning
@@ -191,6 +221,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
     val pending by Remote.pending.collectAsStateWithLifecycle()
     val waiting by Remote.gateWaiting.collectAsStateWithLifecycle()
+    val liked by Remote.liked.collectAsStateWithLifecycle()
     val track = pending ?: snap?.track ?: return
     val error = snap?.playError?.takeIf { pending == null }
     val (second, color) = when {
@@ -216,7 +247,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
             )
             .clickable { open() },
     ) {
-        Row(Modifier.fillMaxWidth().height(62.dp).skipSwipe().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).skipSwipe().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ArtBox(track.art, 48.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -226,11 +257,16 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
                 )
                 Text(second, color = color, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (pending == null) FavoriteButton(track.favorite, Modifier.testTag("mini_fav")) { Remote.favorite(track) }
-            IconBtn(
-                if (playing) R.drawable.ic_pause else R.drawable.ic_play, stringResource(R.string.play_pause),
-                Modifier.testTag("mini_toggle"), tint = p.textPrimary,
-            ) { Remote.fire("toggle") }
+            if (pending == null) {
+                FavoriteButton(liked.likes(track), Modifier.testTag("mini_fav")) { Remote.favorite(track) }
+                IconBtn(
+                    if (playing) R.drawable.ic_pause else R.drawable.ic_play, stringResource(R.string.play_pause),
+                    Modifier.testTag("mini_toggle"), tint = p.textPrimary,
+                ) { Remote.fire("toggle") }
+            } else {
+                // Loading: neither ▶ nor ‖ until the song plays.
+                Box(Modifier.size(48.dp).testTag("mini_loading"), contentAlignment = Alignment.Center) { Text(spinner(), color = p.accent, style = Type.headline) }
+            }
         }
         Progress(snap)
     }

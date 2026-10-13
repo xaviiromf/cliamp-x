@@ -85,6 +85,11 @@ class CliampService : Service(), TerminalSessionClient {
     private var art: Bitmap? = null
     private var snap: Snapshot? = null
 
+    // A seek from the notification or the lock screen: the session shows the target until the core reports it (§5.4).
+    private var seekTarget = 0.0
+    private var seekPath: String? = null
+    private var seekAt = 0L
+
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onCreate() {
@@ -106,7 +111,7 @@ class CliampService : Service(), TerminalSessionClient {
             Remote.state.filterNotNull().distinctUntilChanged { a, b ->
                 val now = SystemClock.elapsedRealtime()
                 a.track?.path == b.track?.path && a.track?.title == b.track?.title && a.state == b.state &&
-                    a.buffering == b.buffering && a.speed == b.speed && a.duration == b.duration && a.seekable == b.seekable &&
+                    a.buffering == b.buffering && a.seeking == b.seeking && a.speed == b.speed && a.duration == b.duration && a.seekable == b.seekable &&
                     abs(PlaybackClock.positionAt(a, now) - PlaybackClock.positionAt(b, now)) < 2
             }.collect(::onState)
         }
@@ -226,6 +231,9 @@ class CliampService : Service(), TerminalSessionClient {
     private fun publish() {
         if (session == null) return // stopped: keep the notification gone
         val s = snap ?: return
+        val now = SystemClock.elapsedRealtime()
+        // A YouTube seek reopens the stream for about 12 s, and the snapshots meanwhile carry the old position.
+        val held = seekPath != null && seekHolds(seekTarget, seekPath, seekAt, s, now, SEEK_HOLD_MS)
         media.setMetadata(
             MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, s.track?.name.orEmpty())
@@ -236,7 +244,8 @@ class CliampService : Service(), TerminalSessionClient {
                 .build()
         )
         val state = when {
-            s.playing && s.buffering -> PlaybackStateCompat.STATE_BUFFERING
+            // A seek stands still until it lands (G7 reports its target meanwhile): the system must not move it on.
+            s.playing && (s.buffering || s.seeking) -> PlaybackStateCompat.STATE_BUFFERING
             s.playing -> PlaybackStateCompat.STATE_PLAYING
             s.state == "paused" -> PlaybackStateCompat.STATE_PAUSED
             else -> PlaybackStateCompat.STATE_STOPPED
@@ -251,8 +260,11 @@ class CliampService : Service(), TerminalSessionClient {
                 )
                 // Android 13+ builds the media controls from the session, so Quit is a custom action there.
                 .addCustomAction(ACTION_QUIT, getString(R.string.quit), R.drawable.ic_close)
-                // The system moves the position on from receivedAt at the core's speed.
-                .setState(state, (s.position * 1000).toLong(), s.speed.toFloat(), s.receivedAt)
+                // The system moves the position on from receivedAt at the core's speed; a held seek stands still.
+                .setState(
+                    state, ((if (held) seekTarget else s.position) * 1000).toLong(),
+                    if (held) 0f else s.speed.toFloat(), if (held) now else s.receivedAt,
+                )
                 .build()
         )
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
@@ -333,7 +345,15 @@ class CliampService : Service(), TerminalSessionClient {
         override fun onStop() = op("stop")
         override fun onSkipToNext() = op("next")
         override fun onSkipToPrevious() = op("prev")
-        override fun onSeekTo(pos: Long) = op("seek.absolute", JSONObject().put("value", pos / 1000.0))
+        override fun onSeekTo(pos: Long) {
+            seekTarget = pos / 1000.0
+            seekPath = snap?.track?.path
+            seekAt = SystemClock.elapsedRealtime()
+            publish()
+            // Nothing may arrive while the stream reopens: show the core's position again when the hold ends.
+            main.postDelayed(::publish, SEEK_HOLD_MS + 100)
+            op("seek.absolute", JSONObject().put("value", seekTarget))
+        }
         override fun onCustomAction(action: String, extras: Bundle?) {
             if (action == ACTION_QUIT) quit()
         }
@@ -382,6 +402,7 @@ class CliampService : Service(), TerminalSessionClient {
         private const val TAG = "cliamp-x"
         private const val CHANNEL = "playback"
         private const val NOTIFICATION_ID = 1
+        private const val SEEK_HOLD_MS = 15_000L
         const val EXTRA_LINK = "link"
         const val ACTION_PREV = "io.github.xaviiromf.cliampx.PREV"
         const val ACTION_TOGGLE = "io.github.xaviiromf.cliampx.TOGGLE"

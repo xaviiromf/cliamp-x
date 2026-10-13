@@ -1,8 +1,8 @@
 package io.github.xaviiromf.cliampx
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
@@ -28,7 +28,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 /** Sign-in, local music, battery, updates, Modo terminal and quit. */
@@ -41,7 +40,7 @@ class SettingsActivity : AppCompatActivity() {
     private var pending: File? = null
 
     private val importCookies = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) importCookies(uri)
+        if (uri != null) Toast.makeText(this, LoginActivity.importCookies(this, uri), Toast.LENGTH_LONG).show()
     }
 
     private val askMusic = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -74,7 +73,7 @@ class SettingsActivity : AppCompatActivity() {
         text(R.string.music_help)
         button(R.string.allow_music) { askMusic.launch(MainActivity.musicPermission()) }
         text(R.string.battery_help)
-        button(R.string.battery) { ignoreBatteryOptimizations() }
+        button(R.string.battery) { ignoreBatteryOptimizations(this) }
         text(R.string.updates_help)
         val prefs = Updates.prefs(this)
         list.addView(RadioGroup(this).apply {
@@ -189,34 +188,12 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("BatteryLife") // a music player that One UI must not suspend; no Play Store
-    private fun ignoreBatteryOptimizations() {
-        startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:$packageName".toUri()))
-    }
-
-    private fun importCookies(uri: Uri) {
-        val text = runCatching {
-            contentResolver.openInputStream(uri)?.use { input ->
-                val out = ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                while (out.size() <= MAX_COOKIES) out.write(buffer, 0, input.read(buffer).takeIf { it >= 0 } ?: break)
-                out.toString(Charsets.UTF_8.name())
-            }
-        }.getOrNull()
-        val message = when {
-            text == null -> R.string.import_failed
-            text.length > MAX_COOKIES || text.lineSequence().none { it.split('\t').size >= 7 } -> R.string.not_cookies
-            !text.contains("\tSAPISID\t") -> R.string.no_sign_in
-            else -> {
-                LoginActivity.saveSignIn(this, text)
-                R.string.signed_in
-            }
-        }
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-    }
-
     companion object {
-        private const val MAX_COOKIES = 1 shl 20
         const val EXTRA_UPDATE = "update"
+
+        @SuppressLint("BatteryLife") // a music player that One UI must not suspend; no Play Store
+        fun ignoreBatteryOptimizations(context: Context) {
+            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:${context.packageName}".toUri()))
+        }
     }
 }

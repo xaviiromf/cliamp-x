@@ -73,6 +73,7 @@ import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Ytdlp
+import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.clock
 import io.github.xaviiromf.cliampx.nextVisualizer
 import kotlinx.coroutines.CancellationException
@@ -140,10 +141,7 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
     val now = rememberNow(s)
     val seek = remember { SeekState() }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        // The rows around the art take about 420 dp (§3.9); the art gets the rest, square.
-        var art = minOf(maxWidth - 48.dp, maxHeight - 420.dp)
-        val strip = art >= 240.dp
-        if (!strip) art = minOf(maxWidth - 48.dp, art + 72.dp)
+        val (art, strip) = playerArt(maxWidth, maxHeight)
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(R.drawable.ic_expand_down, stringResource(R.string.close_player), Modifier.testTag("player_close"), onClick = close)
@@ -176,6 +174,17 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
             Chips(s, view) { view = it }
         }
     }
+}
+
+/**
+ * The art side and whether the visualizer strip shows (§3.9): the rows
+ * around the art take about 420 dp and the art gets the rest, square; under
+ * 240 dp the strip's 72 dp go to the art. Never below 0, as in landscape.
+ */
+fun playerArt(width: Dp, height: Dp): Pair<Dp, Boolean> {
+    val art = minOf(width - 48.dp, height - 420.dp)
+    if (art >= 240.dp) return art to true
+    return minOf(width - 48.dp, art + 72.dp).coerceAtLeast(0.dp) to false
 }
 
 /** RADIO · FUNDIDO · EQ AUTO · APAGADO 23:40, each only when it applies. */
@@ -295,7 +304,7 @@ private fun LyricsView(s: Snapshot, side: Dp) {
             val list = rememberLazyListState()
             LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem(active) }
             // The padding lets the first and last lines reach the middle, where the active one sits.
-            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = side / 2 - 14.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = (side / 2 - 14.dp).coerceAtLeast(0.dp))) {
                 itemsIndexed(shown) { i, line ->
                     val on = i == active
                     Text(
@@ -321,6 +330,7 @@ private fun TitleBlock(s: Snapshot) {
     val context = LocalContext.current
     val marquee = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
     val moving = s.playing && marquee
+    val liked by Remote.liked.collectAsStateWithLifecycle()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             track.name,
@@ -329,13 +339,27 @@ private fun TitleBlock(s: Snapshot) {
             ),
             color = p.accent, style = Type.display, maxLines = 1, overflow = if (moving) TextOverflow.Clip else TextOverflow.Ellipsis,
         )
-        FavoriteButton(track.favorite, Modifier.testTag("fav")) { Remote.favorite(track) }
+        FavoriteButton(liked.likes(track), Modifier.testTag("fav")) { Remote.favorite(track) }
     }
-    // shortcut: plain text until M3 adds the Artist and Album pages; then a tap on each opens its page (§2.3).
-    Text(
-        listOf(track.artist, track.album).filter { it.isNotEmpty() }.joinToString(" · "),
-        color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
-    )
+    // A tap on the artist or the album opens its page when the song names it (§2.3).
+    Row {
+        val artist = track.meta["ytmusic.artist"]
+        val album = track.meta["ytmusic.album"]
+        fun Modifier.opens(screen: Screen?) = if (screen == null) this else clickable { Nav.open(screen) }
+        if (track.artist.isNotEmpty()) {
+            Text(
+                track.artist, Modifier.weight(1f, fill = false).opens(artist?.let { Screen.Artist(it, track.artist) }).testTag("player_artist"),
+                color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (track.album.isNotEmpty()) {
+            Text(
+                (if (track.artist.isNotEmpty()) " · " else "") + track.album,
+                Modifier.weight(1f, fill = false).opens(album?.let { Screen.Album(it, track.album, track.artUrl, track.artist) }).testTag("player_album"),
+                color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 /** ♥ in red when the song is a favorite, an outline in dim when not. */

@@ -13,10 +13,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,6 +38,10 @@ object Art {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
     private val permits = Semaphore(4)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** The fetches running now and how many callers wait on each: the same art drawn twice loads once. */
+    private val inFlight = HashMap<String, Pair<Deferred<Bitmap?>, Int>>()
 
     /** The ytimg file that exists for each video ID: not every video has maxresdefault. */
     private val variants = ConcurrentHashMap<String, String>()
@@ -49,9 +56,26 @@ object Art {
         if (key.isEmpty() || px <= 0) return null
         val cacheKey = "$px:$hardware:$key"
         cache.get(cacheKey)?.let { return it }
-        return withContext(Dispatchers.IO) {
-            permits.withPermit { runCatching { fetch(key, px, hardware) }.getOrNull() }
-        }?.also { cache.put(cacheKey, it) }
+        val fetch = synchronized(inFlight) {
+            val (running, waiters) = inFlight[cacheKey] ?: (scope.async { permits.withPermit { runCatching { fetch(key, px, hardware) }.getOrNull() } } to 0)
+            inFlight[cacheKey] = running to waiters + 1
+            running
+        }
+        try {
+            return fetch.await()?.also { cache.put(cacheKey, it) }
+        } finally {
+            // The last caller to leave (a row scrolled away) stops a fetch nobody waits for.
+            synchronized(inFlight) {
+                val (running, waiters) = inFlight[cacheKey] ?: return@synchronized
+                if (running !== fetch) return@synchronized
+                if (waiters > 1) {
+                    inFlight[cacheKey] = running to waiters - 1
+                } else {
+                    inFlight.remove(cacheKey)
+                    running.cancel()
+                }
+            }
+        }
     }
 
     /** A bitmap the MediaSession can parcel. */

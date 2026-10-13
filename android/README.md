@@ -4,7 +4,9 @@ The Android app of cliamp-x: a Kotlin app that runs the Go core and shows a
 native touch UI (Jetpack Compose) in the look of cliamp-x desktop. The TUI
 stays as **Modo terminal**. The design is in `PLAN.md`; the native UI follows
 `UI-SPEC.md`, built in milestones (M1: the shell, Buscar and the playback fix;
-M2: the player, the queue, the equalizer and the visualizer).
+M2: the player, the queue, the equalizer and the visualizer; M3: Inicio,
+Buscar's genres and tiles, the album, artist, playlist, genre, Para ti and
+remix pages, and the action sheets).
 
 The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 
@@ -17,7 +19,7 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 | `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
 | `MainActivity.kt` | The native UI (Compose), the first-start permissions, deep links and shared URLs |
 | `TerminalActivity.kt` | Modo terminal: the terminal view, the extra keys, back, pinch zoom |
-| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size), `Nav.kt` (tabs, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar), `Home.kt`, `Search.kt`, `Library.kt`, `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (Bars on a Canvas from `spectrum.get`), `Menus.kt` (song actions, speed, sleep timer) |
+| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size, one fetch per image at a time), `Nav.kt` (tabs and their screen stacks, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar, the screen host), `Home.kt` (Inicio: carousels, the sign-in and battery cards, pull to refresh), `Search.kt` (recent queries, genre grids, results as tiles and rows), `Detail.kt` (album, artist, playlist, genre, Para ti, remixes), `Library.kt`, `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (Bars on a Canvas from `spectrum.get`), `Menus.kt` (song and item actions, add to a list, new list, speed, sleep timer) |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
 | `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, updates, yt-dlp update, Modo terminal, quit |
 | `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
@@ -25,7 +27,8 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 
 `scripts/ui-smoke.sh` drives the UI over adb by its test tags and saves a
 screenshot per step (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`,
-then `s5 s8 s14 s15 s16` for the player while a song plays).
+then `s5 s8 s14 s15 s16` for the player while a song plays, and
+`s2 s9 s10 s11 s18 s19l s20 s23` for browsing).
 
 ## Toolchain
 

@@ -343,3 +343,179 @@ class PagingTest {
         assertNull(Paging.next(0, 0))
     }
 }
+
+/** provider.* results from a real core (emulator, signed out, Batch B), trimmed to a few rows. */
+object BrowseFixtures {
+    const val HOME = """{"ok":true,"total":2,"shelves":[{"title":"Quick picks","items":[{"kind":"song","id":"xukbqwRuN5w","title":"Choosin' Texas","subtitle":"Ella Langley","image_url":"https://yt3.googleusercontent.com/pXFQCa7a4g8yaLQOuE2y0zWK4X0A9Kdjx1PTC_KICZc9OEgahsFl-F6VBihBNOLAiYX7XnuPqaC4Yio=w400-h400-l90-rj","track":{"title":"Choosin' Texas","artist":"Ella Langley","album":"Dandelion","path":"https://music.youtube.com/watch?v=xukbqwRuN5w","album_art_url":"https://yt3.googleusercontent.com/pXFQCa7a4g8yaLQOuE2y0zWK4X0A9Kdjx1PTC_KICZc9OEgahsFl-F6VBihBNOLAiYX7XnuPqaC4Yio=w400-h400-l90-rj","stream":true,"provider_meta":{"ytmusic.album":"MPREb_QC0L98k1tGe","ytmusic.artist":"UCecnyZYofHiBVDJpx1XNYOQ","ytmusic.id":"xukbqwRuN5w","ytmusic.plays":"329M plays"}}}]},{"title":"New releases","items":[{"kind":"album","id":"MPREb_QIX6ZSIenDm","title":"Amor Factura","subtitle":"Single • Ricardo Arjona & Grupo Firme","image_url":"https://yt3.googleusercontent.com/sw-vFj78Rl1nPwjok9-yrqxvGGix9dbEVn3XB_STg4X3N1S2i0Nk5xQWdLAD4YOKJ6_mYr-LofXVxBk=w400-h400-l90-rj"},{"kind":"playlist","id":"pl:VLRDTMAK5uy_lr0LWzGrq6FU9GIxWvFHTRPQD2LHMqlFA","title":"New Release Mix","subtitle":"Infraction Music, Social Repose, Medium Build","image_url":"https://music.youtube.com/image/mixart?r=ENgEGNgEMh4IBxoNL2cvMTFwYzFzazdmNhoLL20vMDEyZ245bHJiCAoGCgQKAmVu"},{"kind":"artist","id":"UCRr1xG_2WIDs18a6cIiCxeA","title":"Daft Punk"}]}]}"""
+
+    const val ARTIST_ALBUMS = """{"ok":true,"total":3,"albums":[{"id":"ar:UCRr1xG_2WIDs18a6cIiCxeA","name":"Top songs","artist":"Daft Punk","artist_id":"UCRr1xG_2WIDs18a6cIiCxeA","image_url":"https://lh3.googleusercontent.com/qLhu6Py_4_xoBsoubKQsXlhOQGqU9YU1ZRAbFusF0LlrPkXbbpu7bEh-k_ZtE4JwLgubvucAQqcK1hRk=w400-h400-p-l90-rj"},{"id":"MPREb_K8qWMWVqXGi","name":"Random Access Memories","artist":"Daft Punk","artist_id":"UCRr1xG_2WIDs18a6cIiCxeA","year":2013,"image_url":"https://yt3.googleusercontent.com/N55arCGj69gtw6thXK8JUPisxoVYiwuIEQ7I6SGlkEyNcSJ7xIWPe76Vuu1SiUqRyx5w9qvR_zV8fV3CWQ=w400-h400-l90-rj"},{"id":"MPREb_X1DQ1j0PPrX","name":"GLBTM (Studio Outtakes) · Singles & EPs","artist":"Daft Punk","artist_id":"UCRr1xG_2WIDs18a6cIiCxeA","year":2023,"image_url":"https://yt3.googleusercontent.com/fgqj_3-DKrpBQNAoK9RmUAbW6-JaDbcPRF4ZsWjsLa1U-3m6X7pvg2QF5QrZLvs6HfTFS-d8DlKzYANK=w400-h400-l90-rj","single":true}]}"""
+
+    const val ARTISTS = """{"ok":true,"total":2,"artists":[{"id":"UCgfk20rO0LzAQSrhkTfReEQ","name":"KHAOS","image_url":"https://yt3.googleusercontent.com/mt8WdzfdbPPAsPX6g0Of-LaAzNGkCmsCRs7jdZ43b9T-c6t1AtD5tHxzKZGQnxdcJz4jKmWFSg=w400-h400-l90-rj-dckXOK6j0F"},{"id":"UCXSYGVPdqu40oQtq8g580yA","name":"♥ MXZI","image_url":"https://yt3.googleusercontent.com/s-nX0_7xAY8Tg8vACYIwo0pA9GTMA02Lvwnfl657ylKAB-v56X6oMzS0JjMJOYX9kOSccm_SAQ=w400-h400-l90-rj","favorite":true}]}"""
+
+    const val GENRES = """{"ok":true,"total":2,"sorts":[{"id":"mix","label":"Genre mix"},{"id":"songs","label":"Popular songs"}],"genres":[{"id":"ggMPOg1uX0UzWGxlRE5jMDVk","name":"African","group":"Genres"},{"id":"search:Shoegaze","name":"★ Shoegaze","group":"More genres","favorite":true}]}"""
+
+    const val PREVIEW_ALBUM = """{"ok":true,"preview":{"image_url":"https://yt3.googleusercontent.com/qrY7xjdjqL0FEneZKHk845JeeFjdWOgexUa_BhsUxskJ2iflhzpbofqGJZBcPHDGU9JjoZflE4yn3P74=w400-h400-l90-rj","lines":["Album · 2001","Daft Punk","14 songs • 1 hour, 1 minute"]}}"""
+    const val PREVIEW_ARTIST = """{"ok":true,"preview":{"image_url":"https://lh3.googleusercontent.com/qLhu6Py_4_xoBsoubKQsXlhOQGqU9YU1ZRAbFusF0LlrPkXbbpu7bEh-k_ZtE4JwLgubvucAQqcK1hRk=w400-h400-p-l90-rj","lines":["75.1M monthly audience","7.19M subscribers","♫ Instant Crush (feat. Julian Casablancas) · Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers) · One More Time (Radio Edit)"]}}"""
+    const val PREVIEW_PLAYLIST = """{"ok":true,"preview":{"image_url":"https://yt3.googleusercontent.com/Cf5Fpy8zREpaiQ7sKWJvj2ug7d3MEA0Wy563x33D-otvTMHnbN2PrXcf_UjguKWRkKTyrIDEJjv_=s1200","lines":["","172K views • 8 tracks • 1 hour, 3 minutes"]}}"""
+
+    // The real rows, plus a release and a starred genre as docs/remote-control.md names them (they need a signed-in account).
+    const val PLAYLISTS = """{"ok":true,"total":5,"playlists":[{"id":"fav","name":"♥ Favorites","provider":"ytmusic","section":"Your music"},{"id":"pl:VLRDCLAK5uy_lheErTnEXzx41DFOdllzXH0qFOH6I6rbo","name":"Essential Reggae · Bob Marley, UB40, Peter Tosh, Jimmy Cliff","provider":"ytmusic","section":"Home · All-time essentials","image_url":"https://yt3.googleusercontent.com/8OBvGW7kG4G9XXDq554R26bCmXmr_iyjfuKHlPKoKMDO3vjuCvp4LncmgaXXmaACd52b7yTWJ62Mh6u-=w400-h400-l90-rj"},{"id":"al:MPREb_X1DQ1j0PPrX","name":"● GLBTM (Studio Outtakes) · Daft Punk · Single","provider":"ytmusic","section":"New releases","unseen":true},{"id":"genre:ggMPOg1uX0UzWGxlRE5jMDVk","name":"★ African","provider":"ytmusic","section":"Your genres"},{"id":"pl:VLmine","name":"Para correr","provider":"ytmusic","section":"Your music","track_count":45,"writable":true}]}"""
+
+    const val HISTORY = """{"ok":true,"history":[{"track":{"title":"End of Line","artist":"Daft Punk","path":"https://music.youtube.com/watch?v=NOMa56y_Was","duration_secs":157},"played_at":"2026-10-13T22:47:44Z"},{"track":{"title":"Derezzed","artist":"Daft Punk","path":"https://music.youtube.com/watch?v=a7Wask21bew"},"played_at":"2026-10-13T22:40:00Z"},{"track":{"title":"End of Line","artist":"Daft Punk","path":"https://music.youtube.com/watch?v=NOMa56y_Was"},"played_at":"2026-10-13T22:30:00Z"}]}"""
+}
+
+class BrowseModelsTest {
+    private fun json(s: String) = JSONObject(s)
+
+    @Test
+    fun shelves() {
+        val shelves = Items.shelves(json(BrowseFixtures.HOME))
+        assertEquals(listOf("Quick picks", "New releases"), shelves.map { it.title })
+        val song = shelves[0].items.single()
+        assertEquals(Kind.SONG, song.kind)
+        assertEquals("https://music.youtube.com/watch?v=xukbqwRuN5w", song.track?.path)
+        assertEquals("MPREb_QC0L98k1tGe", song.track?.meta?.get("ytmusic.album"))
+        assertEquals(listOf(Kind.ALBUM, Kind.PLAYLIST, Kind.ARTIST), shelves[1].items.map { it.kind })
+        assertEquals("pl:VLRDTMAK5uy_lr0LWzGrq6FU9GIxWvFHTRPQD2LHMqlFA", shelves[1].items[1].id)
+        assertNull(shelves[1].items[0].track)
+        assertEquals("", shelves[1].items[2].art)
+    }
+
+    @Test
+    fun albumsAndArtists() {
+        val albums = Items.albums(json(BrowseFixtures.ARTIST_ALBUMS))
+        assertEquals(listOf("Top songs", "Random Access Memories", "GLBTM (Studio Outtakes)"), albums.map { it.title })
+        assertEquals("Daft Punk · 2013", albums[1].subtitle)
+        assertEquals("UCRr1xG_2WIDs18a6cIiCxeA", albums[1].artistId)
+        assertEquals(listOf("", "", "single"), albums.map { it.section })
+        val artists = Items.artists(json(BrowseFixtures.ARTISTS))
+        assertEquals(listOf("KHAOS", "MXZI"), artists.map { it.title })
+        assertEquals(listOf(false, true), artists.map { it.favorite })
+        assertEquals(Kind.ARTIST, artists[0].kind)
+    }
+
+    @Test
+    fun genresAndSorts() {
+        val (genres, sorts) = Items.genres(json(BrowseFixtures.GENRES))
+        assertEquals(listOf("African", "Shoegaze"), genres.map { it.title })
+        assertEquals(listOf("Genres", "More genres"), genres.map { it.section })
+        assertEquals("search:Shoegaze", genres[1].id)
+        assertTrue(genres[1].favorite)
+        assertEquals(listOf(Sort("mix", "Genre mix"), Sort("songs", "Popular songs")), sorts)
+    }
+
+    @Test
+    fun previews() {
+        val album = Items.preview(json(BrowseFixtures.PREVIEW_ALBUM))
+        assertEquals(listOf("Album · 2001", "Daft Punk", "14 songs • 1 hour, 1 minute"), album.lines)
+        assertNull("signed out: unknown", album.favorite)
+        assertTrue(Items.preview(json(BrowseFixtures.PREVIEW_ARTIST)).lines[2].startsWith("Instant Crush")) // "♫ " dropped
+        assertEquals(listOf("172K views • 8 tracks • 1 hour, 3 minutes"), Items.preview(json(BrowseFixtures.PREVIEW_PLAYLIST)).lines)
+        assertEquals(false, Items.preview(json("""{"ok":true,"preview":{"lines":["Band"],"favorite":false}}""")).favorite)
+        assertEquals(true, Items.preview(json("""{"ok":true,"preview":{"favorite":true}}""")).favorite)
+    }
+
+    @Test
+    fun playlistRows() {
+        val rows = Items.playlists(json(BrowseFixtures.PLAYLISTS))
+        assertEquals(listOf(Kind.PLAYLIST, Kind.PLAYLIST, Kind.ALBUM, Kind.GENRE, Kind.PLAYLIST), rows.map { it.kind })
+        assertEquals("Favorites", rows[0].title)
+        assertEquals("Essential Reggae · Bob Marley, UB40, Peter Tosh, Jimmy Cliff", rows[1].title)
+        val release = rows[2]
+        assertEquals("al:MPREb_X1DQ1j0PPrX", release.id)
+        assertEquals("GLBTM (Studio Outtakes)", release.title)
+        assertEquals("Daft Punk · Single", release.subtitle)
+        assertTrue(release.unseen)
+        assertEquals("ggMPOg1uX0UzWGxlRE5jMDVk", rows[3].id)
+        assertEquals("African", rows[3].title)
+        assertTrue(rows[4].writable)
+        assertEquals(45, rows[4].count)
+    }
+
+    @Test
+    fun historyIsDeduplicated() {
+        val tracks = Items.history(json(BrowseFixtures.HISTORY))
+        assertEquals(listOf("End of Line", "Derezzed"), tracks.map { it.title })
+        assertEquals(157, tracks[0].durationSecs)
+        assertEquals(20, Items.history(JSONObject().put("history", org.json.JSONArray((0 until 30).map { JSONObject().put("track", JSONObject().put("path", "p$it")) }))).size)
+    }
+
+    @Test
+    fun searchPlaceholders() {
+        val artist = Track.parse(JSONObject(Fixtures.ARTIST_ROW)).item()
+        assertEquals(Kind.ARTIST, artist.kind)
+        assertEquals("UCRr1xG_2WIDs18a6cIiCxeA", artist.id) // "ar:" stripped for the Artist page
+        val album = Track.parse(JSONObject("""{"title":"Discovery","artist":"Daft Punk","path":"ytmusic:MPREb_7ltM34kr0mH","provider_meta":{"albumID":"MPREb_7ltM34kr0mH","kind":"album","section":"Albums"}}""")).item()
+        assertEquals(Item(Kind.ALBUM, "MPREb_7ltM34kr0mH", "Discovery", "Daft Punk"), album)
+    }
+
+    @Test
+    fun likesFollowTheCore() {
+        val row = Track.parse(JSONObject(Fixtures.TRACK)) // bookmark false
+        assertFalse(emptyMap<String, Boolean>().likes(row))
+        assertTrue(mapOf(row.path to true).likes(row))
+        assertFalse(mapOf(row.path to false).likes(row.copy(favorite = true)))
+    }
+}
+
+class RowNameTest {
+    @Test
+    fun marksAndTags() {
+        for ((name, single, want) in listOf(
+            Triple("♥ Discovery", false, "Discovery"),
+            Triple("● New One · Band", false, "New One · Band"),
+            Triple("★ Rock", false, "Rock"),
+            Triple("♥ ● Both", false, "Both"),
+            Triple("Home Album · local", false, "Home Album"),
+            Triple("Digital Love · Singles & EPs", true, "Digital Love"),
+            Triple("A · B · Singles & EPs", true, "A · B"),
+            Triple("Plain · Name", false, "Plain · Name"),
+            Triple("No group", true, "No group"),
+        )) {
+            assertEquals(name, want, RowName.of(name, single))
+        }
+    }
+}
+
+class BrowseHelpersTest {
+    @Test
+    fun foryouPaging() {
+        assertEquals(40, Paging.foryou(0, 40, 40))
+        assertEquals("a short page still moves by limit", 80, Paging.foryou(40, 40, 31))
+        assertNull(Paging.foryou(80, 40, 0))
+    }
+
+    @Test
+    fun recentQueries() {
+        val ten = (1..10).map { "q$it" }
+        assertEquals(listOf("daft punk"), recents(emptyList(), "  daft punk "))
+        assertEquals(listOf("Q3", "q1", "q2", "q4"), recents(listOf("q1", "q2", "q3", "q4"), "Q3"))
+        assertEquals(listOf("new") + ten.take(9), recents(ten, "new"))
+        assertEquals(ten, recents(ten, "   "))
+    }
+
+    @Test
+    fun loadingLastsUntilTheSongPlays() {
+        val path = "https://music.youtube.com/watch?v=Smi8vAbm_8o"
+        fun snap(extra: String, track: String = path) = Fixtures.snapshot("""{"revision":1,"track":{"path":"$track"}$extra}""")
+        for ((name, s, want) in listOf(
+            Triple("stopped while yt-dlp extracts", snap(""","state":"stopped""""), true),
+            Triple("paused", snap(""","state":"paused""""), true),
+            Triple("playing but buffering", snap(""","state":"playing","buffering":true"""), true),
+            Triple("playing", snap(""","state":"playing""""), false),
+            Triple("failed", snap(""","state":"stopped","error":"boom","error_path":"$path""""), false),
+            Triple("another song", snap(""","state":"stopped"""", "https://youtu.be/x"), false),
+        )) {
+            assertEquals(name, want, loads(path, s))
+        }
+    }
+
+    @Test
+    fun aSessionSeekHoldsLongerThanAReopen() {
+        val target = 272.0
+        val stale = Fixtures.snapshot("""{"revision":1,"state":"playing","position":67,"track":{"path":"a"}}""", at = 12_000)
+        assertTrue("12 s into a YouTube reopen", seekHolds(target, "a", 10_000, stale, 22_000, 15_000))
+        assertFalse("the bar's 5 s hold", seekHolds(target, "a", 10_000, stale, 22_000))
+        assertFalse("after 15 s", seekHolds(target, "a", 10_000, stale, 25_001, 15_000))
+    }
+}

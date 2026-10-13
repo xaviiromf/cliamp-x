@@ -37,12 +37,36 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.withStyle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xaviiromf.cliampx.Item
+import io.github.xaviiromf.cliampx.Kind
+import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Track
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import kotlin.math.abs
 
@@ -67,9 +91,15 @@ fun SheetHost(s: Snapshot?) {
         contentWindowInsets = { WindowInsets(0) },
     ) {
         SheetBars()
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 8.dp).semantics { testTagsAsResourceId = true }) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
+                .padding(vertical = 8.dp).semantics { testTagsAsResourceId = true },
+        ) {
             when (sheet) {
                 is Sheet.Song -> SongActions(sheet, close)
+                is Sheet.Of -> ItemActions(sheet.item, close)
+                is Sheet.AddTo -> AddTo(sheet)
+                is Sheet.NewList -> NewList(sheet, close)
                 Sheet.PlayerMore -> PlayerMore(s, close)
                 Sheet.Speed -> SpeedSheet(s, close)
                 Sheet.Sleep -> SleepSheet(s, close)
@@ -94,49 +124,86 @@ private fun MenuRow(glyph: String, label: String, tag: String, glyphColor: Color
     }
 }
 
-/** art, title and subtitle above a song's actions. */
+/** art 48 dp, title and subtitle above an item's actions (§2.6). */
 @Composable
-private fun SongHeader(track: Track) {
+private fun SheetHeader(art: String, title: String, subtitle: String) {
     val p = LocalPalette.current
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        ArtBox(track.art, 48.dp)
+        ArtBox(art, 48.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(track.name, color = p.textPrimary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                listOf(track.artist, track.album).filter { it.isNotEmpty() }.joinToString(" · "),
-                color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Text(title, color = p.textPrimary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotEmpty()) Text(subtitle, color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).height(1.dp).background(p.divider))
 }
 
 @Composable
+private fun SongHeader(track: Track) = SheetHeader(track.art, track.name, listOf(track.artist, track.album).filter { it.isNotEmpty() }.joinToString(" · "))
+
+/** Me gusta or Quitar de Me gusta, from the ♥ the core last reported for the song (§5.3). */
+@Composable
 private fun LikeRow(track: Track, close: () -> Unit) {
     val p = LocalPalette.current
+    val liked by Remote.liked.collectAsStateWithLifecycle()
+    val on = liked.likes(track)
     MenuRow(
-        "", stringResource(if (track.favorite) R.string.unlike else R.string.like), "menu_like", p.favorite,
-        icon = if (track.favorite) R.drawable.ic_heart_outline else R.drawable.ic_heart,
+        "", stringResource(if (on) R.string.unlike else R.string.like), "menu_like", p.favorite,
+        icon = if (on) R.drawable.ic_heart_outline else R.drawable.ic_heart,
     ) {
         Remote.favorite(track)
         close()
     }
 }
 
-/**
- * A song's actions (§2.6). shortcut: only the ones whose screens exist in
- * M2 (play next, ♥ and the queue's remove); M3 adds the rest.
- */
+/** Me interesa and No me interesa (G11); the second drops the item from the lists at once. */
+@Composable
+private fun RateRows(item: Item, close: () -> Unit) {
+    MenuRow("✓", stringResource(R.string.interested), "menu_interested") {
+        Remote.rate(item, 1)
+        close()
+    }
+    MenuRow("✗", stringResource(R.string.not_interested), "menu_not_interested", LocalPalette.current.error) {
+        Remote.rate(item, -1)
+        close()
+    }
+}
+
+/** A song's actions (§2.6), each only when its operation exists; the queue's rows add Quitar de la cola. */
 @Composable
 private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
     val track = sheet.track
+    val ops by Remote.ops.collectAsStateWithLifecycle()
     SongHeader(track)
-    MenuRow("▶", stringResource(R.string.play_next), "menu_play_next") {
-        Remote.fire("track.queue", JSONObject().put("track", track.json()))
-        close()
+    if ("track.queue" in ops) {
+        MenuRow("▶", stringResource(R.string.play_next), "menu_play_next") {
+            Remote.fire("track.queue", JSONObject().put("track", track.json()))
+            close()
+        }
     }
+    if ("playlist.add" in ops) MenuRow("+", stringResource(R.string.add_to_list_more), "menu_add") { Nav.sheet = Sheet.AddTo(listOf(track)) }
     LikeRow(track, close)
+    if ("radio.start" in ops) {
+        MenuRow("◉", stringResource(R.string.start_radio), "menu_radio") {
+            Remote.fire("radio.start", JSONObject().put("track", track.json()))
+            close()
+        }
+    }
+    if ("discover.remixes" in ops) MenuRow("≈", stringResource(R.string.remixes), "menu_remixes") { Nav.open(Screen.Remixes(track)) }
+    track.meta["ytmusic.album"]?.let { id ->
+        MenuRow("◎", stringResource(R.string.go_album), "menu_album") { Nav.open(Screen.Album(id, track.album, track.artUrl, track.artist)) }
+    }
+    track.meta["ytmusic.artist"]?.let { id ->
+        MenuRow("→", stringResource(R.string.go_artist), "menu_artist") { Nav.open(Screen.Artist(id, track.artist.substringBefore(", "))) }
+    }
+    if ("download" in ops) {
+        MenuRow("↓", stringResource(R.string.download), "menu_download") {
+            Remote.fire("download", JSONObject().put("track", track.json()))
+            close()
+        }
+    }
+    if ("taste.rate" in ops) RateRows(Item(Kind.SONG, track.path, track.name, track.artist, track.art, track), close)
     if (sheet.index != null || sheet.next != null) {
         MenuRow("✗", stringResource(R.string.remove_from_queue), "menu_remove", LocalPalette.current.error) {
             if (sheet.next != null) {
@@ -146,6 +213,179 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
             }
             close()
         }
+    }
+}
+
+/**
+ * The actions of an album, artist, playlist or genre (§2.6), each only
+ * when its operation exists, its IDs too, and, for the account's own,
+ * while signed in. A save or follow shows once its state is known.
+ */
+@Composable
+private fun ItemActions(item: Item, close: () -> Unit) {
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
+    val yt = !item.local
+    val p = LocalPalette.current
+    SheetHeader(item.art, item.title, item.subtitle)
+    fun run(action: () -> Unit) {
+        action()
+        close()
+    }
+    val play = stringResource(R.string.play)
+    val shuffle = stringResource(R.string.shuffle)
+    val radio = stringResource(R.string.start_radio)
+    val radioParams = JSONObject().put("provider", item.provider).put("playlist", item.id).put("name", item.title)
+    when (item.kind) {
+        Kind.ALBUM, Kind.PLAYLIST -> {
+            MenuRow("▶", play, "menu_play") { run { Remote.playItem(item) } }
+            MenuRow("", shuffle, "menu_shuffle", icon = R.drawable.ic_shuffle) { run { Remote.playItem(item, shuffle = true) } }
+            if ("track.queue" in ops) MenuRow("▶", stringResource(R.string.play_next), "menu_play_next") { run { Remote.queueItem(item) } }
+            if (item.kind == Kind.ALBUM && yt && signedIn == true && "provider.favorite" in ops) {
+                val pid = item.id.removePrefix("al:")
+                val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }
+                (preview as? Load.Done)?.value?.favorite?.let { saved ->
+                    MenuRow("", stringResource(if (saved) R.string.unsave else R.string.save), "menu_save", p.favorite, icon = if (saved) R.drawable.ic_heart_outline else R.drawable.ic_heart) {
+                        run { Remote.toggle("provider.favorite", pid) {} }
+                    }
+                }
+            }
+            if (item.kind == Kind.ALBUM) {
+                MenuRow("→", stringResource(R.string.go_artist), "menu_artist") {
+                    // The artist is known from the album's songs when the row did not carry it.
+                    Remote.scope.launch {
+                        val id = item.artistId.ifEmpty { runCatching { Remote.tracksOf(item) }.getOrNull()?.firstNotNullOfOrNull { it.meta["ytmusic.artist"] }.orEmpty() }
+                        if (id.isNotEmpty()) withContext(Dispatchers.Main) { Nav.open(Screen.Artist(id, item.subtitle.substringBefore(" · ").substringBefore(", "))) }
+                    }
+                }
+            }
+            if (yt && "radio.start" in ops) MenuRow("◉", radio, "menu_radio") { run { Remote.fire("radio.start", radioParams) } }
+            if (item.kind == Kind.ALBUM && "playlist.add" in ops) MenuRow("+", stringResource(R.string.add_to_list_more), "menu_add") { Nav.sheet = Sheet.AddTo(emptyList(), item) }
+            if (yt && "download" in ops) {
+                MenuRow("↓", stringResource(R.string.download), "menu_download") {
+                    run { Remote.fire("download", JSONObject().put("provider", "ytmusic").put("playlist", item.id).put("name", item.title)) }
+                }
+            }
+            if (item.kind == Kind.ALBUM && "taste.rate" in ops) RateRows(item, close)
+        }
+        Kind.ARTIST -> {
+            if (yt && signedIn == true && "provider.favorite" in ops) {
+                val (preview, _) = rememberLoad("preview:${item.id}") { Remote.preview(item.id) }
+                (preview as? Load.Done)?.value?.favorite?.let { following ->
+                    MenuRow("", stringResource(if (following) R.string.unfollow else R.string.follow), "menu_follow", icon = R.drawable.ic_heart) {
+                        run { Remote.toggle("provider.favorite", item.id) {} }
+                    }
+                }
+            }
+            if (yt && "radio.start" in ops) MenuRow("◉", radio, "menu_radio") { run { Remote.fire("radio.start", radioParams) } }
+            if ("taste.rate" in ops) RateRows(item, close)
+        }
+        Kind.GENRE -> {
+            MenuRow("▶", stringResource(R.string.play_mix), "menu_play") { run { Remote.playItem(item) } }
+            if (yt && "provider.genre_favorite" in ops) {
+                MenuRow("", stringResource(if (item.favorite) R.string.unpin else R.string.pin), "menu_pin", icon = R.drawable.ic_star) {
+                    run { Remote.toggle("provider.genre_favorite", item.id) {} }
+                }
+            }
+            // Radio takes the category IDs only, not search: or local: genres.
+            if (yt && !item.id.startsWith("search:") && "radio.start" in ops) {
+                MenuRow("◉", radio, "menu_radio") { run { Remote.fire("radio.start", radioParams.put("playlist", "genre:" + item.id)) } }
+            }
+            if ("taste.rate" in ops) RateRows(item, close)
+        }
+        Kind.SONG -> {}
+    }
+}
+
+/**
+ * Añadir a una lista… (§2.6, §3.12): a new list, the account's lists that
+ * take songs (signed in), and the local lists without the virtual ones.
+ */
+@Composable
+private fun AddTo(sheet: Sheet.AddTo) {
+    val p = LocalPalette.current
+    val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
+    SectionRule(stringResource(R.string.add_to_list))
+    MenuRow("+", stringResource(R.string.new_list_more), "menu_new_list") { Nav.sheet = Sheet.NewList(sheet.tracks, sheet.item) }
+    @Composable
+    fun lists(title: String, load: Load<List<Item>>, tag: String) {
+        val rows = (load as? Load.Done)?.value.orEmpty()
+        if (load is Load.Loading) Loading()
+        if (rows.isEmpty()) return
+        SectionRule(title)
+        rows.forEachIndexed { i, row ->
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).clickable {
+                    Remote.addTo(row.provider, row.id, sheet.tracks, sheet.item)
+                    Nav.sheet = null
+                }.padding(horizontal = 16.dp).testTag("${tag}_$i"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ArtBox(row.art, 40.dp)
+                Text(row.title, Modifier.weight(1f).padding(horizontal = 12.dp), color = p.textPrimary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (row.count > 0) Text("${row.count}", color = p.textSecondary, style = Type.label)
+            }
+        }
+    }
+    if (signedIn == true) {
+        val (yt, _) = rememberLoad("playlists:ytmusic") { Remote.playlists("ytmusic") }
+        lists(stringResource(R.string.youtube_music), (yt as? Load.Done)?.let { Load.Done(it.value.filter(Item::writable)) } ?: yt, "list_yt")
+    }
+    val (local, _) = rememberLoad("playlists:local") { Remote.playlists("local") }
+    lists(stringResource(R.string.local), (local as? Load.Done)?.let { Load.Done(it.value.filter { row -> row.id !in VIRTUAL }) } ?: local, "list_local")
+}
+
+/** The local provider's lists that are not playlist files: they take no songs. */
+private val VIRTUAL = setOf("Favorites", "Recently Played")
+
+/** Nueva lista (§3.12): the name (the only text field besides Buscar), the target, Crear and Cancelar. */
+@Composable
+private fun NewList(sheet: Sheet.NewList, close: () -> Unit) {
+    val p = LocalPalette.current
+    val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
+    var name by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf(if (signedIn == true) "ytmusic" else "local") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val create = {
+        if (name.isNotBlank()) Remote.createList(target, name.trim(), sheet.tracks, sheet.item) { Nav.sheet = null }
+    }
+    SectionRule(stringResource(R.string.new_list))
+    BasicTextField(
+        name, { name = it },
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).focusRequester(focus).testTag("name_field"),
+        singleLine = true,
+        textStyle = Type.body.copy(color = p.textPrimary),
+        cursorBrush = SolidColor(p.accent),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { create() }),
+        decorationBox = { field ->
+            Row(Modifier.height(48.dp).background(p.surfaceHigh).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("> ", color = p.accent, style = Type.body)
+                Box(Modifier.weight(1f)) {
+                    if (name.isEmpty()) {
+                        Text(
+                            buildAnnotatedString {
+                                append(stringResource(R.string.name))
+                                withStyle(SpanStyle(color = p.accent)) { append("_") }
+                            },
+                            color = p.textSecondary, style = Type.body,
+                        )
+                    }
+                    field()
+                }
+            }
+        },
+    )
+    if (signedIn == true) {
+        Row(Modifier.padding(horizontal = 12.dp)) {
+            BracketChip(stringResource(R.string.youtube_music), target == "ytmusic", Modifier.testTag("target_ytmusic")) { target = "ytmusic" }
+            BracketChip(stringResource(R.string.local), target == "local", Modifier.testTag("target_local")) { target = "local" }
+        }
+    }
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        KeyPill(stringResource(R.string.create), Modifier.testTag("name_create"), enabled = name.isNotBlank(), onClick = create)
+        BracketButton(stringResource(R.string.cancel), onClick = close)
     }
 }
 

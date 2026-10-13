@@ -2,6 +2,8 @@ package io.github.xaviiromf.cliampx
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
@@ -61,13 +65,36 @@ object Remote {
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val errors: SharedFlow<String> = _errors
 
+    /** A done action the core does not report, for the status line (§2.10). */
+    private val _info = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val info: SharedFlow<String> = _info
+
     /** How many play requests wait for the first yt-dlp update. */
     private val _gateWaiting = MutableStateFlow(0)
     val gateWaiting: StateFlow<Int> = _gateWaiting.asStateFlow()
 
     /** The track of a play request in flight, shown until the core reports it. */
     private val plays = Latest<Track>(scope)
-    val pending: StateFlow<Track?> = plays.current
+
+    /** The song of the last play request while it still loads (§2.2): the core reports no buffering during the yt-dlp extraction. */
+    private val awaiting = MutableStateFlow<Track?>(null)
+    private var awaitTimeout: Job? = null
+
+    /** The song a play request loads, from the tap until it plays, fails, another song plays, or 45 s pass. */
+    val pending: StateFlow<Track?> = combine(plays.current, awaiting) { a, b -> a ?: b }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** The ♥ state by path that the core reported after the list rows were read (§5.3: a bookmark leaves cached rows stale). */
+    private val _liked = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val liked: StateFlow<Map<String, Boolean>> = _liked.asStateFlow()
+
+    /** The IDs and paths rated "No me interesa" in this process: lists drop them at once (§2.6). */
+    private val _hidden = MutableStateFlow<Set<String>>(emptySet())
+    val hidden: StateFlow<Set<String>> = _hidden.asStateFlow()
+
+    /** Moves on each reconnect and pull to refresh: the screens on show load again. */
+    private val _reloads = MutableStateFlow(0)
+    val reloads: StateFlow<Int> = _reloads.asStateFlow()
 
     @SuppressLint("StaticFieldLeak") // the application context
     private lateinit var app: Context
@@ -77,7 +104,10 @@ object Remote {
     private var floor = 0L
     private val guard = RetryGuard()
     private var lastForced = 0L
-    private val cache = HashMap<String, Pair<Long, Any?>>()
+    // Access-ordered and capped: the process lives as long as the service, and every query and page is a key.
+    private val cache = object : LinkedHashMap<String, Pair<Long, Any?>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, Any?>>) = size > 64
+    }
     private val render = RenderSender { call("ui.render", JSONObject().put("name", it)) }
 
     private val PLAY_OPS = setOf(
@@ -156,6 +186,8 @@ object Remote {
     private suspend fun connected() {
         try {
             stateGet()
+            // A new core (a restart, a sign-in) has other lists: the screens on show load again.
+            reload()
             _connected.value = true
             val caps = ipc.call(JSONObject().put("id", "capabilities").put("method", "capabilities")).optJSONArray("result") ?: JSONArray()
             _ops.value = (0 until caps.length()).map { caps.getJSONObject(it).optString("name") }.toSet()
@@ -167,7 +199,6 @@ object Remote {
         } catch (e: Exception) {
             Log.w(TAG, "connect: $e")
         }
-        invalidate()
         render.reset()
     }
 
@@ -188,6 +219,8 @@ object Remote {
                 _state.value = it
             }
         } ?: return
+        merged.track?.let { t -> if (_liked.value[t.path] != t.favorite) _liked.update { it + (t.path to t.favorite) } }
+        awaiting.value?.let { if (!loads(it.path, merged)) awaiting.compareAndSet(it, null) }
         watchError(merged)
     }
 
@@ -264,6 +297,19 @@ object Remote {
         _errors.tryEmit(message(e))
     }
 
+    /**
+     * Whether the phone has a working network. Offline, the core serves its
+     * saved lists, so a pull says "Sin conexión a internet." itself (§2.10).
+     */
+    fun online(): Boolean {
+        val cm = app.getSystemService(ConnectivityManager::class.java)
+        return cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    }
+
+    fun showOffline() {
+        _errors.tryEmit(app.getString(R.string.update_offline))
+    }
+
     /** The text of a failed call (§5.7): invalid_params is a bug, so it names the operation. */
     fun message(e: Exception): String = when {
         e !is IpcError -> e.message ?: e.toString()
@@ -273,9 +319,185 @@ object Remote {
     }
 
     /** Plays tracks from index with queue.replace (G6). */
-    fun play(tracks: List<Track>, index: Int) {
-        plays.launch(tracks[index]) {
-            report { call("queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index)) }
+    fun play(tracks: List<Track>, index: Int) =
+        start(tracks[index], "queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index))
+
+    /** Loads a provider list and plays its row index, the song track (G5). */
+    fun load(provider: String, playlist: String, index: Int, track: Track) =
+        start(track, "provider.load", JSONObject().put("provider", provider).put("playlist", playlist).put("index", index))
+
+    /** Loads an album and plays its row index; a release (al:) loads as a list, which marks it seen (§5.3 Album). */
+    fun loadAlbum(id: String, index: Int, track: Track) =
+        if (id.startsWith("al:")) load("ytmusic", id, index, track) else start(track, "provider.load_album", yt().put("album", id).put("index", index))
+
+    /** Runs a play request; the mini-player shows track loading until it plays (§2.2). */
+    private fun start(track: Track, op: String, params: JSONObject) {
+        plays.launch(track) {
+            report {
+                call(op, params)
+                awaiting.value = track
+                awaitTimeout?.cancel()
+                awaitTimeout = scope.launch {
+                    delay(45_000)
+                    awaiting.compareAndSet(track, null)
+                }
+                state.value?.let { if (!loads(track.path, it)) awaiting.compareAndSet(track, null) }
+            }
+        }
+    }
+
+    private fun yt() = JSONObject().put("provider", "ytmusic")
+
+    private suspend fun <T> io(block: suspend () -> T) = withContext(Dispatchers.IO) { block() }
+
+    /** Escuchado recientemente (§5.3 Inicio). */
+    suspend fun history(): List<Track> = cached("history", 60_000) { io { Items.history(call("history", JSONObject().put("limit", 30))) } }
+
+    suspend fun home(): List<Shelf> = cached("home", 600_000) { io { Items.shelves(call("provider.home", yt())) } }
+
+    /** A page of the endless "For you" albums or artists (G4, §5.5). */
+    suspend fun forYou(artists: Boolean, offset: Int, limit: Int): List<Item> = cached("foryou:$artists:$offset:$limit", 600_000) {
+        io {
+            val params = yt().put("sort", "foryou").put("offset", offset).put("limit", limit)
+            if (artists) Items.artists(call("provider.artists", params)) else Items.albums(call("provider.albums", params))
+        }
+    }
+
+    /** Every row of a provider's lists (§5.5 "all pages"). */
+    suspend fun playlists(provider: String): List<Item> = cached("playlists:$provider", 600_000) {
+        io {
+            val rows = ArrayList<Item>()
+            do {
+                val result = call("provider.playlists", JSONObject().put("provider", provider).put("offset", rows.size).put("limit", 200))
+                val page = Items.playlists(result)
+                rows += page
+            } while (page.isNotEmpty() && Paging.next(rows.size, result.optInt("total")) != null)
+            rows
+        }
+    }
+
+    /** The genres, or with moods the moods and moments, and the play orders (G3); kept for the session. */
+    suspend fun genres(moods: Boolean): Pair<List<Item>, List<Sort>> = cached("genres:$moods", Long.MAX_VALUE) {
+        io { Items.genres(call("provider.genres", yt().apply { if (moods) put("playlist", "browse:moods") })) }
+    }
+
+    suspend fun genreTracks(id: String, sort: String): List<Track> = cached("genre:$id:$sort", 600_000) {
+        io { Track.list(call("provider.genre_tracks", yt().put("playlist", id).put("sort", sort).put("limit", 200))) }
+    }
+
+    suspend fun preview(id: String): Preview = cached("preview:$id", 1_800_000) { io { Items.preview(call("provider.preview", yt().put("playlist", id))) } }
+
+    /** An album's songs, a release's (al:), or an artist's top songs (ar:, local:ar:). */
+    suspend fun albumTracks(id: String): List<Track> = cached("album:$id", 1_800_000) {
+        io {
+            val params = if (id.startsWith("al:")) yt().put("playlist", id) else yt().put("album", id)
+            Track.list(call(if (id.startsWith("al:")) "provider.tracks" else "provider.album_tracks", params.put("limit", 200)))
+        }
+    }
+
+    suspend fun artistAlbums(id: String): List<Item> = cached("artist:$id", 1_800_000) { io { Items.albums(call("provider.artist_albums", yt().put("artist", id))) } }
+
+    /** A page of a provider list's songs (§5.5); Favorites and History change often. */
+    suspend fun tracks(provider: String, id: String, offset: Int): Page =
+        cached("tracks:$provider:$id:$offset", if (id == "fav" || id == "hist") 60_000 else 600_000) {
+            io {
+                val result = call("provider.tracks", JSONObject().put("provider", provider).put("playlist", id).put("offset", offset).put("limit", 200))
+                Page(Track.list(result), result.optInt("total"))
+            }
+        }
+
+    /** Remixes and other versions of track (G13). */
+    suspend fun remixes(track: Track): List<Section> = cached("remixes:${track.path}", 600_000) {
+        io { searchSections(Track.list(call("discover.remixes", JSONObject().put("track", track.json())))) }
+    }
+
+    /** Toggles a save, follow or genre star (provider.favorite, provider.genre_favorite); done gets the new state (G20). */
+    fun toggle(op: String, id: String, done: (Boolean) -> Unit) {
+        scope.launch {
+            report {
+                val on = call(op, yt().put("playlist", id)).optBoolean("favorite")
+                invalidate() // cached lists show the old state (§5.3)
+                done(on)
+            }
+        }
+    }
+
+    /** The songs of an item for its sheet's actions: an album's, a list's first page, a genre's mix, an artist's top songs. */
+    suspend fun tracksOf(item: Item): List<Track> = when (item.kind) {
+        Kind.SONG -> listOfNotNull(item.track)
+        Kind.ALBUM -> albumTracks(item.id)
+        Kind.ARTIST -> albumTracks(if (item.local) item.id else "ar:${item.id}")
+        Kind.PLAYLIST -> tracks(item.provider, item.id, 0).rows
+        Kind.GENRE -> genreTracks(item.id, "mix")
+    }
+
+    /** Reproducir or Aleatorio from an item's sheet: its list plays from the first row, or from a random one with shuffle on. */
+    fun playItem(item: Item, shuffle: Boolean = false) {
+        scope.launch {
+            report {
+                val tracks = tracksOf(item)
+                if (tracks.isEmpty()) return@report
+                if (shuffle) call("shuffle", JSONObject().put("name", "on"))
+                val i = if (shuffle) tracks.indices.random() else 0
+                when (item.kind) {
+                    Kind.ALBUM -> loadAlbum(item.id, i, tracks[i])
+                    Kind.PLAYLIST -> load(item.provider, item.id, i, tracks[i])
+                    else -> play(tracks, i)
+                }
+            }
+        }
+    }
+
+    /** Reproducir a continuación for every song of item, in order (the core queues one track a call). */
+    fun queueItem(item: Item) {
+        scope.launch { report { for (t in tracksOf(item)) call("track.queue", JSONObject().put("track", t.json())) } }
+    }
+
+    /** Adds tracks, or item's songs, to a saved list (playlist.add, playlist.add_many). */
+    fun addTo(provider: String, playlist: String, tracks: List<Track>, item: Item?) {
+        scope.launch { report { add(provider, playlist, tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() }) } }
+    }
+
+    /** Nueva lista: creates name on provider (G20 gives its ID), then adds the songs; done runs after. */
+    fun createList(provider: String, name: String, tracks: List<Track>, item: Item?, done: () -> Unit) {
+        scope.launch {
+            report {
+                val id = call("playlist.create", JSONObject().put("provider", provider).put("playlist", name)).optString("playlist").ifEmpty { name }
+                add(provider, id, tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() })
+                done()
+            }
+        }
+    }
+
+    private suspend fun add(provider: String, playlist: String, tracks: List<Track>) {
+        val params = JSONObject().put("provider", provider).put("playlist", playlist)
+        when (tracks.size) {
+            0 -> {}
+            1 -> call("playlist.add", params.put("track", tracks[0].json()))
+            else -> call("playlist.add_many", params.put("tracks", JSONArray(tracks.map { it.json() })))
+        }
+        invalidate() // the list's cached rows and counts are old (§5.3)
+        _info.tryEmit(app.getString(R.string.added))
+    }
+
+    /** Turns shuffle on, then plays: [⤨] on a page (§5.3 Album). */
+    fun shuffled(play: () -> Unit) {
+        scope.launch {
+            report { call("shuffle", JSONObject().put("name", "on")) }
+            play()
+        }
+    }
+
+    /** Me interesa (1) or No me interesa (-1) for item (G11); -1 drops it from the lists on screen at once (§2.6). */
+    fun rate(item: Item, value: Int) {
+        val kind = item.kind.name.lowercase()
+        val params = JSONObject().put("kind", kind).put("name", item.title).put("value", value)
+        val track = item.track
+        if (track != null) params.put("track", track.json()) else params.put("playlist", item.id)
+        if (value < 0) _hidden.update { it + (track?.path ?: item.id) }
+        scope.launch {
+            report { call("taste.rate", params) }
+            invalidate()
         }
     }
 
@@ -286,8 +508,17 @@ object Remote {
         }
     }
 
-    /** Toggles the ♥ of track (G20); the job's snapshot carries the new state. */
-    fun favorite(track: Track) = fire("playlist.bookmark", JSONObject().put("provider", "ytmusic").put("track", track.json()))
+    /** Toggles the ♥ of track (G20). The result's state reaches every row of its path; cached lists are stale after it (§5.3). */
+    fun favorite(track: Track) {
+        scope.launch {
+            report {
+                val result = call("playlist.bookmark", yt().put("track", track.json()))
+                val on = if (result.has("favorite")) result.getBoolean("favorite") else !(_liked.value[track.path] ?: track.favorite)
+                _liked.update { it + (track.path to on) }
+                invalidate()
+            }
+        }
+    }
 
     /** The lyrics of the song that plays, path, kept for the session (§5.3 Player). */
     suspend fun lyrics(path: String): List<Lyric> = cached("lyrics:$path", Long.MAX_VALUE) {
@@ -343,9 +574,9 @@ object Remote {
         }
     }.flowOn(Dispatchers.IO)
 
-    /** The last results of query however old, so a screen that comes back shows them at once (§7.3). */
+    /** The value cached under key however old, so a screen that comes back shows it at once (§7.3). */
     @Suppress("UNCHECKED_CAST")
-    fun lastSearch(query: String) = synchronized(cache) { cache["search:$query"]?.second as List<Section>? }
+    fun <T> peek(key: String): T? = synchronized(cache) { cache[key]?.second as T? }
 
     @Suppress("UNCHECKED_CAST")
     suspend fun <T> cached(key: String, ttlMs: Long, load: suspend () -> T): T {
@@ -355,6 +586,12 @@ object Remote {
     }
 
     fun invalidate() = synchronized(cache) { cache.clear() }
+
+    /** Clears the cache and makes the screens on show load again. */
+    fun reload() {
+        invalidate()
+        _reloads.update { it + 1 }
+    }
 
     private suspend fun awaitGate() {
         if (!Ytdlp.gate(Ytdlp.tag(app), Ytdlp.status.value)) return
