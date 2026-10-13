@@ -59,6 +59,23 @@ class YtdlpPolicyTest {
     }
 
     @Test
+    fun oneRetryPerPath() {
+        val g = RetryGuard()
+        data class Step(val name: String, val act: RetryGuard.() -> Unit, val path: String, val want: Boolean)
+        for (s in listOf(
+            Step("first error of a", {}, "a", true),
+            Step("a again while its watcher runs", {}, "a", false),
+            Step("a after a watcher that did not retry", { done("a") }, "a", true),
+            Step("a after its retry", { markRetried("a"); done("a") }, "a", false),
+            Step("another path", {}, "b", true),
+            Step("b after a watcher that did not retry", { done("b") }, "b", true),
+        )) {
+            g.(s.act)()
+            assertEquals(s.name, s.want, g.start(s.path))
+        }
+    }
+
+    @Test
     fun tagFromTheRedirect() {
         assertEquals("2026.08.19", Ytdlp.tagOf("https://github.com/yt-dlp/yt-dlp/releases/tag/2026.08.19"))
         assertEquals("2026.10.10.233141", Ytdlp.tagOf("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/tag/2026.10.10.233141"))

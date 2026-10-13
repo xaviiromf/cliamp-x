@@ -45,7 +45,6 @@ import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Section
 import io.github.xaviiromf.cliampx.kind
-import io.github.xaviiromf.cliampx.searchSections
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
@@ -69,7 +68,10 @@ fun SearchScreen() {
     var query by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf("") }
     var attempt by remember { mutableIntStateOf(0) }
-    var results by remember { mutableStateOf<Results>(Results.None) }
+    // The query the list shows: only a new one scrolls back to the top.
+    var shown by rememberSaveable { mutableStateOf("") }
+    // Back from another tab, the last rows show at once, at their scroll position, while they refresh.
+    var results by remember { mutableStateOf<Results>(Remote.lastSearch(submitted)?.let(::songs) ?: Results.None) }
     val list = rememberLazyListState()
     val snap by Remote.state.collectAsStateWithLifecycle()
 
@@ -85,18 +87,21 @@ fun SearchScreen() {
     LaunchedEffect(submitted, attempt) {
         if (submitted.isEmpty()) {
             results = Results.None
+            shown = ""
             return@LaunchedEffect
         }
-        results = Results.Loading
+        if (submitted != shown || results !is Results.Done) results = Results.Loading
         results = try {
-            val songs = searchSections(Remote.search(submitted)).map { s -> s.copy(rows = s.rows.filter { it.kind == Kind.SONG }) }
-            Results.Done(songs.filter { it.rows.isNotEmpty() })
+            songs(Remote.search(submitted))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Results.Failed(Remote.message(e))
         }
-        list.scrollToItem(0)
+        if (submitted != shown) {
+            shown = submitted
+            list.scrollToItem(0)
+        }
     }
     LaunchedEffect(Unit) { Nav.reselected.collect { if (it == Tab.Search) list.animateScrollToItem(0) } }
 
@@ -163,3 +168,7 @@ fun SearchScreen() {
         }
     }
 }
+
+/** The song rows of each section. shortcut: songs only until M3 adds the other kinds. */
+private fun songs(sections: List<Section>) =
+    Results.Done(sections.map { s -> s.copy(rows = s.rows.filter { it.kind == Kind.SONG }) }.filter { it.rows.isNotEmpty() })

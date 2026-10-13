@@ -187,6 +187,9 @@ when it opens and `ui.render off` otherwise, one request at a time, and again
 after each reconnect. The native UI uses V2 IPC only.
 Quit, in the notification or in the settings (`⋮`), sends the core SIGTERM so
 it saves the resume position, and kills it after 5 seconds.
+When the core ends by itself, `q` in Modo terminal closes the app, and a
+crash shows `ERR: cliamp-x se detuvo.` with `[ Reintentar ]`, which starts
+it again.
 `cliamp-x://` links and URLs shared to the app run
 `libcliamp.so open <link>` once the core listens; a shared URL becomes
 `cliamp-x://play?url=<url>`.

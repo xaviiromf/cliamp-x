@@ -58,10 +58,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.PlaybackClock
 import io.github.xaviiromf.cliampx.R
@@ -78,13 +80,16 @@ import kotlinx.coroutines.launch
 fun App(firstRun: Boolean) {
     val p = LocalPalette.current
     val connected by Remote.connected.collectAsStateWithLifecycle()
+    val stopped by Remote.stopped.collectAsStateWithLifecycle()
     val snap by Remote.state.collectAsStateWithLifecycle()
-    if (!connected && snap == null) return Splash(firstRun)
+    if (!connected && snap == null) return Splash(firstRun, stopped)
     BackHandler(enabled = Nav.tab != Tab.Home) { Nav.back() }
     val holder = rememberSaveableStateHolder()
+    // The bars' backgrounds run to the screen edges; their content keeps clear of a side nav bar and the cutout.
+    val sides = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
     Column(Modifier.fillMaxSize().background(p.bg).imePadding()) {
-        Box(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-            AnimatedContent(Nav.tab, transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "tab") { tab ->
+        Column(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+            AnimatedContent(Nav.tab, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "tab") { tab ->
                 holder.SaveableStateProvider(tab.name) {
                     when (tab) {
                         Tab.Home -> HomeScreen()
@@ -93,15 +98,16 @@ fun App(firstRun: Boolean) {
                     }
                 }
             }
+            if (stopped) CoreStopped()
         }
-        StatusLine(snap)
-        MiniPlayer(snap)
-        TabBar()
+        StatusLine(snap, sides)
+        MiniPlayer(snap, sides)
+        TabBar(sides)
     }
 }
 
 @Composable
-private fun Splash(firstRun: Boolean) {
+private fun Splash(firstRun: Boolean, stopped: Boolean) {
     val p = LocalPalette.current
     val waiting by Remote.gateWaiting.collectAsStateWithLifecycle()
     Column(
@@ -110,15 +116,32 @@ private fun Splash(firstRun: Boolean) {
     ) {
         Text("C L I A M P - X", color = p.accent, style = Type.logo)
         Spacer(Modifier.height(8.dp))
-        SpinnerLine(stringResource(R.string.starting))
-        if (firstRun) Text(stringResource(R.string.first_run), color = p.textSecondary, style = Type.caption, textAlign = TextAlign.Center)
-        if (waiting) Text("◌ " + stringResource(R.string.ytdlp_preparing), color = p.textSecondary, style = Type.caption)
+        if (stopped) {
+            CoreStopped()
+        } else {
+            SpinnerLine(stringResource(R.string.starting))
+            if (firstRun) Text(stringResource(R.string.first_run), color = p.textSecondary, style = Type.caption, textAlign = TextAlign.Center)
+            if (waiting) Text("◌ " + stringResource(R.string.ytdlp_preparing), color = p.textSecondary, style = Type.caption)
+        }
+    }
+}
+
+/** The core ended with an error: Reintentar starts it again. */
+@Composable
+private fun CoreStopped() {
+    val p = LocalPalette.current
+    val context = LocalContext.current
+    Banner("banner_stopped") {
+        Text("ERR: " + stringResource(R.string.core_stopped), Modifier.weight(1f), color = p.error, style = Type.caption)
+        BracketButton(stringResource(R.string.retry)) {
+            ContextCompat.startForegroundService(context, Intent(context, CliampService::class.java))
+        }
     }
 }
 
 /** The core's notice, or an app error for 4 s, as one caption row (§2.10). */
 @Composable
-private fun StatusLine(snap: Snapshot?) {
+private fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
     val appError by produceState<String?>(null) {
         Remote.errors.collect {
@@ -137,14 +160,14 @@ private fun StatusLine(snap: Snapshot?) {
         else -> notice.text to p.textSecondary
     }
     Text(
-        text, Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 16.dp, vertical = 4.dp).testTag("status_line"),
+        text, Modifier.fillMaxWidth().windowInsetsPadding(sides).height(24.dp).padding(horizontal = 16.dp, vertical = 4.dp).testTag("status_line"),
         color = color, style = Type.caption.bold(color != p.textSecondary && color != p.error), maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
 }
 
 /** The mini-player (§2.2): art, title, a state line, play or pause, and the progress along its bottom. */
 @Composable
-private fun MiniPlayer(snap: Snapshot?) {
+private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
     val pending by Remote.pending.collectAsStateWithLifecycle()
     val waiting by Remote.gateWaiting.collectAsStateWithLifecycle()
@@ -159,7 +182,7 @@ private fun MiniPlayer(snap: Snapshot?) {
     val playing = snap?.playing == true && pending == null
     val context = LocalContext.current
     val marquee = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
-    Column(Modifier.fillMaxWidth().background(p.surface).testTag("mini_player")) {
+    Column(Modifier.fillMaxWidth().background(p.surface).windowInsetsPadding(sides).testTag("mini_player")) {
         Row(Modifier.fillMaxWidth().height(62.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ArtBox(track.art, 48.dp)
             Spacer(Modifier.width(12.dp))
@@ -206,9 +229,9 @@ private fun Progress(snap: Snapshot?) {
 }
 
 @Composable
-private fun TabBar() {
+private fun TabBar(sides: WindowInsets) {
     val p = LocalPalette.current
-    Row(Modifier.fillMaxWidth().background(p.surface).navigationBarsPadding().height(56.dp)) {
+    Row(Modifier.fillMaxWidth().background(p.surface).navigationBarsPadding().windowInsetsPadding(sides).height(56.dp)) {
         for (tab in Tab.entries) {
             val active = tab == Nav.tab
             val color = if (active) p.accent else p.textSecondary
@@ -231,9 +254,10 @@ fun Banners() {
     val p = LocalPalette.current
     val context = LocalContext.current
     val connected by Remote.connected.collectAsStateWithLifecycle()
+    val stopped by Remote.stopped.collectAsStateWithLifecycle()
     val ytdlp by Ytdlp.status.collectAsStateWithLifecycle()
     val offer by Updates.offer.collectAsStateWithLifecycle()
-    if (!connected) Banner("banner_reconnect") { SpinnerLine(stringResource(R.string.reconnecting), Type.caption) }
+    if (!connected && !stopped) Banner("banner_reconnect") { SpinnerLine(stringResource(R.string.reconnecting), Type.caption) }
     var ready by remember { mutableStateOf(false) }
     LaunchedEffect(ytdlp) {
         ready = ytdlp is Ytdlp.Status.Updated || ytdlp is Ytdlp.Status.UpToDate

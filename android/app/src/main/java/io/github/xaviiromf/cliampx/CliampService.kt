@@ -346,8 +346,11 @@ class CliampService : Service(), TerminalSessionClient {
         session = null
         val next = afterExit
         afterExit = null
-        // The core quit by itself: close the app, but keep a failure on screen.
-        next?.invoke() ?: finish(finishedSession.exitStatus == 0)
+        if (next != null) return next()
+        // The core quit by itself: q in Modo terminal closes the app; a crash stays on screen with Reintentar.
+        val clean = finishedSession.exitStatus == 0
+        if (clean) Remote.quitting.value = true else Remote.stopped.value = true
+        finish(clean)
     }
 
     override fun onCopyTextToClipboard(session: TerminalSession, text: String) {

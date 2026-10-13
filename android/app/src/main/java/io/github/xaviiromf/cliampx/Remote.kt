@@ -52,6 +52,9 @@ object Remote {
 
     /** Salir: the activities finish. */
     val quitting = MutableStateFlow(false)
+
+    /** The core ended by itself with an error: the shell offers Reintentar (§2.10). */
+    val stopped = MutableStateFlow(false)
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val errors: SharedFlow<String> = _errors
 
@@ -69,8 +72,7 @@ object Remote {
     private var loop: Job? = null
     private val lock = Any()
     private var floor = 0L
-    private val retried = HashSet<String>()
-    private var watching: String? = null
+    private val guard = RetryGuard()
     private var lastForced = 0L
     private val cache = HashMap<String, Pair<Long, Any?>>()
     private val render = RenderSender { call("ui.render", JSONObject().put("name", it)) }
@@ -87,6 +89,7 @@ object Remote {
         app = ctx.applicationContext
         ipc = Ipc(Core.socket(app))
         quitting.value = false
+        stopped.value = false
         loop = scope.launch {
             launch { render.run() }
             subscribe()
@@ -97,6 +100,11 @@ object Remote {
         loop?.cancel()
         loop = null
         _connected.value = false
+        // No core plays now: the last song shows stopped, so the tickers and the marquee stop.
+        val now = SystemClock.elapsedRealtime()
+        synchronized(lock) {
+            _state.update { it?.copy(state = "stopped", buffering = false, position = PlaybackClock.positionAt(it, now), receivedAt = now) }
+        }
     }
 
     /** Modo terminal is on screen: the core draws only then. */
@@ -247,6 +255,7 @@ object Remote {
     fun message(e: Exception): String = when {
         e !is IpcError -> e.message ?: e.toString()
         e.code == "invalid_params" -> e.op
+        e.code == "unavailable" && stopped.value -> app.getString(R.string.core_stopped)
         else -> ErrorMap.text(e.code, e.detail)?.let(app::getString) ?: e.detail.ifEmpty { e.message.orEmpty() }
     }
 
@@ -269,9 +278,16 @@ object Remote {
         }
     }
 
-    suspend fun search(query: String): List<Track> = cached("search:$query", 120_000) {
-        Track.list(call("provider.search", JSONObject().put("provider", "ytmusic").put("query", query).put("limit", 40)))
+    /** The search rows by the core's sections, parsed off the main thread (§7.2). */
+    suspend fun search(query: String): List<Section> = cached("search:$query", 120_000) {
+        withContext(Dispatchers.IO) {
+            searchSections(Track.list(call("provider.search", JSONObject().put("provider", "ytmusic").put("query", query).put("limit", 40))))
+        }
     }
+
+    /** The last results of query however old, so a screen that comes back shows them at once (§7.3). */
+    @Suppress("UNCHECKED_CAST")
+    fun lastSearch(query: String) = synchronized(cache) { cache["search:$query"]?.second as List<Section>? }
 
     @Suppress("UNCHECKED_CAST")
     suspend fun <T> cached(key: String, ttlMs: Long, load: suspend () -> T): T {
@@ -296,10 +312,7 @@ object Remote {
     private fun watchError(s: Snapshot) {
         if (!Ytdlp.watches(s)) return
         val path = s.errorPath
-        synchronized(lock) {
-            if (path in retried || watching == path) return
-            watching = path
-        }
+        if (!guard.start(path)) return
         scope.launch {
             try {
                 val retry = when (
@@ -319,7 +332,7 @@ object Remote {
                 }
                 if (retry) retry(path)
             } finally {
-                synchronized(lock) { if (watching == path) watching = null }
+                guard.done(path)
             }
         }
     }
@@ -328,7 +341,7 @@ object Remote {
     private suspend fun retry(path: String) {
         val s = state.value ?: return
         if (s.track?.path != path) return
-        synchronized(lock) { retried += path }
+        guard.markRetried(path)
         report { call("queue.play", JSONObject().put("index", s.index)) }
     }
 
@@ -338,6 +351,30 @@ object Remote {
         val path = state.value?.takeIf { it.playError != null }?.errorPath
         if (path != null && status !is Ytdlp.Status.Failed) retry(path)
         return status
+    }
+}
+
+/** The error watcher's bookkeeping (§7.8): one watcher per failed path at a time, one automatic retry per path. */
+class RetryGuard {
+    private val retried = HashSet<String>()
+    private var watching: String? = null
+
+    /** Whether an error on path starts a watcher, which then holds path until done. */
+    @Synchronized
+    fun start(path: String): Boolean {
+        if (path in retried || watching == path) return false
+        watching = path
+        return true
+    }
+
+    @Synchronized
+    fun done(path: String) {
+        if (watching == path) watching = null
+    }
+
+    @Synchronized
+    fun markRetried(path: String) {
+        retried += path
     }
 }
 
