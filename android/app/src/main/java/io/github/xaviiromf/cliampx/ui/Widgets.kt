@@ -10,8 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -285,19 +284,23 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
     Box(
         modifier.fillMaxWidth().height(48.dp)
             .pointerInput(enabled, d) {
+                if (enabled) detectTapGestures { seek.release(at(it.x, size.width)) }
+            }
+            .pointerInput(enabled, d) {
                 if (!enabled) return@pointerInput
-                // One detector for taps and drags: the release seeks to where the finger left, the up event included.
-                awaitEachGesture {
-                    var x = awaitFirstDown().position.x
-                    seek.dragging = at(x, size.width)
-                    while (true) {
-                        val change = awaitPointerEvent().changes.first()
-                        x = change.position.x
-                        if (!change.pressed) break
-                        change.consume()
+                // Horizontal drags only: a vertical swipe that starts here still reaches the sheet (§7.5).
+                var x = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        x = it.x
                         seek.dragging = at(x, size.width)
-                    }
-                    seek.release(at(x, size.width))
+                    },
+                    onDragEnd = { seek.release(at(x, size.width)) },
+                    onDragCancel = { seek.dragging = null },
+                ) { change, _ ->
+                    change.consume()
+                    x = change.position.x
+                    seek.dragging = at(x, size.width)
                 }
             }
             .drawBehind {

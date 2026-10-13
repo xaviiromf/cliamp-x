@@ -113,17 +113,19 @@ fun PlayerSheet(s: Snapshot) {
         contentWindowInsets = { WindowInsets(0) },
     ) {
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
-        Box(
+        Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                 .semantics { testTagsAsResourceId = true }.testTag("player"),
         ) {
-            AnimatedContent(Nav.page, transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "page") { page ->
+            AnimatedContent(Nav.page, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "page") { page ->
                 when (page) {
                     PlayerPage.Player -> PlayerPage(s, close)
                     PlayerPage.Queue -> QueuePage(s)
                     PlayerPage.Eq -> EqPage(s)
                 }
             }
+            // The shell's status line sits behind the sheet: the sheet's actions report here.
+            StatusLine(s, WindowInsets(0))
         }
     }
 }
@@ -328,6 +330,7 @@ private fun TitleBlock(s: Snapshot) {
         )
         FavoriteButton(track.favorite, Modifier.testTag("fav")) { Remote.favorite(track) }
     }
+    // shortcut: plain text until M3 adds the Artist and Album pages; then a tap on each opens its page (§2.3).
     Text(
         listOf(track.artist, track.album).filter { it.isNotEmpty() }.joinToString(" · "),
         color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,

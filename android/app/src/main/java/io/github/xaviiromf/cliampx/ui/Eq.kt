@@ -48,8 +48,9 @@ import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.eqDrag
 import io.github.xaviiromf.cliampx.eqGain
+import io.github.xaviiromf.cliampx.eqPending
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -80,20 +81,21 @@ fun EqPage(s: Snapshot) {
     // The gains the finger set that the snapshot does not show yet, by band.
     val local = remember { mutableStateMapOf<Int, Int>() }
     var selected by remember { mutableIntStateOf(-1) }
-    val wanted = remember { MutableStateFlow(emptyMap<Int, Int>()) }
+    val wake = remember { Channel<Unit>(Channel.CONFLATED) }
     LaunchedEffect(Unit) {
-        val sent = HashMap<Int, Int>()
-        // A StateFlow is conflated: a slow call skips the values in between.
-        wanted.collect { want ->
-            for ((band, db) in want) {
-                if (sent[band] == db) continue
+        // One eq call in flight. Each touch starts a round that sends, newest value first, every band the core lacks.
+        for (touch in wake) {
+            val sent = HashMap<Int, Int>() // a value the core did not take is not sent again until the next touch
+            while (true) {
+                val (band, db) = eqPending(local, Remote.state.value?.eqBands.orEmpty(), sent) ?: break
+                sent[band] = db
                 try {
                     Remote.call("eq", JSONObject().put("band", band).put("value", db))
-                    sent[band] = db
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Remote.showError(e)
+                    local.remove(band) // the column shows the core's gain again
                 }
             }
         }
@@ -104,7 +106,7 @@ fun EqPage(s: Snapshot) {
     fun gain(band: Int) = local[band] ?: bands[band]
     fun set(band: Int, db: Int) {
         local[band] = db
-        wanted.value += band to db
+        wake.trySend(Unit)
     }
 
     val preset = if (s.eqPreset == "Custom" || s.eqPreset.isEmpty()) stringResource(R.string.eq_custom) else s.eqPreset

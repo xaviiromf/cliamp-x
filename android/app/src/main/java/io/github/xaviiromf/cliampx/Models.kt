@@ -3,6 +3,7 @@ package io.github.xaviiromf.cliampx
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 // The core's JSON (docs/remote-control.md) as immutable models, parsed off the
 // main thread. Go leaves out empty fields (omitempty): a missing number is 0, a
@@ -258,13 +259,24 @@ object Lyrics {
     fun active(lines: List<Lyric>, pos: Double): Int = lines.indexOfLast { it.start <= pos }
 }
 
-/** A page of a whole list (§5.5): the rows from offset and the full length. */
+/**
+ * A page of a whole list (§5.5): the rows from offset, the full length, and
+ * the playlist_revision they were read at, which edits of these rows send as
+ * if_revision (§5.3 Queue).
+ */
 @Immutable
-data class Page(val rows: List<Track>, val total: Int) {
+data class Page(val rows: List<Track>, val total: Int, val revision: Long = 0) {
     companion object {
-        fun parse(result: JSONObject) = Page(Track.list(result), result.optInt("total"))
+        /** From a finished queue.list or playnext.list job. */
+        fun parse(job: JSONObject): Page {
+            val result = job.optJSONObject("result") ?: JSONObject()
+            return Page(Track.list(result), result.optInt("total"), playlistRevision(job))
+        }
     }
 }
+
+/** The playlist_revision of the snapshot a job committed; 0, which the core does not check, when it has none. */
+fun playlistRevision(job: JSONObject): Long = job.optJSONObject("snapshot")?.optLong("playlist_revision") ?: 0
 
 object Paging {
     /** The offset of the next page of a whole list after loaded rows, or null at its end. */
@@ -277,6 +289,22 @@ object Paging {
  */
 fun swaps(from: Int, to: Int): List<Pair<Int, Int>> =
     if (from <= to) (from until to).map { it to it + 1 } else (from downTo to + 1).map { it to it - 1 }
+
+/**
+ * Sends a move as adjacent swaps through send, which returns the finished
+ * job (§7.7). With a revision, the first swap passes it as if_revision and
+ * each later one the revision of the previous job's snapshot; null sends
+ * none. Throws on the first failure.
+ */
+suspend fun sendSwaps(from: Int, to: Int, revision: Long?, send: suspend (JSONObject) -> JSONObject) {
+    var rev = revision
+    for ((i, j) in swaps(from, to)) {
+        val params = JSONObject().put("index", i).put("to", j)
+        if (rev != null) params.put("if_revision", rev)
+        val job = send(params)
+        if (rev != null) rev = playlistRevision(job)
+    }
+}
 
 /**
  * The seek bar after a release (§5.4) shows the target until a snapshot
@@ -304,6 +332,13 @@ fun eqGain(y: Float, height: Float): Int =
 /** The EQ gain after a drag of dy pixels (down is positive) from base, one step per cell pixels. */
 fun eqDrag(base: Int, dy: Float, cell: Float): Int =
     if (cell <= 0) base else (base - Math.round(dy / cell)).coerceIn(-12, 12)
+
+/**
+ * The next EQ band to send, as (band, dB): one the finger set (local) that
+ * the core (its eq_bands) does not have and this round did not send, or null.
+ */
+fun eqPending(local: Map<Int, Int>, core: List<Double>, sent: Map<Int, Int>): Pair<Int, Int>? =
+    local.entries.firstOrNull { (band, db) -> sent[band] != db && core.getOrNull(band)?.roundToInt() != db }?.toPair()
 
 /** The next native visualizer of the strip's cycle (§2.3): Bars, ClassicPeak, Mirror. */
 fun nextVisualizer(current: String): String {

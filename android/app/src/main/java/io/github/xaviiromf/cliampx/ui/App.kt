@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -105,8 +106,19 @@ fun App(firstRun: Boolean) {
         MiniPlayer(snap, sides)
         TabBar(sides)
     }
+    // A sheet takes the focus from the search field, so closing it never brings the keyboard back (§1.2).
+    val focus = LocalFocusManager.current
+    LaunchedEffect(Nav.player || Nav.sheet != null) { if (Nav.player || Nav.sheet != null) focus.clearFocus() }
+    // No song or no core: the sheet closes (an open request too), so it does not open by itself later and the shell's banner shows.
     val s = snap
-    if (Nav.player && s?.track != null) PlayerSheet(s)
+    val gone = s?.track == null || stopped
+    LaunchedEffect(gone, Nav.player) {
+        if (gone && Nav.player) {
+            Nav.player = false
+            Nav.page = PlayerPage.Player
+        }
+    }
+    if (Nav.player && !stopped && s?.track != null) PlayerSheet(s)
     SheetHost(snap)
 }
 
@@ -143,9 +155,9 @@ private fun CoreStopped() {
     }
 }
 
-/** The core's notice, or an app error for 4 s, as one caption row (§2.10). */
+/** The core's notice, or an app error for 4 s, as one caption row (§2.10). The player sheet shows its own. */
 @Composable
-private fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
+fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
     val appError by produceState<String?>(null) {
         Remote.errors.collect {

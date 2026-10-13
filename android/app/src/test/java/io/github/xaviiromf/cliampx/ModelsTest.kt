@@ -1,5 +1,6 @@
 package io.github.xaviiromf.cliampx
 
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -219,9 +220,18 @@ class PlayerModelsTest {
         val row = Track.parse(JSONObject("""{"path":"/sdcard/Music/test_dos.mp3","index":7,"queue_position":1,"bookmark":true}"""))
         assertEquals(7, row.index)
         assertTrue(row.favorite)
-        val page = Page.parse(JSONObject("""{"ok":true,"total":3,"tracks":[${row.raw}]}"""))
-        assertEquals(3, page.total)
+        // A finished queue.list job (emulator, trimmed): the rows and the playlist_revision they were read at.
+        val page = Page.parse(
+            JSONObject(
+                """{"id":"fe34935ae5ab7b0a32feb982831285e7","operation":"queue.list","state":"succeeded",""" +
+                    """"result":{"ok":true,"index":3,"total":23,"tracks":[${row.raw}]},""" +
+                    """"snapshot":{"revision":40,"playlist_revision":28,"state":"paused","index":3,"total":27}}""",
+            ),
+        )
+        assertEquals(23, page.total)
+        assertEquals(28, page.revision)
         assertEquals("/sdcard/Music/test_dos.mp3", page.rows.single().path)
+        assertEquals("a job without a snapshot is not checked", 0, Page.parse(JSONObject("""{"result":{"total":0}}""")).revision)
     }
 
     @Test
@@ -241,6 +251,44 @@ class PlayerModelsTest {
         assertEquals(listOf(2 to 3, 3 to 4, 4 to 5), swaps(2, 5))
         assertEquals(listOf(5 to 4, 4 to 3), swaps(5, 3))
         assertEquals(emptyList<Pair<Int, Int>>(), swaps(4, 4))
+    }
+
+    @Test
+    fun swapsChainTheRevision() = runBlocking {
+        val sent = mutableListOf<Triple<Int, Int, Long?>>()
+        fun record(params: JSONObject) {
+            sent += Triple(params.getInt("index"), params.getInt("to"), if (params.has("if_revision")) params.getLong("if_revision") else null)
+        }
+        // Each queue.move job commits a new revision, not always one higher (another edit can land in between).
+        val revisions = ArrayDeque(listOf(8L, 10L, 11L))
+        sendSwaps(2, 5, 7) { params ->
+            record(params)
+            JSONObject().put("state", "succeeded").put("snapshot", JSONObject().put("playlist_revision", revisions.removeFirst()))
+        }
+        assertEquals(listOf(Triple(2, 3, 7L), Triple(3, 4, 8L), Triple(4, 5, 10L)), sent)
+        sent.clear()
+        sendSwaps(1, 0, null) { params -> JSONObject().also { record(params) } }
+        assertEquals("playnext.move sends no revision", listOf(Triple(1, 0, null)), sent)
+    }
+
+    @Test
+    fun aFailedSwapStopsTheMove() = runBlocking {
+        var calls = 0
+        val e = runCatching { sendSwaps(0, 3, 4) { calls++; throw IpcError("queue.move", "conflict", "stale") } }.exceptionOrNull()
+        assertEquals("conflict", (e as IpcError).code)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun eqSendsWhatTheCoreLacks() {
+        val flat = List(10) { 0.0 }
+        // Band 0 to +3, Flat, then a tap at +3 again: the core is at 0, so +3 goes out again.
+        assertEquals(0 to 3, eqPending(mapOf(0 to 3), flat, emptyMap()))
+        assertNull("the core has it", eqPending(mapOf(0 to 3), flat.toMutableList().also { it[0] = 3.0 }, emptyMap()))
+        assertNull("sent this round, the core did not take it", eqPending(mapOf(0 to 3), flat, mapOf(0 to 3)))
+        assertEquals("a newer value of a sent band", 0 to 4, eqPending(mapOf(0 to 4), flat, mapOf(0 to 3)))
+        assertEquals("the next band", 2 to -1, eqPending(mapOf(0 to 3, 2 to -1), flat.toMutableList().also { it[0] = 3.0 }, emptyMap()))
+        assertEquals("no bands known yet", 5 to 0, eqPending(mapOf(5 to 0), emptyList(), emptyMap()))
     }
 
     @Test

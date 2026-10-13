@@ -20,8 +20,11 @@ enum class PlayerPage { Player, Queue, Eq }
 
 /** The small bottom sheets (§2.6, §3.15). */
 sealed interface Sheet {
-    /** A song's actions. index is its live-playlist index in the queue's Siguiente rows, next its play-next position. */
-    data class Song(val track: Track, val index: Int? = null, val next: Int? = null) : Sheet
+    /**
+     * A song's actions. index is its live-playlist index in the queue's
+     * Siguiente rows, read at playlist revision; next its play-next position.
+     */
+    data class Song(val track: Track, val index: Int? = null, val next: Int? = null, val revision: Long = 0) : Sheet
     data object PlayerMore : Sheet
     data object Speed : Sheet
     data object Sleep : Sheet

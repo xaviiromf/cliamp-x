@@ -196,7 +196,11 @@ object Remote {
      * operations first wait behind the yt-dlp gate. Cancelling the caller
      * cancels the job. Throws IpcError.
      */
-    suspend fun call(op: String, params: JSONObject = JSONObject(), timeoutMs: Long = timeout(op)): JSONObject {
+    suspend fun call(op: String, params: JSONObject = JSONObject(), timeoutMs: Long = timeout(op)): JSONObject =
+        job(op, params, timeoutMs).optJSONObject("result") ?: JSONObject()
+
+    /** Runs an operation like call and returns the whole succeeded job: its result and the snapshot it committed. */
+    suspend fun job(op: String, params: JSONObject = JSONObject(), timeoutMs: Long = timeout(op)): JSONObject {
         if (op in PLAY_OPS || (op == "url.load" && params.optBoolean("play"))) awaitGate()
         return withContext(Dispatchers.IO) {
             val submitted = checked(op) { ipc.submit(op, params) }.getJSONObject("job")
@@ -215,7 +219,7 @@ object Remote {
                 done = true
                 job.optJSONObject("snapshot")?.let { apply(it, if (op in Snapshots.PLAYBACK_OPS) Source.PLAYBACK_JOB else Source.OTHER_JOB) }
                 if (job.optString("state") != "succeeded") throw IpcError.of(op, job.optJSONObject("error"))
-                job.optJSONObject("result") ?: JSONObject()
+                job
             } finally {
                 if (!done) withContext(NonCancellable) { runCatching { ipc.cancel(id) } }
             }
@@ -253,9 +257,10 @@ object Remote {
         }
     }
 
-    /** Puts a failed call on the status line. */
+    /** Puts a failed call on the status line; a stale queue edit only refetches, silently (§5.7). */
     fun showError(e: Exception) {
         Log.w(TAG, "call: $e")
+        if (e is IpcError && e.code == "conflict" && (e.op.startsWith("queue.") || e.op.startsWith("playnext."))) return
         _errors.tryEmit(message(e))
     }
 
@@ -267,17 +272,10 @@ object Remote {
         else -> ErrorMap.text(e.code, e.detail)?.let(app::getString) ?: e.detail.ifEmpty { e.message.orEmpty() }
     }
 
-    /** Plays tracks from index: queue.replace (G6), else track.play of that one track. */
+    /** Plays tracks from index with queue.replace (G6). */
     fun play(tracks: List<Track>, index: Int) {
         plays.launch(tracks[index]) {
-            report {
-                if ("queue.replace" in ops.value) {
-                    call("queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index))
-                } else {
-                    // shortcut: the only fallback; remove once Batch A is merged.
-                    call("track.play", JSONObject().put("track", tracks[index].json()))
-                }
-            }
+            report { call("queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index)) }
         }
     }
 
@@ -303,24 +301,18 @@ object Remote {
     }
 
     /**
-     * Moves a queue row (queue.move, live indexes) or a play-next row
-     * (playnext.move) as adjacent swaps (§7.7). Each queue swap passes the
-     * revision the previous one left. Throws on the first failure.
+     * Moves a queue row (queue.move, live indexes, from rows read at
+     * revision) or a play-next row (playnext.move, revision null) as
+     * adjacent swaps (§7.7). Throws on the first failure.
      */
-    suspend fun move(op: String, from: Int, to: Int) {
-        for ((i, j) in swaps(from, to)) {
-            val params = JSONObject().put("index", i).put("to", j)
-            if (op == "queue.move") params.put("if_revision", state.value?.playlistRevision ?: 0)
-            call(op, params)
-        }
-    }
+    suspend fun move(op: String, from: Int, to: Int, revision: Long?) = sendSwaps(from, to, revision) { job(op, it) }
 
     /** A page of the tracks after the playing one, in play order (G22). */
     suspend fun upNext(offset: Int): Page = withContext(Dispatchers.IO) {
-        Page.parse(call("queue.list", JSONObject().put("sort", "upnext").put("offset", offset).put("limit", 200)))
+        Page.parse(job("queue.list", JSONObject().put("sort", "upnext").put("offset", offset).put("limit", 200)))
     }
 
-    suspend fun playNext(): Page = withContext(Dispatchers.IO) { Page.parse(call("playnext.list", JSONObject().put("limit", 200))) }
+    suspend fun playNext(): Page = withContext(Dispatchers.IO) { Page.parse(job("playnext.list", JSONObject().put("limit", 200))) }
 
     /** The EQ presets (G19), Custom last. */
     suspend fun eqPresets(): List<String> = cached("eq:list", Long.MAX_VALUE) {

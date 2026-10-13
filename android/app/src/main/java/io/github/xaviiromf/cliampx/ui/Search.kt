@@ -29,7 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -64,7 +64,8 @@ private sealed interface Results {
 @Composable
 fun SearchScreen() {
     val p = LocalPalette.current
-    val keyboard = LocalSoftwareKeyboardController.current
+    // Clearing the focus hides the keyboard, and a closing sheet then has no field to give it back to (§1.2).
+    val focus = LocalFocusManager.current
     var query by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf("") }
     var attempt by remember { mutableIntStateOf(0) }
@@ -117,7 +118,7 @@ fun SearchScreen() {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
                 submitted = query.trim()
-                keyboard?.hide()
+                focus.clearFocus()
             }),
             decorationBox = { field ->
                 Row(Modifier.height(48.dp).background(p.surfaceHigh).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -162,7 +163,10 @@ fun SearchScreen() {
                                 track, playing = snap?.track?.path == track.path, Modifier.testTag("row_$n"),
                                 onLongClick = { Nav.sheet = Sheet.Song(track) },
                                 trailing = { IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("row_more_$n")) { Nav.sheet = Sheet.Song(track) } },
-                            ) { Remote.play(section.rows, i) }
+                            ) {
+                                focus.clearFocus()
+                                Remote.play(section.rows, i)
+                            }
                         }
                         n += section.rows.size
                     }

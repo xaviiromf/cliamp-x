@@ -141,7 +141,7 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
             if (sheet.next != null) {
                 Remote.fire("playnext.remove", JSONObject().put("index", sheet.next))
             } else {
-                Remote.fire("queue.remove", JSONObject().put("index", sheet.index).put("if_revision", Remote.state.value?.playlistRevision ?: 0))
+                Remote.fire("queue.remove", JSONObject().put("index", sheet.index).put("if_revision", sheet.revision))
             }
             close()
         }

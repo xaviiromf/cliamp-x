@@ -44,7 +44,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.Paging
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
@@ -59,10 +58,11 @@ import org.json.JSONObject
 @Immutable
 private data class QRow(val key: Int, val track: Track)
 
-/** One section's rows and the row being dragged in it. */
+/** One section's rows, the playlist_revision they were read at, and the row being dragged in it. */
 @Stable
 private class Rows {
     var list by mutableStateOf(emptyList<QRow>())
+    var revision = 0L
     var dragging by mutableStateOf<Int?>(null)
     var offset by mutableFloatStateOf(0f)
     var from = 0
@@ -101,14 +101,16 @@ fun QueuePage(s: Snapshot) {
             val n = Remote.playNext()
             val first = Remote.upNext(0)
             val rows = first.rows.toMutableList()
-            // Reload as many rows as were shown, so the scroll position stays.
+            // Reload as many rows as were shown, so the scroll position stays; a page of a newer queue waits for its refetch.
             while (rows.size < up.list.size) {
-                val page = Remote.upNext(Paging.next(rows.size, first.total) ?: break).rows
-                if (page.isEmpty()) break
-                rows += page
+                val page = Remote.upNext(Paging.next(rows.size, first.total) ?: break)
+                if (page.rows.isEmpty() || page.revision != first.revision) break
+                rows += page.rows
             }
             next.list = n.rows.mapIndexed(::QRow)
+            next.revision = n.revision
             up.list = rows.mapIndexed(::QRow)
+            up.revision = first.revision
             upTotal = first.total
             failed = null
         } catch (e: CancellationException) {
@@ -123,13 +125,17 @@ fun QueuePage(s: Snapshot) {
         snapshotFlow { (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) to list.layoutInfo.totalItemsCount }.collect { (last, count) ->
             val offset = Paging.next(up.list.size, upTotal) ?: return@collect
             if (last < count - 20 || busy > 0) return@collect
-            runCatching { Remote.upNext(offset) }.onSuccess { page -> up.list += page.rows.mapIndexed { i, t -> QRow(offset + i, t) } }
+            runCatching { Remote.upNext(offset) }.onSuccess { page ->
+                if (page.revision == up.revision) up.list += page.rows.mapIndexed { i, t -> QRow(offset + i, t) }
+            }
         }
     }
 
-    fun revision() = Remote.state.value?.playlistRevision ?: 0
-
-    /** Runs a queue edit; a conflict (a stale revision) only refetches, other failures also show. */
+    /**
+     * Runs a queue edit and refetches when it fails. Edits pass the revision
+     * their rows were read at, so a row that moved since gets a conflict,
+     * which only refetches (§5.7), instead of editing another song.
+     */
     fun edit(block: suspend () -> Unit) {
         busy++
         scope.launch {
@@ -138,7 +144,7 @@ fun QueuePage(s: Snapshot) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if ((e as? IpcError)?.code != "conflict") Remote.showError(e)
+                Remote.showError(e)
                 reload++
             } finally {
                 busy--
@@ -146,7 +152,9 @@ fun QueuePage(s: Snapshot) {
         }
     }
 
-    fun play(r: QRow) = edit { Remote.call("queue.play", JSONObject().put("index", r.track.index).put("if_revision", revision())) }
+    fun play(rows: Rows, r: QRow) = edit {
+        Remote.call("queue.play", JSONObject().put("index", r.track.index).put("if_revision", rows.revision))
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -175,24 +183,24 @@ fun QueuePage(s: Snapshot) {
                         BracketButton(stringResource(R.string.clear), Modifier.testTag("next_clear")) { edit { Remote.call("playnext.clear") } }
                     }
                 }
-                rows(next, "n", rowPx, handle = true, tag = { "next_$it" }, play = ::play,
+                rows(next, "n", rowPx, handle = true, tag = { "next_$it" }, play = { play(next, it) },
                     remove = { i, _ -> edit { Remote.call("playnext.remove", JSONObject().put("index", i)) } },
-                    move = { from, to -> edit { Remote.move("playnext.move", from, to) } },
+                    move = { from, to -> edit { Remote.move("playnext.move", from, to, null) } },
                     sheet = { i, r -> Sheet.Song(r.track, next = i) },
                 )
             }
             item(key = "rule_up") { SectionRule(stringResource(R.string.queue_up_next, upTotal)) }
             // The core refuses moves while shuffle is on.
-            rows(up, "u", rowPx, handle = !s.shuffle, tag = { "row_$it" }, play = ::play,
+            rows(up, "u", rowPx, handle = !s.shuffle, tag = { "row_$it" }, play = { play(up, it) },
                 remove = { _, r ->
-                    edit { Remote.call("queue.remove", JSONObject().put("index", r.track.index).put("if_revision", revision())) }
+                    edit { Remote.call("queue.remove", JSONObject().put("index", r.track.index).put("if_revision", up.revision)) }
                 },
                 move = { from, to ->
                     // Siguiente is the live order after the song when shuffle is off: positions map to consecutive live indexes.
                     val base = up.list.minOf { it.track.index }
-                    edit { Remote.move("queue.move", base + from, base + to) }
+                    edit { Remote.move("queue.move", base + from, base + to, up.revision) }
                 },
-                sheet = { _, r -> Sheet.Song(r.track, index = r.track.index) },
+                sheet = { _, r -> Sheet.Song(r.track, index = r.track.index, revision = up.revision) },
             )
             if (loaded && next.list.isEmpty() && up.list.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.queue_empty)) }
         }
