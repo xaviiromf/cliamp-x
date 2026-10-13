@@ -49,7 +49,8 @@ func TestFrameLayoutTiers(t *testing.T) {
 	}{
 		{name: "too small", width: 39, height: 9, wantTier: layoutTooSmall},
 		{name: "minimal", width: 40, height: 10, wantTier: layoutMinimal},
-		{name: "compact", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: compactVisRows},
+		{name: "compact", width: 56, height: 18, wantTier: layoutCompact, wantVisRows: compactVisRows},
+		{name: "compact, the visualizer gives way", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: 3},
 		{name: "full", width: 80, height: 24, wantTier: layoutFull, wantVisRows: ui.DefaultVisRows},
 	}
 
@@ -301,7 +302,7 @@ func TestResizeHidesMinimalVisualizerAndRestoresCanvas(t *testing.T) {
 		t.Fatalf("hidden visualizer frame = %d, want %d", got, before)
 	}
 
-	updated, _ = m.Update(tea.WindowSizeMsg{Width: 56, Height: 16})
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 56, Height: 18})
 	m = updated.(Model)
 	if !m.visualizerVisible() {
 		t.Fatal("visualizerVisible() = false after compact resize, want true")
@@ -685,7 +686,7 @@ func TestConfiguredVisualizerRows(t *testing.T) {
 		{name: "taller than the default", width: 120, height: 50, visRows: 20, want: 20},
 		{name: "shorter than the default", width: 120, height: 50, visRows: 2, want: 2},
 		{name: "capped by a short terminal", width: 120, height: 24, visRows: 40, want: 9},
-		{name: "compact tier is unaffected", width: 60, height: 16, visRows: 20, want: compactVisRows},
+		{name: "compact tier is unaffected", width: 60, height: 18, visRows: 20, want: compactVisRows},
 	}
 
 	for _, tt := range tests {

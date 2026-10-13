@@ -104,8 +104,15 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 							t.Fatalf("line %q is %d wide, want <= %d\n%s", ansi.Strip(line), w, size[0], ansi.Strip(view))
 						}
 					}
-					// A line wider than the panel would wrap inside the frame.
-					for _, line := range strings.Split(m.frameContent(), "\n") {
+					// View clips the frame to the terminal, so the content is
+					// what shows an overflow: more rows than the padded frame
+					// holds lose the bottom, and a line wider than the panel
+					// would wrap inside the frame.
+					content := strings.Split(m.frameContent(), "\n")
+					if rows := size[1] - 2*m.layout.paddingV; len(content) > rows {
+						t.Fatalf("%d content lines, want <= %d\n%s", len(content), rows, ansi.Strip(m.frameContent()))
+					}
+					for _, line := range content {
 						if w := textWidth(line); w > m.layout.panelWidth {
 							t.Fatalf("content line %q is %d wide, panel %d", ansi.Strip(line), w, m.layout.panelWidth)
 						}

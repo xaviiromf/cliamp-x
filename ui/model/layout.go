@@ -156,8 +156,10 @@ func (m *Model) recomputeLayout() {
 		layout.fixedRows = fullBaseRows + rows
 	case width >= 56 && height >= 16:
 		layout.tier = layoutCompact
-		layout.visualizerRows = compactVisRows
-		layout.fixedRows = compactBaseRows + compactVisRows
+		// Below 18 rows the visualizer gives way, so a list row and the
+		// status line stay on the screen.
+		layout.visualizerRows = max(1, min(compactVisRows, height-2*paddingV-compactBaseRows-layout.footerRows-1))
+		layout.fixedRows = compactBaseRows + layout.visualizerRows
 	default:
 		layout.tier = layoutMinimal
 		layout.fixedRows = 7
@@ -180,10 +182,12 @@ func (m *Model) recomputeLayout() {
 	simplified := m.usesSimplifiedLayout()
 	if contentFirst {
 		layout.visualizerRows = 0
-		if layout.tier == layoutMinimal {
-			layout.fixedRows = 6
-		} else {
-			layout.fixedRows = 7
+		// Track, time, seek bar, list header, hint bar and status line, plus
+		// the title (not on the minimal tier) and the spacer above the hint
+		// bar (not on the compact tier).
+		layout.fixedRows = 7
+		if layout.tier == layoutFull {
+			layout.fixedRows = 8
 		}
 		// Browsing keeps the preview pane and the visualizer, shrunk to what
 		// the screen can spare after a usable list. The preview takes half
