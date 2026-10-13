@@ -25,11 +25,27 @@ android {
         versionName = providers.gradleProperty("cliampVersion")
             .getOrElse(git("describe", "--tags", "--always")).removePrefix("v")
         ndk { abiFilters += cliampAbi }
+        // The updater fetches cliamp-x-<version>-<ABI>.apk.
+        buildConfigField("String", "ABI", "\"$cliampAbi\"")
+    }
+
+    // Release signing comes from the environment, as nightly.yml sets it. Without
+    // ANDROID_KEYSTORE_FILE, assembleRelease builds app-release-unsigned.apk.
+    // Only APKs signed with the same key update each other.
+    val keystore = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
+    signingConfigs {
+        if (keystore != null) create("release") {
+            storeFile = file(keystore)
+            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").get()
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -76,4 +92,7 @@ dependencies {
     implementation("com.github.termux.termux-app:terminal-emulator:v0.118.3")
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    testImplementation("junit:junit:4.13.2")
+    // The real org.json: android.jar has only stubs on the JVM.
+    testImplementation("org.json:json:20260814")
 }

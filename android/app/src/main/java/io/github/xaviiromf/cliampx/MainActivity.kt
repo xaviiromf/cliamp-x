@@ -24,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
@@ -35,6 +36,13 @@ import com.termux.terminal.KeyHandler
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
 import com.termux.view.TerminalViewClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /** Shows the core's terminal with a row of extra keys. The service owns the core. */
 class MainActivity : AppCompatActivity(), ServiceConnection {
@@ -45,6 +53,7 @@ class MainActivity : AppCompatActivity(), ServiceConnection {
     private var ctrl = false
     private var fontSize = 0
     private val prefs by lazy { getSharedPreferences("ui", MODE_PRIVATE) }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { startCore(linkOf(intent)) }
 
@@ -90,6 +99,24 @@ class MainActivity : AppCompatActivity(), ServiceConnection {
             startCore(link)
         }
         bindService(Intent(this, CliampService::class.java), this, BIND_AUTO_CREATE)
+        if (savedInstanceState == null) offerUpdate()
+    }
+
+    /** At most once a day, offers a newer release. Installing stays the user's choice. */
+    private fun offerUpdate() {
+        File(cacheDir, "updates").deleteRecursively() // the APK of an update that is installed by now
+        if (!Updates.due(this)) return
+        scope.launch {
+            val release = withContext(Dispatchers.IO) { runCatching { Updates.check(this@MainActivity) }.getOrNull() }
+            if (release == null || !release.newer || release.apk == null) return@launch
+            AlertDialog.Builder(this@MainActivity)
+                .setMessage(getString(R.string.update_available, release.latest))
+                .setPositiveButton(R.string.update_install) { _, _ ->
+                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_UPDATE, true))
+                }
+                .setNegativeButton(R.string.later, null)
+                .show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -119,6 +146,7 @@ class MainActivity : AppCompatActivity(), ServiceConnection {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         if (service?.activity === this) service?.activity = null
         unbindService(this)
         super.onDestroy()

@@ -181,12 +181,7 @@ class CliampService : Service(), TerminalSessionClient {
             // The first start unpacks Python and ffmpeg before the core runs: allow a minute.
             val up = (1..600).any { runCatching { ipc.state() }.isSuccess || run { Thread.sleep(100); false } }
             val error = if (!up) "cliamp-x did not start" else runCatching {
-                val builder = ProcessBuilder(Core.binary(this@CliampService).path, "open", link).redirectErrorStream(true)
-                builder.environment().apply {
-                    clear()
-                    Core.env(this@CliampService).forEach { val (k, v) = it.split("=", limit = 2); put(k, v) }
-                }
-                val process = builder.start()
+                val process = Core.command(this@CliampService, "open", link).redirectErrorStream(true).start()
                 val out = process.inputStream.bufferedReader().readText().trim()
                 if (process.waitFor() == 0) null else out.lines().last()
             }.getOrElse { it.message }
