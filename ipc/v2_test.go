@@ -99,6 +99,14 @@ func TestNativeOperationParameters(t *testing.T) {
 		"queue.list":          {"sort", "offset", "limit"},
 		"provider.load":       {"provider", "playlist", "index"},
 		"provider.load_album": {"provider", "album", "index"},
+		// batch B: browse
+		"provider.artists":        {"provider", "sort", "offset", "limit"},
+		"provider.home":           {"provider"},
+		"provider.genres":         {"provider", "playlist"},
+		"provider.genre_tracks":   {"provider", "playlist", "sort", "offset", "limit"},
+		"provider.genre_favorite": {"provider", "playlist"},
+		"provider.refresh":        {"provider"},
+		"provider.preview":        {"provider", "playlist"},
 	} {
 		operation, ok := registry.Lookup(name)
 		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {
@@ -423,4 +431,34 @@ func errorCode(err *V2Error) string {
 		return ""
 	}
 	return err.Code
+}
+
+// The browse result shapes keep their JSON names.
+func TestBrowseResultFields(t *testing.T) {
+	favorite := true
+	response := Response{
+		OK:       true,
+		Shelves:  []ShelfInfo{{Title: "Picks", Items: []ShelfItemInfo{{Kind: "song", ID: "v", Title: "T", Subtitle: "A", ImageURL: "i", Track: &TrackInfo{Path: "p"}}}}},
+		Genres:   []GenreInfo{{ID: "g", Name: "Rock", Group: "Genres", Favorite: true}},
+		Preview:  &PreviewInfo{ImageURL: "i", Lines: []string{"l"}, Favorite: &favorite},
+		Albums:   []AlbumInfo{{ID: "a", Name: "N", ImageURL: "i", Favorite: true, Single: true}},
+		Artists:  []ArtistInfo{{ID: "r", Name: "N", ImageURL: "i", Favorite: true}},
+		Playlist: "x",
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"ok":true,"playlist":"x","artists":[{"id":"r","name":"N","image_url":"i","favorite":true}],` +
+		`"albums":[{"id":"a","name":"N","image_url":"i","favorite":true,"single":true}],` +
+		`"shelves":[{"title":"Picks","items":[{"kind":"song","id":"v","title":"T","subtitle":"A","image_url":"i","track":{"path":"p"}}]}],` +
+		`"genres":[{"id":"g","name":"Rock","group":"Genres","favorite":true}],` +
+		`"preview":{"image_url":"i","lines":["l"],"favorite":true}}`
+	if string(data) != want {
+		t.Fatalf("JSON = %s\nwant   %s", data, want)
+	}
+	playlist, _ := json.Marshal(PlaylistInfo{ID: "pl:x", Name: "N", Provider: "ytmusic", ImageURL: "i", Writable: true, Unseen: true})
+	if want := `{"id":"pl:x","name":"N","provider":"ytmusic","image_url":"i","writable":true,"unseen":true}`; string(playlist) != want {
+		t.Fatalf("playlist JSON = %s, want %s", playlist, want)
+	}
 }

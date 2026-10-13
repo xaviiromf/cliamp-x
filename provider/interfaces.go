@@ -426,6 +426,19 @@ type PreviewLoader interface {
 	PreviewDetails(ctx context.Context, id string) (PreviewDetails, error)
 }
 
+// FavoriteStater is implemented by providers that can tell whether an item
+// is saved or followed in the account, such as a saved album or a followed
+// artist. known is false when the provider cannot tell for that ID.
+type FavoriteStater interface {
+	FavoriteState(id string) (on, known bool)
+}
+
+// HomeLoader is implemented by providers with a home page of shelves, such
+// as the recommendations of a streaming service.
+type HomeLoader interface {
+	HomeShelves() ([]Shelf, error)
+}
+
 // GenreLabeler is implemented by GenreBrowser providers whose categories are
 // not genres, so the browse overlay can name them correctly (for example
 // "Countries" for a radio directory).

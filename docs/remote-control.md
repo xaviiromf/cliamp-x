@@ -146,7 +146,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Live playlist | `queue`, `queue.list`, `queue.replace`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
-| Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog` |
+| Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
@@ -255,6 +255,62 @@ Music IDs look like `pl:VL…`. A local playlist's ID is its name.
 YouTube Music. It reads the stored session and makes no request.
 
 Use IDs returned by `provider.playlists` for subsequent provider operations.
+
+Rows carry their picture and state beside their names, which keep the marks
+the TUI shows:
+
+- `provider.playlists` rows give `image_url`, `writable` (the row takes new
+  tracks with `playlist.add`) and `unseen` (a new release not opened yet,
+  named `● …`).
+- Album rows of `provider.albums` and `provider.artist_albums` give
+  `image_url`, `favorite` (saved in the account, named `♥ …`) and `single`
+  (a single or EP, named `… · Singles`).
+- Artist rows of `provider.artists` give `image_url` and `favorite` (followed
+  in the account, named `♥ …`).
+
+YouTube Music pictures are square album art when YouTube Music has it, else
+the largest thumbnail. A `googleusercontent.com` URL ends in a size such as
+`=w400-h400-l90-rj`, which a client can change to get another size.
+
+`provider.artists` with the `sort` `foryou` pages the endless list of
+recommended artists, as `provider.albums` does with `foryou`: `limit` is 40
+by default and at most 200, `total` is the length of the page, and the next
+page starts at `offset + limit`. An empty page ends the list.
+
+`provider.home` gives the home page in `shelves`, each with a `title` and
+`items`, and the shelf count in `total`. Each item has a `kind` (`song`,
+`album`, `playlist` or `artist`), an `id` for the provider operations, a
+`title`, a `subtitle` and an `image_url`. A song also has its `track`, for
+`queue.replace`. Items the taste store hides and shelves left empty are
+dropped. When the home page cannot load, the job fails with the reason.
+
+```json
+{"ok":true,"total":1,"shelves":[{"title":"Quick picks","items":[
+  {"kind":"song","id":"abcdefghijk","title":"Tune","subtitle":"Band","image_url":"https://lh3.googleusercontent.com/…=w400-h400-l90-rj","track":{"path":"https://music.youtube.com/watch?v=abcdefghijk","title":"Tune","artist":"Band"}},
+  {"kind":"album","id":"MPREb_…","title":"Record","subtitle":"Album • Band"},
+  {"kind":"playlist","id":"pl:VLRDCLAK…","title":"Mix"},
+  {"kind":"artist","id":"UC…","title":"Band"}]}]}
+```
+
+`provider.genres` gives the categories in `genres`, each with `id`, `name`,
+`group` and `favorite`, the play orders in `sorts`, and the count in
+`total`. With `playlist` set to a browse entry, such as `browse:moods` for
+YouTube Music, it gives that catalog. `provider.genre_tracks` gives the
+tracks of the genre `playlist` in the `sort` order, paged with `offset` and
+`limit` (at most 200), with `total`. `provider.genre_favorite` stars or
+unstars the genre `playlist` and gives the new state in `favorite`.
+
+`provider.refresh` drops the cached lists of the provider, so the next read
+asks the service again, and starts the `foryou` lists over.
+
+`provider.preview` gives the picture and the detail lines of an album,
+artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube
+Music album (`MPREb_…`) or artist (`UC…`) of a signed-in account it also
+gives `favorite`, whether the album is saved or the artist followed.
+
+```json
+{"ok":true,"preview":{"image_url":"https://lh3.googleusercontent.com/…","lines":["Album · 2024","Band","10 songs • 40 minutes"],"favorite":true}}
+```
 
 Request provider list responses with `offset` and `limit` when the provider
 supports paging. Use `playlist.replace` to save a GUI-created order, sort, or
