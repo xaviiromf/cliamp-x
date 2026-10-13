@@ -67,7 +67,7 @@ func (m *Model) cycleNormalize() {
 	if !ok {
 		return
 	}
-	mode, target := n.Normalize()
+	mode, _ := n.Normalize()
 	switch mode {
 	case player.NormalizeOff:
 		mode = player.NormalizeTrack
@@ -76,9 +76,19 @@ func (m *Model) cycleNormalize() {
 	default:
 		mode = player.NormalizeOff
 	}
+	_ = m.setNormalizeMode(mode)
+}
+
+// setNormalizeMode sets the volume normalization, shows it and saves it.
+func (m *Model) setNormalizeMode(mode player.NormalizeMode) error {
+	n, ok := m.player.(normalizer)
+	if !ok {
+		return nil
+	}
+	_, target := n.Normalize()
 	n.SetNormalize(mode, target)
 	m.status.Showf(statusTTLMedium, "%s: %s", L("Volume normalization"), normalizeModeLabel(mode))
-	_ = m.saveConfigString("normalize", normalizeModeName(mode))
+	return m.saveConfigString("normalize", normalizeModeName(mode))
 }
 
 // SetCrossfade sets the crossfade length used between songs of different

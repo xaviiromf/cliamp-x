@@ -107,6 +107,17 @@ func TestNativeOperationParameters(t *testing.T) {
 		"provider.genre_favorite": {"provider", "playlist"},
 		"provider.refresh":        {"provider"},
 		"provider.preview":        {"provider", "playlist"},
+		// batch C: actions, library, settings
+		"taste.rate":       {"kind", "playlist", "name", "track", "value"},
+		"taste.list":       nil,
+		"radio.start":      {"provider", "playlist", "name", "track"},
+		"discover.remixes": {"track"},
+		"settings.set":     {"name", "value"},
+		"download":         {"provider", "playlist", "name", "track"},
+		"download.status":  nil,
+		"download.cancel":  nil,
+		"download.retry":   nil,
+		"stats":            {"name"},
 	} {
 		operation, ok := registry.Lookup(name)
 		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {
@@ -460,5 +471,38 @@ func TestBrowseResultFields(t *testing.T) {
 	playlist, _ := json.Marshal(PlaylistInfo{ID: "pl:x", Name: "N", Provider: "ytmusic", ImageURL: "i", Writable: true, Unseen: true})
 	if want := `{"id":"pl:x","name":"N","provider":"ytmusic","image_url":"i","writable":true,"unseen":true}`; string(playlist) != want {
 		t.Fatalf("playlist JSON = %s, want %s", playlist, want)
+	}
+}
+
+// The batch C result shapes keep their JSON names, and kind reaches the
+// request.
+func TestActionResultFields(t *testing.T) {
+	response := Response{
+		OK:      true,
+		Ratings: []RatingInfo{{ID: "UCa", Kind: "artist", Name: "Band", Interest: -1, At: "2026-10-13T12:00:00Z"}},
+		Downloads: &DownloadsInfo{
+			Running: true, Current: &TrackInfo{Path: "c"}, Percent: 42, Queued: []TrackInfo{{Path: "q"}}, Done: 1,
+			Failed: []DownloadFailure{{Track: TrackInfo{Path: "f"}, Error: "HTTP Error 403"}}, Directory: "/music",
+		},
+		Stats: &StatsInfo{
+			Plays: 2, Secs: 180, Songs: 1, Artists: 1, TopArtists: []StatsCount{{Name: "Band", Plays: 2, Secs: 180}},
+			TopSongs: []StatsCount{{Name: "A", Detail: "Band", Plays: 2, Secs: 180}}, Daily: []float64{0, 3}, Streak: 1,
+		},
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"ok":true,"ratings":[{"id":"UCa","kind":"artist","name":"Band","interest":-1,"at":"2026-10-13T12:00:00Z"}],` +
+		`"downloads":{"running":true,"current":{"path":"c"},"percent":42,"queued":[{"path":"q"}],"done":1,` +
+		`"failed":[{"track":{"path":"f"},"error":"HTTP Error 403"}],"directory":"/music"},` +
+		`"stats":{"plays":2,"secs":180,"songs":1,"artists":1,"top_artists":[{"name":"Band","plays":2,"secs":180}],` +
+		`"top_songs":[{"name":"A","detail":"Band","plays":2,"secs":180}],"daily":[0,3],"streak":1}}`
+	if string(data) != want {
+		t.Fatalf("JSON = %s\nwant   %s", data, want)
+	}
+	var request Request
+	if err := json.Unmarshal([]byte(`{"kind":"song","value":-1}`), &request); err != nil || request.Kind != "song" || request.Value != -1 {
+		t.Fatalf("request = %+v, %v", request, err)
 	}
 }

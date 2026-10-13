@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/xaviiromf/cliamp-x/internal/offline"
+	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 	"github.com/xaviiromf/cliamp-x/tracksave"
@@ -84,6 +85,11 @@ func (m *Model) downloadHighlighted() tea.Cmd {
 		m.status.Show(L("Highlight a song, album or playlist to download"), statusTTLMedium)
 		return nil
 	}
+	return m.downloadSeed(seed)
+}
+
+// downloadSeed queues a song, or the songs of a browse row, for download.
+func (m *Model) downloadSeed(seed discoverSeed) tea.Cmd {
 	if seed.itemID == "" {
 		return m.queueDownloads(seed.label, []offline.Job{{Track: seed.track}})
 	}
@@ -247,6 +253,24 @@ func (m *Model) handleDownloadEvent(msg downloadEventMsg) tea.Cmd {
 // downloadLine is the preview pane's note for a downloaded song.
 func downloadLine() string {
 	return "↓ " + L("Downloaded: plays offline")
+}
+
+// downloadsInfo is the download queue for download.status.
+func (m *Model) downloadsInfo() *ipc.DownloadsInfo {
+	d := &m.downloads
+	dir, _ := tracksave.Directory(d.dir)
+	info := &ipc.DownloadsInfo{Running: d.running, Done: d.done, Directory: dir}
+	if d.running {
+		current := ipcTrackInfo(d.current.Track, 0, 0, false)
+		info.Current, info.Percent = &current, d.percent
+	}
+	for i, j := range d.queue {
+		info.Queued = append(info.Queued, ipcTrackInfo(j.Track, i, 0, false))
+	}
+	for i, f := range d.failedJobs {
+		info.Failed = append(info.Failed, ipc.DownloadFailure{Track: ipcTrackInfo(f.job.Track, i, 0, false), Error: f.err})
+	}
+	return info
 }
 
 // cancelDownloads stops the running download and empties the queue.

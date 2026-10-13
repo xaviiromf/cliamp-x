@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -16,11 +17,15 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 	"github.com/xaviiromf/cliamp-x/theme"
 	"github.com/xaviiromf/cliamp-x/ui"
 )
@@ -783,6 +788,340 @@ func TestNativeBrowseRouting(t *testing.T) {
 		response := runV2(t, m, op, ipc.Request{Provider: "bare", Playlist: "x"})
 		if response.OK || !strings.Contains(response.Error, "provider does not support") {
 			t.Errorf("%s on a bare provider = %+v, want the handler's error", op, response)
+		}
+	}
+}
+
+// newActionTestModel has a taste store, a ♥ store, the download manifest
+// and a play log in a temp directory, and two queued songs, the first
+// playing.
+func newActionTestModel(t *testing.T) (*Model, *playbackFakeEngine) {
+	t.Helper()
+	dir := t.TempDir()
+	engine := &playbackFakeEngine{playing: true}
+	pl := playlist.New()
+	pl.Add(playlist.Track{Path: "/music/one.mp3", Title: "One"}, playlist.Track{Path: "/music/two.mp3", Title: "Two"})
+	pl.SetIndex(0)
+	m := &Model{player: engine, playlist: pl, favStore: favorites.NewAt(filepath.Join(dir, "favorites.toml"))}
+	m.SetTaste(taste.NewAt(filepath.Join(dir, "taste.json")))
+	m.SetOffline(offline.OpenManifest(filepath.Join(dir, "offline.json")), filepath.Join(dir, "downloads"))
+	m.SetStatsLog(stats.Open(filepath.Join(dir, "plays.jsonl")))
+	return m, engine
+}
+
+// taste.rate rates each kind, skips the playing song on "not interested",
+// forgets a rating with 0 by ID alone, and changes nothing on bad input.
+func TestNativeTasteRate(t *testing.T) {
+	one := &ipc.TrackInfo{Path: "/music/one.mp3", Title: "One", Artist: "Band"}
+	other := &ipc.TrackInfo{Path: "/music/other.mp3", Title: "Other"}
+	for _, tc := range []struct {
+		name     string
+		before   string // an ID rated interested first
+		request  ipc.Request
+		id       string
+		want     int
+		wantErr  string
+		wantNext bool // the playing song is skipped
+	}{
+		{name: "song interested", request: ipc.Request{Kind: "song", Track: other, Value: 1}, id: other.Path, want: 1},
+		{name: "playing song not interested", request: ipc.Request{Kind: "song", Track: one, Value: -1}, id: one.Path, want: -1, wantNext: true},
+		{name: "other song not interested", request: ipc.Request{Kind: "song", Track: other, Value: -1}, id: other.Path, want: -1},
+		{name: "album", request: ipc.Request{Kind: "album", Playlist: "MPREb_a", Name: "Record", Value: 1}, id: "MPREb_a", want: 1},
+		{name: "artist", request: ipc.Request{Kind: "artist", Playlist: "UCa", Name: "Band", Value: -1}, id: "UCa", want: -1},
+		{name: "genre", request: ipc.Request{Kind: "genre", Playlist: "genre:rock", Name: "Rock", Value: 1}, id: "genre:rock", want: 1},
+		{name: "undo by id without a track", before: one.Path, request: ipc.Request{Kind: "song", Playlist: one.Path}, id: one.Path},
+		{name: "undo by track", before: one.Path, request: ipc.Request{Kind: "song", Track: one}, id: one.Path},
+		{name: "undo an album", before: "MPREb_a", request: ipc.Request{Kind: "album", Playlist: "MPREb_a"}, id: "MPREb_a"},
+		{name: "value 2", request: ipc.Request{Kind: "album", Playlist: "MPREb_a", Value: 2}, id: "MPREb_a", wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "half a value", request: ipc.Request{Kind: "album", Playlist: "MPREb_a", Value: 0.5}, id: "MPREb_a", wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "a playlist cannot be rated", request: ipc.Request{Kind: "playlist", Playlist: "pl:x", Value: 1}, id: "pl:x", wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "song without a track", request: ipc.Request{Kind: "song", Playlist: one.Path, Value: 1}, id: one.Path, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "album without an id", request: ipc.Request{Kind: "album", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "undo without an id", request: ipc.Request{Kind: "artist"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, _ := newActionTestModel(t)
+			if tc.before != "" {
+				if _, err := m.taste.Rate(tc.before, taste.Item{Kind: taste.Song, Name: "x"}, taste.Interested); err != nil {
+					t.Fatal(err)
+				}
+			}
+			response := runV2(t, m, "taste.rate", tc.request)
+			if tc.wantErr != "" {
+				if response.OK || response.Error != tc.wantErr || len(m.taste.Ratings()) != 0 {
+					t.Fatalf("response = %+v, ratings %+v; want %s and no rating", response, m.taste.Ratings(), tc.wantErr)
+				}
+				return
+			}
+			if !response.OK || m.taste.Interest(tc.id) != tc.want {
+				t.Fatalf("response = %+v, interest in %s = %d; want %d", response, tc.id, m.taste.Interest(tc.id), tc.want)
+			}
+			if skipped := m.playlist.Index() == 1; skipped != tc.wantNext {
+				t.Fatalf("playing index %d, want the song skipped: %v", m.playlist.Index(), tc.wantNext)
+			}
+			// On a song, interested is the ♥ like.
+			if tc.request.Kind == "song" && tc.want != 0 && m.favStore.IsFavorited(tc.id) != (tc.want > 0) {
+				t.Fatalf("♥ of %s = %v after %d", tc.id, m.favStore.IsFavorited(tc.id), tc.want)
+			}
+		})
+	}
+
+	m, _ := newActionTestModel(t)
+	m.taste = nil
+	if response := runV2(t, m, "taste.rate", ipc.Request{Kind: "album", Playlist: "MPREb_a", Value: 1}); response.Error != ipc.V2ErrorCodeUnavailable {
+		t.Fatalf("taste.rate without a store = %+v, want unavailable", response)
+	}
+}
+
+// taste.list gives every rating, "not interested" first.
+func TestNativeTasteList(t *testing.T) {
+	m, _ := newActionTestModel(t)
+	for _, r := range []ipc.Request{
+		{Kind: "artist", Playlist: "UCa", Name: "Band", Value: 1},
+		{Kind: "song", Track: &ipc.TrackInfo{Path: "/music/other.mp3", Title: "Other", Artist: "Singer"}, Value: -1},
+	} {
+		if response := runV2(t, m, "taste.rate", r); !response.OK {
+			t.Fatalf("taste.rate %+v = %+v", r, response)
+		}
+	}
+	response := runV2(t, m, "taste.list", ipc.Request{})
+	if !response.OK || len(response.Ratings) != 2 {
+		t.Fatalf("taste.list = %+v", response)
+	}
+	for i, want := range []ipc.RatingInfo{
+		{ID: "/music/other.mp3", Kind: "song", Name: "Singer - Other", Artist: "Singer", Interest: -1}, // a song named by its track, as I and H name it
+		{ID: "UCa", Kind: "artist", Name: "Band", Interest: 1},
+	} {
+		got := response.Ratings[i]
+		if _, err := time.Parse(time.RFC3339, got.At); err != nil {
+			t.Fatalf("rating %d at %q: %v", i, got.At, err)
+		}
+		got.At = ""
+		if got != want {
+			t.Fatalf("rating %d = %+v, want %+v", i, got, want)
+		}
+	}
+}
+
+// radioTestProvider relates every song and item to the same songs.
+type radioTestProvider struct {
+	commandsTestProvider
+	related []playlist.Track
+}
+
+func (p radioTestProvider) CanRelate(t playlist.Track) bool { return strings.HasPrefix(t.Path, "yt:") }
+
+func (p radioTestProvider) RelatedTracks(context.Context, playlist.Track, int) ([]playlist.Track, error) {
+	return p.related, nil
+}
+
+func (p radioTestProvider) RelatedToItem(_ context.Context, id string, _ int) (playlist.Track, []playlist.Track, error) {
+	return playlist.Track{Path: "yt:first-of-" + id}, p.related, nil
+}
+
+// radio.start replaces the queue with the radio of a song or of an item and
+// plays its first song, or fails with the reason.
+func TestNativeRadioStart(t *testing.T) {
+	related := []playlist.Track{{Path: "yt:a"}, {Path: "yt:b"}}
+	for _, tc := range []struct {
+		name     string
+		related  []playlist.Track
+		request  ipc.Request
+		wantPlay string
+		wantErr  string
+	}{
+		{name: "track seed", related: related, request: ipc.Request{Track: &ipc.TrackInfo{Path: "yt:seed", Title: "Seed"}}, wantPlay: "yt:seed"},
+		{name: "item seed", related: related, request: ipc.Request{Provider: "yt", Playlist: "UCa", Name: "Band"}, wantPlay: "yt:first-of-UCa"},
+		{name: "too few songs", request: ipc.Request{Track: &ipc.TrackInfo{Path: "yt:seed"}}, wantErr: "internal_error: No related songs found"},
+		{name: "a song no provider relates", related: related, request: ipc.Request{Track: &ipc.TrackInfo{Path: "/music/x.mp3"}}, wantErr: "internal_error: Works only with YouTube Music songs"},
+		{name: "no seed", related: related, request: ipc.Request{Provider: "yt"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "unknown provider", related: related, request: ipc.Request{Provider: "nope", Playlist: "UCa"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, engine := newActionTestModel(t)
+			m.providers = []provider.Entry{{Key: "yt", Name: "YT", Provider: radioTestProvider{commandsTestProvider{name: "YT"}, tc.related}}}
+			response := runV2(t, m, "radio.start", tc.request)
+			if tc.wantErr != "" {
+				if response.OK || response.Error != tc.wantErr || m.playlist.Len() != 2 {
+					t.Fatalf("response = %+v, queue of %d; want %q and the old queue", response, m.playlist.Len(), tc.wantErr)
+				}
+				return
+			}
+			if !response.OK || response.Total != 3 || len(response.Tracks) != 3 || response.Tracks[0].Path != tc.wantPlay {
+				t.Fatalf("response = %+v, want the radio of 3 from %s", response, tc.wantPlay)
+			}
+			if len(engine.playCalls) != 1 || engine.playCalls[0] != tc.wantPlay {
+				t.Fatalf("played %v, want %s", engine.playCalls, tc.wantPlay)
+			}
+		})
+	}
+}
+
+// discover.remixes gives the versions of a song grouped by section, and
+// opens no overlay.
+func TestNativeDiscoverRemixes(t *testing.T) {
+	m, _ := newActionTestModel(t)
+	searcher := &fakeSearcher{results: []playlist.Track{
+		{Path: "yt:1", Title: "Sweater Weather (Slowed + Reverb)", DurationSecs: 290},
+		{Path: "yt:3", Title: "Afraid", DurationSecs: 250},
+	}}
+	m.providers = []provider.Entry{{Key: "yt", Name: "Fake", Provider: searcher}}
+	track := &ipc.TrackInfo{Path: "yt:orig", Title: "Sweater Weather (Official Video)", Artist: "The Neighbourhood", DurationSecs: 240}
+	response := runV2(t, m, "discover.remixes", ipc.Request{Track: track})
+	if !response.OK || response.Total != 1 || len(response.Tracks) != 1 || response.Tracks[0].Path != "yt:1" ||
+		response.Tracks[0].ProviderMeta[playlist.MetaSection] != "Slowed + reverb" {
+		t.Fatalf("remixes = %+v", response)
+	}
+	if m.searchOverlay.visible || len(searcher.queries) == 0 || !strings.HasPrefix(searcher.queries[0], "Sweater Weather ") {
+		t.Fatalf("overlay open %v, queries %q", m.searchOverlay.visible, searcher.queries)
+	}
+	if response := runV2(t, m, "discover.remixes", ipc.Request{Track: &ipc.TrackInfo{Path: "yt:orig"}}); response.Error != ipc.V2ErrorCodeInvalidParams {
+		t.Fatalf("remixes of a song with no title = %+v, want invalid_params", response)
+	}
+}
+
+// settings.set changes and saves each setting, and refuses any other name
+// or value without a change.
+func TestNativeSettingsSet(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		request ipc.Request
+		check   func(*Model, *normalizingEngine) bool
+		saved   map[string]string
+		wantErr string
+	}{
+		{name: "auto radio", request: ipc.Request{Name: "auto_radio", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.autoRadio }},
+		{name: "normalize album", request: ipc.Request{Name: "normalize", Value: 2}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeAlbum }, saved: map[string]string{"normalize": `"album"`}},
+		{name: "normalize off", request: ipc.Request{Name: "normalize"}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeOff }, saved: map[string]string{"normalize": `"off"`}},
+		{name: "crossfade", request: ipc.Request{Name: "crossfade", Value: 4}, check: func(m *Model, _ *normalizingEngine) bool { return m.crossfade == 4*time.Second }, saved: map[string]string{"crossfade": "4"}},
+		{name: "auto EQ", request: ipc.Request{Name: "eq_auto", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.eqAuto }, saved: map[string]string{"eq_auto": "true"}},
+		{name: "mono", request: ipc.Request{Name: "mono", Value: 1}, check: func(_ *Model, e *normalizingEngine) bool { return e.mono }, saved: map[string]string{"mono": "true"}},
+		{name: "unknown name", request: ipc.Request{Name: "volume", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "crossfade too long", request: ipc.Request{Name: "crossfade", Value: 13}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "half a second", request: ipc.Request{Name: "crossfade", Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "negative mode", request: ipc.Request{Name: "normalize", Value: -1}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "switch at 2", request: ipc.Request{Name: "mono", Value: 2}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := &normalizingEngine{mode: player.NormalizeTrack}
+			saver := &recordingSaver{}
+			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver}
+			response := runV2(t, m, "settings.set", tc.request)
+			if tc.wantErr != "" {
+				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {
+					t.Fatalf("response = %+v, saved %v; want %s and no change", response, saver.saved, tc.wantErr)
+				}
+				return
+			}
+			if !response.OK || !tc.check(m, engine) || !reflect.DeepEqual(saver.saved, tc.saved) {
+				t.Fatalf("response = %+v, saved %v; want the change and %v saved", response, saver.saved, tc.saved)
+			}
+		})
+	}
+
+	m := &Model{player: &playbackFakeEngine{}, playlist: playlist.New(), configSaver: &recordingSaver{err: errors.New("disk full")}}
+	if response := runV2(t, m, "settings.set", ipc.Request{Name: "mono", Value: 1}); response.Error != "internal_error: disk full" {
+		t.Fatalf("settings.set with a failing save = %+v, want internal_error", response)
+	}
+}
+
+// The download operations need offline downloads; download.status gives
+// the queue, download.retry queues the failed songs and download.cancel
+// empties the queue.
+func TestNativeDownloads(t *testing.T) {
+	m, _ := newActionTestModel(t)
+	m.providers = []provider.Entry{{Key: "yt", Name: "YT", Provider: commandsTestProvider{name: "YT"}}}
+	song := func(id string) playlist.Track {
+		return playlist.Track{Path: "https://music.youtube.com/watch?v=" + id, Title: id}
+	}
+	// running stops the queue from starting a real download.
+	m.downloads.running, m.downloads.current, m.downloads.percent, m.downloads.done = true, offline.Job{Track: song("cur")}, 42, 1
+	m.downloads.queue = []offline.Job{{Track: song("next")}}
+	m.downloads.failedJobs = []failedDownload{{job: offline.Job{Track: song("bad")}, err: "HTTP Error 403"}}
+
+	status := runV2(t, m, "download.status", ipc.Request{})
+	info := func(id string, index int) ipc.TrackInfo { return ipcTrackInfo(song(id), index, 0, false) }
+	current := info("cur", 0)
+	want := &ipc.DownloadsInfo{
+		Running: true, Current: &current, Percent: 42, Queued: []ipc.TrackInfo{info("next", 0)}, Done: 1,
+		Failed: []ipc.DownloadFailure{{Track: info("bad", 0), Error: "HTTP Error 403"}}, Directory: m.downloads.dir,
+	}
+	if !status.OK || !reflect.DeepEqual(status.Downloads, want) {
+		t.Fatalf("download.status = %+v, want %+v", status.Downloads, want)
+	}
+
+	if response := runV2(t, m, "download.retry", ipc.Request{}); !response.OK || len(m.downloads.queue) != 2 || len(m.downloads.failedJobs) != 0 {
+		t.Fatalf("download.retry = %+v, queue %d, failed %d", response, len(m.downloads.queue), len(m.downloads.failedJobs))
+	}
+	if response := runV2(t, m, "download", ipc.Request{Track: &ipc.TrackInfo{Path: song("new").Path, Title: "new"}}); !response.OK || len(m.downloads.queue) != 3 {
+		t.Fatalf("download of a track = %+v, queue %d", response, len(m.downloads.queue))
+	}
+	if response := runV2(t, m, "download", ipc.Request{Provider: "yt", Playlist: "MPREb_a", Name: "Record"}); !response.OK {
+		t.Fatalf("download of an album = %+v", response)
+	}
+	for _, bad := range []ipc.Request{{}, {Provider: "yt"}, {Provider: "nope", Playlist: "MPREb_a"}} {
+		if response := runV2(t, m, "download", bad); response.Error != ipc.V2ErrorCodeInvalidParams {
+			t.Fatalf("download %+v = %+v, want invalid_params", bad, response)
+		}
+	}
+	if response := runV2(t, m, "download.cancel", ipc.Request{}); !response.OK || len(m.downloads.queue) != 0 {
+		t.Fatalf("download.cancel = %+v, queue %d", response, len(m.downloads.queue))
+	}
+
+	m.downloads.manifest = nil
+	for _, op := range []string{"download", "download.status", "download.cancel", "download.retry"} {
+		if response := runV2(t, m, op, ipc.Request{Track: &ipc.TrackInfo{Path: song("x").Path}}); response.Error != ipc.V2ErrorCodeUnavailable {
+			t.Fatalf("%s without offline downloads = %+v, want unavailable", op, response)
+		}
+	}
+}
+
+// stats sums the play log over the period.
+func TestNativeStats(t *testing.T) {
+	m, _ := newActionTestModel(t)
+	now := time.Now()
+	for _, p := range []stats.Play{
+		{At: now.Add(-time.Hour), Key: "/a", Title: "A", Artist: "Band", Genre: "Rock", Secs: 120},
+		{At: now.Add(-2 * time.Hour), Key: "/a", Title: "A", Artist: "Band", Genre: "Rock", Secs: 60},
+		{At: now.AddDate(0, -2, 0), Key: "/b", Title: "B", Artist: "Old", Secs: 60},
+	} {
+		if err := m.statsLog.Record(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		period string
+		plays  int
+		songs  int
+	}{{"week", 2, 1}, {"month", 2, 1}, {"year", 3, 2}, {"all", 3, 2}} {
+		response := runV2(t, m, "stats", ipc.Request{Name: tc.period})
+		s := response.Stats
+		if !response.OK || s == nil || s.Plays != tc.plays || s.Songs != tc.songs || len(s.Daily) != statsDays || s.Streak < 1 {
+			t.Fatalf("stats %s = %+v", tc.period, s)
+		}
+		if want := (ipc.StatsCount{Name: "A", Detail: "Band", Plays: 2, Secs: 180}); s.TopSongs[0] != want || s.TopArtists[0].Name != "Band" || s.TopGenres[0].Name != "Rock" {
+			t.Fatalf("stats %s tops = %+v %+v %+v", tc.period, s.TopSongs, s.TopArtists, s.TopGenres)
+		}
+	}
+	if response := runV2(t, m, "stats", ipc.Request{Name: "decade"}); response.Error != ipc.V2ErrorCodeInvalidParams {
+		t.Fatalf("stats of an unknown period = %+v", response)
+	}
+	m.statsLog = nil
+	if response := runV2(t, m, "stats", ipc.Request{Name: "week"}); response.Error != ipc.V2ErrorCodeUnavailable {
+		t.Fatalf("stats without a log = %+v", response)
+	}
+}
+
+// Every batch C operation is registered and reaches its handler.
+func TestNativeActionRouting(t *testing.T) {
+	registry := ipc.DefaultOperationRegistry()
+	for _, op := range []string{"taste.rate", "taste.list", "radio.start", "discover.remixes", "settings.set", "download", "download.status", "download.cancel", "download.retry", "stats"} {
+		if _, ok := registry.Lookup(op); !ok {
+			t.Errorf("%s is not registered", op)
+		}
+		m, _ := newActionTestModel(t)
+		if response := runV2(t, m, op, ipc.Request{}); strings.HasPrefix(response.Error, ipc.V2ErrorCodeUnavailable) {
+			t.Errorf("%s = %+v, want its handler", op, response)
 		}
 	}
 }
