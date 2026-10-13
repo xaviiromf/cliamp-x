@@ -286,7 +286,7 @@ func (m Model) renderTransient() string {
 	// Fresh status wins over a sticky m.err so confirmations are not masked
 	// by an older network error; the error reappears once status expires.
 	if text := m.save.activityText(); text != "" {
-		return ui.FitRect(feedbackActivityStyle.Render(text), m.layout.panelWidth, 1)
+		return fitRect(feedbackActivityStyle.Render(text), m.layout.panelWidth, 1)
 	}
 	if m.status.text != "" {
 		text := m.status.text
@@ -301,13 +301,13 @@ func (m Model) renderTransient() string {
 			style = errorStyle
 			text = "ERR: " + text
 		}
-		return ui.FitRect(style.Render(text), m.layout.panelWidth, 1)
+		return fitRect(style.Render(text), m.layout.panelWidth, 1)
 	}
 	if m.err != nil {
-		return ui.FitRect(errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)), m.layout.panelWidth, 1)
+		return fitRect(errorStyle.Render(fmt.Sprintf("ERR: %s", m.err)), m.layout.panelWidth, 1)
 	}
 	if n := len(m.logLines); n > 0 {
-		return ui.FitRect(dimStyle.Render(m.logLines[n-1].text), m.layout.panelWidth, 1)
+		return fitRect(dimStyle.Render(m.logLines[n-1].text), m.layout.panelWidth, 1)
 	}
 	return ""
 }

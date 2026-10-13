@@ -166,6 +166,12 @@ func (m *Model) recomputeLayout() {
 	// contentFirstMinListRows is the list height a browsing screen keeps
 	// before it gives rows to the visualizer.
 	const contentFirstMinListRows = 10
+	minListRows := contentFirstMinListRows
+	if m.activeScreen() == screenKeymap {
+		// A menu shows its rows before the preview and the visualizer, so the
+		// row menu fits whole and a tap lands on a row.
+		minListRows = max(minListRows, min(len(m.keymap.entries), maxPlExpandVisible))
+	}
 	contentFirst := m.usesContentFirstLayout()
 	simplified := m.usesSimplifiedLayout()
 	if contentFirst {
@@ -179,7 +185,7 @@ func (m *Model) recomputeLayout() {
 		// the screen can spare after a usable list. The preview takes half
 		// of that first; the visualizer gets the rest.
 		if layout.tier != layoutMinimal {
-			free := height - 2*paddingV - layout.fixedRows - layout.footerRows - contentFirstMinListRows
+			free := height - 2*paddingV - layout.fixedRows - layout.footerRows - minListRows
 			if m.previewEnabled() && free >= previewMinRows {
 				share := free / 2
 				if m.visualizerDisabled() {

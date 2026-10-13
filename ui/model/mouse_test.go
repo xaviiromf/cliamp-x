@@ -84,3 +84,40 @@ func TestHitsActionsPill(t *testing.T) {
 		t.Error("a line without the hint must not hit")
 	}
 }
+
+// A tap on the chrome above or below a list leaves the cursor alone: the
+// title, the visualizer, the EQ row and the hint bar are no rows. A tap on
+// the F1 hint opens the actions menu.
+func TestMouseClickOutsideTheListKeepsTheCursor(t *testing.T) {
+	for _, size := range [][2]int{{60, 32}, {110, 30}} {
+		m := newLayoutTestModel(size[0], size[1])
+		m.SetMouse(true)
+		m.plCursor = 2
+		m.adjustScroll()
+		lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+		find := func(substr string) int {
+			for i, l := range lines {
+				if strings.Contains(l, substr) {
+					return i
+				}
+			}
+			t.Fatalf("%dx%d: no line with %q:\n%s", size[0], size[1], substr, strings.Join(lines, "\n"))
+			return -1
+		}
+		for _, target := range []string{"C L I A M P", "EQ ", "Explore music"} {
+			if strings.Contains(target, "EQ") && size[0] >= 80 {
+				continue // the full tier keeps EQ in the settings pane beside the rows
+			}
+			y := find(target)
+			m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: y, Button: tea.MouseLeft})
+			if m.plCursor != 2 || m.keymap.visible {
+				t.Fatalf("%dx%d: a click on %q moved the cursor to %d (menu open: %v)", size[0], size[1], target, m.plCursor, m.keymap.visible)
+			}
+		}
+		help := find(" F1 ")
+		m.handleMouseClick(tea.MouseClickMsg{X: strings.Index(lines[help], " F1 ") + 1, Y: help, Button: tea.MouseLeft})
+		if !m.keymap.visible {
+			t.Fatalf("%dx%d: a click on F1 did not open the actions menu", size[0], size[1])
+		}
+	}
+}

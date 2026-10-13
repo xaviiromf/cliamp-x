@@ -242,6 +242,30 @@ func fitLines(lines []string, budget int) []string {
 	return padLines(lines, budget, len(lines))
 }
 
+// fitRect keeps text to height lines no wider than width, as ui.FitRect does,
+// but ends a line that loses text with an ellipsis so the cut shows. A line
+// that loses only blank padding is cut clean.
+func fitRect(text string, width, height int) string {
+	if width <= 0 || height <= 0 || text == "" {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	for i, line := range lines {
+		if textWidth(line) <= width {
+			continue
+		}
+		tail := "…"
+		if strings.TrimSpace(ansi.Strip(ansi.TruncateLeft(line, width, ""))) == "" {
+			tail = ""
+		}
+		lines[i] = ansi.Truncate(line, width, tail)
+	}
+	return strings.Join(lines, "\n")
+}
+
 // helpKey renders a key as a pill (background-highlighted) followed by a dim label.
 func helpKey(key, label string) string {
 	return paint(helpKeyStyle, " "+key+" ") + paint(helpStyle, " "+label)

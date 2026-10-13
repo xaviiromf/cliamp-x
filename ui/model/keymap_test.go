@@ -181,7 +181,7 @@ func TestKeymapEnterExplainsCommandsItCannotRun(t *testing.T) {
 		key, action string
 		want        string
 	}{
-		{name: "key pair", key: "Up Down", action: "Playlist scroll / EQ adjust (wraps around)", want: "Close the keymap. Then press Up Down."},
+		{name: "key pair", setup: func(m *Model) { m.queue.visible = true }, key: "Shift+Up Down", action: "Reorder", want: "Close the keymap. Then press Shift+Up Down."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,6 +271,27 @@ func TestActionButtonsRunPlayerCommands(t *testing.T) {
 			if _, ok := keyPressFor(b.run); !ok {
 				t.Errorf("%s: button %q has no key press", g.name, b.run)
 			}
+		}
+	}
+}
+
+// Every player command of the actions menu sits in a section of its own, so
+// the "Navigation" catch-all stays empty. On a phone the menu is the keyboard.
+func TestActionGroupsCoverEveryPlayerCommand(t *testing.T) {
+	covered := map[string]bool{}
+	for _, g := range actionGroups {
+		for _, b := range g.buttons {
+			covered[b.replaces] = true
+			for _, c := range commandRegistry {
+				if c.Mode&commandModeMain != 0 && slices.Contains(c.Keys, b.run) {
+					covered[c.KeyLabel] = true
+				}
+			}
+		}
+	}
+	for _, c := range commandRegistry {
+		if c.Keymap && !c.Help && c.Mode&commandModeMain != 0 && !covered[c.KeyLabel] {
+			t.Errorf("%s %q falls under Navigation: add it to actionGroups", c.KeyLabel, c.Label)
 		}
 	}
 }

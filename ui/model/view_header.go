@@ -260,10 +260,22 @@ func (m Model) renderFullVisualizer() string {
 		m.renderFullVisCover(m.renderSpectrum()),
 		m.renderSeekBar(),
 		"",
-		helpKey("V", "Exit ") + helpKey("v", "Mode:"+m.vis.ModeName()+" ") + helpKey("Spc", "▶❚❚ ") + helpKey("<>", "Trk ") + helpKey("+-", "Vol ") + helpKey("t", "Title ") + helpKey("?", L("Actions")),
+		m.fullVisHelp(),
 	}
 
 	return strings.Join(sections, "\n")
+}
+
+// fullVisHelp is the hint line under the full-screen visualizer. A narrow
+// panel drops the middle hints from the right, so Exit and Actions stay.
+func (m Model) fullVisHelp() string {
+	optional := []string{helpKey("v", "Mode:"+m.vis.ModeName()+" "), helpKey("Spc", "▶❚❚ "), helpKey("<>", "Trk "), helpKey("+-", "Vol "), helpKey("t", "Title ")}
+	for n := len(optional); ; n-- {
+		line := helpKey("V", "Exit ") + strings.Join(optional[:n], "") + helpKey("?", L("Actions"))
+		if n == 0 || textWidth(line) <= m.layout.panelWidth {
+			return line
+		}
+	}
 }
 
 // fullVisTopLine names what is playing, or just the source when the track has

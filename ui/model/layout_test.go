@@ -243,7 +243,7 @@ func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
 	playback := newLayoutTestModel(80, 24)
 	browse := newLayoutTestModel(80, 24)
 	browse.keymap.visible = true
-	browse.keymap.entries = browse.buildKeymapEntries()
+	browse.keymap.entries = browse.buildKeymapEntries()[:4]
 	browse.recomputeLayout()
 
 	if !browse.usesContentFirstLayout() {
@@ -258,6 +258,13 @@ func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
 	}
 	if browse.vis.Rows < 1 {
 		t.Fatalf("content-first visualizer canvas rows = %d, want positive", browse.vis.Rows)
+	}
+	// A long menu takes the visualizer rows for its own.
+	menu := newLayoutTestModel(80, 24)
+	menu.openKeymap()
+	if menu.layout.visualizerRows != 0 || menu.effectivePlaylistVisible() <= browse.effectivePlaylistVisible() {
+		t.Fatalf("actions menu: visualizer rows = %d, list rows = %d; want 0 and more than %d",
+			menu.layout.visualizerRows, menu.effectivePlaylistVisible(), browse.effectivePlaylistVisible())
 	}
 
 	preview := newLayoutTestModel(80, 24)

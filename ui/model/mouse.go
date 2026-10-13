@@ -61,12 +61,24 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	if isSeekBarLine(plain[msg.Y]) {
 		return m.clickSeek(msg.X)
 	}
-	if help := strings.TrimSpace(ansi.Strip(m.renderHelp())); help != "" && strings.Contains(plain[msg.Y], help) && hitsActionsPill(plain[msg.Y], msg.X) {
-		return m.handleKey(keyPress(tea.KeyF1))
+	help := strings.TrimSpace(ansi.Strip(m.renderHelp()))
+	onHelp := func(line string) bool { return help != "" && strings.Contains(line, help) }
+	if onHelp(plain[msg.Y]) {
+		if hitsActionsPill(plain[msg.Y], msg.X) {
+			return m.handleKey(keyPress(tea.KeyF1))
+		}
+		return nil
 	}
 	cursor := nearestCursorLine(plain, msg.Y)
 	if cursor < 0 {
 		return nil
+	}
+	// The seek bar and the playlist header sit above every list and the hint
+	// bar below it, so a click past one is on the chrome, not on a row.
+	for i := min(cursor, msg.Y) + 1; i < max(cursor, msg.Y); i++ {
+		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(strings.TrimSpace(plain[i]), "▸─") {
+			return nil
+		}
 	}
 	if cursor == msg.Y {
 		if right {
