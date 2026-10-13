@@ -13,7 +13,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -130,10 +131,12 @@ private class PressFill(private val color: Color) : IndicationNodeFactory {
 @Composable
 fun CliampTheme(p: CliampPalette, content: @Composable () -> Unit) {
     val view = LocalView.current
-    SideEffect {
-        val window = (view.context as? Activity)?.window ?: return@SideEffect
+    val light = p.bg.luminance() > 0.5f
+    // enableEdgeToEdge sets the system's own icon colors again on each configuration change the activity handles.
+    val config = LocalConfiguration.current
+    LaunchedEffect(light, config) {
+        val window = (view.context as? Activity)?.window ?: return@LaunchedEffect
         WindowCompat.getInsetsController(window, view).apply {
-            val light = p.bg.luminance() > 0.5f
             isAppearanceLightStatusBars = light
             isAppearanceLightNavigationBars = light
         }

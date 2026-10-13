@@ -1986,7 +1986,10 @@ pixelation the user sees. Rules:
 
 On the A55, an extraction with yt-dlp 2026.08.19 + QuickJS took 16 s (11.5 s
 CPU in the JS solver). yt-dlp caches the solved player under its cache
-directory. Add `XDG_CACHE_HOME=<cacheDir>/yt-dlp-cache` (or
+directory. (Correction: 2026.08.19 caches only the signature functions; its
+cache of the preprocessed player is off, `_ENABLE_PREPROCESSED_PLAYER_CACHE
+= False` in `jsc/_builtin/ejs.py`. The app turns it on with a yt-dlp plugin,
+see `android/README.md`.) Add `XDG_CACHE_HOME=<cacheDir>/yt-dlp-cache` (or
 `--cache-dir`) to the yt-dlp environment so the cache persists, then
 measure the first and the second play of different songs on the phone
 (the second should skip the solver work). Keep the core's next-track info

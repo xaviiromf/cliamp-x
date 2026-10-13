@@ -58,13 +58,13 @@ object Remote {
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val errors: SharedFlow<String> = _errors
 
-    /** A play request waits for the first yt-dlp update. */
-    private val _gateWaiting = MutableStateFlow(false)
-    val gateWaiting: StateFlow<Boolean> = _gateWaiting.asStateFlow()
+    /** How many play requests wait for the first yt-dlp update. */
+    private val _gateWaiting = MutableStateFlow(0)
+    val gateWaiting: StateFlow<Int> = _gateWaiting.asStateFlow()
 
     /** The track of a play request in flight, shown until the core reports it. */
-    private val _pending = MutableStateFlow<Track?>(null)
-    val pending: StateFlow<Track?> = _pending.asStateFlow()
+    private val plays = Latest<Track>(scope)
+    val pending: StateFlow<Track?> = plays.current
 
     @SuppressLint("StaticFieldLeak") // the application context
     private lateinit var app: Context
@@ -261,19 +261,14 @@ object Remote {
 
     /** Plays tracks from index: queue.replace (G6), else track.play of that one track. */
     fun play(tracks: List<Track>, index: Int) {
-        scope.launch {
-            _pending.value = tracks[index]
-            try {
-                report {
-                    if ("queue.replace" in ops.value) {
-                        call("queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index))
-                    } else {
-                        // shortcut: the only fallback; remove once Batch A is merged.
-                        call("track.play", JSONObject().put("track", tracks[index].json()))
-                    }
+        plays.launch(tracks[index]) {
+            report {
+                if ("queue.replace" in ops.value) {
+                    call("queue.replace", JSONObject().put("tracks", JSONArray(tracks.map { it.json() })).put("index", index))
+                } else {
+                    // shortcut: the only fallback; remove once Batch A is merged.
+                    call("track.play", JSONObject().put("track", tracks[index].json()))
                 }
-            } finally {
-                _pending.value = null
             }
         }
     }
@@ -300,11 +295,11 @@ object Remote {
 
     private suspend fun awaitGate() {
         if (!Ytdlp.gate(Ytdlp.tag(app), Ytdlp.status.value)) return
-        _gateWaiting.value = true
+        _gateWaiting.update { it + 1 }
         try {
             withTimeoutOrNull(45_000) { Ytdlp.status.first { it !is Ytdlp.Status.Updating } }
         } finally {
-            _gateWaiting.value = false
+            _gateWaiting.update { it - 1 }
         }
     }
 
@@ -375,6 +370,30 @@ class RetryGuard {
     @Synchronized
     fun markRetried(path: String) {
         retried += path
+    }
+}
+
+/**
+ * Runs one play request at a time: a new one cancels the one before it, so
+ * the last tap wins also when both wait behind the yt-dlp gate (a request
+ * cancelled there sends nothing). current is the item of the running one.
+ */
+class Latest<T : Any>(private val scope: CoroutineScope) {
+    private val _current = MutableStateFlow<T?>(null)
+    val current: StateFlow<T?> = _current.asStateFlow()
+    private var job: Job? = null
+
+    fun launch(item: T, block: suspend () -> Unit) = synchronized(this) {
+        job?.cancel()
+        _current.value = item
+        job = scope.launch {
+            try {
+                block()
+            } finally {
+                // The lock waits for the assignment above; a cancelled request leaves its successor's item.
+                synchronized(this@Latest) { if (job === coroutineContext[Job]) _current.value = null }
+            }
+        }
     }
 }
 

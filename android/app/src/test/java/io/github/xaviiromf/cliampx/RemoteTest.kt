@@ -2,7 +2,13 @@ package io.github.xaviiromf.cliampx
 
 import io.github.xaviiromf.cliampx.Ytdlp.Status
 import io.github.xaviiromf.cliampx.Ytdlp.Watch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -12,6 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Collections
 
 class YtdlpPolicyTest {
     private val hour = 3_600_000L
@@ -146,5 +153,34 @@ class RenderSenderTest {
         delay(50)
         assertEquals(listOf("off"), sent)
         job.cancel()
+    }
+}
+
+class LatestTest {
+    private suspend fun until(cond: () -> Boolean) = withTimeout(5_000) { while (!cond()) delay(5) }
+
+    @Test
+    fun theLastTapWinsBehindTheGate() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val gate = MutableStateFlow(false) // the first yt-dlp update runs
+        val sent = Collections.synchronizedList(mutableListOf<String>())
+        val atGate = Collections.synchronizedList(mutableListOf<String>())
+        val plays = Latest<String>(scope)
+        for (tap in listOf("A", "B")) {
+            plays.launch(tap) {
+                atGate += tap
+                gate.first { it }
+                sent += tap
+            }
+            assertEquals(tap, plays.current.value)
+            until { tap in atGate }
+        }
+        delay(50)
+        assertEquals("B", plays.current.value) // A's cancel kept B on screen
+        gate.value = true
+        until { plays.current.value == null }
+        delay(50)
+        assertEquals(listOf("B"), sent.toList())
+        scope.cancel()
     }
 }

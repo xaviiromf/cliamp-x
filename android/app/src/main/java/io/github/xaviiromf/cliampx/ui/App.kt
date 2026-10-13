@@ -121,7 +121,7 @@ private fun Splash(firstRun: Boolean, stopped: Boolean) {
         } else {
             SpinnerLine(stringResource(R.string.starting))
             if (firstRun) Text(stringResource(R.string.first_run), color = p.textSecondary, style = Type.caption, textAlign = TextAlign.Center)
-            if (waiting) Text("◌ " + stringResource(R.string.ytdlp_preparing), color = p.textSecondary, style = Type.caption)
+            if (waiting > 0) Text("◌ " + stringResource(R.string.ytdlp_preparing), color = p.textSecondary, style = Type.caption)
         }
     }
 }
@@ -174,7 +174,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     val track = pending ?: snap?.track ?: return
     val error = snap?.playError?.takeIf { pending == null }
     val (second, color) = when {
-        pending != null && waiting -> "◌ " + stringResource(R.string.ytdlp_preparing) to p.textSecondary
+        pending != null && waiting > 0 -> "◌ " + stringResource(R.string.ytdlp_preparing) to p.textSecondary
         pending != null || snap?.buffering == true -> "◌ " + stringResource(R.string.loading) to p.textSecondary
         error != null -> "ERR: " + (ErrorMap.card(snap.errorKind).first?.let { stringResource(it) } ?: error) to p.error
         else -> track.artist to p.textSecondary

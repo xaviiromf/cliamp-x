@@ -111,8 +111,17 @@ timeouts and a 64 MB cap, checks the hash and the `#!` header, and renames
 the file over the bundled one. The core runs yt-dlp fresh for each song, so
 no restart is needed. Until the first update succeeds, a play request waits
 for it up to 45 s ("Preparando yt-dlp…"). `shared_prefs/updates.xml` keeps
-`ytdlp_tag` and `ytdlp_checked`. yt-dlp keeps its cache (the solved signature
-functions) in `cacheDir/yt-dlp`, through `XDG_CACHE_HOME`.
+`ytdlp_tag` and `ytdlp_checked`. yt-dlp keeps its cache in `cacheDir/yt-dlp`,
+through `XDG_CACHE_HOME`. With the sign-in cookies, every YouTube client
+yt-dlp may use needs its JS challenge solved from the whole YouTube player,
+which takes QuickJS about 11 s on a Galaxy A55, for every song. yt-dlp can
+cache the preprocessed player, but turns that off by default because the
+files are large (about 4 MB per player) and never pruned. At each core start
+the app writes a small yt-dlp plugin into `filesDir/yt-dlp-plugins`, which
+`--plugin-dirs` loads, that turns the cache on under a section named after
+the yt-dlp version. It also deletes the cached players older than a week. A
+later song then solves from the cache: on the x86_64 emulator a `web_embedded`
+extraction drops from 17 s to 8 s.
 
 To test the download, the SHA-256 check and the installer without a GitHub
 release, debug builds have `DebugUpdateActivity`. Build a second debug APK
@@ -164,7 +173,7 @@ pseudo-terminal, as Termux does. Android 10 and later run programs only from
 | `TERM`, `COLORTERM` | `xterm-256color`, `truecolor` |
 | `LANG`, `TZ` | From the system locale and time zone |
 | `PATH` | `<nativeLibraryDir>` before the system `PATH` |
-| `CLIAMP_YTDLP` | `libpython.so` running the yt-dlp zipapp of youtubedl-android, with `--js-runtimes quickjs:<nativeLibraryDir>/libqjs.so` |
+| `CLIAMP_YTDLP` | `libpython.so` running the yt-dlp zipapp of youtubedl-android, with `--js-runtimes quickjs:<nativeLibraryDir>/libqjs.so` and `--plugin-dirs <filesDir>/yt-dlp-plugins` |
 | `CLIAMP_FFMPEG` | `<nativeLibraryDir>/libffmpeg.so` |
 | `CLIAMP_YTDLP_ENV`, `CLIAMP_FFMPEG_ENV` | `LD_LIBRARY_PATH`, `SSL_CERT_FILE` and, for Python, `PYTHONHOME` and `HOME`, separated by the byte `0x1f` |
 
