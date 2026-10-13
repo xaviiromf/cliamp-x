@@ -263,7 +263,10 @@ class CliampService : Service(), TerminalSessionClient {
             icon, getString(label),
             PendingIntent.getService(this, action.hashCode(), Intent(this, CliampService::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE)
         )
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_PLAYER, true),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_glyph)
             .setContentTitle(snap?.track?.name.orEmpty().ifEmpty { getString(R.string.app_name) })

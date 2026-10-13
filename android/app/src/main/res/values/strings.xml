@@ -64,4 +64,65 @@
     <string name="err_session">Tu sesión de YouTube Music caducó.</string>
     <string name="err_network">Sin conexión con YouTube.</string>
     <string name="err_unavailable">Esta canción no está disponible.</string>
+    <string name="playing_now">Sonando ahora</string>
+    <string name="close_player">Cerrar el reproductor</string>
+    <string name="more">Más opciones</string>
+    <string name="tag_radio">RADIO</string>
+    <string name="tag_crossfade">FUNDIDO</string>
+    <string name="tag_eq_auto">EQ AUTO</string>
+    <string name="tag_sleep">APAGADO %1$s</string>
+    <string name="tag_sleep_end">APAGADO AL FINAL</string>
+    <string name="sleep_chip_end">fin</string>
+    <string name="status_playing">Sonando</string>
+    <string name="status_paused">En pausa</string>
+    <string name="status_stopped">Detenido</string>
+    <string name="status_live" translatable="false">LIVE</string>
+    <string name="shuffle">Aleatorio</string>
+    <string name="repeat">Repetir: %1$s</string>
+    <string name="repeat_off">No</string>
+    <string name="repeat_all">Todo</string>
+    <string name="repeat_one">Una</string>
+    <string name="lyrics">Letras</string>
+    <string name="queue_count">Cola: %1$d</string>
+    <string name="eq_short" translatable="false">EQ</string>
+    <string name="like">Me gusta</string>
+    <string name="unlike">Quitar de Me gusta</string>
+    <string name="seek">Posición</string>
+    <string name="err_play">No se pudo reproducir.</string>
+    <string name="sign_in_short">Iniciar sesión</string>
+    <string name="no_lyrics">No hay letra para esta canción.</string>
+    <string name="vis_terminal_only">Visualizador %1$s: solo en Modo terminal</string>
+    <string name="vis_next">Cambiar el visualizador</string>
+    <string name="back">Volver</string>
+    <string name="queue">Cola</string>
+    <string name="queue_now">Sonando</string>
+    <string name="queue_play_next">A continuación (%1$d)</string>
+    <string name="queue_up_next">Siguiente (%1$d)</string>
+    <string name="queue_empty">No hay más canciones.</string>
+    <string name="clear">Vaciar</string>
+    <string name="clear_queue">Vaciar cola</string>
+    <string name="clear_queue_confirm">¿Vaciar la cola?</string>
+    <string name="cancel">Cancelar</string>
+    <string name="drag">Mover</string>
+    <string name="play_next">Reproducir a continuación</string>
+    <string name="remove_from_queue">Quitar de la cola</string>
+    <string name="eq">Ecualizador</string>
+    <string name="eq_presets">Preajustes</string>
+    <string name="eq_custom">Personalizado</string>
+    <string name="eq_low">Graves</string>
+    <string name="eq_mid">Medios</string>
+    <string name="eq_high">Agudos</string>
+    <string name="eq_auto">EQ automático: %1$s</string>
+    <string name="on" translatable="false">On</string>
+    <string name="off" translatable="false">Off</string>
+    <string name="eq_band">Banda de %1$s Hz</string>
+    <string name="speed">Velocidad</string>
+    <string name="speed_more">Velocidad…</string>
+    <string name="sleep">Temporizador</string>
+    <string name="sleep_more">Temporizador…</string>
+    <string name="sleep_minutes">%1$d min</string>
+    <string name="sleep_end_song">Fin de la canción</string>
+    <string name="sleep_off">Apagar</string>
+    <string name="sleep_at">Activo: se pausa a las %1$s</string>
+    <string name="sleep_at_end">Activo: se pausa al terminar la canción</string>
 </resources>

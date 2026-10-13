@@ -19,6 +19,10 @@ data class Track(
     val artUrl: String,
     val durationSecs: Int,
     val meta: Map<String, String>,
+    /** The ♥ favorite (the core's bookmark field). */
+    val favorite: Boolean = false,
+    /** The row's index in the live playlist, in queue.list and playnext.list rows. */
+    val index: Int = 0,
 ) {
     /** The title, or the file name of a track that has none. */
     val name get() = title.ifEmpty { path.substringAfterLast('/') }
@@ -40,6 +44,8 @@ data class Track(
                 artUrl = o.optString("album_art_url"),
                 durationSecs = o.optInt("duration_secs"),
                 meta = meta?.keys()?.asSequence()?.associateWith { meta.optString(it) }.orEmpty(),
+                favorite = o.optBoolean("bookmark"),
+                index = o.optInt("index"),
             )
         }
 
@@ -99,6 +105,9 @@ data class Snapshot(
     val normalize: String,
     val crossfade: Int,
     val eqAuto: Boolean,
+    val eqPreset: String,
+    val eqBands: List<Double>,
+    val visualizer: String,
     val receivedAt: Long,
 ) {
     val playing get() = state == "playing"
@@ -135,6 +144,9 @@ data class Snapshot(
             normalize = o.optString("normalize"),
             crossfade = o.optInt("crossfade"),
             eqAuto = o.optBoolean("eq_auto"),
+            eqPreset = o.optString("eq_preset"),
+            eqBands = o.optJSONArray("eq_bands")?.let { a -> List(a.length()) { a.optDouble(it, 0.0) } }.orEmpty(),
+            visualizer = o.optString("visualizer"),
             receivedAt = receivedAt,
         )
     }
@@ -227,4 +239,74 @@ object ErrorMap {
         code == "unavailable" -> R.string.reconnecting
         else -> null
     }
+}
+
+/** One lyrics line; start is 0 on every line of plain (unsynced) lyrics. */
+@Immutable
+data class Lyric(val start: Double, val text: String)
+
+object Lyrics {
+    fun parse(result: JSONObject): List<Lyric> {
+        val a = result.optJSONArray("lyrics") ?: return emptyList()
+        return List(a.length()) { a.getJSONObject(it).let { o -> Lyric(o.optDouble("start", 0.0), o.optString("text")) } }
+    }
+
+    /** Whether the lines carry timestamps, as the core's lyrics.Synced decides. */
+    fun synced(lines: List<Lyric>) = lines.any { it.start > 0 }
+
+    /** The line that sings at pos: the last one started, or -1 before the first. */
+    fun active(lines: List<Lyric>, pos: Double): Int = lines.indexOfLast { it.start <= pos }
+}
+
+/** A page of a whole list (§5.5): the rows from offset and the full length. */
+@Immutable
+data class Page(val rows: List<Track>, val total: Int) {
+    companion object {
+        fun parse(result: JSONObject) = Page(Track.list(result), result.optInt("total"))
+    }
+}
+
+object Paging {
+    /** The offset of the next page of a whole list after loaded rows, or null at its end. */
+    fun next(loaded: Int, total: Int): Int? = loaded.takeIf { it < total }
+}
+
+/**
+ * A move from from to to as the adjacent swaps the core takes (§7.7), each
+ * as the pair (index, to).
+ */
+fun swaps(from: Int, to: Int): List<Pair<Int, Int>> =
+    if (from <= to) (from until to).map { it to it + 1 } else (from downTo to + 1).map { it to it - 1 }
+
+/**
+ * The seek bar after a release (§5.4) shows the target until a snapshot
+ * reports a position within 2 s of it, or 5 s pass.
+ */
+fun seekHolds(target: Double, releasedAt: Long, s: Snapshot, now: Long): Boolean =
+    now - releasedAt < 5000 && (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
+
+/** The spectrum bands linearly resampled to n bars. */
+fun resample(bands: FloatArray, n: Int): FloatArray {
+    if (bands.isEmpty() || n <= 0) return FloatArray(0)
+    if (bands.size == 1) return FloatArray(n) { bands[0] }
+    return FloatArray(n) { i ->
+        val x = if (n == 1) 0f else i * (bands.size - 1f) / (n - 1)
+        val lo = x.toInt().coerceAtMost(bands.size - 2)
+        val f = x - lo
+        bands[lo] * (1 - f) + bands[lo + 1] * f
+    }
+}
+
+/** The EQ gain of a tap at y in a column height tall: +12 dB at the top, -12 at the bottom, in 1 dB steps. */
+fun eqGain(y: Float, height: Float): Int =
+    if (height <= 0) 0 else Math.round(12 - y / height * 24).coerceIn(-12, 12)
+
+/** The EQ gain after a drag of dy pixels (down is positive) from base, one step per cell pixels. */
+fun eqDrag(base: Int, dy: Float, cell: Float): Int =
+    if (cell <= 0) base else (base - Math.round(dy / cell)).coerceIn(-12, 12)
+
+/** The next native visualizer of the strip's cycle (§2.3): Bars, ClassicPeak, Mirror. */
+fun nextVisualizer(current: String): String {
+    val cycle = listOf("Bars", "ClassicPeak", "Mirror")
+    return cycle[(cycle.indexOf(current) + 1) % cycle.size]
 }

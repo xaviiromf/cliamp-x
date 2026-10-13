@@ -13,6 +13,9 @@ import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -48,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -59,10 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.PlaybackClock
@@ -104,6 +105,9 @@ fun App(firstRun: Boolean) {
         MiniPlayer(snap, sides)
         TabBar(sides)
     }
+    val s = snap
+    if (Nav.player && s?.track != null) PlayerSheet(s)
+    SheetHost(snap)
 }
 
 @Composable
@@ -165,7 +169,11 @@ private fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
     )
 }
 
-/** The mini-player (§2.2): art, title, a state line, play or pause, and the progress along its bottom. */
+/**
+ * The mini-player (§2.2): art, title, a state line, ♥, play or pause, and
+ * the progress along its bottom. A tap or a drag up opens the player; a
+ * horizontal swipe skips.
+ */
 @Composable
 private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     val p = LocalPalette.current
@@ -182,8 +190,21 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     val playing = snap?.playing == true && pending == null
     val context = LocalContext.current
     val marquee = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
-    Column(Modifier.fillMaxWidth().background(p.surface).windowInsetsPadding(sides).testTag("mini_player")) {
-        Row(Modifier.fillMaxWidth().height(62.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    val density = LocalDensity.current
+    var lift by remember { mutableFloatStateOf(0f) }
+    val open = { if (snap?.track != null) Nav.openPlayer() }
+    Column(
+        Modifier.fillMaxWidth().background(p.surface).windowInsetsPadding(sides).testTag("mini_player")
+            .draggable(
+                rememberDraggableState { lift += it }, Orientation.Vertical,
+                onDragStarted = { lift = 0f },
+                onDragStopped = { velocity ->
+                    if (with(density) { lift < -48.dp.toPx() || velocity < -1000.dp.toPx() }) open()
+                },
+            )
+            .clickable { open() },
+    ) {
+        Row(Modifier.fillMaxWidth().height(62.dp).skipSwipe().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ArtBox(track.art, 48.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -193,6 +214,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
                 )
                 Text(second, color = color, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (pending == null) FavoriteButton(track.favorite, Modifier.testTag("mini_fav")) { Remote.favorite(track) }
             IconBtn(
                 if (playing) R.drawable.ic_pause else R.drawable.ic_play, stringResource(R.string.play_pause),
                 Modifier.testTag("mini_toggle"), tint = p.textPrimary,
@@ -202,27 +224,16 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
     }
 }
 
-/** The 2 dp accent progress line; a 250 ms ticker moves it only while playing on screen. */
+/** The 2 dp accent progress line; it moves only while playing on screen. */
 @Composable
 private fun Progress(snap: Snapshot?) {
     val p = LocalPalette.current
-    var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(snap) {
-        now = SystemClock.elapsedRealtime()
-        if (snap?.playing != true) return@LaunchedEffect
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                now = SystemClock.elapsedRealtime()
-                delay(250)
-            }
-        }
-    }
+    val now = rememberNow(snap)
     Box(
         Modifier.fillMaxWidth().height(2.dp).drawBehind {
             val s = snap ?: return@drawBehind
             if (s.duration <= 0) return@drawBehind
-            val f = (PlaybackClock.positionAt(s, now) / s.duration).toFloat().coerceIn(0f, 1f)
+            val f = (PlaybackClock.positionAt(s, now.longValue) / s.duration).toFloat().coerceIn(0f, 1f)
             drawRect(p.accent, size = Size(size.width * f, size.height))
         },
     )

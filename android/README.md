@@ -3,7 +3,8 @@
 The Android app of cliamp-x: a Kotlin app that runs the Go core and shows a
 native touch UI (Jetpack Compose) in the look of cliamp-x desktop. The TUI
 stays as **Modo terminal**. The design is in `PLAN.md`; the native UI follows
-`UI-SPEC.md`, built in milestones (M1: the shell, Buscar and the playback fix).
+`UI-SPEC.md`, built in milestones (M1: the shell, Buscar and the playback fix;
+M2: the player, the queue, the equalizer and the visualizer).
 
 The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 
@@ -16,14 +17,15 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 | `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
 | `MainActivity.kt` | The native UI (Compose), the first-start permissions, deep links and shared URLs |
 | `TerminalActivity.kt` | Modo terminal: the terminal view, the extra keys, back, pinch zoom |
-| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt`, `Art.kt` (cover art at its drawn size), `Nav.kt` (tabs), `App.kt` (splash, banners, status line, mini-player, tab bar), `Home.kt`, `Search.kt`, `Library.kt` |
+| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size), `Nav.kt` (tabs, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar), `Home.kt`, `Search.kt`, `Library.kt`, `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (Bars on a Canvas from `spectrum.get`), `Menus.kt` (song actions, speed, sleep timer) |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
 | `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, updates, yt-dlp update, Modo terminal, quit |
 | `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
 | `LoginActivity.kt` | YouTube Music sign-in in a WebView, saved as `ytmusic_cookies.txt` |
 
 `scripts/ui-smoke.sh` drives the UI over adb by its test tags and saves a
-screenshot per step (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`).
+screenshot per step (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`,
+then `s5 s8 s14 s15 s16` for the player while a song plays).
 
 ## Toolchain
 
@@ -65,7 +67,8 @@ needs the full history (`fetch-depth: 0`).
 
 Tests: `./gradlew testDebugUnitTest` runs the JVM tests (the updaters, the
 models and snapshot merge, the yt-dlp policy, the `ui.render` sender, the art
-URLs, the palette, and the glyphs of JetBrains Mono), and `./gradlew lint` the
+URLs, the palette, the glyphs of JetBrains Mono, and the player helpers:
+lyrics, queue swaps, the seek hold, spectrum resampling, EQ steps, paging), and `./gradlew lint` the
 Android lint.
 
 ### Release builds and signing

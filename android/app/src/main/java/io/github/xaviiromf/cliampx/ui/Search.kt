@@ -157,9 +157,12 @@ fun SearchScreen() {
                         item(key = "rule:" + section.title) { SectionRule(section.title) }
                         val first = n
                         items(section.rows.withIndex().toList(), key = { (i, t) -> "${section.title}:$i:${t.path}" }) { (i, track) ->
-                            TrackRow(track, playing = snap?.track?.path == track.path, Modifier.testTag("row_${first + i}")) {
-                                Remote.play(section.rows, i)
-                            }
+                            val n = first + i
+                            TrackRow(
+                                track, playing = snap?.track?.path == track.path, Modifier.testTag("row_$n"),
+                                onLongClick = { Nav.sheet = Sheet.Song(track) },
+                                trailing = { IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("row_more_$n")) { Nav.sheet = Sheet.Song(track) } },
+                            ) { Remote.play(section.rows, i) }
                         }
                         n += section.rows.size
                     }

@@ -71,3 +71,30 @@ class Ipc(private val socket: File) {
         }
     }
 }
+
+/**
+ * spectrum.get over one persistent connection (§5.1). Each next() asks for
+ * one frame and returns its bands, 0..1. A read waits at most 2 s.
+ */
+class SpectrumStream(socket: File) : Closeable {
+    private val s = LocalSocket().also {
+        try {
+            it.connect(LocalSocketAddress(socket.path, LocalSocketAddress.Namespace.FILESYSTEM))
+            it.soTimeout = 2000
+        } catch (e: IOException) {
+            it.close()
+            throw e
+        }
+    }
+    private val reader = s.inputStream.bufferedReader()
+    private val request = "{\"version\":2,\"id\":\"s\",\"method\":\"spectrum.get\"}\n".toByteArray()
+
+    fun next(): FloatArray {
+        s.outputStream.write(request)
+        val line = reader.readLine() ?: throw IOException("ipc: spectrum closed")
+        val bands = JSONObject(line).optJSONObject("result")?.optJSONArray("bands") ?: return FloatArray(0)
+        return FloatArray(bands.length()) { bands.optDouble(it, 0.0).toFloat() }
+    }
+
+    override fun close() = s.close()
+}

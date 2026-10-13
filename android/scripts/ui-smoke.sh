@@ -5,8 +5,10 @@
 #   ANDROID_SERIAL=emulator-5554 android/scripts/ui-smoke.sh [OUT_DIR] [SCENARIO...]
 #
 # Scenarios: s1 (cold start: clears the app data), s3 (search), s4 (play a
-# search song). With none, it runs s3 and s4. The elements are found by
-# their Compose test tags, which the app exposes as resource IDs.
+# search song), and, while a song plays, s5 (player gestures), s8 (play
+# next from a search row; run s3 first), s14 (EQ drag), s15 (sleep timer)
+# and s16 (visualizer). With none, it runs s3 and s4. The elements are
+# found by their Compose test tags, which the app exposes as resource IDs.
 set -euo pipefail
 
 OUT=${1:-shots}
@@ -79,6 +81,66 @@ s4() {
 	sleep 8
 	shot s4-playing
 	adb shell run-as "$PKG" sh -c 'cat files/config/cliamp.log' | tail -3
+}
+
+# drag ID DX DY [ms]: drags from the center of the element.
+drag() {
+	local x y
+	read -r x y < <(node "$1") || { echo "no element $1" >&2; return 1; }
+	swipe "$x" "$y" $((x + $2)) $((y + $3)) "${4:-300}"
+}
+
+s5() {
+	drag mini_player 0 -400 200
+	waitfor art 5
+	shot s5-player
+	drag art -600 0 250
+	sleep 2
+	shot s5-skipped
+	drag art 0 1200 250
+	sleep 1
+	if node player >/dev/null; then echo "FAIL: the player is still open" >&2; fi
+}
+
+s8() {
+	drag row_0 0 0 800 # a long-press
+	tap menu_play_next
+	sleep 1
+	tap mini_player
+	waitfor chip_queue 5
+	shot s8-queue-count
+	adb shell input keyevent KEYCODE_BACK
+}
+
+s14() {
+	tap mini_player
+	tap chip_eq
+	drag eq_band_0 0 -80 600
+	sleep 1
+	shot s14-eq
+	adb shell input keyevent KEYCODE_BACK
+	adb shell input keyevent KEYCODE_BACK
+}
+
+s15() {
+	tap mini_player
+	tap chip_sleep
+	tap sleep_15
+	sleep 1
+	shot s15-sleep
+	adb shell input keyevent KEYCODE_BACK
+}
+
+s16() {
+	tap mini_player
+	tap vis_strip
+	sleep 1
+	tap vis_strip
+	sleep 1
+	shot s16-a
+	sleep 0.2
+	shot s16-b
+	adb shell input keyevent KEYCODE_BACK
 }
 
 for s in "${@:-s3 s4}"; do

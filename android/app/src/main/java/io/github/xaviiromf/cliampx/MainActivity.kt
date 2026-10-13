@@ -25,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.ui.App
 import io.github.xaviiromf.cliampx.ui.CliampTheme
+import io.github.xaviiromf.cliampx.ui.Nav
 import io.github.xaviiromf.cliampx.ui.paletteOf
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) Nav.openPlayer()
         // The first start asks for notifications and local music before the core reads the music folder.
         val link = if (savedInstanceState == null) linkOf(intent) else null
         val missing = permissions().filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) Nav.openPlayer()
         startCore(linkOf(intent)) // also starts a core that ended with an error
     }
 
@@ -112,6 +115,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val ASKED = "asked_permissions"
+
+        /** The notification opens the player sheet. */
+        const val EXTRA_OPEN_PLAYER = "open_player"
 
         fun permissions() = buildList {
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)

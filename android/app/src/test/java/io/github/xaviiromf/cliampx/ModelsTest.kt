@@ -1,6 +1,7 @@
 package io.github.xaviiromf.cliampx
 
 import org.json.JSONObject
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -203,5 +204,92 @@ class ErrorMapTest {
         assertEquals(R.string.err_network to ErrorMap.Action.RETRY, ErrorMap.card("network"))
         assertEquals(R.string.err_unavailable to ErrorMap.Action.NEXT, ErrorMap.card("unavailable"))
         assertEquals(null to ErrorMap.Action.RETRY, ErrorMap.card(""))
+    }
+}
+
+class PlayerModelsTest {
+    @Test
+    fun playerFieldsFromRealOutput() {
+        val s = Fixtures.snapshot()
+        assertEquals("Custom", s.eqPreset)
+        assertEquals(List(10) { 0.0 }, s.eqBands)
+        assertEquals("Bars", s.visualizer)
+        assertFalse(s.track!!.favorite)
+        // queue.list and playnext.list rows, as the core sends them (emulator).
+        val row = Track.parse(JSONObject("""{"path":"/sdcard/Music/test_dos.mp3","index":7,"queue_position":1,"bookmark":true}"""))
+        assertEquals(7, row.index)
+        assertTrue(row.favorite)
+        val page = Page.parse(JSONObject("""{"ok":true,"total":3,"tracks":[${row.raw}]}"""))
+        assertEquals(3, page.total)
+        assertEquals("/sdcard/Music/test_dos.mp3", page.rows.single().path)
+    }
+
+    @Test
+    fun lyrics() {
+        val synced = Lyrics.parse(JSONObject("""{"ok":true,"lyrics":[{"start":0,"text":""},{"start":12.5,"text":"Uno"},{"start":20,"text":"Dos"}]}"""))
+        assertTrue(Lyrics.synced(synced))
+        for ((pos, want) in listOf(-1.0 to -1, 0.0 to 0, 12.4 to 0, 12.5 to 1, 19.9 to 1, 300.0 to 2)) {
+            assertEquals("at $pos", want, Lyrics.active(synced, pos))
+        }
+        val plain = Lyrics.parse(JSONObject("""{"ok":true,"lyrics":[{"start":0,"text":"Uno"},{"start":0,"text":"Dos"}]}"""))
+        assertFalse(Lyrics.synced(plain))
+        assertEquals(emptyList<Lyric>(), Lyrics.parse(JSONObject("""{"ok":true}""")))
+    }
+
+    @Test
+    fun swapsAreAdjacent() {
+        assertEquals(listOf(2 to 3, 3 to 4, 4 to 5), swaps(2, 5))
+        assertEquals(listOf(5 to 4, 4 to 3), swaps(5, 3))
+        assertEquals(emptyList<Pair<Int, Int>>(), swaps(4, 4))
+    }
+
+    @Test
+    fun seekHoldsTheTarget() {
+        fun at(position: Double, receivedAt: Long) = Fixtures.snapshot("""{"revision":1,"state":"playing","position":$position}""", receivedAt)
+        val released = 10_000L
+        assertTrue("an older snapshot", seekHolds(60.0, released, at(10.0, 9_000), 11_000))
+        assertTrue("a newer one far from the target", seekHolds(60.0, released, at(10.5, 10_500), 11_000))
+        assertFalse("a newer one at the target", seekHolds(60.0, released, at(59.0, 10_500), 11_000))
+        assertFalse("5 s passed", seekHolds(60.0, released, at(10.0, 9_000), 15_000))
+    }
+
+    @Test
+    fun resampleIsLinear() {
+        assertArrayEquals(floatArrayOf(0f, 0.5f, 1f), resample(floatArrayOf(0f, 1f), 3), 1e-6f)
+        assertArrayEquals(floatArrayOf(0.2f, 0.2f), resample(floatArrayOf(0.2f), 2), 0f)
+        assertArrayEquals(floatArrayOf(0f, 1f), resample(floatArrayOf(0f, 0.5f, 1f), 2), 1e-6f)
+        assertEquals(0, resample(FloatArray(0), 5).size)
+        assertEquals(0, resample(floatArrayOf(1f), 0).size)
+    }
+
+    @Test
+    fun eqGains() {
+        for ((y, want) in listOf(0f to 12, 240f to 0, 480f to -12, 250f to 0, 235f to 0, 230f to 1, -50f to 12, 900f to -12)) {
+            assertEquals("tap at $y", want, eqGain(y, 480f))
+        }
+        assertEquals(0, eqGain(10f, 0f))
+        // A drag moves from where the band was: up is negative dy.
+        assertEquals(3, eqDrag(0, -61f, 20f))
+        assertEquals(-2, eqDrag(1, 59f, 20f))
+        assertEquals(12, eqDrag(10, -100f, 20f))
+        assertEquals(-12, eqDrag(-12, 100f, 20f))
+    }
+
+    @Test
+    fun visualizerCycle() {
+        assertEquals("ClassicPeak", nextVisualizer("Bars"))
+        assertEquals("Mirror", nextVisualizer("ClassicPeak"))
+        assertEquals("Bars", nextVisualizer("Mirror"))
+        assertEquals("Bars", nextVisualizer("Matrix")) // a mode only Modo terminal draws
+    }
+}
+
+class PagingTest {
+    @Test
+    fun wholeListNextOffset() {
+        assertEquals(200, Paging.next(200, 450))
+        assertEquals(400, Paging.next(400, 450))
+        assertNull(Paging.next(450, 450))
+        assertNull(Paging.next(0, 0))
     }
 }

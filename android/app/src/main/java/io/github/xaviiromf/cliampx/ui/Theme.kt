@@ -46,6 +46,7 @@ data class CliampPalette(
     val textSecondary get() = fg
     val onAccent get() = if (accent.luminance() > 0.179f) Color.Black else Color.White
     val playing get() = green
+    val favorite get() = red
     val error get() = red
     val warning get() = yellow
     val surface get() = mix(bg, brightFg, 0.05f)

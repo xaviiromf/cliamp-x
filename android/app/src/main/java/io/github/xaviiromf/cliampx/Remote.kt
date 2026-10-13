@@ -18,9 +18,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -246,9 +249,14 @@ object Remote {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "call: $e")
-            _errors.tryEmit(message(e))
+            showError(e)
         }
+    }
+
+    /** Puts a failed call on the status line. */
+    fun showError(e: Exception) {
+        Log.w(TAG, "call: $e")
+        _errors.tryEmit(message(e))
     }
 
     /** The text of a failed call (§5.7): invalid_params is a bug, so it names the operation. */
@@ -279,6 +287,69 @@ object Remote {
             searchSections(Track.list(call("provider.search", JSONObject().put("provider", "ytmusic").put("query", query).put("limit", 40))))
         }
     }
+
+    /** Toggles the ♥ of track (G20); the job's snapshot carries the new state. */
+    fun favorite(track: Track) = fire("playlist.bookmark", JSONObject().put("provider", "ytmusic").put("track", track.json()))
+
+    /** The lyrics of the song that plays, path, kept for the session (§5.3 Player). */
+    suspend fun lyrics(path: String): List<Lyric> = cached("lyrics:$path", Long.MAX_VALUE) {
+        withContext(Dispatchers.IO) {
+            try {
+                Lyrics.parse(call("lyrics"))
+            } catch (e: IpcError) {
+                if ("no lyrics found" in e.detail) emptyList() else throw e
+            }
+        }
+    }
+
+    /**
+     * Moves a queue row (queue.move, live indexes) or a play-next row
+     * (playnext.move) as adjacent swaps (§7.7). Each queue swap passes the
+     * revision the previous one left. Throws on the first failure.
+     */
+    suspend fun move(op: String, from: Int, to: Int) {
+        for ((i, j) in swaps(from, to)) {
+            val params = JSONObject().put("index", i).put("to", j)
+            if (op == "queue.move") params.put("if_revision", state.value?.playlistRevision ?: 0)
+            call(op, params)
+        }
+    }
+
+    /** A page of the tracks after the playing one, in play order (G22). */
+    suspend fun upNext(offset: Int): Page = withContext(Dispatchers.IO) {
+        Page.parse(call("queue.list", JSONObject().put("sort", "upnext").put("offset", offset).put("limit", 200)))
+    }
+
+    suspend fun playNext(): Page = withContext(Dispatchers.IO) { Page.parse(call("playnext.list", JSONObject().put("limit", 200))) }
+
+    /** The EQ presets (G19), Custom last. */
+    suspend fun eqPresets(): List<String> = cached("eq:list", Long.MAX_VALUE) {
+        withContext(Dispatchers.IO) {
+            val items = call("eq", JSONObject().put("name", "list")).optJSONArray("items") ?: JSONArray()
+            List(items.length()) { items.getString(it) }
+        }
+    }
+
+    /**
+     * spectrum.get frames every 33 ms over one connection while collected
+     * (§5.4), reconnecting after 500 ms on an error.
+     */
+    fun spectrum(): Flow<FloatArray> = flow {
+        while (true) {
+            try {
+                SpectrumStream(Core.socket(app)).use { stream ->
+                    while (true) {
+                        emit(stream.next())
+                        delay(33)
+                    }
+                }
+            } catch (e: IOException) {
+                delay(500)
+            } catch (e: JSONException) {
+                delay(500)
+            }
+        }
+    }.flowOn(Dispatchers.IO)
 
     /** The last results of query however old, so a screen that comes back shows them at once (§7.3). */
     @Suppress("UNCHECKED_CAST")
