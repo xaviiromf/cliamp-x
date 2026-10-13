@@ -167,10 +167,14 @@ func (m *Model) recomputeLayout() {
 	// before it gives rows to the visualizer.
 	const contentFirstMinListRows = 10
 	minListRows := contentFirstMinListRows
-	if m.activeScreen() == screenKeymap {
+	switch m.activeScreen() {
+	case screenKeymap:
 		// A menu shows its rows before the preview and the visualizer, so the
 		// row menu fits whole and a tap lands on a row.
 		minListRows = max(minListRows, min(len(m.keymap.entries), maxPlExpandVisible))
+	case screenEQPanel:
+		// The EQ panel shows its curve, the band rows and five presets.
+		minListRows = max(minListRows, eqCurveRows+3+5)
 	}
 	contentFirst := m.usesContentFirstLayout()
 	simplified := m.usesSimplifiedLayout()

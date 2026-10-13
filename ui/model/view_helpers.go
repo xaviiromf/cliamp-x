@@ -144,7 +144,8 @@ func truncate(s string, maxW int) string {
 }
 
 // wrapText breaks s into lines no wider than maxW, splitting on spaces.
-// Widths are measured with lipgloss so wide glyphs and accents count once.
+// Widths are terminal cells (textWidth), so wide glyphs and accents count
+// right.
 // A single word longer than maxW is truncated rather than left to overflow
 // the panel.
 func wrapText(s string, maxW int) []string {
@@ -157,7 +158,7 @@ func wrapText(s string, maxW int) []string {
 		switch {
 		case line == "":
 			line = word
-		case lipgloss.Width(line)+1+lipgloss.Width(word) <= maxW:
+		case textWidth(line)+1+textWidth(word) <= maxW:
 			line += " " + word
 		default:
 			lines = append(lines, truncate(line, maxW))

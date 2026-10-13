@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/xaviiromf/cliamp-x/ui/artwork"
 )
 
 // rowLine returns the frame line that shows playlist row number n.
@@ -120,4 +122,32 @@ func TestMouseClickOutsideTheListKeepsTheCursor(t *testing.T) {
 			t.Fatalf("%dx%d: a click on F1 did not open the actions menu", size[0], size[1])
 		}
 	}
+}
+
+// A tap on the preview pane under a menu is on the chrome: the menu cursor
+// stays on its row.
+func TestMouseClickOnPreviewKeepsTheMenuCursor(t *testing.T) {
+	m := newLayoutTestModel(60, 32)
+	m.SetMouse(true)
+	m.art = artwork.New("")
+	m.openRowMenu()
+	m.recomputeLayout()
+	head, _, _ := strings.Cut(ansi.Strip(m.renderPreview()), "\n")
+	if strings.TrimSpace(head) == "" {
+		t.Fatal("the row menu at 60x32 shows no preview")
+	}
+	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+	for y, line := range lines {
+		if strings.TrimSpace(line) != strings.TrimSpace(head) {
+			continue
+		}
+		for _, dy := range []int{0, 2} {
+			m.handleMouseClick(tea.MouseClickMsg{X: 8, Y: y + dy, Button: tea.MouseLeft})
+			if m.keymap.cursor != 0 || !m.keymap.visible {
+				t.Fatalf("a click %d lines into the preview moved the menu cursor to %d (open: %v)", dy, m.keymap.cursor, m.keymap.visible)
+			}
+		}
+		return
+	}
+	t.Fatalf("no preview header %q on the screen:\n%s", head, strings.Join(lines, "\n"))
 }

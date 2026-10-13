@@ -73,10 +73,17 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	if cursor < 0 {
 		return nil
 	}
-	// The seek bar and the playlist header sit above every list and the hint
-	// bar below it, so a click past one is on the chrome, not on a row.
-	for i := min(cursor, msg.Y) + 1; i < max(cursor, msg.Y); i++ {
-		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(strings.TrimSpace(plain[i]), "▸─") {
+	// The seek bar and the playlist header sit above every list, and the
+	// preview pane and the hint bar below it, so a click on or past one is on
+	// the chrome, not on a row.
+	preview := ""
+	if m.layout.previewRows > 1 {
+		preview, _, _ = strings.Cut(ansi.Strip(m.renderPreview()), "\n")
+		preview = strings.TrimSpace(preview)
+	}
+	for i := min(cursor+1, msg.Y); i <= max(cursor-1, msg.Y); i++ {
+		line := strings.TrimSpace(plain[i])
+		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(line, "▸─") || (preview != "" && line == preview) {
 			return nil
 		}
 	}

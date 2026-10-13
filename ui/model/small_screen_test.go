@@ -9,12 +9,14 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/ui/artwork"
 )
 
 // smallScreenModel is a player with the data a phone shows: long titles
-// with accents, artists, albums, a provider pane and synced lyrics.
+// with accents, artists, albums, a provider pane and the preview pane.
 func smallScreenModel(width, height int) Model {
 	m := newLayoutTestModel(width, height)
+	m.art = artwork.New("") // the preview pane, as the player has it
 	m.playlist = playlist.New()
 	for i := range 30 {
 		m.playlist.Add(playlist.Track{
@@ -31,10 +33,6 @@ func smallScreenModel(width, height int) Model {
 		{ID: "fav", Name: "Favoritos con un nombre de lista bastante largo", TrackCount: 120},
 		{ID: "hist", Name: "Escuchado recientemente", TrackCount: 5},
 	}
-	m.lyrics.lines = []lyrics.Line{
-		{Text: "Sends shivers down my spine, body's aching all the time, goodbye everybody"},
-		{Text: "Mama, oo-oo-oo"},
-	}
 	m.status.Error("No se pudo listar los dispositivos: pactl: exit status 1, el servidor no responde", statusTTLDefault)
 	m.recomputeLayout()
 	return m
@@ -44,31 +42,37 @@ func smallScreenModel(width, height int) Model {
 // more lines than its rows, and the actions menu one tap away on the hint
 // bar (the full-screen visualizer shows it as "?").
 func TestSmallScreensFitTerminal(t *testing.T) {
+	sampleLyrics := []lyrics.Line{
+		{Text: "Is this the real life? Is this just fantasy?"},
+		{Text: "Sends shivers down my spine, body's aching all the time, goodbye everybody"},
+	}
 	screens := []struct {
-		name string
-		keys []string
+		name  string
+		keys  []string
+		setup func(*Model) // runs after the keys
+		want  []string     // text the plan's phone sizes must show whole
 	}{
-		{"queue", nil},
-		{"explore", []string{"esc"}},
-		{"actions menu", []string{"f1"}},
-		{"actions menu scrolled", []string{"f1", "pgdown", "pgdown"}},
-		{"row menu", []string{"O"}},
-		{"filter", []string{"/", "c", "i"}},
-		{"sleep timer", []string{"T"}},
-		{"equalizer", []string{"E"}},
-		{"statistics", []string{"S"}},
-		{"downloads", []string{"ctrl+o"}},
-		{"lyrics", []string{"y"}},
-		{"track info", []string{"i"}},
-		{"queue manager", []string{"a", "A"}},
-		{"theme picker", []string{"t"}},
-		{"visualizer picker", []string{"ctrl+v"}},
-		{"jump", []string{"ctrl+j"}},
-		{"load URL", []string{"u"}},
-		{"file browser", []string{"o"}},
-		{"save to playlist", []string{"w"}},
-		{"full visualizer", []string{"V"}},
-		{"volume focus", []string{"tab"}},
+		{name: "queue"},
+		{name: "explore", keys: []string{"esc"}},
+		{name: "actions menu", keys: []string{"f1"}},
+		{name: "actions menu scrolled", keys: []string{"f1", "pgdown", "pgdown"}},
+		{name: "row menu", keys: []string{"O"}},
+		{name: "filter", keys: []string{"/", "c", "i"}},
+		{name: "sleep timer", keys: []string{"T"}},
+		{name: "equalizer", keys: []string{"E"}, want: []string{"Flat ●", "16k"}},
+		{name: "statistics", keys: []string{"S"}},
+		{name: "downloads", keys: []string{"ctrl+o"}},
+		{name: "lyrics", keys: []string{"y"}, setup: func(m *Model) { m.lyrics.loading, m.lyrics.err, m.lyrics.lines = false, nil, sampleLyrics }},
+		{name: "track info", keys: []string{"i"}},
+		{name: "queue manager", keys: []string{"a", "A"}},
+		{name: "theme picker", keys: []string{"t"}},
+		{name: "visualizer picker", keys: []string{"ctrl+v"}},
+		{name: "jump", keys: []string{"ctrl+j"}},
+		{name: "load URL", keys: []string{"u"}},
+		{name: "file browser", keys: []string{"o"}},
+		{name: "save to playlist", keys: []string{"w"}},
+		{name: "full visualizer", keys: []string{"V"}},
+		{name: "volume focus", keys: []string{"tab"}},
 	}
 	sizes := [][2]int{{60, 32}, {110, 30}, {56, 16}, {45, 28}}
 	for _, spanish := range []bool{false, true} {
@@ -84,6 +88,11 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 							t.Fatalf("no key press for %q", key)
 						}
 						m.handleKey(msg)
+						m.recomputeLayout() // as Update does after each message
+					}
+					if sc.setup != nil {
+						sc.setup(&m)
+						m.recomputeLayout()
 					}
 					view := m.View().Content
 					lines := strings.Split(view, "\n")
@@ -108,6 +117,11 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 					}
 					if !m.hideHelpBar && !strings.Contains(plain, actions) {
 						t.Errorf("no %q hint on the screen:\n%s", actions, plain)
+					}
+					for _, want := range sc.want {
+						if size[1] >= 30 && !strings.Contains(plain, want) {
+							t.Errorf("no %q on the screen:\n%s", want, plain)
+						}
 					}
 					if sc.name == "row menu" && size[1] >= 30 && m.effectivePlaylistVisible() < len(m.keymap.entries) {
 						t.Errorf("row menu shows %d of %d rows", m.effectivePlaylistVisible(), len(m.keymap.entries))
