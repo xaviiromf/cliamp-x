@@ -293,12 +293,14 @@ class PlayerModelsTest {
 
     @Test
     fun seekHoldsTheTarget() {
-        fun at(position: Double, receivedAt: Long) = Fixtures.snapshot("""{"revision":1,"state":"playing","position":$position}""", receivedAt)
+        fun at(position: Double, receivedAt: Long, path: String = "a") =
+            Fixtures.snapshot("""{"revision":1,"state":"playing","position":$position,"track":{"path":"$path"}}""", receivedAt)
         val released = 10_000L
-        assertTrue("an older snapshot", seekHolds(60.0, released, at(10.0, 9_000), 11_000))
-        assertTrue("a newer one far from the target", seekHolds(60.0, released, at(10.5, 10_500), 11_000))
-        assertFalse("a newer one at the target", seekHolds(60.0, released, at(59.0, 10_500), 11_000))
-        assertFalse("5 s passed", seekHolds(60.0, released, at(10.0, 9_000), 15_000))
+        assertTrue("an older snapshot", seekHolds(60.0, "a", released, at(10.0, 9_000), 11_000))
+        assertTrue("a newer one far from the target", seekHolds(60.0, "a", released, at(10.5, 10_500), 11_000))
+        assertFalse("a newer one at the target", seekHolds(60.0, "a", released, at(59.0, 10_500), 11_000))
+        assertFalse("5 s passed", seekHolds(60.0, "a", released, at(10.0, 9_000), 15_000))
+        assertFalse("another song", seekHolds(60.0, "a", released, at(1.0, 10_500, "b"), 11_000))
     }
 
     @Test

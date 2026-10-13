@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -258,14 +259,16 @@ fun rememberNow(s: Snapshot?): LongState {
 class SeekState {
     var dragging by mutableStateOf<Double?>(null)
     private var target by mutableStateOf<Double?>(null)
+    private var path: String? = null
     private var releasedAt = 0L
 
     fun position(s: Snapshot, now: Long): Double =
-        dragging ?: target?.takeIf { seekHolds(it, releasedAt, s, now) } ?: PlaybackClock.positionAt(s, now)
+        dragging ?: target?.takeIf { seekHolds(it, path, releasedAt, s, now) } ?: PlaybackClock.positionAt(s, now)
 
-    fun release(to: Double) {
+    fun release(to: Double, path: String?) {
         dragging = null
         target = to
+        this.path = path
         releasedAt = SystemClock.elapsedRealtime()
         Remote.fire("seek.absolute", JSONObject().put("value", to))
     }
@@ -280,11 +283,13 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
     val p = LocalPalette.current
     val d = s.duration
     val enabled = s.seekable && d > 0
+    // The gesture blocks outlive a snapshot: they read the song they seek in here.
+    val path by rememberUpdatedState(s.track?.path)
     fun at(x: Float, width: Int) = (x / width).coerceIn(0f, 1f) * d
     Box(
         modifier.fillMaxWidth().height(48.dp)
             .pointerInput(enabled, d) {
-                if (enabled) detectTapGestures { seek.release(at(it.x, size.width)) }
+                if (enabled) detectTapGestures { seek.release(at(it.x, size.width), path) }
             }
             .pointerInput(enabled, d) {
                 if (!enabled) return@pointerInput
@@ -295,7 +300,7 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
                         x = it.x
                         seek.dragging = at(x, size.width)
                     },
-                    onDragEnd = { seek.release(at(x, size.width)) },
+                    onDragEnd = { seek.release(at(x, size.width), path) },
                     onDragCancel = { seek.dragging = null },
                 ) { change, _ ->
                     change.consume()

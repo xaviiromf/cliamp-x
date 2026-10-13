@@ -112,6 +112,7 @@ fun PlayerSheet(s: Snapshot) {
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0) },
     ) {
+        SheetBars()
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)

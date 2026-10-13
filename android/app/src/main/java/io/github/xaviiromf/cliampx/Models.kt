@@ -308,10 +308,11 @@ suspend fun sendSwaps(from: Int, to: Int, revision: Long?, send: suspend (JSONOb
 
 /**
  * The seek bar after a release (§5.4) shows the target until a snapshot
- * reports a position within 2 s of it, or 5 s pass.
+ * reports a position within 2 s of it, 5 s pass, or another song plays.
  */
-fun seekHolds(target: Double, releasedAt: Long, s: Snapshot, now: Long): Boolean =
-    now - releasedAt < 5000 && (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
+fun seekHolds(target: Double, path: String?, releasedAt: Long, s: Snapshot, now: Long): Boolean =
+    s.track?.path == path && now - releasedAt < 5000 &&
+        (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
 
 /** The spectrum bands linearly resampled to n bars. */
 fun resample(bands: FloatArray, n: Int): FloatArray {

@@ -66,6 +66,7 @@ fun SheetHost(s: Snapshot?) {
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0) },
     ) {
+        SheetBars()
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 8.dp).semantics { testTagsAsResourceId = true }) {
             when (sheet) {
                 is Sheet.Song -> SongActions(sheet, close)

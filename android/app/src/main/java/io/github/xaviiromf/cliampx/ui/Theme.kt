@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.ThemeInfo
@@ -124,6 +126,20 @@ private class PressFill(private val color: Color) : IndicationNodeFactory {
         override fun ContentDrawScope.draw() {
             if (pressed) drawRect(color)
             drawContent()
+        }
+    }
+}
+
+/** A sheet's dialog window copies the bar icons once, when it opens: follow the live palette instead (§4.1). */
+@Composable
+fun SheetBars() {
+    val view = LocalView.current
+    val light = LocalPalette.current.bg.luminance() > 0.5f
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = light
+            isAppearanceLightNavigationBars = light
         }
     }
 }
