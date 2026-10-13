@@ -60,6 +60,9 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 		{name: "filter", keys: []string{"/", "c", "i"}},
 		{name: "sleep timer", keys: []string{"T"}},
 		{name: "equalizer", keys: []string{"E"}, want: []string{"Flat ●", "16k"}},
+		// The panel opens on its last row under the queue layout and still
+		// shows five presets.
+		{name: "equalizer custom", keys: []string{"E", "+", "esc", "E"}, want: []string{"Loudness", "Small Speakers", "16k"}},
 		{name: "statistics", keys: []string{"S"}},
 		{name: "downloads", keys: []string{"ctrl+o"}},
 		{name: "lyrics", keys: []string{"y"}, setup: func(m *Model) { m.lyrics.loading, m.lyrics.err, m.lyrics.lines = false, nil, sampleLyrics }},

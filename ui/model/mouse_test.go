@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -155,38 +156,46 @@ func TestMouseClickOnPreviewKeepsTheMenuCursor(t *testing.T) {
 // A tap on the EQ curve or its band rows is no preset row: the preset under
 // the cursor stays, while a tap on another preset selects it.
 func TestMouseClickOnEQCurveKeepsThePreset(t *testing.T) {
-	m := newLayoutTestModel(60, 32)
-	m.SetMouse(true)
-	m.handleKey(keyPress('E'))
-	m.recomputeLayout()
-	m.eqPanelAdjustScroll()
-	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
-	cursor := nearestCursorLine(lines, 0)
-	if cursor < 0 || !m.eqPanel.visible {
-		t.Fatalf("the EQ panel shows no preset cursor:\n%s", strings.Join(lines, "\n"))
-	}
-	before := m.eqPanel.cursor
-	for y, line := range lines {
-		if y < cursor && (strings.Contains(line, "16k") || strings.Contains(line, "+12") || isEQBandNames(strings.TrimSpace(line))) {
-			m.handleMouseClick(tea.MouseClickMsg{X: 8, Y: y, Button: tea.MouseLeft})
-			if m.eqPanel.cursor != before {
-				t.Fatalf("a click on %q moved the preset cursor from %d to %d", strings.TrimSpace(line), before, m.eqPanel.cursor)
+	// 45 columns cut the band names row, so the guard must not need Treble.
+	for _, size := range [][2]int{{60, 32}, {45, 28}} {
+		t.Run(fmt.Sprintf("%dx%d", size[0], size[1]), func(t *testing.T) {
+			m := newLayoutTestModel(size[0], size[1])
+			m.SetMouse(true)
+			for _, key := range []rune{'E', tea.KeyUp} {
+				m.handleKey(keyPress(key))
+				m.recomputeLayout() // as Update does after each message
 			}
-		}
-	}
-	// Another preset: the row under the band names, or the one after the
-	// cursor when that row is the cursor or a heading.
-	target := -1
-	for y, line := range lines {
-		if isEQBandNames(strings.TrimSpace(line)) {
-			target = y + 1
-		}
-	}
-	if target == cursor || isSeparatorLine(lines[target]) {
-		target = cursor + 1
-	}
-	m.handleMouseClick(tea.MouseClickMsg{X: 8, Y: target, Button: tea.MouseLeft})
-	if m.eqPanel.cursor == before {
-		t.Fatalf("a click on preset row %q did not select it", strings.TrimSpace(lines[target]))
+			lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+			cursor := nearestCursorLine(lines, 0)
+			header, names := -1, -1
+			for y, line := range lines {
+				if header < 0 && strings.Contains(line, "── Equalizer") {
+					header = y
+				}
+				if isEQBandNames(strings.TrimSpace(line)) {
+					names = y
+				}
+			}
+			if cursor < 0 || header < 0 || names < header || !m.eqPanel.visible {
+				t.Fatalf("the EQ panel shows no curve and preset cursor:\n%s", strings.Join(lines, "\n"))
+			}
+			before, preset := m.eqPanel.cursor, m.eqPresetIdx
+			for y := header + 1; y <= names; y++ {
+				m.handleMouseClick(tea.MouseClickMsg{X: 8, Y: y, Button: tea.MouseLeft})
+				if m.eqPanel.cursor != before || m.eqPresetIdx != preset {
+					t.Fatalf("a click on %q moved the preset cursor from %d to %d", strings.TrimSpace(lines[y]), before, m.eqPanel.cursor)
+				}
+			}
+			// Another preset: the first list row that is no heading and not
+			// the cursor.
+			target := names + 1
+			for target == cursor || isSeparatorLine(lines[target]) {
+				target++
+			}
+			m.handleMouseClick(tea.MouseClickMsg{X: 8, Y: target, Button: tea.MouseLeft})
+			if m.eqPanel.cursor == before {
+				t.Fatalf("a click on preset row %q did not select it", strings.TrimSpace(lines[target]))
+			}
+		})
 	}
 }

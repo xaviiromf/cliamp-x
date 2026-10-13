@@ -285,6 +285,11 @@ func (m *Model) recomputeLayout() {
 	}
 
 	m.layout = layout
+	if screen == screenEQPanel {
+		// The panel opens under the layout of the screen before it, so its
+		// preset list scrolls again once the panel has its own rows.
+		m.eqPanelAdjustScroll()
+	}
 	if m.vis != nil {
 		m.vis.Cols = layout.panelWidth
 		if m.width <= 0 && !m.headless {

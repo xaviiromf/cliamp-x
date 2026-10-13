@@ -1,7 +1,6 @@
 package model
 
 import (
-	"slices"
 	"strings"
 	"time"
 
@@ -149,9 +148,11 @@ func isSeekBarLine(line string) bool {
 }
 
 // isEQBandNames reports whether a frame line is the Bass, Mids and Treble
-// row of the EQ panel, the last row above its preset list.
+// row of the EQ panel, the last row above its preset list. A narrow panel
+// cuts Treble, so the first two names decide.
 func isEQBandNames(line string) bool {
-	return slices.Equal(strings.Fields(line), []string{L("Bass"), L("Mids"), L("Treble")})
+	f := strings.Fields(line)
+	return len(f) >= 2 && f[0] == L("Bass") && f[1] == L("Mids")
 }
 
 // isSeparatorLine reports whether a frame line is a section rule, a section
