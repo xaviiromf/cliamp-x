@@ -49,3 +49,22 @@ jobs:
           /^ok[[:space:]]/ { for (i = 0; i < n; i++) print $2 " " skips[i]; n = 0 }'
           "$RUNNER_TEMP/ci.log"
 
+  # Builds the Go core of the Android app, so a new //go:build linux file
+  # that breaks GOOS=android fails here. The runner image ships the NDK.
+  android-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: make android-core
+        run: |
+          make android-core ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          make android-core ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" ANDROID_ABI=x86_64
+          # Android 15+ kernels can use 16 KB pages: every LOAD segment needs that alignment.
+          readelf -lW android/app/src/main/jniLibs/arm64-v8a/libcliamp.so | awk '/LOAD/ && $NF != "0x4000" { bad = 1 } END { exit bad }'
