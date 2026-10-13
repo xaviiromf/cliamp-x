@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,15 +50,30 @@ const (
 
 type release struct {
 	TagName string  `json:"tag_name"`
+	Name    string  `json:"name"`
 	Draft   bool    `json:"draft"`
 	Assets  []asset `json:"assets"`
 }
 
+// version returns the tag, or the release name when the tag is not a
+// version: the Android nightly moves the tag "nightly" and names the
+// release after its version.
+func (r release) version() string {
+	if _, ok := parseVersion(r.TagName); !ok {
+		if _, ok := parseVersion(r.Name); ok {
+			return r.Name
+		}
+	}
+	return r.TagName
+}
+
 // asset is a release file. URL is its API address, which serves the file
 // to an authorized client even when the repository is private.
+// DownloadURL is its public address on github.com.
 type asset struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	DownloadURL string `json:"browser_download_url"`
 }
 
 // apiHost is the only host that gets the GitHub token. Asset downloads
@@ -125,12 +141,16 @@ func Run(currentVersion string, prerelease bool) error {
 	if runtime.GOOS == "android" {
 		return errors.New("cliamp-x upgrade cannot replace the Android app: update it from the app menu")
 	}
+	binaryName := fmt.Sprintf("cliamp-x-%s-%s", runtime.GOOS, runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
 	token := tokenSource()
-	rel, err := latestRelease(prerelease, token)
+	rel, err := latestRelease(prerelease, token, binaryName)
 	if err != nil {
 		return fmt.Errorf("checking latest version: %w", err)
 	}
-	latest := rel.TagName
+	latest := rel.version()
 
 	// With prerelease, the user can run a build newer than every listed
 	// release. An older release must not replace it.
@@ -149,14 +169,9 @@ func Run(currentVersion string, prerelease bool) error {
 		fmt.Printf("Upgrading %s → %s\n", currentVersion, latest)
 	}
 
-	binaryName := fmt.Sprintf("cliamp-x-%s-%s", runtime.GOOS, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
-		binaryName += ".exe"
-	}
-
 	// The API asset URLs work for private repositories too. A release
 	// response without assets falls back to the public download URLs.
-	baseURL := fmt.Sprintf("https://github.com/%s/releases/download/%s", repo, latest)
+	baseURL := fmt.Sprintf("https://github.com/%s/releases/download/%s", repo, rel.TagName)
 	checksumURL := baseURL + "/checksums.txt"
 	binaryURL := baseURL + "/" + binaryName
 	for _, a := range rel.Assets {
@@ -191,13 +206,67 @@ func Run(currentVersion string, prerelease bool) error {
 	return nil
 }
 
-func latestVersion(prerelease bool) (string, error) {
-	r, err := latestRelease(prerelease, tokenSource())
-	return r.TagName, err
+// Report is what `cliamp-x upgrade --check --json` prints: the newest
+// release and its files. Prerelease is true when Latest has a SemVer
+// prerelease part, as a release candidate or an Android nightly has. Newer
+// is false when Latest is the version that runs or an older one.
+type Report struct {
+	Current    string        `json:"current"`
+	Latest     string        `json:"latest"`
+	Prerelease bool          `json:"prerelease"`
+	Newer      bool          `json:"newer"`
+	Assets     []ReportAsset `json:"assets"`
 }
 
-// latestRelease returns the newest release with its assets.
-func latestRelease(prerelease bool, token string) (release, error) {
+// ReportAsset is a release file. URL is its public download address. SHA256
+// comes from the checksums.txt of the release, and is "" for a file that
+// checksums.txt does not list.
+type ReportAsset struct {
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
+}
+
+// Check finds the newest release as Run does, for any platform, and reports
+// it with the SHA-256 of each file. It reads the release and its
+// checksums.txt and downloads nothing else, so the Android app can use it.
+func Check(current string, prerelease bool) (Report, error) {
+	token := tokenSource()
+	rel, err := latestRelease(prerelease, token, "")
+	if err != nil {
+		return Report{}, fmt.Errorf("checking latest version: %w", err)
+	}
+	latest := rel.version()
+	v, ok := parseVersion(latest)
+	report := Report{
+		Current:    current,
+		Latest:     latest,
+		Prerelease: ok && len(v.pre) > 0,
+		Newer:      latest != current && !notNewer(latest, current),
+		Assets:     []ReportAsset{},
+	}
+	var sums map[string]string
+	for _, a := range rel.Assets {
+		if a.Name == "checksums.txt" {
+			if sums, err = checksums(a.URL, token); err != nil {
+				return Report{}, fmt.Errorf("reading release checksums: %w", err)
+			}
+		}
+	}
+	for _, a := range rel.Assets {
+		report.Assets = append(report.Assets, ReportAsset{Name: a.Name, URL: a.DownloadURL, SHA256: sums[a.Name]})
+	}
+	return report, nil
+}
+
+func latestVersion(prerelease bool) (string, error) {
+	r, err := latestRelease(prerelease, tokenSource(), "")
+	return r.version(), err
+}
+
+// latestRelease returns the newest release with its assets. With
+// prerelease, a release that lists its files without binary is skipped.
+func latestRelease(prerelease bool, token, binary string) (release, error) {
 	endpoint := "releases/latest"
 	if prerelease {
 		endpoint = "releases?per_page=100"
@@ -214,6 +283,9 @@ func latestRelease(prerelease bool, token string) (release, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusForbidden && resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			return release{}, errors.New("GitHub API rate limit exceeded: try again in an hour, or set GITHUB_TOKEN")
+		}
 		return release{}, fmt.Errorf("GitHub API returned %s%s", resp.Status, privateHint(resp.StatusCode, token))
 	}
 
@@ -231,19 +303,20 @@ func latestRelease(prerelease bool, token string) (release, error) {
 	if err := httpclient.ReadJSON(resp.Body, releaseListMaxBytes, &releases); err != nil {
 		return release{}, fmt.Errorf("parsing response: %w", err)
 	}
-	return newestRelease(releases)
+	return newestRelease(releases, binary)
 }
 
-// newestRelease returns the tag of the release with the highest SemVer
-// version that is not a draft. Stable releases count too, so a stable release
-// that follows a prerelease wins over it. Tags that are not SemVer versions
-// are skipped.
-func newestRelease(releases []release) (release, error) {
+// newestRelease returns the release with the highest SemVer version that is
+// not a draft. Stable releases count too, so a stable release that follows a
+// prerelease wins over it. Releases without a SemVer version are skipped, and
+// so is a release that lists its files without binary, when binary is set:
+// the Android nightly has no desktop build.
+func newestRelease(releases []release, binary string) (release, error) {
 	var best release
 	var bestVersion version
 	for _, r := range releases {
-		v, ok := parseVersion(r.TagName)
-		if r.Draft || !ok {
+		v, ok := parseVersion(r.version())
+		if r.Draft || !ok || binary != "" && len(r.Assets) > 0 && !slices.ContainsFunc(r.Assets, func(a asset) bool { return a.Name == binary }) {
 			continue
 		}
 		if best.TagName == "" || v.compare(bestVersion) > 0 {
@@ -270,39 +343,60 @@ func releaseChecksum(url, binaryName string) (string, error) {
 }
 
 func releaseChecksumWith(url, binaryName, token string) (string, error) {
-	req, err := newRequest(context.Background(), url, token)
+	sums, err := checksums(url, token)
 	if err != nil {
 		return "", err
+	}
+	hash, ok := sums[binaryName]
+	if !ok {
+		return "", fmt.Errorf("no SHA-256 entry for %s", binaryName)
+	}
+	if hash == "" {
+		return "", fmt.Errorf("invalid SHA-256 entry for %s", binaryName)
+	}
+	return hash, nil
+}
+
+// checksums downloads a sha256sum file and maps each file name to its
+// SHA-256 in lower case. A malformed hash maps to "", so only that file
+// fails to verify. The first line of a name wins.
+func checksums(url, token string) (map[string]string, error) {
+	req, err := newRequest(context.Background(), url, token)
+	if err != nil {
+		return nil, err
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("checksum download failed: %s%s", resp.Status, privateHint(resp.StatusCode, token))
+		return nil, fmt.Errorf("checksum download failed: %s%s", resp.Status, privateHint(resp.StatusCode, token))
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(data) > 1<<20 {
-		return "", errors.New("checksum file is too large")
+		return nil, errors.New("checksum file is too large")
 	}
+	sums := map[string]string{}
 	for line := range strings.Lines(string(data)) {
 		fields := strings.Fields(line)
-		if len(fields) != 2 || strings.TrimPrefix(fields[1], "*") != binaryName {
+		if len(fields) != 2 {
 			continue
 		}
-		if len(fields[0]) != sha256.Size*2 {
-			return "", fmt.Errorf("invalid SHA-256 entry for %s", binaryName)
+		name := strings.TrimPrefix(fields[1], "*")
+		if _, seen := sums[name]; seen {
+			continue
 		}
-		if _, err := hex.DecodeString(fields[0]); err != nil {
-			return "", fmt.Errorf("invalid SHA-256 entry for %s", binaryName)
+		hash := ""
+		if _, err := hex.DecodeString(fields[0]); err == nil && len(fields[0]) == sha256.Size*2 {
+			hash = strings.ToLower(fields[0])
 		}
-		return strings.ToLower(fields[0]), nil
+		sums[name] = hash
 	}
-	return "", fmt.Errorf("no SHA-256 entry for %s", binaryName)
+	return sums, nil
 }
 
 func downloadAndReplace(url, destPath, expectedHash string) error {

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
@@ -132,6 +133,14 @@ func TestLatestPrereleaseVersion(t *testing.T) {
 				{"tag_name":"v2.0.0-rc.10","prerelease":true}
 			]`,
 			want: "v2.0.0-rc.10",
+		},
+		{
+			name: "the nightly gives its version in the release name",
+			list: `[
+				{"tag_name":"nightly","name":"v1.2.4-nightly.20261013.812+abc1234","prerelease":true},
+				{"tag_name":"v1.2.3"}
+			]`,
+			want: "v1.2.4-nightly.20261013.812+abc1234",
 		},
 		{
 			name: "tags that are not versions are skipped",
@@ -673,5 +682,136 @@ func TestRunFailsLatestVersion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "checking latest version") {
 		t.Errorf("error = %q, want to mention 'checking latest version'", err.Error())
+	}
+}
+
+// TestNewestReleaseSkipsReleasesWithoutBinary checks that Run never picks a
+// release without its binary, such as the Android nightly, while Check,
+// which passes no binary, sees every release.
+func TestNewestReleaseSkipsReleasesWithoutBinary(t *testing.T) {
+	releases := []release{
+		{TagName: "v1.2.3", Assets: []asset{{Name: "cliamp-x-linux-amd64"}, {Name: "checksums.txt"}}},
+		{TagName: "nightly", Name: "v1.2.4-nightly.20261013.812+abc1234", Assets: []asset{{Name: "cliamp-x-1.2.4-nightly.20261013.812-arm64-v8a.apk"}, {Name: "checksums.txt"}}},
+		{TagName: "v1.2.2"},
+	}
+	for _, tc := range []struct {
+		binary string
+		want   string
+	}{
+		{binary: "cliamp-x-linux-amd64", want: "v1.2.3"},
+		{binary: "cliamp-x-darwin-arm64", want: "v1.2.2"}, // lists no files, so it may have the binary
+		{binary: "", want: "v1.2.4-nightly.20261013.812+abc1234"},
+	} {
+		got, err := newestRelease(releases, tc.binary)
+		if err != nil || got.version() != tc.want {
+			t.Errorf("newestRelease(%q) = %q, %v; want %q", tc.binary, got.version(), err, tc.want)
+		}
+	}
+}
+
+func TestCheck(t *testing.T) {
+	apkHash := strings.Repeat("ab", 32)
+	const apk = "cliamp-x-1.3.0-nightly.20261013.812-arm64-v8a.apk"
+	release := func(tag, name string) string {
+		return `{"tag_name":"` + tag + `","name":"` + name + `","assets":[
+			{"name":"checksums.txt","url":"https://api.github.com/repos/xaviiromf/cliamp-x/releases/assets/1",
+			 "browser_download_url":"https://github.com/xaviiromf/cliamp-x/releases/download/` + tag + `/checksums.txt"},
+			{"name":"` + apk + `","url":"https://api.github.com/repos/xaviiromf/cliamp-x/releases/assets/2",
+			 "browser_download_url":"https://github.com/xaviiromf/cliamp-x/releases/download/` + tag + `/` + apk + `"},
+			{"name":"cliamp-x-linux-amd64","url":"https://api.github.com/repos/xaviiromf/cliamp-x/releases/assets/3",
+			 "browser_download_url":"https://github.com/xaviiromf/cliamp-x/releases/download/` + tag + `/cliamp-x-linux-amd64"}]}`
+	}
+	stable := release("v1.2.3", "cliamp-x v1.2.3")
+	nightly := release("nightly", "v1.3.0-nightly.20261013.812+abc1234")
+	sums := apkHash + "  " + apk + "\n" + "xyz  cliamp-x-linux-amd64\n"
+	for _, tc := range []struct {
+		name       string
+		current    string
+		prerelease bool
+		latest     string // the releases/latest response
+		list       string // the releases response
+		sums       int    // status of checksums.txt
+		want       Report
+		wantErr    string
+	}{
+		{
+			name: "stable channel, newer release", current: "v1.2.2", latest: stable, sums: http.StatusOK,
+			want: Report{Current: "v1.2.2", Latest: "v1.2.3", Newer: true},
+		},
+		{
+			name: "stable channel, up to date", current: "v1.2.3", latest: stable, sums: http.StatusOK,
+			want: Report{Current: "v1.2.3", Latest: "v1.2.3"},
+		},
+		{
+			name: "dev build is always behind", current: "dev", latest: stable, sums: http.StatusOK,
+			want: Report{Current: "dev", Latest: "v1.2.3", Newer: true},
+		},
+		{
+			name: "nightly channel finds the nightly", current: "v1.2.3", prerelease: true, list: "[" + stable + "," + nightly + "]", sums: http.StatusOK,
+			want: Report{Current: "v1.2.3", Latest: "v1.3.0-nightly.20261013.812+abc1234", Prerelease: true, Newer: true},
+		},
+		{
+			name: "same nightly is not newer", current: "v1.3.0-nightly.20261013.812+abc1234", prerelease: true, list: "[" + nightly + "]", sums: http.StatusOK,
+			want: Report{Current: "v1.3.0-nightly.20261013.812+abc1234", Latest: "v1.3.0-nightly.20261013.812+abc1234", Prerelease: true},
+		},
+		{
+			name: "missing checksums.txt fails", current: "v1.2.2", latest: stable, sums: http.StatusNotFound,
+			wantErr: "reading release checksums",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/repos/xaviiromf/cliamp-x/releases/latest":
+					_, _ = io.WriteString(w, tc.latest)
+				case "/repos/xaviiromf/cliamp-x/releases":
+					_, _ = io.WriteString(w, tc.list)
+				case "/repos/xaviiromf/cliamp-x/releases/assets/1":
+					w.WriteHeader(tc.sums)
+					_, _ = io.WriteString(w, sums)
+				default:
+					t.Errorf("Check requested %s, want only the release and checksums.txt", r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			installTestClient(t, srv.URL)
+
+			got, err := Check(tc.current, tc.prerelease)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("Check error = %v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			tag := "v1.2.3"
+			if tc.prerelease {
+				tag = "nightly"
+			}
+			base := "https://github.com/xaviiromf/cliamp-x/releases/download/" + tag + "/"
+			tc.want.Assets = []ReportAsset{
+				{Name: "checksums.txt", URL: base + "checksums.txt"},
+				{Name: apk, URL: base + apk, SHA256: apkHash},
+				{Name: "cliamp-x-linux-amd64", URL: base + "cliamp-x-linux-amd64"}, // malformed hash
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("Check = %+v\nwant    %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCheckRateLimit(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		http.Error(w, `{"message":"API rate limit exceeded"}`, http.StatusForbidden)
+	}))
+	defer srv.Close()
+	installTestClient(t, srv.URL)
+	if _, err := Check("v1.0.0", false); err == nil || !strings.Contains(err.Error(), "rate limit") {
+		t.Fatalf("Check = %v, want a rate limit error", err)
 	}
 }

@@ -93,7 +93,30 @@ cliamp-x upgrade                # latest stable release
 cliamp-x upgrade --prerelease   # newest release, betas and release candidates included
 ```
 
-Select prerelease updates for each upgrade. `--prerelease` installs the release with the highest SemVer version, stable or prerelease. It never installs a version older than the one you run. Normal installs and `cliamp-x upgrade` use stable releases only.
+Select prerelease updates for each upgrade. `--prerelease` installs the release with the highest SemVer version, stable or prerelease, that has a binary for your platform. It never installs a version older than the one you run. Normal installs and `cliamp-x upgrade` use stable releases only.
+
+`--check` reports the newest release and installs nothing. With `--json` it
+prints one JSON object, which the Android app reads:
+
+```sh
+cliamp-x upgrade --check --json [--prerelease]
+```
+
+```json
+{"current":"v2.2.1","latest":"v2.2.2-nightly.20261013.812+abc1234","prerelease":true,"newer":true,
+ "assets":[{"name":"cliamp-x-2.2.2-nightly.20261013.812-arm64-v8a.apk","url":"https://github.com/...","sha256":"..."}]}
+```
+
+`current` is the version of the binary that runs. `prerelease` tells whether
+`latest` has a SemVer prerelease part. `newer` is true when `latest` is a
+higher SemVer version than `current`, or when `current` is not a version (a
+development build). `assets` lists every file of the release with its public
+download URL and the SHA-256 from the release's `checksums.txt`, or `""` when
+that file lists none. The Android nightly is the prerelease with the tag
+`nightly`. Its release name holds its version,
+`v<next patch>-nightly.<yyyymmdd>.<commit count>+<commit>`, which ranks above
+the last stable release and below the next one. It has no desktop binaries,
+so `cliamp-x upgrade --prerelease` skips it.
 
 `cliamp-x upgrade` downloads the release files through the GitHub API and
 checks the SHA-256 in `checksums.txt` before it replaces the binary. While
