@@ -86,30 +86,31 @@ var (
 	yearRe     = regexp.MustCompile(`^(19|20)\d{2}$`)
 )
 
-// thumbnailURL picks the smallest thumbnail at least 120 pixels wide under
-// o, or the largest one when all are smaller: enough for a terminal cover and
-// quick to fetch.
-func thumbnailURL(o any) string {
-	list, _ := findFirst(o, "thumbnails").([]any)
-	best, bestW := "", 0
-	for _, t := range list {
-		url := str(t, "url")
-		w, _ := get(t, "width").(float64)
-		if url == "" {
-			continue
+// thumbnailURL picks the picture of an item from the thumbnail lists under
+// sources: the largest square googleusercontent picture, the album art YouTube
+// Music shows, else the largest thumbnail. An artist page puts its square
+// picture in a second source, beside a wide banner. A googleusercontent
+// picture is asked for thumbnailWidth pixels: clients scale it again by its
+// URL.
+func thumbnailURL(sources ...any) string {
+	best, bestW, bestSquare := "", -1, false
+	for _, o := range sources {
+		list, _ := findFirst(o, "thumbnails").([]any)
+		for _, t := range list {
+			url := str(t, "url")
+			if url == "" {
+				continue
+			}
+			if strings.HasPrefix(url, "//") {
+				url = "https:" + url
+			}
+			w, _ := get(t, "width").(float64)
+			h, _ := get(t, "height").(float64)
+			square := w > 0 && w == h && googleImage(url)
+			if (square && !bestSquare) || (square == bestSquare && int(w) > bestW) {
+				best, bestW, bestSquare = url, int(w), square
+			}
 		}
-		width := int(w)
-		switch {
-		case best == "":
-			best, bestW = url, width
-		case bestW < thumbnailWidth && width > bestW:
-			best, bestW = url, width
-		case width >= thumbnailWidth && width < bestW:
-			best, bestW = url, width
-		}
-	}
-	if strings.HasPrefix(best, "//") {
-		best = "https:" + best
 	}
 	return resizeThumbnail(best, thumbnailWidth)
 }
@@ -121,12 +122,18 @@ const thumbnailWidth = 400
 // thumbSize matches the "=w120-h120" size of a googleusercontent image URL.
 var thumbSize = regexp.MustCompile(`=w(\d+)-h(\d+)`)
 
+// googleImage reports whether url is a googleusercontent picture, which the
+// server scales to the size in the URL.
+func googleImage(url string) bool {
+	return strings.Contains(url, "googleusercontent.com/") || strings.Contains(url, "ggpht.com/")
+}
+
 // resizeThumbnail asks a googleusercontent image URL for a picture whose
 // longest side is size pixels, keeping its aspect. The server scales the
 // image to the size in the URL, so a small listed thumbnail can be fetched
 // sharp. Other URLs are returned unchanged.
 func resizeThumbnail(url string, size int) string {
-	if !strings.Contains(url, "googleusercontent.com/") && !strings.Contains(url, "ggpht.com/") {
+	if !googleImage(url) {
 		return url
 	}
 	m := thumbSize.FindStringSubmatchIndex(url)

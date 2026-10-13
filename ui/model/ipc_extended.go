@@ -420,6 +420,22 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			return nil
 		}
 	case "provider.artists":
+		if pager, ok := entry.Provider.(provider.ArtistPager); ok && request.Sort == "foryou" {
+			return func() tea.Msg {
+				limit := request.Limit
+				if limit <= 0 {
+					limit = 40
+				}
+				artists, err := pager.ArtistList(request.Offset, min(limit, 200))
+				if err != nil {
+					request.Reply <- ipcResponseError(err)
+					return nil
+				}
+				// The list has no end, so total is the page length.
+				request.Reply <- ipc.Response{OK: true, Artists: ipcArtistInfos(artists), Total: len(artists)}
+				return nil
+			}
+		}
 		browser, ok := entry.Provider.(provider.ArtistBrowser)
 		if !ok {
 			request.Reply <- ipc.Response{OK: false, Error: "provider does not support artist browsing"}
@@ -431,12 +447,8 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 				request.Reply <- ipcResponseError(err)
 				return nil
 			}
-			items := make([]ipc.ArtistInfo, len(artists))
-			for i, artist := range artists {
-				items[i] = ipc.ArtistInfo{ID: artist.ID, Name: artist.Name, AlbumCount: artist.AlbumCount}
-			}
-			page, total := ipcPage(items, request.Offset, request.Limit, 200)
-			request.Reply <- ipc.Response{OK: true, Artists: page, Total: total}
+			page, total := ipcPage(artists, request.Offset, request.Limit, 200)
+			request.Reply <- ipc.Response{OK: true, Artists: ipcArtistInfos(page), Total: total}
 			return nil
 		}
 	case "provider.artist_albums":
@@ -475,12 +487,7 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 				request.Reply <- ipcResponseError(err)
 				return nil
 			}
-			sorts := browser.AlbumSortTypes()
-			sortItems := make([]ipc.SortInfo, len(sorts))
-			for i, item := range sorts {
-				sortItems[i] = ipc.SortInfo{ID: item.ID, Label: item.Label}
-			}
-			request.Reply <- ipc.Response{OK: true, Albums: ipcAlbumInfos(albums), Sorts: sortItems, Total: len(albums)}
+			request.Reply <- ipc.Response{OK: true, Albums: ipcAlbumInfos(albums), Sorts: ipcSortInfos(browser.AlbumSortTypes()), Total: len(albums)}
 			return nil
 		}
 	case "provider.album_tracks", "provider.load_album":
@@ -519,6 +526,114 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			request.Reply <- response
 			return nil
 		}
+	case "provider.home":
+		loader, ok := entry.Provider.(provider.HomeLoader)
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support home"}
+			return nil
+		}
+		favorite := m.trackFavoriteLookup(false)
+		return func() tea.Msg {
+			shelves, err := loader.HomeShelves()
+			if err != nil {
+				request.Reply <- ipcResponseError(err)
+				return nil
+			}
+			request.Reply <- ipc.Response{OK: true, Shelves: ipcShelfInfos(shelves, favorite), Total: len(shelves)}
+			return nil
+		}
+	case "provider.genres":
+		browser, ok := entry.Provider.(provider.GenreBrowser)
+		if router, routed := entry.Provider.(provider.GenreBrowseRouter); routed && request.Playlist != "" {
+			browser = router.GenreBrowserFor(request.Playlist)
+			ok = browser != nil
+		}
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support genres"}
+			return nil
+		}
+		return func() tea.Msg {
+			genres, err := browser.Genres()
+			if err != nil {
+				request.Reply <- ipcResponseError(err)
+				return nil
+			}
+			items := make([]ipc.GenreInfo, len(genres))
+			for i, genre := range genres {
+				items[i] = ipc.GenreInfo{ID: genre.ID, Name: genre.Name, Group: genre.Group, Favorite: genre.Favorite}
+			}
+			request.Reply <- ipc.Response{OK: true, Genres: items, Sorts: ipcSortInfos(browser.GenreSortTypes()), Total: len(items)}
+			return nil
+		}
+	case "provider.genre_tracks":
+		browser, ok := entry.Provider.(provider.GenreBrowser)
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support genres"}
+			return nil
+		}
+		favorite := m.trackFavoriteLookup(false)
+		return func() tea.Msg {
+			tracks, err := browser.GenreTracks(request.Playlist, request.Sort)
+			if err != nil {
+				request.Reply <- ipcResponseError(err)
+				return nil
+			}
+			page, total := ipcPage(tracks, request.Offset, request.Limit, 200)
+			request.Reply <- ipc.Response{OK: true, Tracks: ipcTrackInfos(page, favorite), Playlist: request.Playlist, Total: total}
+			return nil
+		}
+	case "provider.genre_favorite":
+		toggler, ok := entry.Provider.(provider.GenreFavoriteToggler)
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support genre favorites"}
+			return nil
+		}
+		if request.Playlist == "" {
+			request.Reply <- ipc.Response{OK: false, Error: "playlist is required"}
+			return nil
+		}
+		return func() tea.Msg {
+			on, err := toggler.ToggleGenreFavorite(request.Playlist)
+			response := ipcResponseError(err)
+			if err == nil {
+				response.Favorite = &on
+			}
+			request.Reply <- response
+			return nil
+		}
+	case "provider.refresh":
+		refresher, ok := entry.Provider.(playlist.Refresher)
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support refresh"}
+			return nil
+		}
+		return ipcMutationCmd(request.Context, request.Reply, func() error {
+			refresher.Refresh()
+			return nil
+		})
+	case "provider.preview":
+		loader, ok := entry.Provider.(provider.PreviewLoader)
+		if !ok {
+			request.Reply <- ipc.Response{OK: false, Error: "provider does not support previews"}
+			return nil
+		}
+		return func() tea.Msg {
+			ctx, cancel := context.WithTimeout(requestContext(request.Context), 15*time.Second)
+			defer cancel()
+			details, err := loader.PreviewDetails(ctx, request.Playlist)
+			if err != nil {
+				request.Reply <- ipcResponseError(err)
+				return nil
+			}
+			preview := &ipc.PreviewInfo{ImageURL: details.ImageURL, Lines: details.Lines}
+			if stater, ok := entry.Provider.(provider.FavoriteStater); ok {
+				if on, known := stater.FavoriteState(request.Playlist); known {
+					preview.Favorite = &on
+				}
+			}
+			request.Reply <- ipc.Response{OK: true, Preview: preview}
+			return nil
+		}
 	default:
 		request.Reply <- ipc.Response{OK: false, Error: "unknown provider operation"}
 		return nil
@@ -530,9 +645,16 @@ func ipcProviderPlaylistInfos(entry provider.Entry) ([]ipc.PlaylistInfo, error) 
 	if err != nil {
 		return nil, err
 	}
+	_, writer := entry.Provider.(provider.PlaylistWriter)
+	targets, filtered := entry.Provider.(provider.PlaylistTargetFilter)
 	items := make([]ipc.PlaylistInfo, len(lists))
 	for i, list := range lists {
-		items[i] = ipc.PlaylistInfo{ID: list.ID, Name: list.Name, Provider: entry.Key, Section: list.Section, TrackCount: list.TrackCount, DurationSecs: list.DurationSecs, Favorite: list.Favorite}
+		items[i] = ipc.PlaylistInfo{
+			ID: list.ID, Name: list.Name, Provider: entry.Key, Section: list.Section, TrackCount: list.TrackCount,
+			DurationSecs: list.DurationSecs, Favorite: list.Favorite, ImageURL: list.ImageURL,
+			Writable: writer && (!filtered || targets.CanAddToPlaylist(list)),
+			Unseen:   strings.HasPrefix(list.Name, "● "),
+		}
 		if sectioned, ok := entry.Provider.(provider.SectionedList); ok {
 			items[i].Favoritable = sectioned.IsFavoritableID(list.ID)
 		}
@@ -719,10 +841,52 @@ func ipcTrackInfos(tracks []playlist.Track, favorite func(playlist.Track) bool) 
 	return items
 }
 
+// ipcAlbumInfos converts albums for IPC. Names keep their marks, such as the
+// ♥ of a saved album, for the CLI; the flags carry them for other clients.
 func ipcAlbumInfos(albums []provider.AlbumInfo) []ipc.AlbumInfo {
 	items := make([]ipc.AlbumInfo, len(albums))
 	for i, album := range albums {
-		items[i] = ipc.AlbumInfo{ID: album.ID, Name: album.Name, Artist: album.Artist, ArtistID: album.ArtistID, Year: album.Year, TrackCount: album.TrackCount, Genre: album.Genre}
+		items[i] = ipc.AlbumInfo{
+			ID: album.ID, Name: album.Name, Artist: album.Artist, ArtistID: album.ArtistID, Year: album.Year,
+			TrackCount: album.TrackCount, Genre: album.Genre, ImageURL: album.ImageURL,
+			Favorite: strings.HasPrefix(album.Name, "♥ "), Single: album.Single,
+		}
+	}
+	return items
+}
+
+// ipcArtistInfos converts artists for IPC; a followed artist's name starts
+// with ♥.
+func ipcArtistInfos(artists []provider.ArtistInfo) []ipc.ArtistInfo {
+	items := make([]ipc.ArtistInfo, len(artists))
+	for i, artist := range artists {
+		items[i] = ipc.ArtistInfo{ID: artist.ID, Name: artist.Name, AlbumCount: artist.AlbumCount, ImageURL: artist.ImageURL, Favorite: strings.HasPrefix(artist.Name, "♥ ")}
+	}
+	return items
+}
+
+func ipcSortInfos(sorts []provider.SortType) []ipc.SortInfo {
+	items := make([]ipc.SortInfo, len(sorts))
+	for i, item := range sorts {
+		items[i] = ipc.SortInfo{ID: item.ID, Label: item.Label}
+	}
+	return items
+}
+
+// ipcShelfInfos converts home shelves for IPC. favorite reports the ♥ state
+// of a song card's track.
+func ipcShelfInfos(shelves []provider.Shelf, favorite func(playlist.Track) bool) []ipc.ShelfInfo {
+	items := make([]ipc.ShelfInfo, len(shelves))
+	for i, shelf := range shelves {
+		cards := make([]ipc.ShelfItemInfo, len(shelf.Items))
+		for j, it := range shelf.Items {
+			cards[j] = ipc.ShelfItemInfo{Kind: it.Kind, ID: it.ID, Title: it.Title, Subtitle: it.Subtitle, ImageURL: it.ImageURL}
+			if it.Track != nil {
+				track := ipcTrackInfo(*it.Track, 0, 0, favorite(*it.Track))
+				cards[j].Track = &track
+			}
+		}
+		items[i] = ipc.ShelfInfo{Title: shelf.Title, Items: cards}
 	}
 	return items
 }

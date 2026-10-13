@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -550,6 +552,237 @@ func TestNativeResultsCarryState(t *testing.T) {
 		response := runV2(t, &m, "provider.favorite", ipc.Request{Provider: "favs", Playlist: "MPREb_x"})
 		if !response.OK || response.Favorite == nil || *response.Favorite != want {
 			t.Fatalf("provider.favorite = %+v, want favorite %v", response, want)
+		}
+	}
+}
+
+// genreTestBrowser is a category catalog: the genres, or the moods.
+type genreTestBrowser struct{ moods bool }
+
+func (b genreTestBrowser) Genres() ([]provider.GenreInfo, error) {
+	if b.moods {
+		return []provider.GenreInfo{{ID: "calm", Name: "Calm", Group: "Moods"}}, nil
+	}
+	return []provider.GenreInfo{{ID: "rock", Name: "Rock", Group: "Genres", Favorite: true}, {ID: "search:Shoegaze", Name: "Shoegaze", Group: "More"}}, nil
+}
+
+func (b genreTestBrowser) GenreSortTypes() []provider.SortType {
+	return []provider.SortType{{ID: "mix", Label: "Mix"}, {ID: "songs", Label: "Songs"}}
+}
+
+func (b genreTestBrowser) GenreTracks(id, sort string) ([]playlist.Track, error) {
+	tracks := make([]playlist.Track, 250)
+	for i := range tracks {
+		tracks[i] = playlist.Track{Path: fmt.Sprintf("/music/%s-%s-%d.mp3", id, sort, i)}
+	}
+	return tracks, nil
+}
+
+// browseTestProvider has every browse capability that the native UI reads.
+type browseTestProvider struct {
+	commandsTestProvider
+	genreTestBrowser
+	mu        sync.Mutex
+	refreshed int
+	pages     [][2]int // the offset and size of each ArtistList call
+	genreFavs map[string]bool
+}
+
+func (p *browseTestProvider) Tracks(string) ([]playlist.Track, error) { return nil, nil }
+
+func (p *browseTestProvider) HomeShelves() ([]provider.Shelf, error) {
+	song := playlist.Track{Path: "/music/fav.mp3", Title: "Fav"}
+	return []provider.Shelf{{Title: "Picks", Items: []provider.ShelfItem{
+		{Kind: "song", ID: "v1", Title: "Fav", Subtitle: "Band", ImageURL: "song.jpg", Track: &song},
+		{Kind: "album", ID: "MPREb_a", Title: "Record", Subtitle: "Band", ImageURL: "album.jpg"},
+	}}}, nil
+}
+
+func (p *browseTestProvider) GenreBrowserFor(entryID string) provider.GenreBrowser {
+	return genreTestBrowser{moods: entryID == "browse:moods"}
+}
+
+func (p *browseTestProvider) ToggleGenreFavorite(id string) (bool, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.genreFavs[id] = !p.genreFavs[id]
+	return p.genreFavs[id], nil
+}
+
+func (p *browseTestProvider) Artists() ([]provider.ArtistInfo, error) {
+	return []provider.ArtistInfo{{ID: "UCa", Name: "♥ Band", ImageURL: "band.jpg"}, {ID: "UCb", Name: "Other"}}, nil
+}
+
+func (p *browseTestProvider) ArtistAlbums(string) ([]provider.AlbumInfo, error) {
+	return []provider.AlbumInfo{{ID: "MPREb_a", Name: "♥ Record", ImageURL: "album.jpg"}, {ID: "MPREb_s", Name: "Hit · Singles", Single: true}}, nil
+}
+
+func (p *browseTestProvider) ArtistList(offset, size int) ([]provider.ArtistInfo, error) {
+	p.mu.Lock()
+	p.pages = append(p.pages, [2]int{offset, size})
+	p.mu.Unlock()
+	return []provider.ArtistInfo{{ID: fmt.Sprintf("UC%d", offset), Name: "Found"}}, nil
+}
+
+func (p *browseTestProvider) AddTrackToPlaylist(context.Context, string, playlist.Track) error {
+	return nil
+}
+
+func (p *browseTestProvider) CanAddToPlaylist(list playlist.PlaylistInfo) bool {
+	return strings.HasPrefix(list.ID, "pl:")
+}
+
+func (p *browseTestProvider) Refresh() {
+	p.mu.Lock()
+	p.refreshed++
+	p.mu.Unlock()
+}
+
+func (p *browseTestProvider) PreviewDetails(_ context.Context, id string) (provider.PreviewDetails, error) {
+	return provider.PreviewDetails{ImageURL: id + ".jpg", Lines: []string{"2024", "Band"}}, nil
+}
+
+func (p *browseTestProvider) FavoriteState(id string) (bool, bool) {
+	return id == "MPREb_saved", strings.HasPrefix(id, "MPREb_")
+}
+
+func newBrowseTestModel() (*Model, *browseTestProvider) {
+	prov := &browseTestProvider{
+		commandsTestProvider: commandsTestProvider{name: "Browse", lists: []playlist.PlaylistInfo{
+			{ID: "pl:mine", Name: "Mine", Section: "Yours", ImageURL: "mine.jpg"},
+			{ID: "al:MPREb_n", Name: "● New · Band", Section: "New"},
+		}},
+		genreFavs: map[string]bool{},
+	}
+	return &Model{
+		player: &playbackFakeEngine{}, playlist: playlist.New(), favSet: map[string]struct{}{"/music/fav.mp3": {}},
+		providers: []provider.Entry{{Key: "yt", Name: "Browse", Provider: prov}, {Key: "bare", Name: "Bare", Provider: commandsTestProvider{name: "Bare"}}},
+	}, prov
+}
+
+// Rows carry their picture and flags, and keep their names for the CLI.
+func TestNativeBrowseRowFlags(t *testing.T) {
+	m, _ := newBrowseTestModel()
+	lists := runV2(t, m, "provider.playlists", ipc.Request{Provider: "yt"})
+	want := []ipc.PlaylistInfo{
+		{ID: "pl:mine", Name: "Mine", Provider: "yt", Section: "Yours", ImageURL: "mine.jpg", Writable: true},
+		{ID: "al:MPREb_n", Name: "● New · Band", Provider: "yt", Section: "New", Unseen: true},
+	}
+	if !lists.OK || !reflect.DeepEqual(lists.Playlists, want) {
+		t.Fatalf("playlists = %+v, want %+v", lists.Playlists, want)
+	}
+	albums := runV2(t, m, "provider.artist_albums", ipc.Request{Provider: "yt", Artist: "UCa"})
+	wantAlbums := []ipc.AlbumInfo{{ID: "MPREb_a", Name: "♥ Record", ImageURL: "album.jpg", Favorite: true}, {ID: "MPREb_s", Name: "Hit · Singles", Single: true}}
+	if !albums.OK || !reflect.DeepEqual(albums.Albums, wantAlbums) {
+		t.Fatalf("albums = %+v, want %+v", albums.Albums, wantAlbums)
+	}
+	artists := runV2(t, m, "provider.artists", ipc.Request{Provider: "yt"})
+	wantArtists := []ipc.ArtistInfo{{ID: "UCa", Name: "♥ Band", ImageURL: "band.jpg", Favorite: true}, {ID: "UCb", Name: "Other"}}
+	if !artists.OK || !reflect.DeepEqual(artists.Artists, wantArtists) || artists.Total != 2 {
+		t.Fatalf("artists = %+v, want %+v", artists, wantArtists)
+	}
+}
+
+// provider.home gives the shelves with each song's track and its ♥.
+func TestNativeBrowseHome(t *testing.T) {
+	m, _ := newBrowseTestModel()
+	response := runV2(t, m, "provider.home", ipc.Request{Provider: "yt"})
+	want := []ipc.ShelfInfo{{Title: "Picks", Items: []ipc.ShelfItemInfo{
+		{Kind: "song", ID: "v1", Title: "Fav", Subtitle: "Band", ImageURL: "song.jpg", Track: &ipc.TrackInfo{Path: "/music/fav.mp3", Title: "Fav", Bookmark: true}},
+		{Kind: "album", ID: "MPREb_a", Title: "Record", Subtitle: "Band", ImageURL: "album.jpg"},
+	}}}
+	if !response.OK || response.Total != 1 || !reflect.DeepEqual(response.Shelves, want) {
+		t.Fatalf("home = %+v, want %+v", response, want)
+	}
+}
+
+// provider.genres lists the genres, or the catalog of a browse entry, with
+// the sorts; genre_tracks pages a genre and genre_favorite toggles its star.
+func TestNativeBrowseGenres(t *testing.T) {
+	m, prov := newBrowseTestModel()
+	genres := runV2(t, m, "provider.genres", ipc.Request{Provider: "yt"})
+	want := []ipc.GenreInfo{{ID: "rock", Name: "Rock", Group: "Genres", Favorite: true}, {ID: "search:Shoegaze", Name: "Shoegaze", Group: "More"}}
+	if !genres.OK || !reflect.DeepEqual(genres.Genres, want) || genres.Total != 2 || len(genres.Sorts) != 2 || genres.Sorts[0] != (ipc.SortInfo{ID: "mix", Label: "Mix"}) {
+		t.Fatalf("genres = %+v, want %+v with the sorts", genres, want)
+	}
+	moods := runV2(t, m, "provider.genres", ipc.Request{Provider: "yt", Playlist: "browse:moods"})
+	if !moods.OK || len(moods.Genres) != 1 || moods.Genres[0].ID != "calm" {
+		t.Fatalf("moods = %+v", moods)
+	}
+
+	tracks := runV2(t, m, "provider.genre_tracks", ipc.Request{Provider: "yt", Playlist: "rock", Sort: "songs", Offset: 200, Limit: 200})
+	if !tracks.OK || tracks.Total != 250 || len(tracks.Tracks) != 50 || tracks.Tracks[0].Path != "/music/rock-songs-200.mp3" {
+		t.Fatalf("genre tracks = OK %v, %d of %d", tracks.OK, len(tracks.Tracks), tracks.Total)
+	}
+
+	for _, wantOn := range []bool{true, false} {
+		response := runV2(t, m, "provider.genre_favorite", ipc.Request{Provider: "yt", Playlist: "rock"})
+		if !response.OK || response.Favorite == nil || *response.Favorite != wantOn {
+			t.Fatalf("genre_favorite = %+v, want favorite %v", response, wantOn)
+		}
+	}
+	if response := runV2(t, m, "provider.genre_favorite", ipc.Request{Provider: "yt"}); response.OK || len(prov.genreFavs) != 1 {
+		t.Fatalf("genre_favorite with no genre = %+v, favorites %v; want a failure", response, prov.genreFavs)
+	}
+}
+
+// provider.artists with the sort foryou pages the endless list: total is
+// the page length, the default page has 40 rows and a page at most 200.
+func TestNativeBrowseArtistsForYou(t *testing.T) {
+	m, prov := newBrowseTestModel()
+	for _, tc := range []struct {
+		offset, limit int
+		want          [2]int
+	}{
+		{offset: 0, want: [2]int{0, 40}},
+		{offset: 40, limit: 20, want: [2]int{40, 20}},
+		{offset: 60, limit: 500, want: [2]int{60, 200}},
+	} {
+		response := runV2(t, m, "provider.artists", ipc.Request{Provider: "yt", Sort: "foryou", Offset: tc.offset, Limit: tc.limit})
+		if !response.OK || response.Total != 1 || len(response.Artists) != 1 {
+			t.Fatalf("foryou artists = %+v", response)
+		}
+		if got := prov.pages[len(prov.pages)-1]; got != tc.want {
+			t.Fatalf("ArtistList(%d, %d), want %v", got[0], got[1], tc.want)
+		}
+	}
+}
+
+// provider.refresh drops the caches; provider.preview gives the details and
+// the saved state when the provider knows it.
+func TestNativeBrowseRefreshAndPreview(t *testing.T) {
+	m, prov := newBrowseTestModel()
+	if response := runV2(t, m, "provider.refresh", ipc.Request{Provider: "yt"}); !response.OK || prov.refreshed != 1 {
+		t.Fatalf("refresh = %+v, refreshed %d", response, prov.refreshed)
+	}
+	for _, tc := range []struct {
+		id       string
+		favorite *bool
+	}{
+		{id: "MPREb_saved", favorite: new(true)},
+		{id: "MPREb_other", favorite: new(false)},
+		{id: "pl:VLx"},
+	} {
+		response := runV2(t, m, "provider.preview", ipc.Request{Provider: "yt", Playlist: tc.id})
+		want := &ipc.PreviewInfo{ImageURL: tc.id + ".jpg", Lines: []string{"2024", "Band"}, Favorite: tc.favorite}
+		if !response.OK || !reflect.DeepEqual(response.Preview, want) {
+			t.Fatalf("preview %s = %+v, want %+v", tc.id, response.Preview, want)
+		}
+	}
+}
+
+// Every browse operation is registered and reaches its handler: a provider
+// without the capability gets the handler's error, not unavailable.
+func TestNativeBrowseRouting(t *testing.T) {
+	registry := ipc.DefaultOperationRegistry()
+	for _, op := range []string{"provider.home", "provider.genres", "provider.genre_tracks", "provider.genre_favorite", "provider.refresh", "provider.preview"} {
+		if _, ok := registry.Lookup(op); !ok {
+			t.Errorf("%s is not registered", op)
+		}
+		m, _ := newBrowseTestModel()
+		response := runV2(t, m, op, ipc.Request{Provider: "bare", Playlist: "x"})
+		if response.OK || !strings.Contains(response.Error, "provider does not support") {
+			t.Errorf("%s on a bare provider = %+v, want the handler's error", op, response)
 		}
 	}
 }

@@ -170,27 +170,38 @@ func TestParseDurationAndPlainArtist(t *testing.T) {
 }
 
 func TestThumbnailURL(t *testing.T) {
+	// thumbs lists url, width, height triples.
 	thumbs := func(sizes ...any) map[string]any {
 		var list []any
-		for i := 0; i < len(sizes); i += 2 {
-			list = append(list, map[string]any{"url": sizes[i], "width": float64(sizes[i+1].(int))})
+		for i := 0; i < len(sizes); i += 3 {
+			list = append(list, map[string]any{"url": sizes[i], "width": float64(sizes[i+1].(int)), "height": float64(sizes[i+2].(int))})
 		}
 		return map[string]any{"thumbnail": map[string]any{"thumbnails": list}}
 	}
+	const (
+		square120 = "https://lh3.googleusercontent.com/x=w120-h120-l90-rj"
+		square400 = "https://lh3.googleusercontent.com/x=w400-h400-l90-rj"
+		banner    = "https://lh3.googleusercontent.com/b=w1080-h450-p-l90-rj"
+		hq        = "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg?sqp=x"
+		hq720     = "https://i.ytimg.com/vi/abcdefghijk/hq720.jpg?sqp=y"
+	)
 	tests := []struct {
 		name string
-		in   any
+		in   []any
 		want string
 	}{
-		{"smallest at least 400 wide", thumbs("a60", 60, "b544", 544, "c226", 226, "d420", 420), "d420"},
-		{"largest when all are small", thumbs("a32", 32, "b60", 60), "b60"},
-		{"googleusercontent asked for 400", thumbs("https://lh3.googleusercontent.com/x=w120-h120-l90-rj", 120), "https://lh3.googleusercontent.com/x=w400-h400-l90-rj"},
-		{"wide banner keeps its aspect", thumbs("https://yt3.googleusercontent.com/b=w1440-h600-p-l90", 1440), "https://yt3.googleusercontent.com/b=w400-h166-p-l90"},
-		{"protocol-relative url", thumbs("//yt3.example/x", 176), "https://yt3.example/x"},
-		{"no thumbnails", map[string]any{}, ""},
+		{"largest", []any{thumbs("a60", 60, 60, "b544", 544, 544, "c226", 226, 226)}, "b544"},
+		{"largest video frame", []any{thumbs(hq, 400, 225, hq720, 853, 479)}, hq720},
+		{"googleusercontent asked for 400", []any{thumbs(square120, 120, 120)}, square400},
+		{"wide banner keeps its aspect", []any{thumbs("https://yt3.googleusercontent.com/b=w1440-h600-p-l90", 1440, 600)}, "https://yt3.googleusercontent.com/b=w400-h166-p-l90"},
+		{"square art beats a larger video frame", []any{thumbs(hq720, 853, 479), thumbs(square120, 120, 120)}, square400},
+		{"square art beats a larger banner", []any{thumbs(banner, 1080, 450), map[string]any{"microformatDataRenderer": thumbs(square120, 544, 544)}}, square400},
+		{"a square from another host is not album art", []any{thumbs("https://i.ytimg.com/pl_c/x/studio_square_thumbnail.jpg", 544, 544, hq720, 853, 479)}, hq720},
+		{"protocol-relative url", []any{thumbs("//yt3.example/x", 176, 176)}, "https://yt3.example/x"},
+		{"no thumbnails", []any{map[string]any{}, nil}, ""},
 	}
 	for _, tt := range tests {
-		if got := thumbnailURL(tt.in); got != tt.want {
+		if got := thumbnailURL(tt.in...); got != tt.want {
 			t.Errorf("%s: thumbnailURL = %q, want %q", tt.name, got, tt.want)
 		}
 	}

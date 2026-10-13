@@ -67,6 +67,9 @@ type Response struct {
 	Devices    []DeviceInfo   `json:"devices,omitempty"`
 	Favorite   *bool          `json:"favorite,omitempty"`
 	Themes     []ThemeInfo    `json:"themes,omitempty"`
+	Shelves    []ShelfInfo    `json:"shelves,omitempty"`
+	Genres     []GenreInfo    `json:"genres,omitempty"`
+	Preview    *PreviewInfo   `json:"preview,omitempty"`
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.
@@ -116,6 +119,9 @@ type PlaylistInfo struct {
 	DurationSecs int    `json:"duration_secs,omitempty"`
 	Favoritable  bool   `json:"favoritable,omitempty"`
 	Favorite     bool   `json:"favorite,omitempty"`
+	ImageURL     string `json:"image_url,omitempty"`
+	Writable     bool   `json:"writable,omitempty"` // takes new tracks with playlist.add
+	Unseen       bool   `json:"unseen,omitempty"`   // a new release not opened yet
 }
 
 type ProviderInfo struct {
@@ -132,6 +138,8 @@ type ArtistInfo struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	AlbumCount int    `json:"album_count,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	Favorite   bool   `json:"favorite,omitempty"` // followed in the account
 }
 
 type AlbumInfo struct {
@@ -142,6 +150,43 @@ type AlbumInfo struct {
 	Year       int    `json:"year,omitempty"`
 	TrackCount int    `json:"track_count,omitempty"`
 	Genre      string `json:"genre,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	Favorite   bool   `json:"favorite,omitempty"` // saved in the account
+	Single     bool   `json:"single,omitempty"`
+}
+
+// ShelfInfo is one titled row of the provider.home cards.
+type ShelfInfo struct {
+	Title string          `json:"title"`
+	Items []ShelfItemInfo `json:"items"`
+}
+
+// ShelfItemInfo is one card of a shelf. Kind is song, album, playlist or
+// artist. A song carries its track.
+type ShelfItemInfo struct {
+	Kind     string     `json:"kind"`
+	ID       string     `json:"id"`
+	Title    string     `json:"title"`
+	Subtitle string     `json:"subtitle,omitempty"`
+	ImageURL string     `json:"image_url,omitempty"`
+	Track    *TrackInfo `json:"track,omitempty"`
+}
+
+// GenreInfo is one category of provider.genres.
+type GenreInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Group    string `json:"group,omitempty"`
+	Favorite bool   `json:"favorite,omitempty"`
+}
+
+// PreviewInfo is the picture and the detail lines of an album, artist or
+// playlist. Favorite is set when the provider knows whether the item is
+// saved or followed.
+type PreviewInfo struct {
+	ImageURL string   `json:"image_url,omitempty"`
+	Lines    []string `json:"lines,omitempty"`
+	Favorite *bool    `json:"favorite,omitempty"`
 }
 
 type SortInfo struct {

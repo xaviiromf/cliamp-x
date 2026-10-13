@@ -81,6 +81,7 @@ type Provider struct {
 	mu        sync.Mutex
 	home      []Shelf
 	homeAt    time.Time
+	homeErr   error // why the last home read failed, or nil
 	library   []Item
 	libraryAt time.Time
 	liked     []Song
@@ -221,11 +222,66 @@ func (p *Provider) fetchHome() []Shelf {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.homeErr = err
 	if err == nil {
 		p.home, p.homeAt = home, time.Now()
 		p.saveSnapshotLocked()
 	}
 	return p.home
+}
+
+// HomeShelves returns the home page as cards, without what the listener is
+// not interested in, the liked-songs playlist and the shelves left empty.
+func (p *Provider) HomeShelves() ([]provider.Shelf, error) {
+	home := p.cachedHome()
+	if len(home) == 0 {
+		p.mu.Lock()
+		err := p.homeErr
+		p.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
+	}
+	var out []provider.Shelf
+	for _, sh := range home {
+		shelf := provider.Shelf{Title: sh.Title}
+		for _, it := range sh.Items {
+			if p.hidden([]string{it.Title, it.Artist}, it.ID) {
+				continue
+			}
+			item := provider.ShelfItem{ID: it.ID, Title: it.Title, Subtitle: it.Subtitle, ImageURL: it.Thumbnail}
+			if item.Subtitle == "" {
+				item.Subtitle = it.Artist
+			}
+			switch it.Kind {
+			case KindSong, KindVideo:
+				if it.Song == nil {
+					continue
+				}
+				track := songTrack(*it.Song)
+				if len(p.visibleTracks([]playlist.Track{track})) == 0 {
+					continue
+				}
+				item.Kind, item.Track = "song", &track
+			case KindAlbum:
+				item.Kind = "album"
+			case KindPlaylist:
+				if strings.TrimPrefix(it.ID, "VL") == "LM" {
+					continue
+				}
+				item.Kind, item.ID = "playlist", prefixList+it.ID
+			case KindArtist:
+				item.Kind = "artist"
+			default:
+				continue
+			}
+			shelf.Items = append(shelf.Items, item)
+		}
+		if len(shelf.Items) > 0 {
+			out = append(out, shelf)
+		}
+	}
+	return out, nil
 }
 
 func (p *Provider) cachedLibrary() []Item {
@@ -895,7 +951,7 @@ func (p *Provider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, error) {
 		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title, Artist: name, ArtistID: artistID, Year: it.Year, ImageURL: it.Thumbnail})
 	}
 	for _, it := range singles {
-		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year, ImageURL: it.Thumbnail})
+		out = append(out, provider.AlbumInfo{ID: it.ID, Name: it.Title + " · " + p.words.singles, Artist: name, ArtistID: artistID, Year: it.Year, ImageURL: it.Thumbnail, Single: true})
 	}
 	return append(out, p.localAlbumInfos(name)...), nil
 }
@@ -937,17 +993,10 @@ func (p *Provider) ToggleFavorite(id string) (added bool, name string, err error
 	}
 	ctx, cancel := budget()
 	defer cancel()
+	on, _ := p.FavoriteState(id)
+	added = !on
 	switch {
 	case strings.HasPrefix(id, "MPREb_"):
-		p.mu.Lock()
-		loaded := p.savedAlbums != nil
-		p.mu.Unlock()
-		if !loaded {
-			p.allAlbums()
-		}
-		p.mu.Lock()
-		added = !p.savedAlbums[id]
-		p.mu.Unlock()
 		page, err := p.client.Album(ctx, id)
 		if err != nil {
 			return false, "", err
@@ -961,17 +1010,6 @@ func (p *Provider) ToggleFavorite(id string) (added bool, name string, err error
 		}
 		name = page.Title
 	case strings.HasPrefix(id, "UC"):
-		p.mu.Lock()
-		loaded := p.subscribed != nil
-		p.mu.Unlock()
-		if !loaded {
-			if _, err := p.Artists(); err != nil {
-				return false, "", err
-			}
-		}
-		p.mu.Lock()
-		added = !p.subscribed[id]
-		p.mu.Unlock()
 		if err := p.client.SetSubscribed(ctx, id, added); err != nil {
 			return false, "", err
 		}
@@ -998,6 +1036,34 @@ func (p *Provider) ToggleFavorite(id string) (added bool, name string, err error
 	}
 	p.mu.Unlock()
 	return added, name, nil
+}
+
+// FavoriteState reports whether an album (MPREb_) is saved or an artist (UC)
+// followed in the account. It reads the library once when it has not yet.
+// known is false when signed out and for other IDs.
+func (p *Provider) FavoriteState(id string) (on, known bool) {
+	album := strings.HasPrefix(id, "MPREb_")
+	if !p.client.SignedIn() || !album && !strings.HasPrefix(id, "UC") {
+		return false, false
+	}
+	state := func() (bool, bool) {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		saved := p.subscribed
+		if album {
+			saved = p.savedAlbums
+		}
+		return saved[id], saved != nil
+	}
+	if on, known = state(); !known {
+		if album {
+			p.allAlbums()
+		} else {
+			_, _ = p.Artists() // it never fails: a failed read leaves the set empty
+		}
+		on, known = state()
+	}
+	return on, known
 }
 
 // ArtistForTrack resolves a YouTube Music track to its artist.

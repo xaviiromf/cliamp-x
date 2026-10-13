@@ -239,7 +239,7 @@ func (c *Client) Artist(ctx context.Context, channelID string) (ArtistPage, erro
 	for _, name := range []string{"musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer", "musicResponsiveHeaderRenderer"} {
 		if h := obj(resp, "header", name); h != nil {
 			page.Name = text(h["title"])
-			page.Thumbnail = thumbnailURL(h["thumbnail"])
+			page.Thumbnail = thumbnailURL(h["thumbnail"], resp["microformat"])
 			page.Listeners = text(h["monthlyListenerCount"])
 			page.Subscribers = text(findFirst(h["subscriptionButton"], "subscriberCountText"))
 			break

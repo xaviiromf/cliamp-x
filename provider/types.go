@@ -44,6 +44,20 @@ type AlbumInfo struct {
 	// account access. It must not be folded into Name or persisted metadata.
 	Restricted bool
 	ImageURL   string // cover for the preview pane, or ""
+	Single     bool   // a single or EP, not an album
+}
+
+// ShelfItem is one card of a home shelf. Kind is "song", "album",
+// "playlist" or "artist". A song carries its Track.
+type ShelfItem struct {
+	Kind, ID, Title, Subtitle, ImageURL string
+	Track                               *playlist.Track
+}
+
+// Shelf is one titled row of home cards.
+type Shelf struct {
+	Title string
+	Items []ShelfItem
 }
 
 // GenreInfo describes a provider category and whether it is pinned as a
