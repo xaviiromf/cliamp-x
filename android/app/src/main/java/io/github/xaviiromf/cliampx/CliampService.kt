@@ -151,21 +151,19 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
-    /** Stops the core with SIGTERM, so it saves the resume position, and starts it again. */
-    fun restart() {
-        if (session == null) return start()
-        afterExit = { start() }
-        stopCore()
-    }
+    /** Stops the core and starts it again. */
+    fun restart() = stopCore { start() }
 
     /** Stops the core and the service. */
-    fun quit() {
-        afterExit = { finish(true) }
-        if (session == null) finish(true) else stopCore()
-    }
+    fun quit() = stopCore { finish(true) }
 
-    private fun stopCore() {
-        val s = session ?: return
+    /** Stops the core with SIGTERM, so it saves the resume position, then runs then. */
+    private fun stopCore(then: () -> Unit) {
+        val s = session ?: return then()
+        val stopping = afterExit != null
+        afterExit = then
+        // One SIGTERM only: the core takes a second one as "quit now" and skips the save.
+        if (stopping) return
         if (s.pid > 0) runCatching { Os.kill(s.pid, OsConstants.SIGTERM) }
         main.postDelayed({ if (s.isRunning) s.finishIfRunning() }, 5000)
     }
