@@ -76,13 +76,19 @@ func (m *Model) syncTrackFavoriteCmd(track playlist.Track, favorite bool) tea.Cm
 	if fav == nil {
 		return nil
 	}
+	return m.queueTrackSync(track, name, func(ctx context.Context) error { return fav.SetTrackFavorite(ctx, track, favorite) })
+}
+
+// queueTrackSync runs a provider call about track in the favorite sync
+// order. A newer call for the same track replaces one not yet run.
+func (m *Model) queueTrackSync(track playlist.Track, name string, apply func(context.Context) error) tea.Cmd {
 	if m.favSync == nil {
 		m.favSync = &favorites.SyncQueue{}
 	}
 	run := m.favSync.Enqueue(track.Path, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), trackFavoriteSyncTimeout)
 		defer cancel()
-		return fav.SetTrackFavorite(ctx, track, favorite)
+		return apply(ctx)
 	})
 	return func() tea.Msg {
 		ran, err := run()

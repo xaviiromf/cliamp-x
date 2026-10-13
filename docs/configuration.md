@@ -106,6 +106,11 @@ vis_rows = 7
 # change it. Levels above 7 add contrast and speed, levels below cut gain.
 vis_sensitivity = 7
 
+# Visualizer colors, apart from the theme: "theme" (default), "fire", "ocean",
+# "neon", "aurora", "sunset", "ice", "matrix", "sakura", "amber", "mono", or
+# three hex colors from low to high. "C" cycles them and saves the choice.
+vis_palette = "theme"
+
 # Reduce CPU usage by lowering UI cadence and disabling visualization.
 # This has the same effect as starting with --low-power.
 low_power = false
@@ -448,8 +453,9 @@ expand_playlist = true
 # Language and country of the YouTube Music pages (default: from $LANG).
 language = "es"
 region = "CL"
-# When the queue ends, keep playing songs similar to the last one.
-auto_radio = true
+# When the queue ends, keep playing songs similar to the last one. Off by
+# default: an album or playlist stops at its end.
+auto_radio = false
 # Add the songs you play to your YouTube Music history. Off by default.
 report_history = false
 ```
@@ -464,7 +470,17 @@ Set the provider that cliamp-x opens at start:
 provider = "ytmusic"
 ```
 
-Valid values: `ytmusic` (default) and `local`.
+Valid values: `ytmusic` (default), `local`, and the key of any provider a fork
+adds (see [Adding a provider](adding-providers.md)).
+
+A provider that reads its own settings takes them from a `[providers.<key>]`
+section:
+
+```toml
+[providers.myradio]
+url = "https://radio.example.com"
+user = "me"
+```
 
 You can also override this setting on the CLI: `cliamp-x --provider ytmusic`.
 

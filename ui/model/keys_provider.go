@@ -5,6 +5,7 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 )
 
 // Keys of the provider pane and of the source pill, and the scrolling of the
@@ -217,8 +218,12 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.provSearch.results = nil
 		m.provSearch.cursor = 0
 		m.provSearch.scroll = 0
-	case "ctrl+r":
+	case "ctrl+r", "f5":
 		return m.refreshActiveProvider(false)
+	case "I":
+		return m.rateInterest(taste.Interested)
+	case "H":
+		return m.rateInterest(taste.NotInterested)
 	case "f":
 		return m.toggleProviderFavorite()
 	case "o":

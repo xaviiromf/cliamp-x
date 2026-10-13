@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,17 +16,13 @@ import (
 	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/config"
 	"github.com/xaviiromf/cliamp-x/external/local"
-	"github.com/xaviiromf/cliamp-x/external/ytmusic"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
-	"github.com/xaviiromf/cliamp-x/internal/appdir"
-	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
-	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
 	"github.com/xaviiromf/cliamp-x/locallib"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
-	"github.com/xaviiromf/cliamp-x/resolve"
+	"github.com/xaviiromf/cliamp-x/taste"
 )
 
 // providerSet holds the providers of one run, in the order of the provider
@@ -38,6 +36,9 @@ type providerSet struct {
 	local     *local.Provider
 	favorites *favorites.Store
 	history   *history.Store
+	// taste holds the "interested" and "not interested" ratings that the
+	// providers and the Model share.
+	taste *taste.Store
 }
 
 // providerKey is one provider that --provider and the provider config key
@@ -51,12 +52,55 @@ type providerKey struct {
 	optional bool
 }
 
+// providerEnv is what a provider factory gets: the config and the stores
+// that every provider may share. A provider reads its own settings from
+// cfg.ProviderSection(key), the [providers.<key>] section of config.toml.
+type providerEnv struct {
+	cfg config.Config
+	// interactive reports whether a terminal can answer a prompt, such as
+	// the yt-dlp install offer. It is false in headless mode.
+	interactive bool
+	favorites   *favorites.Store
+	history     *history.Store
+	taste       *taste.Store
+	library     *locallib.Library // the indexed local music folder
+	local       *local.Provider   // nil without a config directory
+}
+
+// providerFactory registers one provider. See docs/adding-providers.md.
+type providerFactory struct {
+	providerKey
+	// order places the provider in the provider list, lowest first. The
+	// upstream providers use 10 (YouTube Music) and 100 (Local); a fork
+	// picks its own number and needs no change to theirs.
+	order int
+	// shortcut is the key that opens the provider from the player, or "".
+	shortcut string
+	// build returns the provider's entries, or none when it is not
+	// configured. It runs once per start, before the TUI opens.
+	build func(env providerEnv) []provider.Entry
+}
+
+// providerFactories are the registered providers, in list order.
+var providerFactories []providerFactory
+
 // providerKeys lists the providers that --provider accepts, in help order.
 // The flag help, the flag check, the provider names and the log of skipped
-// providers all come from this table.
-var providerKeys = []providerKey{
-	{key: "ytmusic", name: "YouTube Music"},
-	{key: "local", name: "Local"},
+// providers all come from this table. registerProvider fills it.
+var providerKeys []providerKey
+
+// registerProvider adds a provider to every run. Each provider calls it from
+// an init function in its own provider_<key>.go file, so adding a provider
+// touches no shared file, and a fork keeps its providers through upstream
+// updates. A second registration of a key replaces the first.
+func registerProvider(f providerFactory) {
+	providerFactories = slices.DeleteFunc(providerFactories, func(o providerFactory) bool { return o.key == f.key })
+	providerFactories = append(providerFactories, f)
+	slices.SortStableFunc(providerFactories, func(a, b providerFactory) int { return cmp.Compare(a.order, b.order) })
+	providerKeys = providerKeys[:0]
+	for _, pf := range providerFactories {
+		providerKeys = append(providerKeys, pf.providerKey)
+	}
 }
 
 // providerName returns the display name of the provider key.
@@ -99,12 +143,13 @@ func parseProviderKey(v string) (string, error) {
 	return "", fmt.Errorf("--provider must be %s or %s (got %q)", strings.Join(keys[:last], ", "), keys[last], v)
 }
 
-// buildProviders creates the providers that cfg enables. The public
-// providers are always available. The account providers register when they
-// are configured. interactive allows the yt-dlp install prompt.
+// buildProviders creates the providers that cfg enables, in the order of
+// their registration. interactive allows prompts such as the yt-dlp install.
+// A provider whose factory panics is left out and logged, so one broken
+// provider cannot stop the others.
 func buildProviders(cfg config.Config, interactive bool) *providerSet {
 	s := &providerSet{}
-	s.favorites, s.history = favorites.New(), history.New()
+	s.favorites, s.history, s.taste = favorites.New(), history.New(), taste.New()
 	s.local = local.New(s.favorites, s.history)
 	// The virtual Favorites playlist reserves the name of a Favorites.toml
 	// playlist. Bookmarks became favorites. Copy the old bookmarks one time.
@@ -117,62 +162,49 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 		applog.Info("copied %d bookmarks into favorites", added)
 	}
 
-	// YouTube Music comes first: it is the view cliamp-x opens on.
-	s.entries = append(s.entries, youTubeEntries(cfg, interactive, s.favorites, s.history, localLibrary(cfg.MusicDir))...)
-	if s.local != nil {
-		s.entries = append(s.entries, provider.Entry{Key: "local", Name: "Local", Provider: s.local})
-	} else {
-		logProviderSkipped("Local", "local", "config directory unavailable")
+	env := providerEnv{
+		cfg:         cfg,
+		interactive: interactive,
+		favorites:   s.favorites,
+		history:     s.history,
+		taste:       s.taste,
+		library:     localLibrary(cfg.MusicDir),
+		local:       s.local,
+	}
+	for _, pf := range providerFactories {
+		for _, e := range buildProvider(pf, env) {
+			if e.Shortcut == "" {
+				e.Shortcut = pf.shortcut
+			}
+			s.entries = append(s.entries, e)
+		}
 	}
 
 	logProviderWiring(s.entries)
 	return s
 }
 
-// youTubeEntries returns the YouTube Music entry. It returns none when the
-// [ytmusic] section sets enabled = false. The sign-in comes from the browser
-// cookies that `cliamp-x login` remembered; without one the provider still
-// browses and searches. A missing yt-dlp only blocks playback.
-func youTubeEntries(cfg config.Config, interactive bool, favs *favorites.Store, hist *history.Store, local *locallib.Library) []provider.Entry {
-	if !cfg.YouTubeMusic.IsSet() {
-		logYouTubeSkipped("disabled in config")
-		return nil
-	}
-	if !player.YTDLPAvailable() {
-		fmt.Fprintf(os.Stderr, "\nYouTube Music requires yt-dlp for audio playback.\n")
-		fmt.Fprintf(os.Stderr, "Install command: %s\n\n", ytdlp.InstallHint())
-		if offerYTDLPInstall(interactive, os.Stdin, os.Stderr) {
-			fmt.Fprintf(os.Stderr, "Installing yt-dlp...\n")
-			if err := installYTDLP(); err != nil {
-				fmt.Fprintf(os.Stderr, "Installation failed: %v\n", err)
-				fmt.Fprintf(os.Stderr, "Install yt-dlp manually and restart to play songs.\n\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "yt-dlp installed successfully!\n\n")
-			}
+// buildProvider runs one factory and recovers from its panic.
+func buildProvider(pf providerFactory, env providerEnv) (entries []provider.Entry) {
+	defer func() {
+		if r := recover(); r != nil {
+			logProviderSkipped(pf.name, pf.key, fmt.Sprintf("failed to start: %v", r))
+			entries = nil
 		}
-	}
-
-	auth := ytmusic.LoadAuth(cfg.YouTubeMusic.CookiesFrom)
-	if auth.SignedIn() {
-		// yt-dlp plays with the same session, so Premium quality and
-		// age-restricted songs work.
-		if path, err := ytmusic.CookiePath(); err == nil {
-			for _, host := range []string{"youtube.com", "youtu.be", "music.youtube.com"} {
-				resolve.SetYTDLCookiesForHost(host, ytdlcookies.FilePrefix+path)
-			}
+	}()
+	for _, e := range pf.build(env) {
+		if e.Provider == nil {
+			continue
 		}
+		if e.Key == "" {
+			e.Key = pf.key
+		}
+		if e.Name == "" {
+			e.Name = pf.name
+		}
+		entries = append(entries, e)
 	}
-	client := ytmusic.NewClient(auth, cfg.YouTubeMusic.Language, cfg.YouTubeMusic.Region)
-	music := ytmusic.New(client, ytmusic.Options{
-		Favorites:     favs,
-		History:       hist,
-		Local:         local,
-		ReportHistory: cfg.YouTubeMusic.ReportHistory,
-		DataDir:       ytmusicDataDir(),
-	})
-	return []provider.Entry{
-		{Key: "ytmusic", Name: providerName("ytmusic"), Provider: music},
-	}
+	return entries
 }
 
 // localLibrary returns the index of the local music folder that joins the
@@ -235,12 +267,6 @@ func logProviderRegistered(name, key string) {
 // the log file only, so it never disturbs the TUI. See issue #406.
 func logProviderSkipped(name, key, reason string) {
 	applog.Info("provider skipped: name=%s key=%s reason=%s", name, key, reason)
-}
-
-// logYouTubeSkipped records the skip reason for all three YouTube providers
-// (All, video, music), since they register or skip as one group.
-func logYouTubeSkipped(reason string) {
-	logProviderSkipped(providerName("ytmusic"), "ytmusic", reason)
 }
 
 // offerYTDLPInstall asks on in whether to install yt-dlp now. It asks only
@@ -333,13 +359,4 @@ func logProviderWiring(providers []provider.Entry) {
 			logProviderSkipped(pk.name, pk.key, "not configured")
 		}
 	}
-}
-
-// ytmusicDataDir is where the YouTube Music provider keeps its caches.
-func ytmusicDataDir() string {
-	dir, err := appdir.DataDir()
-	if err != nil {
-		return ""
-	}
-	return dir
 }

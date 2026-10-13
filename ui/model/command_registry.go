@@ -123,6 +123,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"t"}, KeyLabel: "t", Label: "Choose theme", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"}", "{"}, KeyLabel: "} {", Label: "Visualizer sensitivity up/down", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"C"}, KeyLabel: "C", Label: "Visualizer color (only the visualizer, not the theme)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+v"}, KeyLabel: "Ctrl+V", Label: "Choose visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"V"}, KeyLabel: "V", Label: "Full-screen visualizer", Enabled: func(m Model) bool { return !m.simplified }, Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Playlist scroll / EQ adjust (wraps around)", Keymap: true},
@@ -135,6 +136,9 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"c"}, KeyLabel: "c", Label: "Go to the playing song in the list", Keymap: true},
+	{Mode: commandModeMain | commandModeProvider | commandModeNavBrowser, Keys: []string{"I"}, KeyLabel: "I", Label: "I'm interested (more like this)", Keymap: true, ContextHelp: true, Enabled: ratingEnabled},
+	{Mode: commandModeMain | commandModeProvider | commandModeNavBrowser, Keys: []string{"H"}, KeyLabel: "H", Label: "Not interested (hide)", Keymap: true, ContextHelp: true, Enabled: ratingEnabled},
+	{Mode: commandModeMain, Keys: []string{"f5", "ctrl+r"}, KeyLabel: "F5 / Ctrl+R", RunKey: "f5", Label: "Reload the open provider playlist", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"O"}, KeyLabel: "O", Label: "Options for the highlighted song (also a right click)", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider, Keys: []string{"F"}, KeyLabel: "F", Label: "Subscribed shows", Enabled: func(m Model) bool { return m.hasSubscriptions() }, Keymap: true},
 
@@ -192,7 +196,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"d"}, KeyLabel: "d", Label: "Audio device picker", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Keymap: true},
 	{Mode: commandModeMain | commandModeProvider | commandModeProviderPill | commandModeVolume | commandModeEQ | commandModeShuffle | commandModeRepeat | commandModeSpeed, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab/Shift+Tab", Label: "Focus", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", RunKey: "esc", Label: "Back to provider", Keymap: true, ContextHelp: true, Cancel: true},
+	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", RunKey: "esc", Label: "Explore music", Keymap: true, ContextHelp: true, Cancel: true},
 	{Mode: commandModeAny, Keys: []string{"f1", "ctrl+k"}, KeyLabel: "F1", RunKey: "f1", Label: "Actions", Keymap: true, ContextHelp: true, Help: true},
 	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
 	{Mode: commandModeAny, Keys: []string{"ctrl+c"}, KeyLabel: "Ctrl+C", Label: "Quit", Keymap: true},
@@ -200,7 +204,7 @@ var commandRegistry = []commandSpec{
 	// to close or to queue, so the keymap must not run it as quit there.
 	{Mode: commandModeMain | commandModeProvider | commandModeProviderPill | commandModeEQ | commandModeVolume | commandModeShuffle | commandModeRepeat | commandModeSpeed, Keys: []string{"q"}, KeyLabel: "q", Label: "Quit", Keymap: true, Enabled: func(m Model) bool { return !m.subs.visible }},
 	{Mode: commandModeAny, Keys: []string{"ctrl+z"}, KeyLabel: "Ctrl+Z", Label: "Undo latest playlist or queue mutation"},
-	{Mode: commandModeProvider, Keys: []string{"ctrl+r"}, KeyLabel: "Ctrl+R", Label: "Refresh provider", Keymap: true, ContextHelp: true},
+	{Mode: commandModeProvider, Keys: []string{"f5", "ctrl+r"}, KeyLabel: "F5 / Ctrl+R", RunKey: "f5", Label: "Refresh: new results", Keymap: true, ContextHelp: true},
 
 	// Shared text editing is reserved even though these are intentionally absent
 	// from the global keymap, where they would be misleading outside a field.
@@ -340,6 +344,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeQueue, Keys: []string{"c"}, KeyLabel: "c", Label: "Clear", Destructive: true, ContextHelp: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true},
 	{Mode: commandModeNavBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true, Enabled: func(m Model) bool { return m.navView() == navViewTracks }},
+	{Mode: commandModeNavBrowser, Keys: []string{"f5", "ctrl+r"}, KeyLabel: "F5 / Ctrl+R", RunKey: "f5", Label: "Refresh: new results", Keymap: true, ContextHelp: true},
 	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"M"}, KeyLabel: "M", Label: "More like this: radio from the highlighted row", Keymap: true},
 	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"X"}, KeyLabel: "X", Label: "Find remixes and other versions of the song", Keymap: true},
 	{Mode: commandModeNavBrowser | commandModeSearchOverlay, Keys: []string{"D"}, KeyLabel: "D", Label: "Download for offline", Keymap: true},
@@ -418,6 +423,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeFullVis, Keys: []string{"+", "=", "-"}, KeyLabel: "+ -", Label: "Volume up/down", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"}", "{"}, KeyLabel: "} {", Label: "Visualizer sensitivity up/down", Keymap: true},
+	{Mode: commandModeFullVis, Keys: []string{"C"}, KeyLabel: "C", Label: "Visualizer color (only the visualizer, not the theme)", Keymap: true},
 	{Mode: commandModeFullVis, Keys: []string{"t"}, KeyLabel: "t", Label: "Hide track info", Keymap: true, ContextHelp: true},
 	{Mode: commandModeFullVis, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
 }
@@ -551,4 +557,10 @@ func renderCommandHelp(commands []commandSpec, width int, m Model) string {
 		}
 	}
 	return b.String()
+}
+
+// ratingEnabled reports whether the screen has a row to rate: the browser's
+// mode menu has none.
+func ratingEnabled(m Model) bool {
+	return !m.navBrowser.visible || m.navBrowser.mode != navBrowseModeMenu
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 	"github.com/xaviiromf/cliamp-x/theme"
 	"github.com/xaviiromf/cliamp-x/ui"
 	"github.com/xaviiromf/cliamp-x/ui/artwork"
@@ -103,7 +104,7 @@ func (f focusArea) label() string {
 	case focusProvPill:
 		return "Source"
 	case focusProvider:
-		return "Provider"
+		return "Explore"
 	case focusSearch:
 		return "Search"
 	case focusNetSearch:
@@ -527,6 +528,9 @@ type Model struct {
 	// unavailable. buildProviders in package main shares it with the local
 	// provider, which lists it as the Favorites playlist.
 	favStore *favorites.Store
+	// taste holds the "interested" and "not interested" ratings, shared
+	// with the providers. Nil turns the rating keys off.
+	taste *taste.Store
 	// favSync orders the calls that copy favorite changes to providers. It
 	// is created on first use and shared across Model value copies.
 	favSync *favorites.SyncQueue

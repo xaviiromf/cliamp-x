@@ -23,6 +23,12 @@ volume = 0
 # Default: 7.
 # vis_sensitivity = 7
 
+# Visualizer colors, apart from the theme: "theme" (default), "fire",
+# "ocean", "neon", "aurora", "sunset", "ice", "matrix", "sakura", "amber",
+# "mono", or three hex colors from low to high, "#112233,#445566,#778899".
+# "C" cycles the palettes while playing and saves the choice here.
+# vis_palette = "theme"
+
 # Repeat mode: "off", "all", or "one"
 repeat = "off"
 
@@ -186,8 +192,9 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Language and country of the YouTube Music pages (default: from $LANG).
 # language = "es"
 # region = "CL"
-# When the queue ends, keep playing songs similar to the last one.
-# auto_radio = true
+# When the queue ends, keep playing songs similar to the last one. Off by
+# default: an album or playlist stops at its end. "R" toggles it.
+# auto_radio = false
 # Add the songs you play to your YouTube Music history, which improves
 # your recommendations. Off by default.
 # report_history = false

@@ -493,6 +493,16 @@ func (c *Client) SetLike(ctx context.Context, videoID string, like bool) error {
 	return err
 }
 
+// SetDislike marks a song "dislike" in the account, which YouTube Music
+// uses to recommend less like it.
+func (c *Client) SetDislike(ctx context.Context, videoID string) error {
+	if !c.SignedIn() {
+		return ErrSignInRequired
+	}
+	_, err := c.call(ctx, "like/dislike", map[string]any{"target": map[string]any{"videoId": videoID}}, "")
+	return err
+}
+
 // AlbumPlaylistID returns the playlist ID (OLAK5uy_...) behind an album,
 // which saving the album to the library acts on.
 func (c *Client) AlbumPlaylistID(ctx context.Context, browseID string) (string, error) {

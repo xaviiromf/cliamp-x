@@ -89,7 +89,7 @@ func (m *Model) handleAutoRadioLoaded(msg autoRadioLoadedMsg) tea.Cmd {
 		have[t.Path] = true
 	}
 	var fresh []playlist.Track
-	for _, t := range msg.tracks {
+	for _, t := range m.visibleTracks(msg.tracks) {
 		if !have[t.Path] {
 			have[t.Path] = true
 			fresh = append(fresh, t)

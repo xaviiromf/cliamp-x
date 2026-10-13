@@ -8,6 +8,7 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 )
 
 // handleNavBrowserKey processes key presses while the provider browser is open.
@@ -54,6 +55,12 @@ func (m *Model) handleNavBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 			return m.findRemixes()
 		case "D":
 			return m.downloadHighlighted()
+		case "I":
+			return m.rateInterest(taste.Interested)
+		case "H":
+			return m.rateInterest(taste.NotInterested)
+		case "f5", "ctrl+r":
+			return m.refreshBrowser()
 		}
 	}
 
@@ -360,6 +367,7 @@ func (m *Model) handleNavArtistListKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.navBrowser.cursor = 0
 		}
 		m.navMaybeAdjustScroll()
+		return m.maybeLoadMoreArtists()
 	case "enter", "l", "right":
 		if m.navBrowser.loading || listLen == 0 {
 			return nil
@@ -402,6 +410,24 @@ func (m *Model) handleNavArtistListKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.navBackFromRoot()
 	}
 	return nil
+}
+
+// maybeLoadMoreArtists asks an endless artist list for its next page when
+// the cursor nears the end.
+func (m *Model) maybeLoadMoreArtists() tea.Cmd {
+	nb := &m.navBrowser
+	if nb.search != "" || nb.albumLoading || nb.albumDone || nb.cursor < len(nb.artists)-10 {
+		return nil
+	}
+	ab, ok := nb.prov.(provider.ArtistBrowser)
+	if !ok {
+		return nil
+	}
+	if _, ok := ab.(provider.ArtistPager); !ok {
+		return nil
+	}
+	nb.albumLoading = true
+	return fetchNavArtistsCmd(ab, len(nb.artists), m.nextNavRequest())
 }
 
 // setHeart adds or removes the ♥ that marks a favorited browse row.
@@ -557,29 +583,13 @@ func (m *Model) handleNavTrackListKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		m.navMaybeAdjustScroll()
 	case "enter":
-		// Play the highlighted track immediately, then enqueue everything from
-		// that position to the end of the list (capped at 500 total tracks).
-		if listLen == 0 {
-			return nil
-		}
+		// The list from the highlighted track (at most 500) becomes the
+		// queue, and the player screen shows it: the queue holds only what
+		// plays now. Each track keeps the whole list as its context.
 		tracks := m.navPlaybackTracks()
 		if index := m.navBrowser.cursor; index >= 0 && index < len(tracks) {
 			const maxAdd = 500
-			m.stopPlayback()
-			m.player.ClearPreload()
-
-			toAdd := tracks[index:min(index+maxAdd, len(tracks))]
-
-			newIdx := m.appendTracks(toAdd...)
-			m.playlist.SetIndex(newIdx)
-			m.plCursor = newIdx
-			m.adjustScroll()
-			if len(toAdd) > 1 {
-				m.status.Showf(statusTTLMedium, "Playing: %s (+%d queued)", toAdd[0].DisplayName(), len(toAdd)-1)
-			} else {
-				m.status.Showf(statusTTLMedium, "Playing: %s", toAdd[0].DisplayName())
-			}
-			return m.playCurrentTrack()
+			return m.replaceQueueFromNav(tracks[index:min(index+maxAdd, len(tracks))])
 		}
 	case "R":
 		if m.playlist.Len() > 0 {
@@ -667,14 +677,19 @@ func (m *Model) navPlaybackTracks() []playlist.Track {
 // replacePlaylistFromNav discards the live queue. Its caller confirms whenever
 // that queue is non-empty because this browser replacement has no undo snapshot.
 func (m *Model) replacePlaylistFromNav() tea.Cmd {
-	tracks := m.navDisplayedTracks()
+	return m.replaceQueueFromNav(m.navPlaybackTracks())
+}
+
+// replaceQueueFromNav replaces the queue with tracks from the browser, plays
+// the first and shows the player screen.
+func (m *Model) replaceQueueFromNav(tracks []playlist.Track) tea.Cmd {
 	if len(tracks) == 0 {
 		return nil
 	}
 	m.stopPlayback()
 	m.player.ClearPreload()
 	m.retireTracksPaging()
-	m.replacePlaylist(tracks)
+	m.replacePlaylistKeepingContext(tracks)
 	m.clearLoadedPlaylist()
 	m.setHeaderStateFromTracks(tracks)
 	m.plCursor = 0

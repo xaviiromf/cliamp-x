@@ -175,6 +175,24 @@ func (m *Model) SetVisSensitivity(level int) {
 	}
 }
 
+// visPaletteLabels names the visualizer palettes on screen.
+var visPaletteLabels = map[string]string{
+	"theme": "Theme", "fire": "Fire", "ocean": "Ocean", "neon": "Neon", "aurora": "Aurora",
+	"sunset": "Sunset", "ice": "Ice", "matrix": "Matrix", "sakura": "Sakura", "amber": "Amber", "mono": "Mono",
+}
+
+// cycleVisPalette moves the visualizer to the next color palette, leaving
+// the theme of the rest of the interface, and saves it as vis_palette.
+func (m *Model) cycleVisPalette() {
+	name := ui.SetVisPalette(ui.NextVisPalette())
+	label := name
+	if l, ok := visPaletteLabels[name]; ok {
+		label = L(l)
+	}
+	m.status.Showf(statusTTLMedium, "%s: %s", L("Visualizer color"), label)
+	_ = m.saveConfigString("vis_palette", name)
+}
+
 // adjustVisSensitivity steps the visualizer sensitivity, shows the new level
 // and saves it as vis_sensitivity.
 func (m *Model) adjustVisSensitivity(delta int) {

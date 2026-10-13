@@ -22,8 +22,22 @@ licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
   a los que te suscribiste van primero con ♥, seguidos de los que más
   aparecen en tus "me gusta". `f` guarda un álbum o te suscribe a un artista
   en tu cuenta, y en una canción le da (o quita) "me gusta".
-- **Géneros favoritos**: marca un género con `f` y queda primero y fijado en
-  el panel.
+- **Descubrimiento sin fin**: Álbumes ("Para ti") y Artistas traen música
+  nueva de artistas parecidos a los tuyos y cargan más mientras bajas. `F5`
+  muestra otros resultados.
+- **Me interesa / No me interesa** (`I` / `H`): en canciones, álbumes,
+  artistas, géneros y listas. Lo que no te interesa desaparece y no vuelve; en
+  una canción también es "me gusta" o "no me gusta" en tu cuenta. Por defecto
+  se ocultan el reguetón, el urbano, el trap, la bachata y la salsa (editable
+  en `taste.json`).
+- **Géneros favoritos y de nicho**: marca un género con `f` y queda primero y
+  fijado en el panel. Además de los de YouTube Music hay 44 más (shoegaze,
+  city pop, vocaloid, post-punk, música de videojuegos...), con una mezcla
+  distinta cada vez.
+- **Pausa instantánea**: la canción queda en memoria, así que quitar la pausa
+  la reanuda al momento aunque haya pasado mucho rato.
+- **Color del visualizador** (`C`): fuego, océano, neón, aurora y más, sin
+  cambiar el tema del resto.
 - **Búsqueda por nombre o por link** de YouTube y YouTube Music (`watch?v=`,
   `youtu.be/`, shorts, playlists, álbumes, canales y `@artista`).
 - **Más como esto** (`M`): una radio de canciones parecidas a partir de
@@ -236,6 +250,13 @@ cliamp-x status --json
 Ejecuta `cliamp-x --daemon` para reproducir sin interfaz. Ver
 [docs/headless.md](docs/headless.md) y [docs/remote-control.md](docs/remote-control.md).
 
+## Agregar otros proveedores
+
+Si haces un fork y quieres sumar otra fuente de música además de YouTube
+Music, cada proveedor vive en sus propios archivos y se registra solo. Así las
+actualizaciones de este repositorio no rompen tus proveedores. La guía está en
+[docs/adding-providers.md](docs/adding-providers.md).
+
 ## Documentación
 
 - [YouTube Music](docs/youtube-music.md)
@@ -256,6 +277,7 @@ Ejecuta `cliamp-x --daemon` para reproducir sin interfaz. Ver
 - [Módulo de Waybar y notificaciones](docs/waybar.md)
 - [Controles multimedia (MPRIS)](docs/mediactl.md)
 - [Links cliamp-x://](docs/url-scheme.md)
+- [Agregar un proveedor (para forks)](docs/adding-providers.md)
 
 ## Solución de problemas
 

@@ -17,6 +17,10 @@ type Entry struct {
 	Key      string            // config key: "radio", "navidrome", "spotify"
 	Name     string            // display name: "Radio", "Navidrome", "Spotify"
 	Provider playlist.Provider // nil if not configured
+	// Shortcut is the key that opens this provider from the player, such as
+	// "Y" for YouTube Music. Empty gives none. A key the player already uses
+	// keeps its own meaning.
+	Shortcut string
 }
 
 // ArtistInfo describes an artist in a provider's catalog.

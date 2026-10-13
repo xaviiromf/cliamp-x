@@ -145,7 +145,7 @@ func (m Model) renderPlaylistHeader() string {
 		return ov.header(&m)
 	}
 	if m.focus == focusProvider {
-		label := m.provider.Name() + " / Playlists"
+		label := L("Explore") + " · " + m.provider.Name()
 		_, catalog := m.provider.(provider.CatalogSearcher)
 		switch {
 		case m.provSearch.active && catalog:

@@ -262,6 +262,19 @@ func (p *Player) IsYTDLSeek() bool {
 	return cur != nil && cur.ytdlSeek
 }
 
+// YTDLResumable reports whether the current yt-dlp track keeps its download
+// in memory, so an unpause after a long pause needs no reconnect.
+func (p *Player) YTDLResumable() bool {
+	p.mu.Lock()
+	cur := p.current
+	p.mu.Unlock()
+	if cur == nil {
+		return false
+	}
+	y, ok := cur.decoder.(*ytdlPipeStreamer)
+	return ok && y.relay.resumable()
+}
+
 // Position returns the current playback position.
 // streamOffset is added for yt-dlp streams restarted at a time offset.
 func (p *Player) Position() time.Duration {

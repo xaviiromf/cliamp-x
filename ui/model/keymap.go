@@ -64,10 +64,10 @@ var actionGroups = []struct {
 	}},
 	{"Search and browse", []actionButton{
 		{run: "ctrl+f"}, {run: "/"}, {run: "M"}, {run: "X"}, {run: "N"}, {run: "Y"}, {run: "L"}, {run: "F"},
-		{run: "u"}, {run: "o"}, {run: "esc"},
+		{run: "u"}, {run: "o"}, {run: "f5"}, {run: "esc"},
 	}},
 	{"Library", []actionButton{
-		{run: "f"}, {run: "D"}, {run: "ctrl+o"}, {run: "ctrl+s"}, {run: "i"}, {run: "y"}, {run: "S"}, {run: "R"},
+		{run: "f"}, {run: "I"}, {run: "H"}, {run: "D"}, {run: "ctrl+o"}, {run: "ctrl+s"}, {run: "i"}, {run: "y"}, {run: "S"}, {run: "R"},
 	}},
 	{"Sound", []actionButton{
 		{run: "+", keyLabel: "+", label: "Volume up"},
@@ -78,6 +78,7 @@ var actionGroups = []struct {
 		{run: "t"}, {run: "v"}, {run: "ctrl+v"}, {run: "V"},
 		{run: "}", keyLabel: "}", label: "Visualizer more sensitive"},
 		{run: "{", keyLabel: "{", label: "Visualizer less sensitive"},
+		{run: "C"},
 		{run: "ctrl+b"}, {run: "ctrl+g"}, {run: "ctrl+h"}, {run: "ctrl+x"}, {run: "ctrl+i"},
 	}},
 	{"App", []actionButton{{run: "ctrl+c"}}},
@@ -258,7 +259,7 @@ func (m Model) commandContext() (commandMode, string) {
 		if m.provSearch.active {
 			return commandModeProviderSearch, "Provider Filter"
 		}
-		return commandModeProvider, "Provider"
+		return commandModeProvider, "Explore"
 	case focusEQ:
 		return commandModeEQ, "Equalizer"
 	case focusVolume:

@@ -449,3 +449,18 @@ type Closer interface {
 type TrackPager interface {
 	TracksPage(playlistID string, offset int) (tracks []playlist.Track, next int, err error)
 }
+
+// ArtistPager is implemented by artist browsers whose list grows as the
+// listener scrolls, such as recommendations. The browser asks for the next
+// page near the end of the list and stops after a short page. Without it the
+// browser loads Artists() once.
+type ArtistPager interface {
+	ArtistList(offset, size int) ([]ArtistInfo, error)
+}
+
+// TrackDisliker is implemented by providers whose service takes a dislike of
+// a song. "Not interested" (H) on a song sends it; the like is the favorite
+// (TrackFavoriter). The UI asks the provider that CanFavoriteTrack.
+type TrackDisliker interface {
+	DislikeTrack(ctx context.Context, track playlist.Track) error
+}

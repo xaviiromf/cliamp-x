@@ -37,6 +37,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/resolve"
 	"github.com/xaviiromf/cliamp-x/theme"
+	"github.com/xaviiromf/cliamp-x/ui"
 	"github.com/xaviiromf/cliamp-x/ui/model"
 )
 
@@ -148,6 +149,7 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 
 	m := model.New(p, pl, providers.entries, defaultProvider, providers.localPlaylists(), providers.favorites, providers.history, theme.LoadAll(), luaMgr, config.SaveFunc{})
 	m.SetIPCBroker(pluginBroker)
+	m.SetTaste(providers.taste)
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaStateProvider(p, m.PluginStateLoader()))
 		if names := luaMgr.Visualizers(); len(names) > 0 {
@@ -349,6 +351,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	}
 	m.SetVisRows(cfg.VisRows)
 	m.SetVisSensitivity(cfg.VisSensitivity)
+	ui.SetVisPalette(cfg.VisPalette)
 	model.SetLanguage(cfg.Language)
 	m.SetNormalize(cfg.Normalize, cfg.NormalizeTarget)
 	m.SetCrossfade(cfg.Crossfade)

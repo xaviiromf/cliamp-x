@@ -8,6 +8,7 @@ import (
 
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 	"github.com/xaviiromf/cliamp-x/tracksave"
 )
 
@@ -203,10 +204,14 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch key {
 	case "q":
 		return m.quit()
-	case "ctrl+r":
+	case "ctrl+r", "f5":
 		// The playlist view reloads only an open provider playlist that
 		// keeps its ID across Refresh.
 		return m.refreshActiveProvider(true)
+	case "I":
+		return m.rateInterest(taste.Interested)
+	case "H":
+		return m.rateInterest(taste.NotInterested)
 	case "esc", "backspace", "b":
 		if m.focus == focusPlaylist && len(m.plMarks) > 0 {
 			// Esc first drops the marks.
@@ -518,6 +523,9 @@ func (m *Model) handleMainKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case "{":
 		m.adjustVisSensitivity(-1)
+
+	case "C":
+		m.cycleVisPalette()
 
 	case "n":
 		m.cycleNormalize()

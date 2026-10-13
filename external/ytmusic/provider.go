@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xaviiromf/cliamp-x/applog"
@@ -17,6 +18,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
+	"github.com/xaviiromf/cliamp-x/taste"
 )
 
 // ProviderMeta keys of YouTube Music tracks.
@@ -50,7 +52,7 @@ const (
 
 	cacheTTL      = 15 * time.Minute
 	requestBudget = 45 * time.Second
-	homeRowLimit  = 40
+	homeRowLimit  = 15
 )
 
 // Options configures the provider.
@@ -62,6 +64,9 @@ type Options struct {
 	// DataDir holds the provider's caches, such as the new releases of the
 	// subscribed artists. Empty keeps them in memory only.
 	DataDir string
+	// Taste hides what the listener is not interested in and seeds the
+	// recommendations with what they are. Nil hides nothing.
+	Taste *taste.Store
 }
 
 // Provider is the YouTube Music provider.
@@ -100,6 +105,12 @@ type Provider struct {
 
 	savedAlbums map[string]bool // library albums, by browse ID
 	subscribed  map[string]bool // subscribed artists, by channel ID
+
+	// discMu orders the discovery rounds and is taken before mu. Refresh
+	// bumps discEpoch, and the next round starts the lists over.
+	discMu    sync.Mutex
+	disc      discovery
+	discEpoch atomic.Uint64
 }
 
 // heart marks a saved album or a subscribed artist in the browse lists.
@@ -326,8 +337,10 @@ func (p *Provider) fetchCategories() []Category {
 	return p.cats
 }
 
-// Refresh drops every cached list, so the next read asks YouTube Music.
+// Refresh drops every cached list, so the next read asks YouTube Music, and
+// starts the endless lists over in a new order.
 func (p *Provider) Refresh() {
+	p.resetDiscovery()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.opts.Local.Refresh()
@@ -369,7 +382,11 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 		rows = append(rows, playlist.PlaylistInfo{ID: prefixList + it.ID, Name: it.Title, Section: w.yourMusic, ImageURL: it.Thumbnail})
 	}
 
-	rows = append(rows, p.releaseRows()...)
+	for _, r := range p.releaseRows() {
+		if !p.hidden([]string{r.Name}, r.ID) {
+			rows = append(rows, r)
+		}
+	}
 
 	for _, g := range p.favoriteGenres() {
 		rows = append(rows, playlist.PlaylistInfo{ID: prefixGenre + g.Params, Name: "★ " + g.Title, Section: w.genresSection})
@@ -388,23 +405,21 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 			}
 		}
 		if songs > 0 && songs*2 >= len(sh.Items) {
-			rows = append(rows, playlist.PlaylistInfo{ID: prefixShelf + strconv.Itoa(i), Name: sh.Title, TrackCount: songs, Section: w.home, ImageURL: sh.Items[0].Thumbnail})
-			homeRows++
+			if !p.hidden([]string{sh.Title}, prefixShelf+strconv.Itoa(i)) {
+				rows = append(rows, playlist.PlaylistInfo{ID: prefixShelf + strconv.Itoa(i), Name: sh.Title, TrackCount: songs, Section: w.home, ImageURL: sh.Items[0].Thumbnail})
+				homeRows++
+			}
 			continue
 		}
+		// Only the home mixes and playlists get rows: the albums and artists
+		// the home page recommends are in Albums and Artists, which keeps
+		// this pane short.
 		for _, it := range sh.Items {
-			var id string
-			switch it.Kind {
-			case KindAlbum:
-				id = prefixAlbum + it.ID
-			case KindPlaylist:
-				id = prefixList + it.ID
-			case KindArtist:
-				id = prefixArtist + it.ID
-			default:
+			if it.Kind != KindPlaylist {
 				continue
 			}
-			if seen[id] || strings.TrimPrefix(it.ID, "VL") == "LM" {
+			id := prefixList + it.ID
+			if seen[id] || strings.TrimPrefix(it.ID, "VL") == "LM" || p.hidden([]string{it.Title, it.Artist}, it.ID) {
 				continue
 			}
 			seen[id] = true
@@ -567,6 +582,7 @@ func (p *Provider) artistTopTracks(ctx context.Context, channel string) ([]playl
 func (p *Provider) AlbumSortTypes() []provider.SortType {
 	w := p.words
 	return []provider.SortType{
+		{ID: sortForYou, Label: w.sortForYou},
 		{ID: "top", Label: w.sortTop},
 		{ID: "alpha", Label: w.sortAlpha},
 		{ID: "artist", Label: w.sortArtist},
@@ -574,13 +590,21 @@ func (p *Provider) AlbumSortTypes() []provider.SortType {
 	}
 }
 
-func (p *Provider) DefaultAlbumSort() string { return "top" }
+func (p *Provider) DefaultAlbumSort() string { return sortForYou }
 
 // AlbumList returns a page of the album list: the saved albums and the
 // albums of the liked songs, most liked first, then the albums the home page
 // recommends.
 func (p *Provider) AlbumList(sortType string, offset, size int) ([]provider.AlbumInfo, error) {
-	sorted := append([]provider.AlbumInfo(nil), p.allAlbums()...)
+	if sortType == sortForYou || sortType == "" {
+		return p.discoverAlbums(offset, size), nil
+	}
+	var sorted []provider.AlbumInfo
+	for _, a := range p.allAlbums() {
+		if !p.albumHidden(a) {
+			sorted = append(sorted, a)
+		}
+	}
 	switch sortType {
 	case "alpha":
 		sort.SliceStable(sorted, func(i, j int) bool { return lessFold(sorted[i].Name, sorted[j].Name) })
@@ -1050,7 +1074,7 @@ func (p *Provider) RelatedTracks(ctx context.Context, seed playlist.Track, n int
 		return nil, err
 	}
 	var out []playlist.Track
-	for _, t := range songTracks(songs) {
+	for _, t := range p.visibleTracks(songTracks(songs)) {
 		if trackVideoID(t) == id {
 			continue
 		}

@@ -98,6 +98,8 @@ func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.adjustVisSensitivity(1)
 	case "{":
 		m.adjustVisSensitivity(-1)
+	case "C":
+		m.cycleVisPalette()
 	case "t":
 		// Hide the episode name so the full-screen visualizer can be put on a
 		// shared screen without naming what is playing.

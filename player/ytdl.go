@@ -99,6 +99,7 @@ type ytdlPipeStreamer struct {
 	pipeReport // total stays 0: the length of a piped page is unknown
 	ytdlCmd    *exec.Cmd
 	ffmpegCmd  *exec.Cmd
+	relay      *memRelay     // the download between yt-dlp and ffmpeg
 	pipe       io.ReadCloser // ffmpeg stdout (PCM output)
 	reader     *bufio.Reader // buffered reader over pipe
 	ytdlErr    <-chan error  // yt-dlp exit error from monitoring goroutine
@@ -171,6 +172,7 @@ func (y *ytdlPipeStreamer) Seek(int) error { return nil }
 // until yt-dlp gets data or gives up. Close reaps both processes later.
 func (y *ytdlPipeStreamer) interrupt() {
 	_ = y.pipe.Close()
+	_ = y.relay.Close()
 	if y.ytdlCmd.Process != nil {
 		_ = y.ytdlCmd.Process.Kill()
 	}
@@ -189,6 +191,7 @@ func (y *ytdlPipeStreamer) Close() error {
 			y.ffmpegCmd.Process.Kill()
 		}
 		y.pipe.Close()
+		y.relay.Close()
 		// The monitor goroutines own Wait. Killing both children and waiting
 		// for their done signals guarantees Close does not leave zombies.
 		if y.ytdlDone != nil {
@@ -249,10 +252,20 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 		return nil, beep.Format{}, err
 	}
 
-	// os.Pipe connects yt-dlp stdout → ffmpeg stdin.
+	// yt-dlp stdout → relay (memory) → ffmpeg stdin.
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
+	}
+	ytOut, ytIn, err := os.Pipe()
+	if err != nil {
+		pr.Close()
+		pw.Close()
+		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
+	}
+	closeRelayPipes := func() {
+		ytOut.Close()
+		ytIn.Close()
 	}
 
 	// Start yt-dlp: download best audio to stdout.
@@ -271,12 +284,13 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 		ytdlArgs = append(ytdlArgs, "--", pageURL)
 	}
 	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
-	ytdlCmd.Stdout = pw
+	ytdlCmd.Stdout = ytIn
 	var ytdlStderr limitedBuffer
 	ytdlCmd.Stderr = &ytdlStderr
 	if err := ytdlCmd.Start(); err != nil {
 		pr.Close()
 		pw.Close()
+		closeRelayPipes()
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp start: %w", err)
 	}
 
@@ -301,6 +315,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 	if err != nil {
 		pw.Close()
 		pr.Close()
+		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
 		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
@@ -311,17 +326,21 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 		pr.Close()
 		pcmR.Close()
 		pcmW.Close()
+		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
 		return nil, beep.Format{}, fmt.Errorf("ffmpeg start: %w", err)
 	}
 
-	// Close parent's copies of pipe ends. yt-dlp owns pw (write end), ffmpeg
-	// owns pr (read end) and pcmW (PCM write end). If the parent keeps these
-	// open, EOF won't propagate when the owning process exits.
-	pw.Close()
+	// Close parent's copies of pipe ends. yt-dlp owns ytIn, ffmpeg owns pr
+	// (read end) and pcmW (PCM write end), and the relay owns ytOut and pw.
+	// If the parent keeps the others open, EOF won't propagate when the
+	// owning process exits.
+	ytIn.Close()
 	pr.Close()
 	pcmW.Close()
+	relay := newMemRelay()
+	relay.run(ytOut, pw)
 
 	// Monitor each process's exit so we can surface why the pipe closed. A
 	// process's stderr is only safe to read after Wait() returns, so the
@@ -338,6 +357,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 	return &ytdlPipeStreamer{
 		ytdlCmd:    ytdlCmd,
 		ffmpegCmd:  ffmpegCmd,
+		relay:      relay,
 		pipe:       pcmR,
 		reader:     bufio.NewReaderSize(pcmR, pipeBufSize),
 		ytdlErr:    ytdlErrCh,

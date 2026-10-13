@@ -121,9 +121,9 @@ func TestProviderSearchHelpShowsHowToLeave(t *testing.T) {
 		want      string
 		wantLabel string
 	}{
-		{name: "typing a query", setup: func(m *Model) { m.provSearch.active = true }, want: "Cancel", wantLabel: "Radio / Playlists / Search"},
-		{name: "search results", setup: func(m *Model) { cs.results = []playlist.PlaylistInfo{{ID: "s:1", Name: "Hit"}} }, want: "Clear search", wantLabel: "Radio / Playlists / Search results"},
-		{name: "search in flight", setup: func(m *Model) { cs.results = nil; m.provSearch.loading = true }, want: "Clear search", wantLabel: "Radio / Playlists / Search results"},
+		{name: "typing a query", setup: func(m *Model) { m.provSearch.active = true }, want: "Cancel", wantLabel: "Explore · Radio / Search"},
+		{name: "search results", setup: func(m *Model) { cs.results = []playlist.PlaylistInfo{{ID: "s:1", Name: "Hit"}} }, want: "Clear search", wantLabel: "Explore · Radio / Search results"},
+		{name: "search in flight", setup: func(m *Model) { cs.results = nil; m.provSearch.loading = true }, want: "Clear search", wantLabel: "Explore · Radio / Search results"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

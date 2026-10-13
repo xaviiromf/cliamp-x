@@ -130,12 +130,15 @@ func (m Model) renderCompactSource() string {
 func (m Model) renderTitle() string {
 	title := titleStyle.Render("C L I A M P - X")
 	label := m.focus.label()
+	if m.focus == focusPlaylist {
+		label = "Queue" // what plays now, apart from Explore
+	}
 	if screen := m.activeScreen(); screen != screenMain {
 		label = screen.label()
 	}
 	indicator := ""
 	if label != "" {
-		indicator = dimStyle.Render("[" + label + "]")
+		indicator = dimStyle.Render("[" + L(label) + "]")
 	}
 	// The mode tags sit before the screen name while they fit; the ones that
 	// do not are dropped from the end.

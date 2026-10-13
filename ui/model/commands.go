@@ -142,6 +142,8 @@ type trackSavedMsg struct {
 // navArtistsLoadedMsg carries the full artist list from a provider browser.
 type navArtistsLoadedMsg struct {
 	artists []provider.ArtistInfo
+	offset  int  // where the page starts; 0 replaces the list
+	isLast  bool // no page follows
 	gen     uint64
 	err     error
 }
@@ -343,10 +345,19 @@ func resolveWrapperURLs(tracks []playlist.Track) ([]playlist.Track, bool) {
 
 const navAlbumPageSize = 100
 
-func fetchNavArtistsCmd(b provider.ArtistBrowser, gen uint64) tea.Cmd {
+// navArtistPageSize is one page of an endless artist list (ArtistPager).
+const navArtistPageSize = 40
+
+// fetchNavArtistsCmd loads the artist list, or the page at offset of a list
+// that grows as the listener scrolls.
+func fetchNavArtistsCmd(b provider.ArtistBrowser, offset int, gen uint64) tea.Cmd {
 	return func() tea.Msg {
+		if pager, ok := b.(provider.ArtistPager); ok {
+			artists, err := pager.ArtistList(offset, navArtistPageSize)
+			return navArtistsLoadedMsg{artists: artists, offset: offset, isLast: len(artists) == 0, gen: gen, err: err}
+		}
 		artists, err := b.Artists()
-		return navArtistsLoadedMsg{artists: artists, gen: gen, err: err}
+		return navArtistsLoadedMsg{artists: artists, isLast: true, gen: gen, err: err}
 	}
 }
 

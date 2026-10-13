@@ -8,8 +8,18 @@ func (m *Model) handleNavArtistsLoaded(msg navArtistsLoadedMsg) {
 		return
 	}
 	m.navBrowser.loading = false
+	m.navBrowser.albumLoading = false
 	if msg.err != nil {
 		m.status.Errorf(statusTTLDefault, "Artist load failed: %s", msg.err)
+		return
+	}
+	// albumDone and albumLoading also page an endless artist list.
+	m.navBrowser.albumDone = msg.isLast
+	if msg.offset > 0 {
+		m.navBrowser.artists = append(m.navBrowser.artists, msg.artists...)
+		if m.navBrowser.search != "" {
+			m.navUpdateSearch()
+		}
 		return
 	}
 	m.navBrowser.artists = msg.artists

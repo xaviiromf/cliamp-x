@@ -132,7 +132,7 @@ func (b genreBrowser) Genres() ([]provider.GenreInfo, error) {
 	var fav, rest []provider.GenreInfo
 	seen := map[string]bool{}
 	for _, c := range b.p.cachedCategories() {
-		if isMoodSection(c.Section) != b.moods || seen[c.Params] {
+		if isMoodSection(c.Section) != b.moods || seen[c.Params] || b.p.hidden([]string{c.Title}, c.Params) {
 			continue
 		}
 		seen[c.Params] = true
@@ -145,6 +145,12 @@ func (b genreBrowser) Genres() ([]provider.GenreInfo, error) {
 	}
 	out := append(fav, rest...)
 	if !b.moods {
+		for _, name := range extraGenres {
+			id := prefixSearchGenre + name
+			if !b.p.hidden([]string{name}, id) {
+				out = append(out, provider.GenreInfo{ID: id, Name: name, Group: b.p.words.moreGenres, Favorite: b.p.genres.has(id)})
+			}
+		}
 		names := make([]string, 0)
 		for name := range b.p.opts.Local.Genres() {
 			names = append(names, name)
@@ -182,7 +188,7 @@ func (b genreBrowser) GenreLabel() string {
 // ToggleGenreFavorite stars or un-stars a category. Starred categories come
 // first in the catalog and get a row in the provider pane.
 func (b genreBrowser) ToggleGenreFavorite(genreID string) (bool, error) {
-	title := genreID
+	title := strings.TrimPrefix(genreID, prefixSearchGenre)
 	for _, c := range b.p.cachedCategories() {
 		if c.Params == genreID {
 			title = c.Title
@@ -216,6 +222,9 @@ func (p *Provider) GenreTracks(genreID, sortType string) ([]playlist.Track, erro
 			rand.Shuffle(len(tracks), func(i, j int) { tracks[i], tracks[j] = tracks[j], tracks[i] })
 		}
 		return tracks, nil
+	}
+	if query, ok := strings.CutPrefix(genreID, prefixSearchGenre); ok {
+		return p.searchGenreTracks(query)
 	}
 	ctx, cancel := budget()
 	defer cancel()
@@ -257,7 +266,7 @@ func (p *Provider) GenreTracks(genreID, sortType string) ([]playlist.Track, erro
 		for i := range tracks {
 			tracks[i].Genre = title
 		}
-		return tracks
+		return p.visibleTracks(tracks)
 	}
 	switch sortType {
 	case "songs":
@@ -270,9 +279,12 @@ func (p *Provider) GenreTracks(genreID, sortType string) ([]playlist.Track, erro
 		}
 		return tag(songTracks(playlistSongs(0))), nil
 	default:
-		mix := append(append([]Song(nil), songs...), playlistSongs(0)...)
+		// The mix takes two of the category's playlists at random, so each
+		// open (and each refresh) plays something else.
+		rand.Shuffle(len(lists), func(i, j int) { lists[i], lists[j] = lists[j], lists[i] })
+		mix := append(append(append([]Song(nil), songs...), playlistSongs(0)...), playlistSongs(1)...)
 		rand.Shuffle(len(mix), func(i, j int) { mix[i], mix[j] = mix[j], mix[i] })
-		return tag(songTracks(mix)), nil
+		return tag(dedupeTracks(songTracks(mix))), nil
 	}
 }
 

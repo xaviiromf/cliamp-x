@@ -64,17 +64,6 @@ func TestLogProviderSkipped(t *testing.T) {
 	}
 }
 
-func TestLogYouTubeSkipped(t *testing.T) {
-	readBack := readLog(t)
-
-	logYouTubeSkipped("no credentials available")
-
-	got := readBack()
-	if !strings.Contains(got, "key=ytmusic ") || strings.Count(got, "provider skipped") != 1 {
-		t.Errorf("expected one ytmusic skip line, got: %s", got)
-	}
-}
-
 func TestLogProviderWiring(t *testing.T) {
 	readBack := readLog(t)
 

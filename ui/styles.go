@@ -117,10 +117,10 @@ func ApplyThemeColors(t theme.Theme) {
 	SpectrumLow = p.SpectrumLow
 	SpectrumMid = p.SpectrumMid
 	SpectrumHigh = p.SpectrumHigh
+	themeSpectrum = [3]color.Color{p.SpectrumLow, p.SpectrumMid, p.SpectrumHigh}
 
-	refreshSpecANSI()
-	refreshRedSectorANSI()
-	refreshYinYangANSI()
+	// The visualizer palette, when one is chosen, stays over every theme.
+	applyVisPalette()
 }
 
 func contrastingTextColor(hex string) string {

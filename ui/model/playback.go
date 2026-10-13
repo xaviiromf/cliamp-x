@@ -26,12 +26,18 @@ const (
 // queue. The undo of the last queue edit goes, because it restores the old
 // queue.
 func (m *Model) replacePlaylist(tracks []playlist.Track) {
-	nextRequest(&m.requests.queue)
-	m.resetYTDLBatch()
-	m.playlistUndo = playlistUndo{}
 	if m.resumeSaver != nil {
 		tracks = playlist.WithPlaybackContext(tracks)
 	}
+	m.replacePlaylistKeepingContext(tracks)
+}
+
+// replacePlaylistKeepingContext is replacePlaylist for tracks that already
+// carry the list they came from, such as part of an album.
+func (m *Model) replacePlaylistKeepingContext(tracks []playlist.Track) {
+	nextRequest(&m.requests.queue)
+	m.resetYTDLBatch()
+	m.playlistUndo = playlistUndo{}
 	m.playlist.Replace(tracks)
 	m.normalizeQueueOverlay()
 }
@@ -609,7 +615,7 @@ func (m *Model) togglePlayPause() tea.Cmd {
 		if !m.pausedAt.IsZero() {
 			pausedFor = time.Since(m.pausedAt)
 		}
-		if m.currentPlaybackIsLive(track) || shouldReconnectOnUnpause(track, idx, pausedFor) {
+		if m.currentPlaybackIsLive(track) || (shouldReconnectOnUnpause(track, idx, pausedFor) && !m.ytdlResumable()) {
 			if playlist.IsYTDL(track.Path) && m.player.IsYTDLSeek() {
 				return m.reconnectYTDLOnUnpause()
 			}
@@ -647,6 +653,13 @@ func (m *Model) reconnectYTDLOnUnpause() tea.Cmd {
 	return func() tea.Msg {
 		return ytdlUnpauseReconnectMsg{err: p.SeekYTDL(0), gen: gen, seekGen: seekGen}
 	}
+}
+
+// ytdlResumable reports whether the engine kept the download of the paused
+// yt-dlp track in memory, so the unpause resumes at once.
+func (m *Model) ytdlResumable() bool {
+	r, ok := m.player.(interface{ YTDLResumable() bool })
+	return ok && r.YTDLResumable()
 }
 
 // shouldReconnectOnUnpause reports whether unpausing should reconnect and

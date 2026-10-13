@@ -195,7 +195,7 @@ type YouTubeMusicConfig struct {
 	ExpandPlaylist *bool  // nil = default (true), controls whether list= URLs expand the full playlist
 	Language       string // hl of the YouTube Music pages, or "" for $LANG
 	Region         string // gl of the YouTube Music pages, or "" for $LANG
-	AutoRadio      *bool  // nil = default (true): continue with related songs when the queue ends
+	AutoRadio      *bool  // nil = default (false): continue with related songs when the queue ends
 	ReportHistory  bool   // add played songs to the YouTube Music history
 }
 
@@ -206,7 +206,7 @@ func (y YouTubeMusicConfig) IsSet() bool {
 
 // AutoRadioEnabled reports whether the queue continues with related songs.
 func (y YouTubeMusicConfig) AutoRadioEnabled() bool {
-	return y.AutoRadio == nil || *y.AutoRadio
+	return y.AutoRadio != nil && *y.AutoRadio
 }
 
 // set applies one key of the [ytmusic] section.
@@ -281,6 +281,7 @@ type Config struct {
 	Language         string                       // interface language: "es", "en", or "" to follow $LANG
 	NotifyOff        bool                         // true when notifications = false
 	VisSensitivity   int                          // visualizer sensitivity 1-10, or 0 for the default (7)
+	VisPalette       string                       // visualizer colors: a palette name or three hex colors; "" follows the theme
 	PreviewImages    string                       // preview pictures: "auto", "kitty" or "blocks" (default "auto")
 	ShowMetadata     bool                         // expand highlighted-track metadata below settings (default false)
 	Expanded         bool                         // start with the playlist expanded (the Ctrl+X state)
@@ -297,6 +298,7 @@ type Config struct {
 	NormalizeTarget  float64                      // normalization target in LUFS, or 0 for the default (-14)
 	Crossfade        int                          // seconds a track overlaps the next, 0-12 (default 0)
 	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
+	Providers        map[string]map[string]string // per-provider config from [providers.*] sections
 	LogLevel         string                       // log level: debug, info, warn, error (default "info")
 	LowPower         bool                         // reduce CPU by lowering UI cadence and disabling visualization
 }
@@ -383,18 +385,34 @@ func Load() (Config, error) {
 		case "sponsorblock":
 			cfg.SponsorBlock.set(key, val)
 		default:
-			// Keys of a plugin section go to the plugin. Any other section,
+			// Keys of a plugin section go to the plugin, and keys of a
+			// [providers.<key>] section to that provider. Any other section,
 			// such as one left over from cliamp, is ignored.
 			if name, ok := pluginSection(section); ok {
 				if m, ok := cfg.Plugins[name]; ok {
 					m[key] = pluginValue(name, key, val)
 				}
+			} else if name, ok := strings.CutPrefix(section, "providers."); ok && name != "" {
+				if cfg.Providers == nil {
+					cfg.Providers = make(map[string]map[string]string)
+				}
+				if cfg.Providers[name] == nil {
+					cfg.Providers[name] = make(map[string]string)
+				}
+				cfg.Providers[name][key] = parseString(val)
 			}
 		}
 	}
 
 	cfg.clamp()
 	return cfg, scanner.Err()
+}
+
+// ProviderSection returns the keys of the [providers.<key>] section, for a
+// provider that reads its own settings, or nil when the section is absent.
+// Values are strings as written, without quotes.
+func (c Config) ProviderSection(key string) map[string]string {
+	return c.Providers[strings.ToLower(key)]
 }
 
 // sectionHeader returns the name inside a [name] header line. A # comment
@@ -562,6 +580,8 @@ func (c *Config) setTopLevel(key, val string) {
 		if v, ok := parseBool(val); ok {
 			c.HideFullCover = v
 		}
+	case "vis_palette":
+		c.VisPalette = parseString(val)
 	case "vis_sensitivity":
 		if v, ok := parseInt(val); ok {
 			c.VisSensitivity = max(1, min(10, v))

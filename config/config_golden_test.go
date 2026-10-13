@@ -73,6 +73,7 @@ volume_min = -60
 vis_volume_linked = false
 vis_rows = 12
 vis_sensitivity = 9
+vis_palette = "fire"
 repeat = 'ALL'
 shuffle = true
 mono = true
@@ -145,6 +146,7 @@ func TestLoadGolden(t *testing.T) {
 	topWant.VisVolumeLinked = false
 	topWant.VisRows = 12
 	topWant.VisSensitivity = 9
+	topWant.VisPalette = "fire"
 	topWant.Repeat = "all"
 	topWant.Shuffle = true
 	topWant.Mono = true
@@ -179,6 +181,7 @@ func TestLoadGolden(t *testing.T) {
 	allWant := exampleWant
 	allWant.VisRows = 7
 	allWant.VisSensitivity = 7
+	allWant.VisPalette = "theme"
 	allWant.InitialDirectory = "~/Music"
 	allWant.MusicDir = "~/Music"
 	allWant.AudioDevice = "alsa_output.usb-FiiO_K5_Pro-00.analog-stereo"
@@ -204,7 +207,7 @@ func TestLoadGolden(t *testing.T) {
 		ExpandPlaylist: &tr,
 		Language:       "es",
 		Region:         "CL",
-		AutoRadio:      &tr,
+		AutoRadio:      &f,
 	}
 
 	listsWant := defaultConfig()

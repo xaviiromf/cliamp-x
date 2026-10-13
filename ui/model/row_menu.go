@@ -9,7 +9,7 @@ import tea "charm.land/bubbletea/v2"
 
 // rowMenuKeys are the keys the row menu offers, in order, when the screen
 // under it runs them.
-var rowMenuKeys = []string{"enter", "a", "M", "X", "D", "f", "w", "i"}
+var rowMenuKeys = []string{"enter", "a", "I", "H", "M", "X", "D", "f", "w", "i"}
 
 // openRowMenu opens the row menu for the highlighted row of the screen that
 // has the keys.
@@ -25,6 +25,11 @@ func (m *Model) openRowMenu() {
 		entries = append(entries, keymapEntry{action: L("Go to the artist"), do: func(m *Model) tea.Cmd {
 			cmd, _ := m.openSelectedTrackArtistBrowser()
 			return cmd
+		}})
+	}
+	if track, ok := m.selectedPlaylistTrack(); ok && track.Artist != "" {
+		entries = append(entries, keymapEntry{action: L("Not interested in this artist"), do: func(m *Model) tea.Cmd {
+			return m.hideTrackArtist(track)
 		}})
 	}
 	if _, _, _, ok := m.selectedTrackAlbum(); ok {

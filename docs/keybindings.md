@@ -60,7 +60,7 @@ which key to press.
 | `Ctrl+X` | Expand/collapse playlist |
 | `Ctrl+Z` | Undo the last playlist or queue change |
 | `o` | Open file browser |
-| `b` `Esc` | Back to provider |
+| `b` `Esc` | Explore music: the provider pane, apart from the queue |
 
 In full and compact playback layouts, the first `Tab` from the playlist focuses
 Source (`SRC`); `Shift+Tab` starts at Speed when it is visible. Source is skipped
@@ -121,11 +121,12 @@ leave the input. On a narrow panel, the hint bar still shows `Esc`.
 | `t` | Choose theme |
 | `v` | Cycle visualizer and save the choice in `config.toml` |
 | `}` / `{` | Visualizer sensitivity up / down (1 nearly flat, 10 follows every beat; saved in `vis_sensitivity`). Also works in the full screen visualizer |
+| `C` | Cycle the visualizer colors (fire, ocean, neon, aurora, sunset, ice, matrix, sakura, amber, mono, or the theme's). Only the visualizer changes; the rest of the interface keeps the theme. Saved in `vis_palette`. Also works in the full screen visualizer |
 | `Ctrl+V` | Pick visualizer from a list (live preview) |
 | `V` | Full screen visualizer, with the cover of the playing song beside it when the terminal has room (a real image in kitty and Ghostty; `hide_fullscreen_cover = true` removes it). Inside it, `v` cycles modes and saves the choice, `<`/`>` change track, `+`/`-` change volume, and `t` hides the episode name, leaving only the bracketed source. `q` or `Esc` exits back to the player; `Ctrl+C` quits. |
 | `Ctrl+H` | Toggle album headers |
 | `Ctrl+G` | Toggle the key-binding hint bar (remembered in `hide_help_bar`) |
-| `R` | Toggle the auto radio: when the queue ends, keep playing songs similar to the last one (remembered in `[ytmusic] auto_radio`) |
+| `R` | Toggle the auto radio: when the queue ends, keep playing songs similar to the last one (remembered in `[ytmusic] auto_radio`). Off by default, so an album or playlist stops at its end |
 | `Ctrl+B` | Open/close the settings pane (remembered in `hide_settings_pane`) |
 
 The title row names the modes that are on, so you can tell after their
@@ -165,6 +166,8 @@ rounds off the peaks, so boosts do not distort.
 | Key | Action |
 |---|---|
 | `f` | Toggle the favorite ♥ on the selected track. Favorites appear in the "Favorites" virtual playlist. |
+| `I` | I'm interested: in the queue, the Explore pane and the browser, on a song, album, artist, genre or list. The recommendations bring more like it. On a song it is also a like (the ♥ favorite, copied to YouTube Music) |
+| `H` | Not interested: the song, album, artist, genre or list leaves the list and never comes back in the recommendations. On a song it is also a dislike on YouTube Music; a playing song is skipped, another one leaves the queue (`Ctrl+Z` undoes that). The row menu (`O`) also has "Not interested in this artist" |
 | `Ctrl+F` | Search YouTube Music by name or link, or your saved playlists in the Local provider. Available in playlist and provider-browser views. The search line names the source. See [Search and filter modes](#search-and-filter-modes). |
 | `u` | Load URL (stream/playlist) |
 | `d` | Open the audio device picker |
@@ -192,7 +195,7 @@ preference remains saved for a wider layout. See
 | `a` | Toggle the queue (play next) |
 | `A` | Queue manager |
 | `c` | Go back to the playing song in the list after browsing away from it |
-| `O` | Options for the highlighted song: play, play next, more like this, remixes, download, favorite, save to a playlist, go to the artist, go to the album, info. A right click on any list row opens the same menu for that row |
+| `O` | Options for the highlighted song: play, play next, I'm interested, not interested (the song or its artist), more like this, remixes, download, favorite, save to a playlist, go to the artist, go to the album, info. A right click on any list row opens the same menu for that row |
 | `c` | In the queue manager: clear the queue (press again to confirm when more than one track) |
 | `d` | In the queue manager: remove the highlighted track |
 | `x` | Remove the highlighted track from the current playlist |
@@ -294,15 +297,21 @@ appear in the same menus. See [YouTube Music](youtube-music.md).
 | `/` | Filter the visible list |
 | `f` | On a track, toggle its favorite ♥ |
 | `a` | Append all visible tracks to the queue |
-| `Enter` | Open the selected artist, album or playlist. A selected track plays and queues the rest of the visible list. |
+| `Enter` | Open the selected artist, album or playlist. A selected track replaces the queue with itself and the rest of the visible list, plays, and shows the player screen |
+| `F5` `Ctrl+R` | Refresh: new results. The album list ("For you") and the artist list start over with other recommendations; a genre plays another mix |
+| `I` `H` | I'm interested / not interested in the highlighted row (see [Features](#features)) |
 | `R` | Replace the queue with all visible tracks (start from the top, confirm when non-empty) |
 | `q` | Queue the highlighted track to play next |
-| `s` | Cycle album sort (album list only) |
+| `s` | Cycle album sort (album list only): For you (discover), your favorites first, A-Z, by artist, newest |
 | `Y` `L` | Switch to that provider without opening the main pane |
 | `Esc` `b` | Go back one level; close the browser |
 
 While you type in the `/` filter, `Y` and `L` do not work. These keys add
 their letter to the filter.
+
+The album list (in "For you" order) and the artist list never end: near the
+bottom, the next page loads with more music related to what you like. See
+[YouTube Music](youtube-music.md#descubrir-música-nueva).
 
 The header shows a source path such as `YouTube Music / Artist / Album / Tracks`.
 This keeps the current provider and open location visible. Track rows show
@@ -320,7 +329,8 @@ Music or Local Playlists:
 | `Enter` | Load the selected playlist tracks into the queue |
 | `/` | Filter the playlist list |
 | `Ctrl+F` | Search YouTube Music |
-| `Ctrl+R` | Refresh the provider: reload the currently open playlist in place, or return to the playlist list |
+| `F5` `Ctrl+R` | Refresh the provider: new recommendations, reload the currently open playlist in place, or return to the playlist list |
+| `I` `H` | I'm interested / not interested in the highlighted list (see [Features](#features)) |
 | `p` | Open the playlist as an overlay (the Local source shows it directly; create, rename, delete, add dirs/tracks) |
 | `Y` `L` | Switch to that provider |
 | `N` | Open the browser of the provider on screen |
@@ -329,8 +339,9 @@ Music or Local Playlists:
 | `Esc` `b` | Back to the playlist pane |
 
 Playlist rows show `Name · N tracks · 1h 23m` when the provider returns track
-counts and total duration. The header shows `Provider / Playlists`. The loaded
-playlist has a `▶` prefix.
+counts and total duration. The header shows `Explore · Provider`, and the
+title row shows `[Explore]` here and `[Queue]` on the player screen, which
+lists only what plays now. The loaded playlist has a `▶` prefix.
 
 ## Search results overlays
 

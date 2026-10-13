@@ -246,13 +246,17 @@ func (m Model) currentPreviewList() previewList {
 }
 
 // previewTarget returns what the pane shows: the highlighted row, or the
-// song that plays.
+// song that plays. The browse screens show only their own rows, so the
+// playing album does not mix into them.
 func (m Model) previewTarget() (previewItem, bool) {
 	list := m.currentPreviewList()
 	if list.cursor >= 0 && list.cursor < list.count {
 		if it, ok := list.item(list.cursor); ok {
 			return m.withDetails(it), true
 		}
+	}
+	if m.focus == focusProvider || m.activeScreen() == screenNavBrowser {
+		return previewItem{}, false
 	}
 	t, idx := m.currentPlaybackTrack()
 	if idx < 0 || t.Path == "" {

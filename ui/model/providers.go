@@ -3,6 +3,7 @@ package model
 import (
 	"slices"
 	"strings"
+	"sync"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -300,7 +301,7 @@ func (m *Model) fetchCatalogBatch(loader provider.CatalogLoader) tea.Cmd {
 // configured leaves the overlays alone: there is nowhere to land, so only
 // the setup hint applies.
 func (m *Model) quickSwitchProvider(key string) (cmd tea.Cmd, ok bool) {
-	provKey := providerKeyForShortcut(key)
+	provKey := m.shortcutProviderKey(key)
 	if provKey == "" {
 		return nil, false
 	}
@@ -322,11 +323,32 @@ func (m *Model) providerShortcut(key string) (cmd tea.Cmd, ok bool) {
 	if key == "N" {
 		return nil, false
 	}
-	provKey := providerKeyForShortcut(key)
+	provKey := m.shortcutProviderKey(key)
 	if provKey == "" {
 		return nil, false
 	}
 	return m.switchToProvider(provKey), true
+}
+
+// reservedKeySet holds the keys of the player's own commands.
+var reservedKeySet = sync.OnceValue(ReservedKeys)
+
+// shortcutProviderKey returns the provider that key opens: the built-in
+// shortcuts, then the Shortcut of a registered provider entry, unless the
+// player already uses that key.
+func (m Model) shortcutProviderKey(key string) string {
+	if k := providerKeyForShortcut(key); k != "" {
+		return k
+	}
+	if key == "" || reservedKeySet()[key] {
+		return ""
+	}
+	for _, pe := range m.providers {
+		if pe.Shortcut == key {
+			return pe.Key
+		}
+	}
+	return ""
 }
 
 // providerKeyForShortcut maps the Shift+letter provider shortcuts to the
@@ -753,7 +775,8 @@ func (m *Model) openNavBrowserRoute(prov playlist.Provider, mode provider.Browse
 			m.navBrowser.mode = navBrowseModeByArtist
 		}
 		m.navBrowser.loading = true
-		return fetchNavArtistsCmd(browser, m.nextNavRequest())
+		m.navBrowser.albumDone = false
+		return fetchNavArtistsCmd(browser, 0, m.nextNavRequest())
 	case provider.BrowseGenres:
 		browser := m.navBrowser.genreBrowser
 		if router, ok := prov.(provider.GenreBrowseRouter); ok && entryID != "" {
