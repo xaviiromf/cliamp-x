@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">cliamp-x</string>
+    <string name="channel_playback">Reproducción</string>
+    <string name="prev">Anterior</string>
+    <string name="play_pause">Reproducir o pausar</string>
+    <string name="next">Siguiente</string>
+    <string name="quit">Salir</string>
+    <string name="settings">Ajustes</string>
+    <string name="youtube_music_help">YouTube Music usa tu sesión. Inicia sesión aquí. Si Google dice que el navegador no es seguro, exporta un cookies.txt de music.youtube.com en otro equipo e impórtalo.</string>
+    <string name="sign_in">Iniciar sesión en YouTube Music</string>
+    <string name="import_cookies">Importar cookies.txt</string>
+    <string name="signed_in">Sesión guardada. cliamp-x se reinicia.</string>
+    <string name="import_failed">No se pudo leer el archivo.</string>
+    <string name="not_cookies">El archivo no es un cookies.txt.</string>
+    <string name="no_sign_in">El cookies.txt no tiene una sesión de YouTube (falta SAPISID).</string>
+    <string name="music_help">La música local se lee de la carpeta Música del teléfono y necesita el permiso de audio.</string>
+    <string name="allow_music">Permitir música local</string>
+    <string name="battery_help">Para que One UI no corte la música con la pantalla apagada, quita la optimización de batería. Además, en Ajustes → Batería → Límites de uso en segundo plano → Apps que nunca se suspenden, añade cliamp-x.</string>
+    <string name="battery">Quitar la optimización de batería</string>
+    <string name="quit_help">Salir detiene la música y cierra cliamp-x. Cerrar la ventana no la detiene.</string>
+</resources>
