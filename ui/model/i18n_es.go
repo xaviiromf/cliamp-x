@@ -100,6 +100,7 @@ var spanish = map[string]string{
 	"Deleted %q (u to undo)": "Se borró %q (u deshace)",
 	"Device list failed: %s": "No se pudo listar los dispositivos: %s",
 	"Displayed tracks will replace the current queue. Enter confirms; Esc cancels.": "Las canciones mostradas reemplazarán la cola actual. Enter confirma; Esc cancela.",
+	"Enter creates an empty playlist, then opens the file browser.":                 "Enter crea una playlist vacía y luego abre el explorador de archivos.",
 	"Download failed: %s":  "La descarga falló: %s",
 	"Download for offline": "Descargar para escuchar sin conexión",
 	"Download for offline: the highlighted song, album or playlist": "Descargar sin conexión: la canción, álbum o playlist seleccionado",

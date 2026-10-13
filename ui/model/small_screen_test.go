@@ -50,7 +50,7 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 		name  string
 		keys  []string
 		setup func(*Model) // runs after the keys
-		want  []string     // text the plan's phone sizes must show whole
+		want  []string     // text the plan's phone sizes must show whole, translated
 	}{
 		{name: "queue"},
 		{name: "explore", keys: []string{"esc"}},
@@ -63,7 +63,7 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 		// The panel opens on its last row under the queue layout and still
 		// shows five presets.
 		{name: "equalizer custom", keys: []string{"E", "+", "esc", "E"}, want: []string{"Loudness", "Small Speakers", "16k"}},
-		{name: "statistics", keys: []string{"S"}},
+		{name: "statistics", setup: func(m *Model) { m.stats = statsState{visible: true, empty: true} }}, // S needs a play log
 		{name: "downloads", keys: []string{"ctrl+o"}},
 		{name: "lyrics", keys: []string{"y"}, setup: func(m *Model) { m.lyrics.loading, m.lyrics.err, m.lyrics.lines = false, nil, sampleLyrics }},
 		{name: "track info", keys: []string{"i"}},
@@ -73,9 +73,13 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 		{name: "jump", keys: []string{"ctrl+j"}},
 		{name: "load URL", keys: []string{"u"}},
 		{name: "file browser", keys: []string{"o"}},
-		{name: "save to playlist", keys: []string{"w"}},
+		{name: "save to playlist", setup: func(m *Model) { // w needs the local provider
+			m.plPicker = playlistPickerState{visible: true, playlists: m.provPane.lists, title: "Track: Un día de verano en la ciudad de Valparaíso"}
+		}},
 		{name: "full visualizer", keys: []string{"V"}},
 		{name: "volume focus", keys: []string{"tab"}},
+		{name: "new playlist", setup: func(m *Model) { m.plManager.visible, m.plManager.screen = true, plMgrScreenNewName },
+			want: []string{"Enter creates an empty playlist, then opens the file browser."}},
 	}
 	sizes := [][2]int{{60, 32}, {110, 30}, {56, 16}, {45, 28}}
 	for _, spanish := range []bool{false, true} {
@@ -128,9 +132,12 @@ func TestSmallScreensFitTerminal(t *testing.T) {
 					if !m.hideHelpBar && !strings.Contains(plain, actions) {
 						t.Errorf("no %q hint on the screen:\n%s", actions, plain)
 					}
+					// A wrapped text reads whole once the line breaks and the
+					// frame padding are one space.
+					flat := strings.Join(strings.Fields(plain), " ")
 					for _, want := range sc.want {
-						if size[1] >= 30 && !strings.Contains(plain, want) {
-							t.Errorf("no %q on the screen:\n%s", want, plain)
+						if size[1] >= 30 && !strings.Contains(flat, L(want)) {
+							t.Errorf("no %q on the screen:\n%s", L(want), plain)
 						}
 					}
 					if sc.name == "row menu" && size[1] >= 30 && m.effectivePlaylistVisible() < len(m.keymap.entries) {

@@ -171,6 +171,16 @@ func wrapText(s string, maxW int) []string {
 	return lines
 }
 
+// messageLines wraps a dim message to the panel, two cells in, so a narrow
+// screen keeps all of it.
+func (m Model) messageLines(msg string) []string {
+	var lines []string
+	for _, l := range wrapText(msg, m.layout.panelWidth-2) {
+		lines = append(lines, paint(dimStyle, "  "+l))
+	}
+	return lines
+}
+
 // markerColumns says which optional state columns the playlist rows reserve.
 // The cursor and playing/unavailable cells are always drawn. Queue and played
 // cost a column of title width each, so they are reserved only once the
