@@ -331,3 +331,22 @@ func TestF1OpensTheActionsMenu(t *testing.T) {
 		t.Fatal("F1 did not close the actions menu")
 	}
 }
+
+// A section header always has rows under it: in Explore on a podcast show,
+// the show's commands sit under "This screen", not under an empty
+// "Navigation".
+func TestActionsMenuHasNoEmptySection(t *testing.T) {
+	m := newLayoutTestModel(60, 32)
+	m.provider = &sectionedSubProv{favoritable: map[string]bool{"f:feed-a": true}}
+	m.provPane.lists = []playlist.PlaylistInfo{{ID: "f:feed-a", Name: "Part Of The Problem"}}
+	m.focus = focusProvider
+	if _, _, ok := m.selectedProviderShow(); !ok {
+		t.Fatal("the test needs a show under the cursor")
+	}
+	entries := m.buildKeymapEntries()
+	for i, e := range entries {
+		if e.divider && (i == len(entries)-1 || entries[i+1].divider) {
+			t.Errorf("section %q has no rows", e.action)
+		}
+	}
+}

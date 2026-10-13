@@ -225,9 +225,13 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 		}
 	}
 	if len(rest) > 0 {
+		header := len(out)
 		out = append(out, keymapEntry{action: "— " + L("Navigation") + " —", divider: true})
 		for _, command := range rest {
 			add(command)
+		}
+		if len(out) == header+1 {
+			out = out[:header] // every command is already in "This screen"
 		}
 	}
 	if m.luaMgr == nil {
