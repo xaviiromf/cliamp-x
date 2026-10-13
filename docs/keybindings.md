@@ -6,8 +6,8 @@ You do not need to learn the keys. Press `F1` (or `Ctrl+K`, or `?` in the
 player) in any screen to open the actions menu. With the mouse on, you can also
 click `F1 Actions` in the hint bar. The menu lists every command as a button,
 grouped by what it does: Playback, Queue and playlist, Search and browse,
-Library, Sound, Screen and App. When another screen is open, its own commands
-come first, under "This screen". Plugin keys are listed last.
+Library, Sound, Screen, Move around and App. When another screen is open, its
+own commands come first, under "This screen". Plugin keys are listed last.
 
 Move with the arrow keys (or `j` `k`) and press `Enter` to run the selected
 action. Each button shows its key on the right, so the menu also teaches the
@@ -15,9 +15,11 @@ shortcuts. A key pair such as `Left` / `Right` or `+` / `-` is two buttons,
 one for each direction. The `N` then `j` seek is the "Jump to a time or a
 percentage" button, which opens the `Ctrl+J` prompt. A player action chosen
 over another screen closes that screen first, then runs. Press `/` to filter
-the list. The menu opens on the action you ran last. Only cursor keys that
-move through lists, such as `Up` `Down`, stay as hints: the status line says
-which key to press.
+the list. The menu opens on the action you ran last. "Move around" has the
+list and focus keys (`Up`, `Down`, `PgUp`, `PgDn`, `Tab`, `Shift+Tab`), so a
+touch screen without those keys still reaches them. A command that one key
+press cannot run, such as a key of a text field, stays as a hint: the status
+line says which key to press.
 
 ## Playback
 
@@ -393,6 +395,9 @@ With `mouse = true` (the default):
   or opens it, like `Enter`.
 - A right click on a list row selects it and opens its options, like `O`.
 - A click on the seek bar seeks there.
-- A click on `F1 Actions` in the hint bar opens the actions menu.
+- A click on `F1 Actions` in the hint bar opens the actions menu. The hint bar
+  always keeps that hint, dropping others when the terminal is narrow.
+- A click elsewhere, such as on the title, the visualizer or another hint,
+  leaves the selection alone.
 
 Hold `Shift` while dragging to select text in the terminal.

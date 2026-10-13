@@ -49,7 +49,8 @@ func TestFrameLayoutTiers(t *testing.T) {
 	}{
 		{name: "too small", width: 39, height: 9, wantTier: layoutTooSmall},
 		{name: "minimal", width: 40, height: 10, wantTier: layoutMinimal},
-		{name: "compact", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: compactVisRows},
+		{name: "compact", width: 56, height: 18, wantTier: layoutCompact, wantVisRows: compactVisRows},
+		{name: "compact, the visualizer gives way", width: 56, height: 16, wantTier: layoutCompact, wantVisRows: 3},
 		{name: "full", width: 80, height: 24, wantTier: layoutFull, wantVisRows: ui.DefaultVisRows},
 	}
 
@@ -243,7 +244,7 @@ func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
 	playback := newLayoutTestModel(80, 24)
 	browse := newLayoutTestModel(80, 24)
 	browse.keymap.visible = true
-	browse.keymap.entries = browse.buildKeymapEntries()
+	browse.keymap.entries = browse.buildKeymapEntries()[:4]
 	browse.recomputeLayout()
 
 	if !browse.usesContentFirstLayout() {
@@ -258,6 +259,13 @@ func TestContentFirstLayoutPrioritizesLists(t *testing.T) {
 	}
 	if browse.vis.Rows < 1 {
 		t.Fatalf("content-first visualizer canvas rows = %d, want positive", browse.vis.Rows)
+	}
+	// A long menu takes the visualizer rows for its own.
+	menu := newLayoutTestModel(80, 24)
+	menu.openKeymap()
+	if menu.layout.visualizerRows != 0 || menu.effectivePlaylistVisible() <= browse.effectivePlaylistVisible() {
+		t.Fatalf("actions menu: visualizer rows = %d, list rows = %d; want 0 and more than %d",
+			menu.layout.visualizerRows, menu.effectivePlaylistVisible(), browse.effectivePlaylistVisible())
 	}
 
 	preview := newLayoutTestModel(80, 24)
@@ -294,7 +302,7 @@ func TestResizeHidesMinimalVisualizerAndRestoresCanvas(t *testing.T) {
 		t.Fatalf("hidden visualizer frame = %d, want %d", got, before)
 	}
 
-	updated, _ = m.Update(tea.WindowSizeMsg{Width: 56, Height: 16})
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 56, Height: 18})
 	m = updated.(Model)
 	if !m.visualizerVisible() {
 		t.Fatal("visualizerVisible() = false after compact resize, want true")
@@ -678,7 +686,7 @@ func TestConfiguredVisualizerRows(t *testing.T) {
 		{name: "taller than the default", width: 120, height: 50, visRows: 20, want: 20},
 		{name: "shorter than the default", width: 120, height: 50, visRows: 2, want: 2},
 		{name: "capped by a short terminal", width: 120, height: 24, visRows: 40, want: 9},
-		{name: "compact tier is unaffected", width: 60, height: 16, visRows: 20, want: compactVisRows},
+		{name: "compact tier is unaffected", width: 60, height: 18, visRows: 20, want: compactVisRows},
 	}
 
 	for _, tt := range tests {

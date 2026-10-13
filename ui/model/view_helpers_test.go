@@ -491,3 +491,32 @@ func TestProviderKeyForShortcut(t *testing.T) {
 		}
 	}
 }
+
+// A body line that loses text shows an ellipsis; one that loses only blank
+// padding does not.
+func TestFitRectMarksCutText(t *testing.T) {
+	for _, tc := range []struct {
+		name, in string
+		w, h     int
+		want     string
+	}{
+		{"fits", "short\nrows", 10, 2, "short\nrows"},
+		{"cut text", "a long lyric line", 8, 1, "a long …"},
+		{"cut styled text", dimStyle.Render("a long lyric line"), 8, 1, "a long …"},
+		{"cut padding", "+0 ━━━━ ━━━━      ", 12, 1, "+0 ━━━━ ━━━━"},
+		{"too many rows", "a\nb\nc", 5, 2, "a\nb"},
+		{"empty", "", 5, 2, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := fitRect(tc.in, tc.w, tc.h)
+			if ansi.Strip(got) != tc.want {
+				t.Fatalf("fitRect = %q, want %q", ansi.Strip(got), tc.want)
+			}
+			for _, line := range strings.Split(got, "\n") {
+				if textWidth(line) > tc.w {
+					t.Fatalf("line %q is wider than %d", line, tc.w)
+				}
+			}
+		})
+	}
+}

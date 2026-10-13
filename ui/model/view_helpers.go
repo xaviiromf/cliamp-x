@@ -144,7 +144,8 @@ func truncate(s string, maxW int) string {
 }
 
 // wrapText breaks s into lines no wider than maxW, splitting on spaces.
-// Widths are measured with lipgloss so wide glyphs and accents count once.
+// Widths are terminal cells (textWidth), so wide glyphs and accents count
+// right.
 // A single word longer than maxW is truncated rather than left to overflow
 // the panel.
 func wrapText(s string, maxW int) []string {
@@ -157,7 +158,7 @@ func wrapText(s string, maxW int) []string {
 		switch {
 		case line == "":
 			line = word
-		case lipgloss.Width(line)+1+lipgloss.Width(word) <= maxW:
+		case textWidth(line)+1+textWidth(word) <= maxW:
 			line += " " + word
 		default:
 			lines = append(lines, truncate(line, maxW))
@@ -166,6 +167,16 @@ func wrapText(s string, maxW int) []string {
 	}
 	if line != "" {
 		lines = append(lines, truncate(line, maxW))
+	}
+	return lines
+}
+
+// messageLines wraps a dim message to the panel, two cells in, so a narrow
+// screen keeps all of it.
+func (m Model) messageLines(msg string) []string {
+	var lines []string
+	for _, l := range wrapText(msg, m.layout.panelWidth-2) {
+		lines = append(lines, paint(dimStyle, "  "+l))
 	}
 	return lines
 }
@@ -240,6 +251,30 @@ func fitLines(lines []string, budget int) []string {
 		lines = lines[:budget]
 	}
 	return padLines(lines, budget, len(lines))
+}
+
+// fitRect keeps text to height lines no wider than width, as ui.FitRect does,
+// but ends a line that loses text with an ellipsis so the cut shows. A line
+// that loses only blank padding is cut clean.
+func fitRect(text string, width, height int) string {
+	if width <= 0 || height <= 0 || text == "" {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	for i, line := range lines {
+		if textWidth(line) <= width {
+			continue
+		}
+		tail := "…"
+		if strings.TrimSpace(ansi.Strip(ansi.TruncateLeft(line, width, ""))) == "" {
+			tail = ""
+		}
+		lines[i] = ansi.Truncate(line, width, tail)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // helpKey renders a key as a pill (background-highlighted) followed by a dim label.

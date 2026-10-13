@@ -199,7 +199,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain | commandModeProvider | commandModeProviderPill | commandModeVolume | commandModeEQ | commandModeShuffle | commandModeRepeat | commandModeSpeed, Keys: []string{"tab", "shift+tab"}, KeyLabel: "Tab/Shift+Tab", Label: "Focus", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", RunKey: "esc", Label: "Explore music", Keymap: true, ContextHelp: true, Cancel: true},
 	{Mode: commandModeAny, Keys: []string{"f1", "ctrl+k"}, KeyLabel: "F1", RunKey: "f1", Label: "Actions", Keymap: true, ContextHelp: true, Help: true},
-	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Actions", Keymap: true, Help: true},
 	{Mode: commandModeAny, Keys: []string{"ctrl+c"}, KeyLabel: "Ctrl+C", Label: "Quit", Keymap: true},
 	// q quits only from the player and its focused controls. Overlays use it
 	// to close or to queue, so the keymap must not run it as quit there.
@@ -519,33 +519,46 @@ func renderCommandHelp(commands []commandSpec, width int, m Model) string {
 		return ""
 	}
 	narrow := width < 48
-	var b strings.Builder
-	dropped := 0
-	for _, command := range commands {
+	hints := make([]string, len(commands))
+	// reserve keeps room for the Help hint: it leads to every other key, so
+	// a hint before it that would push it off the bar is dropped instead.
+	reserve := 0
+	for i, command := range commands {
 		label := command.label(m)
-		var hint string
 		if narrow && !command.Cancel && !command.Primary && !command.Help {
 			// Key pill only (no "Favorite track" text): at ~40 cols even
 			// one full label would eat the whole row, so fill the rest
 			// with keys and let Ctrl+K explain them.
-			hint = paint(helpKeyStyle, " "+command.KeyLabel+" ")
-		} else {
-			if narrow {
-				switch {
-				case command.Cancel:
-					label = "Back"
-				case command.Primary:
-					label = "Go"
-				case command.Help:
-					label = "Help"
-				}
-			}
-			hint = helpKey(command.KeyLabel, label)
+			hints[i] = paint(helpKeyStyle, " "+command.KeyLabel+" ")
+			continue
 		}
+		if narrow {
+			switch {
+			case command.Cancel:
+				label = L("Back")
+			case command.Primary:
+				label = L("Go")
+			case command.Help:
+				label = L("Help")
+			}
+		}
+		hints[i] = helpKey(command.KeyLabel, label)
+		if command.Help {
+			reserve = 1 + textWidth(hints[i])
+		}
+	}
+	var b strings.Builder
+	dropped := 0
+	for i, command := range commands {
+		hint := hints[i]
 		if b.Len() > 0 {
 			hint = " " + hint
 		}
-		if textWidth(b.String()+hint) > width {
+		room := width - reserve
+		if command.Help {
+			room, reserve = width, 0
+		}
+		if textWidth(b.String()+hint) > room {
 			dropped++
 			continue
 		}

@@ -7,8 +7,6 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/xaviiromf/cliamp-x/ui"
 )
 
 // The two-column body puts the playlist on the left and the focusable playback
@@ -24,7 +22,7 @@ var eqBandLabels = [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k"
 // settings pane in the two-column layout, or the full-width body otherwise.
 func (m Model) renderBodyRegion() string {
 	if !m.layout.twoColumn {
-		return ui.FitRect(m.renderMainBody(), m.layout.panelWidth, m.layout.bodyRows)
+		return fitRect(m.renderMainBody(), m.layout.panelWidth, m.layout.bodyRows)
 	}
 
 	rows := m.effectivePlaylistVisible()

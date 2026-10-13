@@ -72,7 +72,8 @@ var actionGroups = []struct {
 	{"Sound", []actionButton{
 		{run: "+", keyLabel: "+", label: "Volume up"},
 		{run: "-", keyLabel: "-", label: "Volume down"},
-		{run: "e"}, {run: "E"}, {run: "n"}, {run: "m"}, {run: "d"},
+		// The EQ panel chooses the bands, which h and l do on the EQ row.
+		{run: "e"}, {run: "E", replaces: "h l"}, {run: "n"}, {run: "m"}, {run: "d"},
 	}},
 	{"Screen", []actionButton{
 		{run: "t"}, {run: "v"}, {run: "ctrl+v"}, {run: "V"},
@@ -81,7 +82,15 @@ var actionGroups = []struct {
 		{run: "C"},
 		{run: "ctrl+b"}, {run: "ctrl+g"}, {run: "ctrl+h"}, {run: "ctrl+x"}, {run: "ctrl+i"},
 	}},
-	{"App", []actionButton{{run: "ctrl+c"}}},
+	{"Move around", []actionButton{
+		{run: "up", keyLabel: "Up / k", label: "Previous row"},
+		{run: "down", keyLabel: "Down / j", label: "Next row"},
+		{run: "pgup", keyLabel: "PgUp / Ctrl+U", label: "Page up"},
+		{run: "pgdown", keyLabel: "PgDn / Ctrl+D", label: "Page down"},
+		{run: "tab", keyLabel: "Tab", label: "Focus the next control"},
+		{run: "shift+tab", keyLabel: "Shift+Tab", label: "Focus the previous control"},
+	}},
+	{"App", []actionButton{{run: "ctrl+c", replaces: "q"}}},
 }
 
 // id names an entry for the duplicate check and the last-run memory.
@@ -216,9 +225,13 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 		}
 	}
 	if len(rest) > 0 {
+		header := len(out)
 		out = append(out, keymapEntry{action: "— " + L("Navigation") + " —", divider: true})
 		for _, command := range rest {
 			add(command)
+		}
+		if len(out) == header+1 {
+			out = out[:header] // every command is already in "This screen"
 		}
 	}
 	if m.luaMgr == nil {
@@ -292,6 +305,10 @@ func (m Model) keymapHeaderLine() string {
 	if m.keymap.title != "" {
 		title = m.keymap.title
 	}
+	// A long row menu title gives way to the counter: "── " + title + "  " +
+	// count + " ──".
+	count := fmt.Sprintf("%d/%d", m.keymap.cursor+1, len(m.keymap.entries))
+	title = truncate(title, m.layout.panelWidth-textWidth(count)-8)
 	return sepHeaderN(title, m.keymap.cursor+1, len(m.keymap.entries), m.layout.panelWidth)
 }
 

@@ -61,12 +61,31 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) tea.Cmd {
 	if isSeekBarLine(plain[msg.Y]) {
 		return m.clickSeek(msg.X)
 	}
-	if help := strings.TrimSpace(ansi.Strip(m.renderHelp())); help != "" && strings.Contains(plain[msg.Y], help) && hitsActionsPill(plain[msg.Y], msg.X) {
-		return m.handleKey(keyPress(tea.KeyF1))
+	help := strings.TrimSpace(ansi.Strip(m.renderHelp()))
+	onHelp := func(line string) bool { return help != "" && strings.Contains(line, help) }
+	if onHelp(plain[msg.Y]) {
+		if hitsActionsPill(plain[msg.Y], msg.X) {
+			return m.handleKey(keyPress(tea.KeyF1))
+		}
+		return nil
 	}
 	cursor := nearestCursorLine(plain, msg.Y)
 	if cursor < 0 {
 		return nil
+	}
+	// The seek bar and the playlist header sit above every list, the EQ
+	// curve above the preset list, and the preview pane and the hint bar
+	// below it, so a click on or past one is on the chrome, not on a row.
+	preview := ""
+	if m.layout.previewRows > 1 {
+		preview, _, _ = strings.Cut(ansi.Strip(m.renderPreview()), "\n")
+		preview = strings.TrimSpace(preview)
+	}
+	for i := min(cursor+1, msg.Y); i <= max(cursor-1, msg.Y); i++ {
+		line := strings.TrimSpace(plain[i])
+		if isSeekBarLine(plain[i]) || onHelp(plain[i]) || strings.HasPrefix(line, "▸─") || (preview != "" && line == preview) || isEQBandNames(line) {
+			return nil
+		}
 	}
 	if cursor == msg.Y {
 		if right {
@@ -126,6 +145,14 @@ func isSeekBarLine(line string) bool {
 		}
 	}
 	return strings.Contains(s, "●") || strings.Count(s, "━") > 0
+}
+
+// isEQBandNames reports whether a frame line is the Bass, Mids and Treble
+// row of the EQ panel, the last row above its preset list. A narrow panel
+// cuts Treble, so the first two names decide.
+func isEQBandNames(line string) bool {
+	f := strings.Fields(line)
+	return len(f) >= 2 && f[0] == L("Bass") && f[1] == L("Mids")
 }
 
 // isSeparatorLine reports whether a frame line is a section rule, a section

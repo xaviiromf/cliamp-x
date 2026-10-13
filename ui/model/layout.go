@@ -156,8 +156,10 @@ func (m *Model) recomputeLayout() {
 		layout.fixedRows = fullBaseRows + rows
 	case width >= 56 && height >= 16:
 		layout.tier = layoutCompact
-		layout.visualizerRows = compactVisRows
-		layout.fixedRows = compactBaseRows + compactVisRows
+		// Below 18 rows the visualizer gives way, so a list row and the
+		// status line stay on the screen.
+		layout.visualizerRows = max(1, min(compactVisRows, height-2*paddingV-compactBaseRows-layout.footerRows-1))
+		layout.fixedRows = compactBaseRows + layout.visualizerRows
 	default:
 		layout.tier = layoutMinimal
 		layout.fixedRows = 7
@@ -166,20 +168,32 @@ func (m *Model) recomputeLayout() {
 	// contentFirstMinListRows is the list height a browsing screen keeps
 	// before it gives rows to the visualizer.
 	const contentFirstMinListRows = 10
+	minListRows := contentFirstMinListRows
+	switch m.activeScreen() {
+	case screenKeymap:
+		// A menu shows its rows before the preview and the visualizer, so the
+		// row menu fits whole and a tap lands on a row.
+		minListRows = max(minListRows, min(len(m.keymap.entries), maxPlExpandVisible))
+	case screenEQPanel:
+		// The EQ panel shows its curve, the band rows and five presets.
+		minListRows = max(minListRows, eqCurveRows+3+5)
+	}
 	contentFirst := m.usesContentFirstLayout()
 	simplified := m.usesSimplifiedLayout()
 	if contentFirst {
 		layout.visualizerRows = 0
-		if layout.tier == layoutMinimal {
-			layout.fixedRows = 6
-		} else {
-			layout.fixedRows = 7
+		// Track, time, seek bar, list header, hint bar and status line, plus
+		// the title (not on the minimal tier) and the spacer above the hint
+		// bar (not on the compact tier).
+		layout.fixedRows = 7
+		if layout.tier == layoutFull {
+			layout.fixedRows = 8
 		}
 		// Browsing keeps the preview pane and the visualizer, shrunk to what
 		// the screen can spare after a usable list. The preview takes half
 		// of that first; the visualizer gets the rest.
 		if layout.tier != layoutMinimal {
-			free := height - 2*paddingV - layout.fixedRows - layout.footerRows - contentFirstMinListRows
+			free := height - 2*paddingV - layout.fixedRows - layout.footerRows - minListRows
 			if m.previewEnabled() && free >= previewMinRows {
 				share := free / 2
 				if m.visualizerDisabled() {
@@ -271,6 +285,11 @@ func (m *Model) recomputeLayout() {
 	}
 
 	m.layout = layout
+	if screen == screenEQPanel {
+		// The panel opens under the layout of the screen before it, so its
+		// preset list scrolls again once the panel has its own rows.
+		m.eqPanelAdjustScroll()
+	}
 	if m.vis != nil {
 		m.vis.Cols = layout.panelWidth
 		if m.width <= 0 && !m.headless {

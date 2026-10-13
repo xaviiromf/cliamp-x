@@ -182,7 +182,7 @@ cliamp-x adapts its playback screen to the terminal size:
 | Terminal size | Layout |
 | --- | --- |
 | At least `80x24` | Two columns below the seek bar, seven visualizer rows (see `vis_rows`), and detailed source controls |
-| At least `56x16` | Compact controls and five visualizer rows |
+| At least `56x16` | Compact controls and five visualizer rows (fewer below 18 rows, so the list and the status line fit) |
 | At least `40x10` | Minimal playback, list, seek bar, and help layout |
 | Smaller than `40x10` | Resize message only |
 
@@ -194,9 +194,10 @@ terminal, cliamp-x reduces the padding so that the UI keeps at least one column
 and one row.
 
 The browsing screens (the provider pane, the browser, search, and the keymap)
-keep the visualizer too. They first give the list ten rows, then split what is
-left between the [preview pane](#preview-pane) and the visualizer, so a short
-terminal shows a shorter visualizer, or none.
+keep the visualizer too. They first give the list ten rows (a menu up to 24
+rows, the EQ panel its curve and five presets), then split what is left between
+the [preview pane](#preview-pane) and the visualizer, so a short terminal shows
+a shorter visualizer, or none.
 
 At the full tier the playback screen splits below the seek bar: the playlist
 fills the left column and a `Settings` pane fills the right one. The pane reads

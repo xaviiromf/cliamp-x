@@ -181,7 +181,7 @@ func TestKeymapEnterExplainsCommandsItCannotRun(t *testing.T) {
 		key, action string
 		want        string
 	}{
-		{name: "key pair", key: "Up Down", action: "Playlist scroll / EQ adjust (wraps around)", want: "Close the keymap. Then press Up Down."},
+		{name: "key pair", setup: func(m *Model) { m.queue.visible = true }, key: "Shift+Up Down", action: "Reorder", want: "Close the keymap. Then press Shift+Up Down."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -275,6 +275,27 @@ func TestActionButtonsRunPlayerCommands(t *testing.T) {
 	}
 }
 
+// Every player command of the actions menu sits in a section of its own, so
+// the "Navigation" catch-all stays empty. On a phone the menu is the keyboard.
+func TestActionGroupsCoverEveryPlayerCommand(t *testing.T) {
+	covered := map[string]bool{}
+	for _, g := range actionGroups {
+		for _, b := range g.buttons {
+			covered[b.replaces] = true
+			for _, c := range commandRegistry {
+				if c.Mode&commandModeMain != 0 && slices.Contains(c.Keys, b.run) {
+					covered[c.KeyLabel] = true
+				}
+			}
+		}
+	}
+	for _, c := range commandRegistry {
+		if c.Keymap && !c.Help && c.Mode&commandModeMain != 0 && !covered[c.KeyLabel] {
+			t.Errorf("%s %q falls under Navigation: add it to actionGroups", c.KeyLabel, c.Label)
+		}
+	}
+}
+
 // The menu opens on a button, not on a section header, and comes back to the
 // action that ran last.
 func TestActionsMenuCursorSkipsHeadersAndRemembersLast(t *testing.T) {
@@ -308,5 +329,24 @@ func TestF1OpensTheActionsMenu(t *testing.T) {
 	m.handleKey(tea.KeyPressMsg{Code: tea.KeyF1})
 	if m.keymap.visible {
 		t.Fatal("F1 did not close the actions menu")
+	}
+}
+
+// A section header always has rows under it: in Explore on a podcast show,
+// the show's commands sit under "This screen", not under an empty
+// "Navigation".
+func TestActionsMenuHasNoEmptySection(t *testing.T) {
+	m := newLayoutTestModel(60, 32)
+	m.provider = &sectionedSubProv{favoritable: map[string]bool{"f:feed-a": true}}
+	m.provPane.lists = []playlist.PlaylistInfo{{ID: "f:feed-a", Name: "Part Of The Problem"}}
+	m.focus = focusProvider
+	if _, _, ok := m.selectedProviderShow(); !ok {
+		t.Fatal("the test needs a show under the cursor")
+	}
+	entries := m.buildKeymapEntries()
+	for i, e := range entries {
+		if e.divider && (i == len(entries)-1 || entries[i+1].divider) {
+			t.Errorf("section %q has no rows", e.action)
+		}
 	}
 }
