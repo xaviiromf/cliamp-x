@@ -26,7 +26,7 @@ import (
 )
 
 func TestV2Operations(t *testing.T) {
-	appearance := []string{"theme", "vis"}
+	appearance := []string{"theme", "vis", "ui.render"}
 	plugins := []string{"plugin.call", "plugin.commands"}
 	for _, tc := range []struct {
 		name     string

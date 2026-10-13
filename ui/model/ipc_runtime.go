@@ -215,6 +215,8 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return m.handleV2Mode(msg.Jobs, msg.JobID, request)
 	case "repeat", "mono":
 		return m.handleV2Mode(msg.Jobs, msg.JobID, request)
+	case "ui.render":
+		return m.handleV2Render(msg.Jobs, msg.JobID, request)
 	case "load":
 		request.Cmd = "provider.load"
 		request.Provider = "local"
@@ -526,6 +528,26 @@ func (m *Model) handleV2Mode(jobs *ipc.JobStore, jobID string, request ipc.Reque
 		value := m.player.Mono()
 		m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Mono: &value})
 	}
+	return nil
+}
+
+// handleV2Render stops drawing the screen with the name off, and draws it
+// again with on. The Android app sends off when it goes to the background,
+// so the core does no screen work that no one sees. While off, the frame tick
+// runs at the low-power cadence.
+func (m *Model) handleV2Render(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	switch strings.ToLower(request.Name) {
+	case "off":
+		m.renderPaused = true
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+		return nil
+	case "on":
+		// Update lays out the frame after every message, this one too.
+		m.renderPaused = false
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+		return tea.ClearScreen // the terminal may hold anything by now
+	}
+	m.failV2Job(jobs, jobID, v2InvalidParamsError())
 	return nil
 }
 

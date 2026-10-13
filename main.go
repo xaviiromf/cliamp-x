@@ -498,12 +498,12 @@ func quitOnSignal(signals chan os.Signal, send func(tea.Msg)) {
 }
 
 // v2Operations returns the V2 operations that this runtime serves. Headless
-// mode has no theme or visualizer to change. The plugin operations need the
-// plugin manager.
+// mode has no screen, so no theme, visualizer or drawing to change. The
+// plugin operations need the plugin manager.
 func v2Operations(headless, plugins bool) *ipc.OperationRegistry {
 	operations := ipc.DefaultOperationRegistry()
 	if headless {
-		operations.Unregister("theme", "vis")
+		operations.Unregister("theme", "vis", "ui.render")
 	}
 	if !plugins {
 		operations.Unregister("plugin.call", "plugin.commands")

@@ -75,6 +75,21 @@ func TestOperationRegistryValidation(t *testing.T) {
 	}
 }
 
+// The Android app pauses the drawing with ui.render and the name on or off.
+// Like every operation but the two direct reads, it runs as a job.
+func TestUIRenderOperation(t *testing.T) {
+	registry := DefaultOperationRegistry()
+	operation, ok := registry.Lookup("ui.render")
+	if !ok || !operation.Async || len(operation.Parameters) != 1 || operation.Parameters[0] != "name" {
+		t.Fatalf("ui.render = %+v (registered %v), want an async operation with the name parameter", operation, ok)
+	}
+	for _, params := range []string{`{"name":"off"}`, `{"name":"on"}`} {
+		if err := registry.Validate("ui.render", json.RawMessage(params)); err != nil {
+			t.Fatalf("Validate(ui.render, %s) = %+v, want nil", params, err)
+		}
+	}
+}
+
 func TestJobStoreLifecycleCancelAndExpiry(t *testing.T) {
 	store := NewJobStore(WithJobTTL(5 * time.Millisecond))
 	job, err := store.Create("provider.search")
