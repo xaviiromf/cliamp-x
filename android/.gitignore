@@ -1,0 +1,12 @@
+# Local SDK paths and signing material never go to git.
+local.properties
+keystore/
+*.jks
+*.keystore
+# Gradle and build output.
+.gradle/
+build/
+app/build/
+.kotlin/
+# make android-core writes the Go core here.
+app/src/main/jniLibs/
