@@ -1,0 +1,42 @@
+name: Android
+
+# Builds and checks the Android app when android/ changes. ci.yml already
+# builds the Go core for Android on every push.
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # versionCode counts the commits.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: make android-core
+        run: make android-core ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+      - name: Test, lint and build the debug APK
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cd android
+          ./gradlew --no-daemon testDebugUnitTest lint assembleDebug

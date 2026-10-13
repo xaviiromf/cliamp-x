@@ -63,8 +63,76 @@ jobs:
           name: cliamp-x-linux-${{ matrix.arch }}
           path: dist/*
 
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          # versionCode counts the commits.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the signing secrets and the app
+        # A tag without android/ or without the release keystore publishes no
+        # APK. The Linux release goes on; an unsigned APK is never published.
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          build=true
+          if [ ! -d android ]; then
+            echo "::warning::This tag has no android/ directory, so the release has no APK."
+            build=false
+          fi
+          for name in ANDROID_KEYSTORE_B64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::warning::The repository secret $name is not set, so the release has no APK. PLAN.md phase 0 step 4 creates the keystore and its secrets."
+              build=false
+            fi
+          done
+          echo "BUILD_APK=$build" >> "$GITHUB_ENV"
+      - name: Set up Go
+        if: env.BUILD_APK == 'true'
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the signed APK
+        if: env.BUILD_APK == 'true'
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # The core and the APK report the same version, so the app's
+          # update check compares them correctly.
+          make android-core VERSION="$GITHUB_REF_NAME" ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          (cd android && ./gradlew --no-daemon -PcliampVersion="$GITHUB_REF_NAME" :app:assembleRelease)
+          rm -f "$ANDROID_KEYSTORE_FILE"
+          signed=android/app/build/outputs/apk/release/app-release.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          "$apksigner" verify --print-certs "$signed"
+          mkdir dist
+          cp "$signed" "dist/cliamp-x-${GITHUB_REF_NAME#v}-arm64-v8a.apk"
+      - name: Upload artifact
+        if: env.BUILD_APK == 'true'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: cliamp-x-android
+          path: dist/*
+
   release:
-    needs: build
+    # A failed Android build does not hold back the Linux release; its job
+    # shows as failed and the release has no APK.
+    needs: [build, android]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Download artifacts
@@ -75,7 +143,7 @@ jobs:
       - name: Checksums
         run: |
           cd artifacts
-          sha256sum * > checksums.txt
+          sha256sum -- * > checksums.txt
           cat checksums.txt
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
