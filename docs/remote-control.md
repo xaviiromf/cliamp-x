@@ -121,7 +121,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Group | Operations |
 | --- | --- |
 | Playback | `play`, `pause`, `toggle`, `stop`, `next`, `prev`, `volume`, `volume.adjust`, `seek`, `seek.absolute`, `speed`, `speed.adjust`, `sleep`, `shuffle`, `repeat`, `mono`, `eq`, `device` |
-| Appearance | `theme`, `vis` |
+| Appearance | `theme`, `vis`, `ui.render` |
 | Live playlist | `queue`, `queue.list`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
@@ -173,6 +173,16 @@ cliamp-x remote call vis --params '{"name":"list"}' --wait
 `theme list` and `cliamp-x theme list` return `Default - Terminal colors` as
 the first item. `theme` accepts that name or `default` to select the terminal
 colors.
+
+`ui.render` takes the `name` `off` or `on`. `off` stops drawing the screen
+and lowers the frame rate to the low-power cadence. Playback and every other
+operation go on. `on` draws the screen again and repaints all of it. Any
+other name fails the job with `invalid_params`. The Android app sends `off`
+when it goes to the background and `on` when it comes back.
+
+```sh
+cliamp-x remote call ui.render --params '{"name":"off"}' --wait
+```
 
 `eq` takes a built-in preset name, such as `Rock`, or a `band` and a `value`.
 It also accepts `Custom` to restore the saved custom curve. An unknown
@@ -245,8 +255,8 @@ cliamp-x --daemon --auto-play --playlist Lofi
 Headless mode runs the same player as the TUI with no screen. It exposes the
 same playback, queue, provider, saved-playlist, plugin, job, snapshot, and event
 APIs. It loads Lua plugins, reports plays to the providers, and records Recently
-Played when a track starts. It has no theme or visualizer selection, so `theme`
-and `vis` are not in `capabilities`. Use `capabilities` instead of assuming that
+Played when a track starts. It has no screen, so `theme`, `vis` and
+`ui.render` are not in `capabilities`. Use `capabilities` instead of assuming that
 each interactive-only operation is available.
 
 ## Errors And Limits

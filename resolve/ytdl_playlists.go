@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/playlist"
 )
@@ -94,7 +94,7 @@ func parseYTDLPlaylistFeed(r io.Reader) ([]playlist.PlaylistInfo, error) {
 // https://www.youtube.com/feed/playlists using the specified browser session.
 // If browser is empty, the cookie source configured for YouTube is used.
 func FetchUserPlaylists(browser string) ([]playlist.PlaylistInfo, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
+	if !extbin.Have("yt-dlp") {
 		return nil, fmt.Errorf("yt-dlp not found in PATH — see https://github.com/yt-dlp/yt-dlp#installation")
 	}
 
@@ -109,7 +109,7 @@ func FetchUserPlaylists(browser string) ([]playlist.PlaylistInfo, error) {
 	args = append(args, ytdlcookies.Args(b)...)
 	args = append(args, "--", "https://www.youtube.com/feed/playlists")
 
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd := extbin.Command(ctx, "yt-dlp", args...)
 	cmd.WaitDelay = 3 * time.Second
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

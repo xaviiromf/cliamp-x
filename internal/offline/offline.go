@@ -15,7 +15,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -23,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 	"github.com/xaviiromf/cliamp-x/internal/sponsorblock"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
@@ -181,7 +181,7 @@ var progressLine = regexp.MustCompile(`^CLIAMP-PROGRESS\s+([\d.]+)%`)
 // Download fetches job into dir and returns the file. progress, when set,
 // gets the download's percentage as it advances.
 func Download(ctx context.Context, job Job, dir string, progress func(percent float64)) (string, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
+	if !extbin.Have("yt-dlp") {
 		return "", errors.New("yt-dlp not found in PATH")
 	}
 	folder, base := Destination(dir, job)
@@ -203,7 +203,7 @@ func Download(ctx context.Context, job Job, dir string, progress func(percent fl
 	}
 	args = append(args, ytdlcookies.Args(ytdlcookies.ForURL(job.Track.Path))...)
 	args = append(args, "--", job.Track.Path)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd := extbin.Command(ctx, "yt-dlp", args...)
 	cmd.WaitDelay = 3 * time.Second
 	pr, pw := io.Pipe()
 	cmd.Stdout, cmd.Stderr = pw, pw
@@ -252,7 +252,7 @@ func Download(ctx context.Context, job Job, dir string, progress func(percent fl
 // its place. Without ffmpeg the file is moved as it is.
 func finalize(ctx context.Context, job Job, file, folder, base string) (string, error) {
 	ext := strings.ToLower(filepath.Ext(file))
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if !extbin.Have("ffmpeg") {
 		dest := filepath.Join(folder, base+ext)
 		return dest, os.Rename(file, dest)
 	}
@@ -293,7 +293,7 @@ func finalize(ctx context.Context, job Job, file, folder, base string) (string, 
 	}
 	tmp := filepath.Join(filepath.Dir(file), "tagged"+outExt)
 	args = append(args, tmp)
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	cmd := extbin.Command(ctx, "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		// Keep the audio even when tagging fails.
 		_ = out

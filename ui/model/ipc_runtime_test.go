@@ -513,3 +513,50 @@ func TestRuntimeStateFollowsAStreamStart(t *testing.T) {
 		t.Fatalf("started snapshot = duration %v, seekable %v, want 300, false", snapshot.Duration, snapshot.Seekable)
 	}
 }
+
+// ui.render off draws nothing and drops the frame tick of a playing song to
+// the low-power cadence. on draws again at the normal cadence and repaints
+// the whole screen. Another name fails and changes nothing.
+func TestV2UIRender(t *testing.T) {
+	t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+	pl := playlist.New()
+	pl.Add(playlist.Track{Path: "/music/one.flac", Title: "One"})
+	m := New(&playbackFakeEngine{playing: true}, pl, nil, "", nil, nil, nil, nil, nil, nil)
+	m.termTitle.introActive = false // the title intro ticks fast on its own
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = updated.(Model)
+	for _, step := range []struct {
+		name               string
+		wantOK, wantDrawn  bool
+		wantLowPowerTicker bool
+	}{
+		{name: "off", wantOK: true, wantLowPowerTicker: true},
+		{name: "toggle", wantLowPowerTicker: true},
+		{name: "", wantLowPowerTicker: true},
+		{name: "on", wantOK: true, wantDrawn: true},
+		{name: "OFF", wantOK: true, wantLowPowerTicker: true},
+		{name: "On", wantOK: true, wantDrawn: true},
+	} {
+		response := runV2(t, &m, "ui.render", ipc.Request{Name: step.name})
+		if response.OK != step.wantOK {
+			t.Fatalf("ui.render %q = %+v, want OK %v", step.name, response, step.wantOK)
+		}
+		if !step.wantOK && response.Error != ipc.V2ErrorCodeInvalidParams {
+			t.Fatalf("ui.render %q error = %q, want %q", step.name, response.Error, ipc.V2ErrorCodeInvalidParams)
+		}
+		if drawn := m.View().Content != ""; drawn != step.wantDrawn {
+			t.Fatalf("after ui.render %q the view is drawn = %v, want %v", step.name, drawn, step.wantDrawn)
+		}
+		if low := m.tickInterval() == ui.TickLowPowerPlaying; low != step.wantLowPowerTicker {
+			t.Fatalf("after ui.render %q tickInterval() = %v, low power %v, want %v", step.name, m.tickInterval(), low, step.wantLowPowerTicker)
+		}
+	}
+
+	msg := v2Request(t, "ui.render", ipc.Request{Name: "on"})
+	if _, err := msg.Jobs.Start(msg.JobID); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := m.handleV2Render(msg.Jobs, msg.JobID, ipc.Request{Name: "on"}); cmd == nil || cmd() != tea.ClearScreen() {
+		t.Fatal("ui.render on does not clear the screen for a full repaint")
+	}
+}

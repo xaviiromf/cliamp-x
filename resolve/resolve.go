@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -22,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/httpclient"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -704,7 +704,7 @@ func ResolveYTDLBatchContext(ctx context.Context, pageURL string, start, count i
 // browser supplies the cookies. Otherwise the cookie source configured for the
 // host of pageURL applies.
 func ResolveYTDLBatchPageContext(ctx context.Context, pageURL string, start, count int, browser string) ([]playlist.Track, int, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
+	if !extbin.Have("yt-dlp") {
 		return nil, 0, fmt.Errorf("yt-dlp not found in PATH — see https://github.com/yt-dlp/yt-dlp#installation")
 	}
 
@@ -725,7 +725,7 @@ func ResolveYTDLBatchPageContext(ctx context.Context, pageURL string, start, cou
 		args = append(args, "--playlist-end", strconv.Itoa(end))
 	}
 	args = append(args, "--", pageURL)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd := extbin.Command(ctx, "yt-dlp", args...)
 	cmd.WaitDelay = 3 * time.Second
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -802,7 +802,7 @@ func parseYTDLTracks(r io.Reader) ([]playlist.Track, int, error) {
 // returns the output file path. A cancel of ctx stops yt-dlp. It sets no time
 // limit of its own, because a download can take minutes.
 func DownloadYTDLContext(ctx context.Context, pageURL, saveDir string) (string, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
+	if !extbin.Have("yt-dlp") {
 		return "", fmt.Errorf("yt-dlp not found in PATH")
 	}
 
@@ -815,7 +815,7 @@ func DownloadYTDLContext(ctx context.Context, pageURL, saveDir string) (string, 
 	}
 	args = append(args, ytdlcookies.Args(ytdlcookies.ForURL(pageURL))...)
 	args = append(args, "--", pageURL)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd := extbin.Command(ctx, "yt-dlp", args...)
 	cmd.WaitDelay = 3 * time.Second
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

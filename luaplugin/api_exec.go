@@ -12,6 +12,8 @@ import (
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
+
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 )
 
 // Default binaries plugins may invoke via cliamp.exec.run(). Users can widen
@@ -164,8 +166,7 @@ func (m *Manager) registerExecAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin) 
 			return pushErr(L, "binary not in allowlist: "+binary)
 		}
 
-		path, err := exec.LookPath(binary)
-		if err != nil {
+		if !extbin.Have(binary) {
 			return pushErr(L, "binary not found on PATH: "+binary)
 		}
 
@@ -221,7 +222,9 @@ func (m *Manager) registerExecAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin) 
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		cmd := exec.CommandContext(ctx, path, argv...)
+		// extbin runs the yt-dlp and ffmpeg that CLIAMP_YTDLP and
+		// CLIAMP_FFMPEG name, as the player does.
+		cmd := extbin.Command(ctx, binary, argv...)
 		if cwd != "" {
 			cmd.Dir = cwd
 		}
@@ -230,7 +233,7 @@ func (m *Manager) registerExecAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin) 
 		// how it runs. It does not hide secrets from the plugin, which can
 		// read any variable with os.getenv and pass it in argv. yt-dlp and
 		// ffmpeg both run fine with a minimal env.
-		cmd.Env = minimalExecEnv()
+		cmd.Env = append(minimalExecEnv(), extbin.Env(binary)...)
 		killProcessGroup(cmd)
 
 		stdout, err := cmd.StdoutPipe()

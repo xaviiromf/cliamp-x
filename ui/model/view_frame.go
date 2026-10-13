@@ -17,7 +17,7 @@ import (
 // View renders the full TUI frame from the layout that Update keeps current.
 // A headless Model renders nothing.
 func (m Model) View() tea.View {
-	if m.quitting || m.headless {
+	if m.quitting || m.headless || m.renderPaused {
 		return tea.NewView("")
 	}
 	if m.layout.tooSmall() {

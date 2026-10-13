@@ -526,3 +526,40 @@ func TestExecBinaryNotOnPath(t *testing.T) {
 		t.Fatalf("err = %q, want PATH mention", s)
 	}
 }
+
+// On Android CLIAMP_YTDLP and CLIAMP_YTDLP_ENV name the yt-dlp to run. A
+// plugin that runs "yt-dlp" gets that command and its environment.
+func TestExecRunsYTDLPOverride(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs sh")
+	}
+	script := filepath.Join(t.TempDir(), "libpython.so")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho \"$FOO $*\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CLIAMP_YTDLP", script+" yt-dlp.zip")
+	t.Setenv("CLIAMP_YTDLP_ENV", "FOO=bar")
+	t.Setenv("CLIAMP_FFMPEG", "")
+	L, p, em, cleanup := newExecTestState(t, []string{"exec"})
+	defer cleanup()
+	em.setAllowed([]string{"yt-dlp"})
+
+	p.mu.Lock()
+	err := L.DoString(`
+		_G.line = nil
+		local h, err = cliamp.exec.run("yt-dlp", {"--version"}, {
+			on_stdout = function(line) _G.line = line end,
+		})
+		assert(h, tostring(err))
+	`)
+	p.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitExec(t, p, L, "line", 5*time.Second)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if got := L.GetGlobal("line").String(); got != "bar yt-dlp.zip --version" {
+		t.Fatalf("stdout = %q, want %q", got, "bar yt-dlp.zip --version")
+	}
+}

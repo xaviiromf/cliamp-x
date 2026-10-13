@@ -139,6 +139,7 @@ func DefaultOperationRegistry() *OperationRegistry {
 		{Name: "device", Description: "list or switch audio devices", Parameters: []string{"name"}},
 		{Name: "theme", Description: "list or change themes", Parameters: []string{"name"}},
 		{Name: "vis", Description: "list or change visualizers", Parameters: []string{"name"}},
+		{Name: "ui.render", Description: "stop (off) or resume (on) drawing the screen", Parameters: []string{"name"}},
 		{Name: "load", Description: "load a local playlist", Async: true, Parameters: []string{"playlist"}},
 		{Name: "queue", Description: "append one path to the live playlist", Parameters: []string{"path", "if_revision"}},
 		{Name: "url.load", Description: "resolve and append a URL, optionally playing it", Async: true, Parameters: []string{"path", "play"}},

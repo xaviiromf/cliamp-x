@@ -1,4 +1,4 @@
-//go:build !linux && !windows && (!darwin || !cgo)
+//go:build (android || !linux) && !windows && (!darwin || !cgo)
 
 package mediactl
 

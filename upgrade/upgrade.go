@@ -121,6 +121,10 @@ func privateHint(status int, token string) string {
 
 // Run checks for a newer release and replaces the current binary if one is found.
 func Run(currentVersion string, prerelease bool) error {
+	// Android runs only the binaries that the installed app holds.
+	if runtime.GOOS == "android" {
+		return errors.New("cliamp-x upgrade cannot replace the Android app: update it from the app menu")
+	}
 	token := tokenSource()
 	rel, err := latestRelease(prerelease, token)
 	if err != nil {

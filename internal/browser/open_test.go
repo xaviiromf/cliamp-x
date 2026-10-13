@@ -22,7 +22,7 @@ func TestOpenWithUnreachablePATH(t *testing.T) {
 // to duplicate the switch body.
 func TestOpenUnsupportedPlatform(t *testing.T) {
 	switch runtime.GOOS {
-	case "linux", "darwin", "windows":
+	case "linux", "darwin", "windows", "android":
 		t.Skipf("host is %s, cannot exercise unsupported-platform branch without build tags", runtime.GOOS)
 	}
 	err := Open("about:blank")

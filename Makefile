@@ -7,10 +7,28 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 STATICCHECK_VERSION ?= v0.6.1
 GOVULNCHECK_VERSION ?= v1.1.4
 
-.PHONY: build test vet lint staticcheck tools fmt fmt-check tidy-check coverage security ci check clean install
+.PHONY: build android-core test vet lint staticcheck tools fmt fmt-check tidy-check coverage security ci check clean install
 
 build:
 	go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY) .
+
+# android-core builds the Go core of the Android app as the PIE executable
+# libcliamp.so, which the app runs from its native library directory. Set
+# ANDROID_NDK_HOME to an NDK r27 or newer. ANDROID_ABI=x86_64 builds for the
+# emulator. The 16 KB page alignment lets it load on Android 15+ kernels.
+ANDROID_ABI ?= arm64-v8a
+ANDROID_GOARCH_arm64-v8a := arm64
+ANDROID_GOARCH_x86_64 := amd64
+ANDROID_CLANG_arm64-v8a := aarch64-linux-android29-clang
+ANDROID_CLANG_x86_64 := x86_64-linux-android29-clang
+ANDROID_CC = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/bin/$(ANDROID_CLANG_$(ANDROID_ABI))
+
+android-core:
+	@test -n "$(ANDROID_NDK_HOME)" || { echo "ANDROID_NDK_HOME is not set. Point it at the Android NDK, r27 or newer."; exit 1; }
+	@test -n "$(ANDROID_GOARCH_$(ANDROID_ABI))" || { echo "ANDROID_ABI must be arm64-v8a or x86_64, not $(ANDROID_ABI)."; exit 1; }
+	GOOS=android GOARCH=$(ANDROID_GOARCH_$(ANDROID_ABI)) CGO_ENABLED=1 CC="$(ANDROID_CC)" CXX="$(ANDROID_CC)++" \
+		go build -trimpath -buildmode=pie -ldflags="$(LDFLAGS) -extldflags '-Wl,-z,max-page-size=16384'" \
+		-o android/app/src/main/jniLibs/$(ANDROID_ABI)/libcliamp.so .
 
 test:
 	go test ./...

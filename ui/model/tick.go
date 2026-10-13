@@ -195,7 +195,7 @@ func (m *Model) tickInterval() time.Duration {
 	// save CPU.
 	if !m.buffering && m.player != nil &&
 		m.player.IsPlaying() && !m.player.IsPaused() {
-		if m.lowPower {
+		if m.lowPower || m.renderPaused {
 			return ui.TickLowPowerPlaying
 		}
 		// Without the focus the terminal may still be on screen (a tiling
