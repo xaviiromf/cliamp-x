@@ -4,8 +4,22 @@ import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.Closeable
 import java.io.File
 import java.io.IOException
+
+/** A failed V2 operation: the error code (docs/remote-control.md), its message and the diagnostic detail. */
+class IpcError(val op: String, val code: String, message: String, val detail: String = "") : Exception("$op: $message") {
+    companion object {
+        fun of(op: String, error: JSONObject?) = IpcError(
+            op,
+            error?.optString("code").orEmpty().ifEmpty { "internal_error" },
+            error?.optString("message").orEmpty(),
+            error?.optString("detail").orEmpty(),
+        )
+    }
+}
 
 /** V2 IPC client of the core (docs/remote-control.md): one JSON object per line. */
 class Ipc(private val socket: File) {
@@ -27,15 +41,33 @@ class Ipc(private val socket: File) {
     fun submit(operation: String, params: JSONObject = JSONObject()): JSONObject =
         call(JSONObject().put("id", operation).put("method", "operation.submit").put("operation", operation).put("params", params))
 
-    /** Blocks, calling onEvent with each event line, until the stream closes. */
-    fun subscribe(topics: List<String>, onEvent: (JSONObject) -> Unit) {
-        connect().use { s ->
+    fun job(id: String): JSONObject = call(JSONObject().put("id", "job").put("method", "job.get").put("job_id", id))
+
+    fun cancel(id: String): JSONObject = call(JSONObject().put("id", "cancel").put("method", "job.cancel").put("job_id", id))
+
+    /** Opens an event stream. Closing it, from any thread, ends a blocked next(). */
+    fun subscribe(topics: List<String>): Subscription {
+        val s = connect()
+        try {
             s.soTimeout = 0 // events arrive only when the state changes
             s.outputStream.write((JSONObject().put("version", 2).put("id", "events").put("method", "subscribe").put("topics", JSONArray(topics)).toString() + "\n").toByteArray())
             val reader = s.inputStream.bufferedReader()
             val ack = JSONObject(reader.readLine() ?: throw IOException("ipc: subscribe closed"))
             if (!ack.optBoolean("ok")) throw IOException("ipc: subscribe: $ack")
-            while (true) onEvent(JSONObject(reader.readLine() ?: return))
+            return Subscription(s, reader)
+        } catch (e: Exception) {
+            s.close()
+            throw e
+        }
+    }
+
+    class Subscription(private val socket: LocalSocket, private val reader: BufferedReader) : Closeable {
+        /** The next event, or null when the stream ended. */
+        fun next(): JSONObject? = reader.readLine()?.let(::JSONObject)
+
+        override fun close() {
+            runCatching { socket.shutdownInput() } // wakes a read blocked in another thread
+            socket.close()
         }
     }
 }

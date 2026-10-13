@@ -15,7 +15,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.os.Binder
 import android.os.Bundle
@@ -23,6 +22,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -36,26 +36,25 @@ import androidx.core.content.ContextCompat
 import androidx.media.AudioAttributesCompat
 import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
+import io.github.xaviiromf.cliampx.ui.Art
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlin.math.abs
 
 /**
  * Owns the Go core: its terminal session, the media session and notification
- * that stand in for MPRIS, audio focus and the IPC link. The activity only
- * binds and shows the session, so closing it never signals the core.
+ * that stand in for MPRIS, audio focus, and Remote, the IPC link of the native
+ * UI. Modo terminal only binds and shows the session, so closing it never
+ * signals the core.
  */
 class CliampService : Service(), TerminalSessionClient {
     inner class LocalBinder : Binder() {
@@ -65,7 +64,7 @@ class CliampService : Service(), TerminalSessionClient {
     private val binder = LocalBinder()
     private val main = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private lateinit var ipc: Ipc
+    private val ipc by lazy { Ipc(Core.socket(this)) }
     private lateinit var media: MediaSessionCompat
     private lateinit var audio: AudioManager
     private lateinit var wakeLock: PowerManager.WakeLock
@@ -73,27 +72,25 @@ class CliampService : Service(), TerminalSessionClient {
     var session: TerminalSession? = null
         private set
 
-    /** The activity showing the session, while it is bound. */
-    var activity: MainActivity? = null
+    /** Modo terminal, while it is bound. */
+    var terminal: TerminalActivity? = null
 
     private var preparing = false
     private var afterExit: (() -> Unit)? = null
-    private var events: Job? = null
 
     private var playing = false
     private var hasFocus = false
     private var resumeOnFocus = false
-    private var title = ""
-    private var artist = ""
     private var artUrl = ""
     private var art: Bitmap? = null
-    private var lastState = JSONObject()
+    private var snap: Snapshot? = null
 
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onCreate() {
         super.onCreate()
-        ipc = Ipc(Core.socket(this))
+        Art.install(this)
+        Remote.start(this)
         audio = getSystemService(AudioManager::class.java)
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cliampx:playback")
@@ -104,6 +101,15 @@ class CliampService : Service(), TerminalSessionClient {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.channel_playback), NotificationManager.IMPORTANCE_LOW)
         )
+        // A new notification and art only when something the system shows changed, not on every state.get.
+        scope.launch {
+            Remote.state.filterNotNull().distinctUntilChanged { a, b ->
+                val now = SystemClock.elapsedRealtime()
+                a.track?.path == b.track?.path && a.track?.title == b.track?.title && a.state == b.state &&
+                    a.buffering == b.buffering && a.speed == b.speed && a.duration == b.duration && a.seekable == b.seekable &&
+                    abs(PlaybackClock.positionAt(a, now) - PlaybackClock.positionAt(b, now)) < 2
+            }.collect(::onState)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -127,6 +133,7 @@ class CliampService : Service(), TerminalSessionClient {
         if (hasFocus) AudioManagerCompat.abandonAudioFocusRequest(audio, focusRequest)
         media.release()
         scope.cancel()
+        Remote.stop()
         super.onDestroy()
     }
 
@@ -143,11 +150,12 @@ class CliampService : Service(), TerminalSessionClient {
             val binary = Core.binary(this@CliampService).path
             val s = TerminalSession(binary, "$filesDir/home", arrayOf(binary), Core.env(this@CliampService), null, this@CliampService)
             session = s
-            val shown = activity
+            val shown = terminal
             // The pty and the process start with the first size, which the view gives.
             if (shown != null) shown.attach(s) else s.updateSize(80, 24, 1, 1)
-            events?.cancel()
-            events = scope.launch(Dispatchers.IO) { followState() }
+            // The bundled yt-dlp is too old for YouTube: replace it before the first play (§7.8).
+            val app = applicationContext
+            Remote.scope.launch { Ytdlp.update(app, force = Ytdlp.tag(app) == null) }
         }
     }
 
@@ -155,7 +163,10 @@ class CliampService : Service(), TerminalSessionClient {
     fun restart() = stopCore { start() }
 
     /** Stops the core and the service. */
-    fun quit() = stopCore { finish(true) }
+    fun quit() {
+        Remote.quitting.value = true
+        stopCore { finish(true) }
+    }
 
     /** Stops the core with SIGTERM, so it saves the resume position, then runs then. */
     private fun stopCore(then: () -> Unit) {
@@ -169,7 +180,7 @@ class CliampService : Service(), TerminalSessionClient {
     }
 
     private fun finish(closeActivity: Boolean) {
-        if (closeActivity) activity?.finishAndRemoveTask()
+        if (closeActivity) terminal?.finishAndRemoveTask()
         setPlaying(false)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -191,83 +202,43 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
-    /** ui.render: the core stops drawing while no one sees it. */
-    fun render(on: Boolean) {
-        scope.launch(Dispatchers.IO) {
-            runCatching { ipc.submit("ui.render", JSONObject().put("name", if (on) "on" else "off")) }
-                .onSuccess { if (!it.optBoolean("ok")) Log.i(TAG, "ui.render: ${it.opt("error")}") }
-        }
-    }
+    private fun op(name: String, params: JSONObject = JSONObject()) = Remote.fire(name, params)
 
-    private fun op(name: String, params: JSONObject = JSONObject()) {
-        scope.launch(Dispatchers.IO) {
-            runCatching { ipc.submit(name, params) }.onFailure { Log.w(TAG, "$name: $it") }
-        }
-    }
-
-    /** Follows runtime.state, reconnecting while the core starts or restarts. */
-    private suspend fun followState() {
-        var wait = 200L
-        while (currentCoroutineContext().isActive) {
-            runCatching {
-                ipc.subscribe(listOf("runtime.state")) { event ->
-                    wait = 200L
-                    event.optJSONObject("data")?.let { scope.launch { onState(it) } }
-                }
-            }
-            delay(wait)
-            wait = (wait * 2).coerceAtMost(2000L)
-        }
-    }
-
-    private fun onState(snapshot: JSONObject) {
-        lastState = snapshot
-        val track = snapshot.optJSONObject("track") ?: JSONObject()
-        title = track.optString("title").ifEmpty { track.optString("path").substringAfterLast('/') }
-        artist = track.optString("artist")
-        val url = track.optString("album_art_url")
+    private fun onState(s: Snapshot) {
+        snap = s
+        val url = s.track?.art.orEmpty()
         if (url != artUrl) {
             artUrl = url
             art = null
-            if (url.startsWith("http")) scope.launch {
-                val bitmap = withContext(Dispatchers.IO) { runCatching { fetchArt(url) }.getOrNull() }
+            if (url.isNotEmpty()) scope.launch {
+                val bitmap = Art.software(url, 512)
                 if (url == artUrl) {
                     art = bitmap
                     publish()
                 }
             }
         }
-        setPlaying(snapshot.optString("state") == "playing")
+        setPlaying(s.playing)
         publish()
-    }
-
-    private fun fetchArt(url: String): Bitmap? {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-        return try {
-            connection.inputStream.use { BitmapFactory.decodeStream(it) }
-        } finally {
-            connection.disconnect()
-        }
     }
 
     /** Copies the last state to the media session and the notification. */
     private fun publish() {
         if (session == null) return // stopped: keep the notification gone
-        val track = lastState.optJSONObject("track") ?: JSONObject()
+        val s = snap ?: return
         media.setMetadata(
             MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, track.optString("album"))
-                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, (lastState.optDouble("duration", 0.0) * 1000).toLong())
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, s.track?.name.orEmpty())
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, s.track?.artist.orEmpty())
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, s.track?.album.orEmpty())
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, (s.duration * 1000).toLong())
                 .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, art)
                 .build()
         )
-        val state = when (lastState.optString("state")) {
-            "playing" -> PlaybackStateCompat.STATE_PLAYING
-            "paused" -> PlaybackStateCompat.STATE_PAUSED
+        val state = when {
+            s.playing && s.buffering -> PlaybackStateCompat.STATE_BUFFERING
+            s.playing -> PlaybackStateCompat.STATE_PLAYING
+            s.state == "paused" -> PlaybackStateCompat.STATE_PAUSED
             else -> PlaybackStateCompat.STATE_STOPPED
         }
         media.setPlaybackState(
@@ -276,11 +247,12 @@ class CliampService : Service(), TerminalSessionClient {
                     PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
                         PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                         PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_STOP or
-                        (if (lastState.optBoolean("seekable")) PlaybackStateCompat.ACTION_SEEK_TO else 0L)
+                        (if (s.seekable) PlaybackStateCompat.ACTION_SEEK_TO else 0L)
                 )
                 // Android 13+ builds the media controls from the session, so Quit is a custom action there.
                 .addCustomAction(ACTION_QUIT, getString(R.string.quit), R.drawable.ic_close)
-                .setState(state, (lastState.optDouble("position", 0.0) * 1000).toLong(), if (playing) 1f else 0f)
+                // The system moves the position on from receivedAt at the core's speed.
+                .setState(state, (s.position * 1000).toLong(), s.speed.toFloat(), s.receivedAt)
                 .build()
         )
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
@@ -294,8 +266,8 @@ class CliampService : Service(), TerminalSessionClient {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_glyph)
-            .setContentTitle(title.ifEmpty { getString(R.string.app_name) })
-            .setContentText(artist)
+            .setContentTitle(snap?.track?.name.orEmpty().ifEmpty { getString(R.string.app_name) })
+            .setContentText(snap?.track?.artist.orEmpty())
             .setLargeIcon(art)
             .setContentIntent(open)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -364,15 +336,14 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
-    // TerminalSessionClient: the session reports to the view of the bound activity.
+    // TerminalSessionClient: the session reports to the view of the bound Modo terminal.
     override fun onTextChanged(changedSession: TerminalSession) {
-        activity?.onScreenUpdated(changedSession)
+        terminal?.onScreenUpdated(changedSession)
     }
 
     override fun onSessionFinished(finishedSession: TerminalSession) {
         if (finishedSession !== session) return
         session = null
-        events?.cancel()
         val next = afterExit
         afterExit = null
         // The core quit by itself: close the app, but keep a failure on screen.

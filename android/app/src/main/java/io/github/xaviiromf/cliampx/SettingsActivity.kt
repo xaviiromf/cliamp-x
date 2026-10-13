@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
-import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +31,7 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-/** Sign-in, local music, battery, updates and quit. */
+/** Sign-in, local music, battery, updates, Modo terminal and quit. */
 class SettingsActivity : AppCompatActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var status: TextView
@@ -92,7 +91,11 @@ class SettingsActivity : AppCompatActivity() {
         button(R.string.check_updates) { checkForUpdates(ask = true) }
         status = TextView(this).apply { text = getString(R.string.update_current, BuildConfig.VERSION_NAME) }
         list.addView(status)
-        button(R.string.update_ytdlp) { updateYtdlp() }
+        list.addView(Button(this).apply {
+            setText(R.string.update_ytdlp)
+            setOnClickListener { updateYtdlp(this) }
+        })
+        button(R.string.terminal) { startActivity(Intent(this, TerminalActivity::class.java)) }
         text(R.string.quit_help)
         button(R.string.quit) {
             CliampService.send(this, CliampService.ACTION_QUIT)
@@ -167,22 +170,22 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** Updates yt-dlp in place on the channel of the app: the core runs the new one from its next song. */
-    private fun updateYtdlp() {
+    /**
+     * Updates yt-dlp in place on the channel of the app, then plays a failed
+     * song again: the core runs the new yt-dlp from its next song.
+     */
+    private fun updateYtdlp(button: Button) {
         Toast.makeText(this, R.string.ytdlp_updating, Toast.LENGTH_SHORT).show()
-        val channel = if (Updates.prefs(this).getBoolean(Updates.NIGHTLY, false)) YoutubeDL.UpdateChannel.NIGHTLY else YoutubeDL.UpdateChannel.STABLE
+        button.isEnabled = false
         scope.launch {
-            val message = withContext(Dispatchers.IO) {
-                runCatching {
-                    val ytdl = YoutubeDL.getInstance()
-                    ytdl.init(applicationContext)
-                    val result = ytdl.updateYoutubeDL(applicationContext, channel)
-                    getString(if (result == YoutubeDL.UpdateStatus.DONE) R.string.ytdlp_done else R.string.ytdlp_current, ytdl.version(applicationContext))
-                }.getOrElse {
-                    if (Updates.offline(it)) getString(R.string.update_offline) else getString(R.string.ytdlp_failed, it.message ?: it.toString())
-                }
+            val message = when (val status = Remote.updateYtdlp()) {
+                is Ytdlp.Status.Updated -> getString(R.string.ytdlp_done, status.tag)
+                is Ytdlp.Status.UpToDate -> getString(R.string.ytdlp_current, status.tag)
+                is Ytdlp.Status.Failed -> status.message
+                else -> null
             }
-            Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
+            button.isEnabled = true
+            if (message != null) Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
         }
     }
 

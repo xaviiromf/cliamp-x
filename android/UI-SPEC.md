@@ -761,9 +761,10 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 
 **Text glyphs,** verified in JetBrains Mono:
 ```
-> ▶ ◀ ■ ● ○ ◌ ◉ ◎ ◆ ━ ─ │ ┤ ┼ ┏ ┃ ┗ ▸ ♥ ✓ ✗ ✕ ↓ ↑ → ← › · … — ‖ ≡ ≈ ⋮ + ×
-▁▂▃▄▅▆▇█ ░▒▓ ▀▄ ▕▐ ⌄ and the braille block U+2800–28FF
+> ▶ ◀ ■ ● ○ ◌ ◉ ◎ ◆ ━ ─ │ ┤ ┼ ┏ ┃ ┗ ▸ ✓ ✗ ✕ ↓ ↑ → ← › · … — ‖ ≡ ≈ ⋮ + ×
+▁▂▃▄▅▆▇█ ░▒▓ ▀▄ ▕▐ ⌄
 ```
+**Text glyphs from Android's fallback font:** `♥` and the braille block U+2800–28FF (the spinner). The static JetBrains Mono 2.304 TTF lacks them; only the Nerd Font build has them (checked in M1 with `java.awt.Font.canDisplay`).
 
 **Not in JBM,** so drawn as vectors, never as text: `⤨ ⟳ ⟲ ↻ ★ ☆ ⏲ ⏸ ❚ ♫ ♪ ♡ ⚙ ⌕ ▤ ⇄ ▮ ◑`.
 - The core sends `★ ` on starred genre rows and `♫ ` in artist preview lines. Strip both (§5.6).

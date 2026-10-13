@@ -1,19 +1,29 @@
 # cliamp-x for Android
 
-The Android shell of cliamp-x: a Kotlin app that runs the Go core in a
-terminal view. The design is in `PLAN.md`.
+The Android app of cliamp-x: a Kotlin app that runs the Go core and shows a
+native touch UI (Jetpack Compose) in the look of cliamp-x desktop. The TUI
+stays as **Modo terminal**. The design is in `PLAN.md`; the native UI follows
+`UI-SPEC.md`, built in milestones (M1: the shell, Buscar and the playback fix).
 
 The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 
 | File | What it does |
 |------|--------------|
 | `Core.kt` | Where the core lives and the environment it runs in. Writes the first `config.toml` |
-| `CliampService.kt` | Foreground service (`mediaPlayback`). Owns the terminal session of the core, the media session and its notification, audio focus, and the IPC link |
-| `MainActivity.kt` | The terminal view, the extra keys, back, pinch zoom, deep links and shared URLs |
+| `CliampService.kt` | Foreground service (`mediaPlayback`). Owns the terminal session of the core, the media session and its notification, and audio focus. Starts `Remote` and the yt-dlp update |
+| `Remote.kt` | The UI's link to the core: the `runtime.state` subscription and its merge, operations as V2 jobs, the yt-dlp play gate and error watcher, and the serialized `ui.render` mode |
+| `Models.kt` | The core's JSON as immutable models (`Snapshot`, `Track` with its raw JSON) and the pure helpers: snapshot merge, playback clock, search sections, error wording |
+| `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
+| `MainActivity.kt` | The native UI (Compose), the first-start permissions, deep links and shared URLs |
+| `TerminalActivity.kt` | Modo terminal: the terminal view, the extra keys, back, pinch zoom |
+| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt`, `Art.kt` (cover art at its drawn size), `Nav.kt` (tabs), `App.kt` (splash, banners, status line, mini-player, tab bar), `Home.kt`, `Search.kt`, `Library.kt` |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
-| `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, updates, yt-dlp update, quit |
+| `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, updates, yt-dlp update, Modo terminal, quit |
 | `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
 | `LoginActivity.kt` | YouTube Music sign-in in a WebView, saved as `ytmusic_cookies.txt` |
+
+`scripts/ui-smoke.sh` drives the UI over adb by its test tags and saves a
+screenshot per step (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`).
 
 ## Toolchain
 
@@ -53,8 +63,10 @@ missing. The APK carries one ABI, `arm64-v8a` by default. The Gradle property
 `cliampVersion`. `versionCode` is the commit count of `HEAD`, so a CI checkout
 needs the full history (`fetch-depth: 0`).
 
-Tests: `./gradlew testDebugUnitTest` runs the JVM tests of the updater, and
-`./gradlew lint` the Android lint.
+Tests: `./gradlew testDebugUnitTest` runs the JVM tests (the updaters, the
+models and snapshot merge, the yt-dlp policy, the `ui.render` sender, the art
+URLs, the palette, and the glyphs of JetBrains Mono), and `./gradlew lint` the
+Android lint.
 
 ### Release builds and signing
 
@@ -79,7 +91,8 @@ no future APK can update the installed ones.
 
 Settings has "Buscar actualizaciones", the channel (Estable: tags `v*`;
 Nightly: also the `nightly` prerelease) and "Actualizar yt-dlp". The app also
-checks once a day when it opens and only offers what it finds. A check runs
+checks once a day when it opens and only offers what it finds, in a banner on
+Inicio. A check runs
 `libcliamp.so upgrade --check --json [--prerelease]` (`docs/cli.md`), which
 compares versions in Go. The app takes `cliamp-x-<version>-<abi>.apk`
 (`<version>` without the `v` and the `+` build part) only from
@@ -88,6 +101,18 @@ SHA-256 from the release's `checksums.txt`. It downloads it into
 `cacheDir/updates`, deletes it when the SHA-256 differs, and opens the system
 installer, which first asks to allow installs from cliamp-x. Anonymous GitHub
 API access allows 60 requests an hour; a check uses two.
+
+yt-dlp updates by itself, because the copy bundled in youtubedl-android
+(2025.11.12) no longer plays today's YouTube. At each core start, and at most
+once a day after the first success, `Ytdlp` reads the newest tag from the
+`releases/latest` redirect of `yt-dlp/yt-dlp` (or `yt-dlp/yt-dlp-nightly-builds`
+on the Nightly channel), downloads `yt-dlp` and `SHA2-256SUMS` with 15 s
+timeouts and a 64 MB cap, checks the hash and the `#!` header, and renames
+the file over the bundled one. The core runs yt-dlp fresh for each song, so
+no restart is needed. Until the first update succeeds, a play request waits
+for it up to 45 s ("Preparando yt-dlp…"). `shared_prefs/updates.xml` keeps
+`ytdlp_tag` and `ytdlp_checked`. yt-dlp keeps its cache (the solved signature
+functions) in `cacheDir/yt-dlp`, through `XDG_CACHE_HOME`.
 
 To test the download, the SHA-256 check and the installer without a GitHub
 release, debug builds have `DebugUpdateActivity`. Build a second debug APK
@@ -156,9 +181,10 @@ music_dir = "/storage/emulated/0/Music"
 ```
 
 It leaves `low_power` off so the visualizers keep their full frame rate
-while the app is visible. Closing the app leaves the core playing. When the
-app goes to the background it sends `ui.render off`, which stops drawing,
-and `ui.render on` when it comes back.
+while Modo terminal is visible. Closing the app leaves the core playing. The
+core draws only while Modo terminal is on screen: `Remote` sends `ui.render on`
+when it opens and `ui.render off` otherwise, one request at a time, and again
+after each reconnect. The native UI uses V2 IPC only.
 Quit, in the notification or in the settings (`⋮`), sends the core SIGTERM so
 it saves the resume position, and kills it after 5 seconds.
 `cliamp-x://` links and URLs shared to the app run
@@ -177,4 +203,7 @@ The terminal view (`com.github.termux.termux-app:terminal-view` and
 `:terminal-emulator`) is Apache 2.0. youtubedl-android
 (`io.github.junkfood02.youtubedl-android`) is GPL-3.0, so the APK as a whole
 is distributed under the GPL-3.0. It bundles Python, yt-dlp, QuickJS and
-ffmpeg under their own licenses.
+ffmpeg under their own licenses. JetBrains Mono 2.304 is SIL OFL 1.1
+(`app/src/main/assets/licenses/JetBrainsMono-OFL.txt`); the `ic_home`,
+`ic_search`, `ic_library`, `ic_settings` and `ic_note` icons are Material
+Symbols Sharp, Apache 2.0.

@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // The one ABI this APK carries: arm64-v8a for phones, x86_64 for the emulator
@@ -56,6 +57,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 
     // The Go core, Python and ffmpeg run as programs from nativeLibraryDir,
@@ -84,6 +86,12 @@ val checkCore by tasks.registering {
 tasks.named("preBuild") { dependsOn(checkCore) }
 
 dependencies {
+    // AGP 8.13.2 / compileSdk 36 ceiling: do not bump the BOM past 2026.06.01,
+    // activity past 1.13.x, or lifecycle past 2.10.x.
+    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("androidx.media:media:1.8.0")

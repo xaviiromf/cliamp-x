@@ -7,6 +7,7 @@ import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Where the Go core lives and the environment it runs in. */
 object Core {
@@ -16,14 +17,23 @@ object Core {
     fun socket(ctx: Context) = File(configDir(ctx), "cliamp-x.sock")
     fun cookies(ctx: Context) = File(configDir(ctx), "ytmusic_cookies.txt")
 
+    /** The yt-dlp zipapp that CLIAMP_YTDLP runs and Ytdlp replaces. */
+    fun ytdlp(ctx: Context) = File(File(ctx.noBackupFilesDir, YoutubeDL.baseName), "${YoutubeDL.ytdlpDirName}/${YoutubeDL.ytdlpBin}")
+
+    private val unpacked = AtomicBoolean(false)
+
     /**
      * Unpacks Python, yt-dlp and ffmpeg (youtubedl-android does it once per
      * library version), makes the directories and writes the first config.
      * Slow on the first start: call it off the main thread.
      */
     fun prepare(ctx: Context) {
-        YoutubeDL.getInstance().init(ctx)
-        FFmpeg.getInstance().init(ctx)
+        // Once per process: a core restart needs no second unpack check.
+        if (!unpacked.get()) {
+            YoutubeDL.getInstance().init(ctx)
+            FFmpeg.getInstance().init(ctx)
+            unpacked.set(true)
+        }
         listOf(File(ctx.filesDir, "home"), configDir(ctx), File(ctx.filesDir, "data"), File(ctx.cacheDir, "tmp"))
             .forEach { it.mkdirs() }
         val config = configFile(ctx)
@@ -57,7 +67,7 @@ object Core {
         val pythonHome = "$python/usr"
         val libraryPath = "$python/usr/lib:$base/packages/ffmpeg/usr/lib:$base/packages/aria2c/usr/lib"
         val certs = "$python/usr/etc/tls/cert.pem"
-        val ytdlp = File(base, "${YoutubeDL.ytdlpDirName}/${YoutubeDL.ytdlpBin}")
+        val ytdlp = ytdlp(ctx)
         val locale = Locale.getDefault()
         val sep = "\u001f"
         return arrayOf(
