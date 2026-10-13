@@ -91,12 +91,13 @@ The first start writes this `config.toml`:
 
 ```toml
 mouse = true
-low_power = true
 music_dir = "/storage/emulated/0/Music"
 ```
 
-Closing the app leaves the core playing. When the app goes to the
-background it sends `ui.render off`, and `ui.render on` when it comes back.
+It leaves `low_power` off so the visualizers keep their full frame rate
+while the app is visible. Closing the app leaves the core playing. When the
+app goes to the background it sends `ui.render off`, which stops drawing,
+and `ui.render on` when it comes back.
 Quit, in the notification or in the settings (`⋮`), sends the core SIGTERM so
 it saves the resume position, and kills it after 5 seconds.
 `cliamp-x://` links and URLs shared to the app run

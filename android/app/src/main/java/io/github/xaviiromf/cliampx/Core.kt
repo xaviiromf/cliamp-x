@@ -34,7 +34,6 @@ object Core {
                 """
                 |# Written by the cliamp-x app on its first start. config.toml.example lists every key.
                 |mouse = true
-                |low_power = true
                 |music_dir = "$music"
                 |""".trimMargin()
             )
