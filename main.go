@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync/atomic"
@@ -96,7 +97,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		}
 	}
 
-	providers := buildProviders(cfg, !headless && isCharDevice(os.Stdin))
+	// The Android app supplies yt-dlp, so nothing there can install it.
+	providers := buildProviders(cfg, !headless && runtime.GOOS != "android" && isCharDevice(os.Stdin))
 	defer providers.Close()
 
 	positional, err = searchArgs(positional)
@@ -188,7 +190,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 
 	// Notification buttons reach the program once it exists.
 	var sendToProgram atomic.Pointer[func(tea.Msg)]
-	if !cfg.NotifyOff {
+	// Android has no D-Bus: the app shows its own media notification.
+	if !cfg.NotifyOff && runtime.GOOS != "android" {
 		if notifier, nerr := desktopnotify.New(model.L("Pause"), model.L("Next"), model.L("Like"), func(action string) {
 			if send := sendToProgram.Load(); send != nil {
 				(*send)(model.NotifyActionMsg{Action: action})

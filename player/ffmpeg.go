@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/gopxl/beep/v2"
+
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 )
 
 // pcmFrameSize16 is the byte size of one stereo s16le sample frame (2 channels × 2 bytes).
@@ -239,7 +241,7 @@ func decodeFFmpegStream(path string, sr beep.SampleRate, bitDepth int) (*ffmpegP
 // returned ffmpegPipe in a streamer type.
 func startFFmpegPipe(input string, stdin io.ReadCloser, sr beep.SampleRate, bitDepth int) (ffmpegPipe, beep.Format, error) {
 	_, _, precision := ffmpegPCMArgs(bitDepth)
-	cmd := exec.Command("ffmpeg", append([]string{"-i", input}, pcmOutputArgs(sr, bitDepth)...)...)
+	cmd := extbin.Command(context.Background(), "ffmpeg", append([]string{"-i", input}, pcmOutputArgs(sr, bitDepth)...)...)
 	cmd.Stdin = stdin
 	proc := newFFmpegProcess(cmd)
 
@@ -451,7 +453,7 @@ func (s *localFFmpegStreamer) startPipe(seekPos int) (ffmpegPipe, error) {
 	args = append(args, "-i", s.path)
 	args = append(args, pcmOutputArgs(s.sr, s.bitDepth())...)
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := extbin.Command(context.Background(), "ffmpeg", args...)
 	proc := newFFmpegProcess(cmd)
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -537,13 +539,12 @@ func (s *localFFmpegStreamer) prepareSeek(pos int) (*preparedFFmpegSeek, error) 
 	return &preparedFFmpegSeek{expected: s.state, replacement: replacement}, nil
 }
 
-// ffmpegAvailable reports whether ffmpeg is on PATH. The buffered pipeline
-// decodes through it, so a source can only be routed there when it is
-// installed. It looks up PATH on each call, so an ffmpeg installed while
-// cliamp runs is found.
+// ffmpegAvailable reports whether ffmpeg is on PATH, or set by CLIAMP_FFMPEG.
+// The buffered pipeline decodes through it, so a source can only be routed
+// there when it is installed. It looks up PATH on each call, so an ffmpeg
+// installed while cliamp runs is found.
 func ffmpegAvailable() bool {
-	_, err := exec.LookPath("ffmpeg")
-	return err == nil
+	return extbin.Have("ffmpeg")
 }
 
 // requireFFmpeg returns an error with a platform install hint when ffmpeg is
@@ -656,7 +657,7 @@ func (s *navFFmpegStreamer) startPipe(seekPos int, validate bool) (ffmpegPipe, e
 		args = append(args, "-ss", strconv.FormatFloat(secs, 'f', 3, 64))
 	}
 	args = append(args, pcmOutputArgs(s.sr, s.bitDepth())...)
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := extbin.Command(context.Background(), "ffmpeg", args...)
 	proc := newFFmpegProcess(cmd)
 
 	pipe, err := cmd.StdoutPipe()

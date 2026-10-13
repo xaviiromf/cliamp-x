@@ -15,6 +15,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 
+	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
 )
@@ -33,10 +34,10 @@ const ytdlCauseGrace = 3 * time.Second
 
 const ytdlPipelineMaxAttempts = 3
 
-// YTDLPAvailable reports whether yt-dlp is installed and on PATH.
+// YTDLPAvailable reports whether yt-dlp is installed and on PATH, or set
+// by CLIAMP_YTDLP.
 func YTDLPAvailable() bool {
-	_, err := exec.LookPath("yt-dlp")
-	return err == nil
+	return extbin.Have("yt-dlp")
 }
 
 func appendYTDLCookieArgs(args []string, pageURL string) []string {
@@ -54,7 +55,7 @@ func probeYTDLDuration(pageURL string) time.Duration {
 	// playlist.IsURL, but keep the terminator so a future caller cannot turn
 	// a crafted URL into --exec and reach arbitrary command execution.
 	args = append(args, "--", pageURL)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd := extbin.Command(ctx, "yt-dlp", args...)
 	// WaitDelay ensures cmd.Output() doesn't hang indefinitely if the
 	// process is killed but I/O pipe goroutines haven't drained. Without
 	// this, a zombie yt-dlp child keeping stdout open can block Output()
@@ -245,7 +246,7 @@ const ytdlFormat = "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio
 // the page info prefetched there instead of extracting it again, which
 // starts the audio seconds sooner.
 func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
-	if _, err := exec.LookPath("yt-dlp"); err != nil {
+	if !YTDLPAvailable() {
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp is required — install: %s", ytdlp.InstallHint())
 	}
 	if err := requireFFmpeg(); err != nil {
@@ -283,7 +284,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 	} else {
 		ytdlArgs = append(ytdlArgs, "--", pageURL)
 	}
-	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
+	ytdlCmd := extbin.Command(context.Background(), "yt-dlp", ytdlArgs...)
 	ytdlCmd.Stdout = ytIn
 	var ytdlStderr limitedBuffer
 	ytdlCmd.Stderr = &ytdlStderr
@@ -303,7 +304,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 	}
 	ffmpegArgs = append(ffmpegArgs, "-i", "pipe:0")
 	ffmpegArgs = append(ffmpegArgs, pcmOutputArgs(sr, bitDepth)...)
-	ffmpegCmd := exec.Command("ffmpeg", ffmpegArgs...)
+	ffmpegCmd := extbin.Command(context.Background(), "ffmpeg", ffmpegArgs...)
 	ffmpegCmd.Stdin = pr
 	var ffmpegStderr limitedBuffer
 	ffmpegCmd.Stderr = &ffmpegStderr
