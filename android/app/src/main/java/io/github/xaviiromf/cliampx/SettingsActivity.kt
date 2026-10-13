@@ -6,19 +6,41 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import com.yausername.youtubedl_android.YoutubeDL
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
 
-/** Sign-in, local music, battery and quit. */
+/** Sign-in, local music, battery, updates and quit. */
 class SettingsActivity : AppCompatActivity() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private lateinit var status: TextView
+    private var updating: Job? = null
+
+    /** A verified update that waits for the permission to install apps. */
+    private var pending: File? = null
+
     private val importCookies = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importCookies(uri)
     }
@@ -54,7 +76,23 @@ class SettingsActivity : AppCompatActivity() {
         button(R.string.allow_music) { askMusic.launch(MainActivity.musicPermission()) }
         text(R.string.battery_help)
         button(R.string.battery) { ignoreBatteryOptimizations() }
-        // Phase 4 adds "Buscar actualizaciones" and "Actualizar yt-dlp" here.
+        text(R.string.updates_help)
+        val prefs = Updates.prefs(this)
+        list.addView(RadioGroup(this).apply {
+            orientation = RadioGroup.HORIZONTAL
+            for ((label, nightly) in listOf(R.string.channel_stable to false, R.string.channel_nightly to true)) {
+                addView(RadioButton(context).apply {
+                    id = View.generateViewId()
+                    setText(label)
+                    isChecked = prefs.getBoolean(Updates.NIGHTLY, false) == nightly
+                    setOnClickListener { prefs.edit { putBoolean(Updates.NIGHTLY, nightly) } }
+                })
+            }
+        })
+        button(R.string.check_updates) { checkForUpdates(ask = true) }
+        status = TextView(this).apply { text = getString(R.string.update_current, BuildConfig.VERSION_NAME) }
+        list.addView(status)
+        button(R.string.update_ytdlp) { updateYtdlp() }
         text(R.string.quit_help)
         button(R.string.quit) {
             CliampService.send(this, CliampService.ACTION_QUIT)
@@ -64,6 +102,88 @@ class SettingsActivity : AppCompatActivity() {
         val scroll = ScrollView(this).apply { addView(list) }
         padForSystemBars(scroll)
         setContentView(scroll)
+        // The daily check of MainActivity found an update and the user chose to install it.
+        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_UPDATE, false)) checkForUpdates(ask = false)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Back from the setting that lets cliamp-x install apps.
+        val file = pending ?: return
+        if (packageManager.canRequestPackageInstalls()) {
+            pending = null
+            status.text = ""
+            Updates.install(this, file)
+        }
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    /** Asks the core for the newest release; ask confirms before the download. */
+    private fun checkForUpdates(ask: Boolean) {
+        if (updating?.isActive == true) return
+        status.setText(R.string.update_checking)
+        updating = scope.launch {
+            val release = try {
+                withContext(Dispatchers.IO) { Updates.check(this@SettingsActivity) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                status.text = Updates.message(this@SettingsActivity, e)
+                return@launch
+            }
+            val apk = release.apk
+            when {
+                !release.newer -> status.text = getString(R.string.update_none, release.latest)
+                apk == null -> status.text = getString(R.string.update_no_apk, release.latest)
+                !ask -> install(apk)
+                else -> AlertDialog.Builder(this@SettingsActivity)
+                    .setMessage(getString(R.string.update_available, release.latest))
+                    .setPositiveButton(R.string.update_install) { _, _ -> updating = scope.launch { install(apk) } }
+                    .setNegativeButton(R.string.later) { _, _ -> status.text = "" }
+                    .show()
+            }
+        }
+    }
+
+    /** Downloads apk, checks its SHA-256 and opens the system installer. */
+    private suspend fun install(apk: Updates.Apk) {
+        status.text = getString(R.string.update_downloading, apk.name)
+        val file = try {
+            Updates.download(File(cacheDir, "updates"), apk)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            status.text = Updates.message(this, e)
+            return
+        }
+        status.text = ""
+        if (!Updates.install(this, file)) {
+            pending = file
+            status.setText(R.string.update_allow)
+        }
+    }
+
+    /** Updates yt-dlp in place on the channel of the app: the core runs the new one from its next song. */
+    private fun updateYtdlp() {
+        Toast.makeText(this, R.string.ytdlp_updating, Toast.LENGTH_SHORT).show()
+        val channel = if (Updates.prefs(this).getBoolean(Updates.NIGHTLY, false)) YoutubeDL.UpdateChannel.NIGHTLY else YoutubeDL.UpdateChannel.STABLE
+        scope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching {
+                    val ytdl = YoutubeDL.getInstance()
+                    ytdl.init(applicationContext)
+                    val result = ytdl.updateYoutubeDL(applicationContext, channel)
+                    getString(if (result == YoutubeDL.UpdateStatus.DONE) R.string.ytdlp_done else R.string.ytdlp_current, ytdl.version(applicationContext))
+                }.getOrElse {
+                    if (Updates.offline(it)) getString(R.string.update_offline) else getString(R.string.ytdlp_failed, it.message ?: it.toString())
+                }
+            }
+            Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
+        }
     }
 
     @SuppressLint("BatteryLife") // a music player that One UI must not suspend; no Play Store
@@ -94,5 +214,6 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val MAX_COOKIES = 1 shl 20
+        const val EXTRA_UPDATE = "update"
     }
 }

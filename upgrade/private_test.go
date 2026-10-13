@@ -99,7 +99,7 @@ func TestRunPrivateRepoUsesAssetAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := testHash(payload)
-	rel, err := latestRelease(false, tokenSource())
+	rel, err := latestRelease(false, tokenSource(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -234,9 +234,30 @@ func upgradeCommand() *cli.Command {
 		Usage: "upgrade cliamp to the latest stable release",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "prerelease", Usage: "upgrade to the newest release, prereleases included"},
+			&cli.BoolFlag{Name: "check", Usage: "report the newest release and install nothing"},
+			&cli.BoolFlag{Name: "json", Usage: "with --check, print the report as one JSON object"},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
-			return upgrade.Run(version, c.Bool("prerelease"))
+			if !c.Bool("check") {
+				// A script that asks for JSON must never replace the binary.
+				if c.Bool("json") {
+					return errors.New("--json works only with --check")
+				}
+				return upgrade.Run(version, c.Bool("prerelease"))
+			}
+			report, err := upgrade.Check(version, c.Bool("prerelease"))
+			if err != nil {
+				return err
+			}
+			if c.Bool("json") {
+				return json.NewEncoder(os.Stdout).Encode(report)
+			}
+			if report.Newer {
+				fmt.Printf("%s is available (this is %s). Run cliamp-x upgrade to install it.\n", report.Latest, report.Current)
+			} else {
+				fmt.Printf("Up to date (%s). The newest release is %s.\n", report.Current, report.Latest)
+			}
+			return nil
 		},
 	}
 }

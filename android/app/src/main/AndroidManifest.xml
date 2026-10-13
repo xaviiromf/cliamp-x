@@ -11,6 +11,8 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Opens the system installer for an update APK from the GitHub releases. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- allowBackup is off: the config directory holds the YouTube sign-in.
          requestLegacyExternalStorage lets Android 10 read ~/Music by path. -->
@@ -45,8 +47,10 @@
             </intent-filter>
         </activity>
 
+        <!-- configChanges: rotating keeps an update download going. -->
         <activity
             android:name=".SettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
             android:exported="false" />
 
         <activity
@@ -58,5 +62,15 @@
             android:name=".CliampService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/updates" />
+        </provider>
     </application>
 </manifest>

@@ -18,6 +18,13 @@ func TestVersionCompare(t *testing.T) {
 		{a: "v2.0.0-alpha", b: "v2.0.0-alpha.1", want: -1},
 		{a: "v2.0.0-alpha.1", b: "v2.0.0-alpha.beta", want: -1},
 		{a: "v2.0.0-1", b: "v2.0.0-alpha", want: -1},
+		// The Android nightly after v2.2.1 is v2.2.2-nightly.<yyyymmdd>.<commits>+<sha>.
+		{a: "v2.2.2-nightly.20261013.812+abc1234", b: "v2.2.1", want: 1},
+		{a: "v2.2.2-nightly.20261013.812+abc1234", b: "v2.2.2", want: -1},
+		{a: "v2.2.2-nightly.20261014.813+def5678", b: "v2.2.2-nightly.20261013.812+abc1234", want: 1},
+		{a: "v2.2.2-nightly.20261013.815+def5678", b: "v2.2.2-nightly.20261013.812+abc1234", want: 1},
+		{a: "v2.2.2-nightly.20261013.812+def5678", b: "v2.2.2-nightly.20261013.812+abc1234", want: 0},
+		{a: "v2.2.2-nightly.20261013.812", b: "v2.2.2-rc.1", want: -1},
 	} {
 		t.Run(tc.a+" vs "+tc.b, func(t *testing.T) {
 			a, ok := parseVersion(tc.a)

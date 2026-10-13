@@ -1,0 +1,98 @@
+name: Nightly
+
+# Builds the signed Android APK of each push and publishes it as the
+# prerelease "nightly", whose tag moves to the commit. The app's nightly
+# channel and `cliamp-x upgrade --check --prerelease` read its version from
+# the release title. android/README.md describes the version format.
+on:
+  push:
+    branches: [main, android]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Only the newest push publishes.
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check the signing secrets
+        # An unsigned or debug-signed APK could never update the installed app.
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_B64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The repository secret $name is not set. PLAN.md phase 0 step 4 creates the release keystore and its secrets."
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - uses: actions/checkout@v7.0.1
+        with:
+          # versionCode and the version count the commits.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Version
+        # v<next patch>-nightly.<yyyymmdd>.<commit count>+<short sha>: newer than
+        # the last stable tag, older than the next one, ordered like versionCode.
+        run: |
+          stable=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' HEAD)
+          IFS=. read -r major minor patch <<< "${stable#v}"
+          date=$(TZ=UTC git show -s --format=%cd --date=format-local:%Y%m%d HEAD)
+          version="v$major.$minor.$((patch + 1))-nightly.$date.$(git rev-list --count HEAD)+$(git rev-parse --short HEAD)"
+          if ! [[ $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+\+[0-9a-f]+$ ]]; then
+            echo "::error::Bad nightly version $version from tag $stable"
+            exit 1
+          fi
+          apk="cliamp-x-${version#v}"
+          apk="${apk%%+*}-arm64-v8a.apk"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+          echo "$version -> $apk"
+      - name: make android-core
+        run: make android-core VERSION="$VERSION" ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+      - name: Build the signed APK
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          (cd android && ./gradlew --no-daemon -PcliampVersion="$VERSION" :app:assembleRelease)
+          rm -f "$ANDROID_KEYSTORE_FILE"
+          signed=android/app/build/outputs/apk/release/app-release.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          "$apksigner" verify --print-certs "$signed"
+          mkdir dist
+          cp "$signed" "dist/$APK"
+          cd dist
+          sha256sum -- * > checksums.txt
+          cat checksums.txt
+      - name: Publish the nightly prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nightly --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          # A tag left by a failed run would keep the release on its old commit.
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/nightly" 2>/dev/null || true
+          gh release create nightly dist/* --repo "$GITHUB_REPOSITORY" --prerelease \
+            --target "$GITHUB_SHA" --title "$VERSION" \
+            --notes "Android nightly $VERSION from $GITHUB_SHA. Install it from the app: Ajustes, channel Nightly, Buscar actualizaciones."

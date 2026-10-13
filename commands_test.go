@@ -438,3 +438,12 @@ func TestStatusJSONKeepsZeroValues(t *testing.T) {
 		})
 	}
 }
+
+// cliamp-x upgrade --json without --check fails before it touches the
+// network, so a script that wants the report never replaces the binary.
+func TestUpgradeJSONNeedsCheck(t *testing.T) {
+	err := buildApp().Run(t.Context(), []string{"cliamp", "upgrade", "--json"})
+	if err == nil || !strings.Contains(err.Error(), "--check") {
+		t.Fatalf("upgrade --json = %v, want an error naming --check", err)
+	}
+}

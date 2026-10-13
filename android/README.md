@@ -11,7 +11,8 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 | `CliampService.kt` | Foreground service (`mediaPlayback`). Owns the terminal session of the core, the media session and its notification, audio focus, and the IPC link |
 | `MainActivity.kt` | The terminal view, the extra keys, back, pinch zoom, deep links and shared URLs |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
-| `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, quit |
+| `SettingsActivity.kt` | Sign-in, cookies.txt import, local music permission, battery, updates, yt-dlp update, quit |
+| `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
 | `LoginActivity.kt` | YouTube Music sign-in in a WebView, saved as `ytmusic_cookies.txt` |
 
 ## Toolchain
@@ -51,6 +52,66 @@ missing. The APK carries one ABI, `arm64-v8a` by default. The Gradle property
 `versionName` is `git describe --tags` without the `v`, or the Gradle property
 `cliampVersion`. `versionCode` is the commit count of `HEAD`, so a CI checkout
 needs the full history (`fetch-depth: 0`).
+
+Tests: `./gradlew testDebugUnitTest` runs the JVM tests of the updater, and
+`./gradlew lint` the Android lint.
+
+### Release builds and signing
+
+`./gradlew assembleRelease` signs the APK when `ANDROID_KEYSTORE_FILE` (the
+path of the keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD` are set, as `.github/workflows/nightly.yml` does with
+the secrets of the same names. Without `ANDROID_KEYSTORE_FILE` it builds
+`app-release-unsigned.apk`, which Android does not install. With the file but
+a missing password variable, Gradle stops and names the variable.
+
+Android installs an update only when it is signed with the same key as the
+installed app. The releases and the nightly are signed with the release key;
+local debug builds are signed with `~/.android/debug.keystore`. So a debug
+build never updates from a release and a release never updates a debug
+build: switching between them needs `adb uninstall io.github.xaviiromf.cliampx` first,
+which deletes the app data, the YouTube sign-in included (copy
+`files/config` out with `adb shell run-as` before, if it matters). Debug
+builds of the same machine update each other. Losing the release key means
+no future APK can update the installed ones.
+
+### Updates
+
+Settings has "Buscar actualizaciones", the channel (Estable: tags `v*`;
+Nightly: also the `nightly` prerelease) and "Actualizar yt-dlp". The app also
+checks once a day when it opens and only offers what it finds. A check runs
+`libcliamp.so upgrade --check --json [--prerelease]` (`docs/cli.md`), which
+compares versions in Go. The app takes `cliamp-x-<version>-<abi>.apk`
+(`<version>` without the `v` and the `+` build part) only from
+`https://github.com/xaviiromf/cliamp-x/releases/download/` and only with a
+SHA-256 from the release's `checksums.txt`. It downloads it into
+`cacheDir/updates`, deletes it when the SHA-256 differs, and opens the system
+installer, which first asks to allow installs from cliamp-x. Anonymous GitHub
+API access allows 60 requests an hour; a check uses two.
+
+To test the download, the SHA-256 check and the installer without a GitHub
+release, debug builds have `DebugUpdateActivity`. Build a second debug APK
+(for example with `-PcliampVersion=v9.9.9-test`), then:
+
+```
+adb push app-debug.apk /sdcard/Android/data/io.github.xaviiromf.cliampx/files/update.apk
+adb shell am start -n io.github.xaviiromf.cliampx/.DebugUpdateActivity --es sha256 $(sha256sum app-debug.apk | cut -d' ' -f1)
+adb logcat -s DebugUpdate
+```
+
+A wrong `sha256` logs the mismatch and leaves `cache/updates` empty.
+
+### Nightly
+
+`.github/workflows/nightly.yml` runs on every push to `android` and `main`
+(and by hand). It builds the arm64 core and the signed release APK, and
+replaces the prerelease `nightly`, moving its tag to the commit. The version
+is `v<next patch>-nightly.<yyyymmdd>.<commit count>+<short sha>`: after
+v2.2.1 that is `v2.2.2-nightly.20261013.1700+abc1234`, newer than v2.2.1 and
+older than v2.2.2, and the commit count orders two nightlies of one day as
+`versionCode` does. The release is titled with the version, which
+`upgrade --check` reads because the tag is not one. It fails without the four
+signing secrets instead of publishing an APK that cannot update.
 
 ### Emulator
 

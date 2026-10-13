@@ -40,6 +40,14 @@ object Core {
         }
     }
 
+    /** Runs the core once with args, as `libcliamp.so open` or `upgrade --check`, in the core's environment. */
+    fun command(ctx: Context, vararg args: String) = ProcessBuilder(binary(ctx).path, *args).apply {
+        environment().apply {
+            clear()
+            env(ctx).forEach { val (k, v) = it.split("=", limit = 2); put(k, v) }
+        }
+    }
+
     /** The environment of the core: PLAN.md phase 2 step 3 and the extbin variables. */
     fun env(ctx: Context): Array<String> {
         val lib = ctx.applicationInfo.nativeLibraryDir
