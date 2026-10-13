@@ -306,7 +306,7 @@ unstars the genre `playlist` and gives the new state in `favorite`.
 `provider.refresh` drops the cached lists of the provider, so the next read
 asks the service again, and starts the `foryou` lists over.
 
-`provider.preview` gives the picture and the detail lines of an album,
+`provider.preview` gives the picture and the non-blank detail lines of an album,
 artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube
 Music album (`MPREb_…`) or artist (`UC…`) of a signed-in account it also
 gives `favorite`, whether the album is saved or the artist followed.

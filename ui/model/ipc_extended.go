@@ -627,7 +627,7 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 				request.Reply <- ipcResponseError(err)
 				return nil
 			}
-			preview := &ipc.PreviewInfo{ImageURL: details.ImageURL, Lines: details.Lines}
+			preview := &ipc.PreviewInfo{ImageURL: details.ImageURL, Lines: compactLines(details.Lines...)} // a playlist without author gives a blank line
 			if stater, ok := entry.Provider.(provider.FavoriteStater); ok {
 				if on, known := stater.FavoriteState(request.Playlist); known {
 					preview.Favorite = &on

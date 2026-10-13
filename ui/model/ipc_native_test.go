@@ -644,7 +644,7 @@ func (p *browseTestProvider) Refresh() {
 }
 
 func (p *browseTestProvider) PreviewDetails(_ context.Context, id string) (provider.PreviewDetails, error) {
-	return provider.PreviewDetails{ImageURL: id + ".jpg", Lines: []string{"2024", "Band"}}, nil
+	return provider.PreviewDetails{ImageURL: id + ".jpg", Lines: []string{"", "2024", " ", "Band"}}, nil
 }
 
 func (p *browseTestProvider) FavoriteState(id string) (bool, bool) {
