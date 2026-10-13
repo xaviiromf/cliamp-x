@@ -131,6 +131,10 @@ func (p *Provider) Client() *Client { return p.client }
 
 func (p *Provider) Name() string { return "YouTube Music" }
 
+// SignedIn reports whether the cookies hold a YouTube sign-in. It does no
+// I/O.
+func (p *Provider) SignedIn() bool { return p.client.SignedIn() }
+
 func budget() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), requestBudget)
 }

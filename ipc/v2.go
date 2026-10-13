@@ -128,6 +128,29 @@ type RuntimeSnapshot struct {
 	Visualizer       string     `json:"visualizer,omitempty"`
 	Theme            *ThemeInfo `json:"theme,omitempty"`
 	StreamError      string     `json:"stream_error,omitempty"`
+	// Buffering is true while a track starts. Seeking is true while a seek
+	// that restarts a decoder runs; Position then holds its target.
+	Buffering bool `json:"buffering,omitempty"`
+	Seeking   bool `json:"seeking,omitempty"`
+	// Error is the reason the last track start failed, with its kind
+	// (network, session, ytdlp, unavailable or empty) and the track path.
+	Error        string      `json:"error,omitempty"`
+	ErrorKind    string      `json:"error_kind,omitempty"`
+	ErrorPath    string      `json:"error_path,omitempty"`
+	Notice       *NoticeInfo `json:"notice,omitempty"`
+	SleepMinutes int         `json:"sleep_minutes,omitempty"`
+	SleepAt      int64       `json:"sleep_at,omitempty"`
+	AutoRadio    bool        `json:"auto_radio,omitempty"`
+	Normalize    string      `json:"normalize,omitempty"`
+	Crossfade    int         `json:"crossfade,omitempty"`
+	EQAuto       bool        `json:"eq_auto,omitempty"`
+}
+
+// NoticeInfo is the status line text and its kind: activity, success,
+// warning or error.
+type NoticeInfo struct {
+	Text string `json:"text"`
+	Kind string `json:"kind"`
 }
 
 // V2Result is the dispatcher result payload. Exactly one of Result or
@@ -193,6 +216,10 @@ func cloneSnapshot(snapshot *RuntimeSnapshot) *RuntimeSnapshot {
 	if snapshot.Theme != nil {
 		theme := *snapshot.Theme
 		snapshotCopy.Theme = &theme
+	}
+	if snapshot.Notice != nil {
+		notice := *snapshot.Notice
+		snapshotCopy.Notice = &notice
 	}
 	return &snapshotCopy
 }

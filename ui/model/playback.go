@@ -428,9 +428,11 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		m.buffering = true
 		m.bufferingAt = time.Now()
 		m.err = nil
+		m.setPlayError("", nil)
 		return tea.Batch(playStreamCmd(m.player, track.Path, dur, m.startPosition(track), m.requests.stream), fetchCmd)
 	}
 	if err := m.player.PlayAt(track.Path, dur, m.startPosition(track)()); err != nil {
+		m.setPlayError(track.Path, err)
 		// Provider session went stale (e.g. Spotify auth expired and
 		// silent reconnect failed). Surface the standard sign-in
 		// overlay rather than the raw stream error.
@@ -443,6 +445,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		}
 	} else {
 		m.err = nil
+		m.setPlayError("", nil)
 		// Async starts resume after streamPlayedMsg. A native local file
 		// started at the hint, so applyResume seeks here only when that
 		// start seek failed.

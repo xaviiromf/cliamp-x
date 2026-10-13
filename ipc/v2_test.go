@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -87,6 +88,53 @@ func TestUIRenderOperation(t *testing.T) {
 		if err := registry.Validate("ui.render", json.RawMessage(params)); err != nil {
 			t.Fatalf("Validate(ui.render, %s) = %+v, want nil", params, err)
 		}
+	}
+}
+
+// The native Android UI reads these parameters from capabilities.
+func TestNativeOperationParameters(t *testing.T) {
+	registry := DefaultOperationRegistry()
+	for name, want := range map[string][]string{
+		"queue.replace":       {"tracks", "index", "if_revision"},
+		"queue.list":          {"sort", "offset", "limit"},
+		"provider.load":       {"provider", "playlist", "index"},
+		"provider.load_album": {"provider", "album", "index"},
+	} {
+		operation, ok := registry.Lookup(name)
+		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {
+			t.Errorf("%s = %+v (registered %v), want an async operation with %v", name, operation, ok, want)
+		}
+	}
+}
+
+// The new snapshot fields keep their JSON names, and a cloned snapshot
+// owns its notice.
+func TestRuntimeSnapshotNativeFields(t *testing.T) {
+	snapshot := RuntimeSnapshot{
+		Buffering: true, Seeking: true, Error: "e", ErrorKind: "network", ErrorPath: "/a",
+		Notice: &NoticeInfo{Text: "Saved", Kind: "success"}, SleepMinutes: -1, SleepAt: 7,
+		AutoRadio: true, Normalize: "track", Crossfade: 3, EQAuto: true,
+	}
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"buffering", "seeking", "error", "error_kind", "error_path", "notice", "sleep_minutes", "sleep_at", "auto_radio", "normalize", "crossfade", "eq_auto"} {
+		if _, ok := fields[name]; !ok {
+			t.Errorf("snapshot JSON %s has no %s", data, name)
+		}
+	}
+	if string(fields["notice"]) != `{"text":"Saved","kind":"success"}` {
+		t.Errorf("notice = %s", fields["notice"])
+	}
+	clone := cloneSnapshot(&snapshot)
+	clone.Notice.Text = "changed"
+	if snapshot.Notice.Text != "Saved" {
+		t.Error("the clone shares its notice")
 	}
 }
 

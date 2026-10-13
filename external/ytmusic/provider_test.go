@@ -74,3 +74,19 @@ func TestSongTrackAndPlaceholder(t *testing.T) {
 		t.Fatalf("trackVideoID = %q", got)
 	}
 }
+
+func TestProviderSignedIn(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		auth *Auth
+		want bool
+	}{
+		{name: "cookies with a sign-in", auth: testAuth(), want: true},
+		{name: "no cookies", auth: &Auth{}},
+		{name: "no auth"},
+	} {
+		if got := New(&Client{auth: tc.auth}, Options{}).SignedIn(); got != tc.want {
+			t.Errorf("%s: SignedIn() = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
