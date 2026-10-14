@@ -2,8 +2,6 @@ package io.github.xaviiromf.cliampx.ui
 
 import android.app.Activity
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
@@ -53,6 +51,8 @@ import androidx.compose.material3.Typography
 data class CliampPalette(
     val bg: Color, val accent: Color, val brightFg: Color, val fg: Color,
     val green: Color, val yellow: Color, val red: Color,
+    /** The surfaces' opacity: below 1 a background (Backgrounds.kt) shows through the bars and cards. */
+    val glass: Float = 1f,
 ) {
     val textPrimary get() = brightFg
     val textSecondary get() = fg
@@ -61,14 +61,14 @@ data class CliampPalette(
     val favorite get() = red
     val error get() = red
     val warning get() = yellow
-    val surface get() = mix(bg, brightFg, 0.05f)
-    val surfaceHigh get() = mix(bg, brightFg, 0.09f)
+    val surface get() = mixSrgb(bg, brightFg, 0.05f).copy(alpha = glass)
+    val surfaceHigh get() = mixSrgb(bg, brightFg, 0.09f).copy(alpha = glass)
     val pressed get() = accent.copy(alpha = 0.12f)
     val divider get() = fg.copy(alpha = 0.35f)
 }
 
 /** a blended toward b by f in sRGB; Compose's lerp blends in Oklab, which leaves 5 % of white over black still black. */
-private fun mix(a: Color, b: Color, f: Float) =
+internal fun mixSrgb(a: Color, b: Color, f: Float) =
     Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f)
 
 /** The built-in winamp theme: Default (terminal colors) and any incomplete theme draw with it. */
@@ -89,8 +89,8 @@ fun paletteOf(t: ThemeInfo?): CliampPalette {
 
 /**
  * The palette of the core's theme (§4.6). Under the cover theme each new
- * cover's colors blend in over 600 ms, as the desktop's coverFadeTime does;
- * picking a theme is instant (§4.5).
+ * cover's colors blend in over 400 ms, eased and scaled by Ajustes →
+ * Animaciones; picking a theme is instant (§4.5).
  */
 @Composable
 fun livePalette(t: ThemeInfo?): CliampPalette {
@@ -98,7 +98,7 @@ fun livePalette(t: ThemeInfo?): CliampPalette {
     // A new theme name starts its colors at their target: only a cover's next colors blend.
     return key(t?.name) {
         val c = listOf(target.bg, target.accent, target.brightFg, target.fg, target.green, target.yellow, target.red)
-            .map { animateColorAsState(it, tween(600, easing = LinearEasing), label = "theme").value }
+            .map { animateColorAsState(it, Motion.spec(400), label = "theme").value }
         CliampPalette(c[0], c[1], c[2], c[3], c[4], c[5], c[6])
     }
 }

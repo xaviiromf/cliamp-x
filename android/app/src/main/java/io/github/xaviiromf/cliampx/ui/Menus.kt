@@ -85,12 +85,15 @@ fun SheetHost(s: Snapshot?) {
     val p = LocalPalette.current
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val close: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null } }
+    // shortcut: Material 3 1.4 keeps the sheets' own motion internal, so Sin animación only skips the slide out.
+    val close: () -> Unit = {
+        if (Looks.motion == MotionSpeed.Off) Nav.sheet = null else scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null }
+    }
     ModalBottomSheet(
         onDismissRequest = { Nav.sheet = null },
         sheetState = state,
         shape = if (Look.rounded) RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp) else RectangleShape,
-        containerColor = p.surface,
+        containerColor = Color.Transparent,
         contentColor = p.textPrimary,
         tonalElevation = 0.dp,
         scrimColor = SCRIM,
@@ -98,29 +101,33 @@ fun SheetHost(s: Snapshot?) {
         contentWindowInsets = { WindowInsets(0) },
     ) {
         SheetBars()
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
-                .padding(vertical = 8.dp).semantics { testTagsAsResourceId = true },
-        ) {
-            when (sheet) {
-                is Sheet.Song -> SongActions(sheet, close)
-                is Sheet.Of -> ItemActions(sheet.item, close)
-                is Sheet.AddTo -> AddTo(sheet)
-                is Sheet.NewList -> NewList(sheet, close)
-                is Sheet.Rename -> Rename(sheet.item, close)
-                is Sheet.DeleteList -> Confirm(stringResource(R.string.delete_list_confirm, sheet.item.title), stringResource(R.string.delete), close) {
-                    Remote.editList("playlist.delete", JSONObject().put("playlist", sheet.item.id)) {
-                        // The list's page goes with it.
-                        if ((Nav.top.screen as? Screen.Playlist)?.let { it.provider == "local" && it.id == sheet.item.id } == true) Nav.pop()
+        // The app's background shows in the sheet too, lined up with the window behind it.
+        Box {
+            Backdrop(Looks.listLevel, Modifier.matchParentSize())
+            Column(
+                Modifier.fillMaxWidth().background(p.surface).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
+                    .padding(vertical = 8.dp).semantics { testTagsAsResourceId = true },
+            ) {
+                when (sheet) {
+                    is Sheet.Song -> SongActions(sheet, close)
+                    is Sheet.Of -> ItemActions(sheet.item, close)
+                    is Sheet.AddTo -> AddTo(sheet)
+                    is Sheet.NewList -> NewList(sheet, close)
+                    is Sheet.Rename -> Rename(sheet.item, close)
+                    is Sheet.DeleteList -> Confirm(stringResource(R.string.delete_list_confirm, sheet.item.title), stringResource(R.string.delete), close) {
+                        Remote.editList("playlist.delete", JSONObject().put("playlist", sheet.item.id)) {
+                            // The list's page goes with it.
+                            if ((Nav.top.screen as? Screen.Playlist)?.let { it.provider == "local" && it.id == sheet.item.id } == true) Nav.pop()
+                        }
                     }
+                    Sheet.PlayerMore -> PlayerMore(s, close)
+                    Sheet.QueueMore -> QueueMore()
+                    Sheet.Speed -> SpeedSheet(s, close)
+                    Sheet.Sleep -> SleepSheet(s, close)
+                    Sheet.Normalize -> NormalizeSheet(s, close)
+                    Sheet.Crossfade -> CrossfadeSheet(s, close)
+                    Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
                 }
-                Sheet.PlayerMore -> PlayerMore(s, close)
-                Sheet.QueueMore -> QueueMore()
-                Sheet.Speed -> SpeedSheet(s, close)
-                Sheet.Sleep -> SleepSheet(s, close)
-                Sheet.Normalize -> NormalizeSheet(s, close)
-                Sheet.Crossfade -> CrossfadeSheet(s, close)
-                Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
             }
         }
     }

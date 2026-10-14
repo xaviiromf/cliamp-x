@@ -29,7 +29,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -167,6 +174,17 @@ fun SettingsScreen(screen: Screen.Settings) {
                     Choice(stringResource(R.string.density), DENSITIES, Look.density, "set_density") { Look.update(context) { density = it } }
                     Choice(stringResource(R.string.corners), CORNERS, if (Look.rounded) 1 else 0, "set_corners") { Look.update(context) { rounded = it == 1 } }
                     Toggle(stringResource(R.string.haptics), Look.haptics, "set_haptics") { Look.update(context) { haptics = it == 1 } }
+                    SettingRow(stringResource(R.string.background), stringResource(Looks.background.label), "set_background") { Nav.open(Screen.Backgrounds) }
+                    if (Looks.background != Background.Solid) {
+                        LevelSlider(stringResource(R.string.bg_level_lists), Looks.listLevel, "set_bg_lists", Looks::putListLevel)
+                        LevelSlider(stringResource(R.string.bg_level_player), Looks.playerLevel, "set_bg_player", Looks::putPlayerLevel)
+                    }
+                    FlowRow(Modifier.padding(start = 16.dp, end = 12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.motion), Modifier.padding(end = 8.dp), color = p.textPrimary, style = Type.body)
+                        for (m in MotionSpeed.entries) {
+                            BracketChip(stringResource(m.label), Looks.motion == m, Modifier.testTag("set_motion_" + m.name.lowercase())) { Looks.putMotion(m) }
+                        }
+                    }
                 }
             }
             item(key = "playback") {
@@ -272,6 +290,34 @@ private fun SettingRow(label: String, value: String, tag: String, onClick: () ->
         Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body)
         if (value.isNotEmpty()) Bracketed(value, false)
         Text("›", color = p.textSecondary, style = Type.body)
+    }
+}
+
+/** A 0..100 % setting in steps of 5: the label and value above a square slider. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LevelSlider(label: String, value: Int, tag: String, set: (Int) -> Unit) {
+    val p = LocalPalette.current
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag(tag)) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body)
+            Text("$value %", color = p.accent, style = Type.numeric)
+        }
+        Slider(
+            value.toFloat(), { set(it.roundToInt()) }, Modifier.fillMaxWidth().height(48.dp).semantics { contentDescription = label },
+            valueRange = 0f..100f, steps = 19,
+            thumb = { Box(Modifier.size(4.dp, 24.dp).background(p.accent)) },
+            track = { state ->
+                Box(
+                    Modifier.fillMaxWidth().height(24.dp).drawBehind {
+                        val x = size.width * (state.value - state.valueRange.start) / (state.valueRange.endInclusive - state.valueRange.start)
+                        val y = size.height / 2
+                        drawLine(p.textSecondary, Offset(x, y), Offset(size.width, y), 1.dp.toPx())
+                        drawLine(p.accent, Offset(0f, y), Offset(x, y), 3.dp.toPx())
+                    },
+                )
+            },
+        )
     }
 }
 
@@ -522,6 +568,29 @@ fun VisualizersScreen() {
                     Text(if (on) "● " else "  ", color = p.accent, style = Type.body)
                     Text(name, Modifier.weight(1f), color = if (on) p.accent else p.textPrimary, style = Type.body.bold(on))
                     Text(VIS_LABELS[name]?.let { stringResource(it) }.orEmpty(), Modifier.weight(1f), color = p.textSecondary, style = Type.label)
+                }
+            }
+        }
+    }
+}
+
+/** Fondo: every background; a tap applies it at once behind this list too. */
+@Composable
+fun BackgroundsScreen() {
+    val p = LocalPalette.current
+    Column(Modifier.fillMaxSize()) {
+        TopBar(stringResource(R.string.background))
+        LazyColumn(Modifier.fillMaxSize()) {
+            item(key = "help") { Help(stringResource(R.string.background_help)) }
+            itemsIndexed(Background.entries, key = { _, b -> b.name }) { _, b ->
+                val on = b == Looks.background
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { Looks.putBackground(b) }
+                        .padding(horizontal = 16.dp).testTag("bg_" + b.name.lowercase()).semantics { selected = on },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(if (on) "● " else "  ", color = p.accent, style = Type.body)
+                    Text(stringResource(b.label), color = if (on) p.accent else p.textPrimary, style = Type.body.bold(on))
                 }
             }
         }

@@ -675,8 +675,8 @@ The palette type is `data class CliampPalette(bg, accent, brightFg, fg, green, y
 | `favorite`, `error` | `red` | ♥, `ERR:`, `✗`, destructive buttons |
 | `warning` | `yellow` | `WARN:` |
 | `spectrum` | green / yellow / red | one vertical Brush over the panel height with hard stops, measured from the bottom: green below 30 %, yellow 30–60 %, red above 60 % |
-| `surface` | `lerp(bg, brightFg, 0.05)` | mini-player, tab bar, banners, genre tiles, sheets |
-| `surfaceHigh` | `lerp(bg, brightFg, 0.09)` | search field, pressed chips |
+| `surface` | `lerp(bg, brightFg, 0.05)`, at 60 % opacity while a background other than Sólido is on | mini-player, tab bar, banners, genre tiles, sheets |
+| `surfaceHigh` | `lerp(bg, brightFg, 0.09)`, with the same opacity as `surface` | search field, pressed chips |
 | `pressed` | `accent` at 12 % | press feedback: an instant fill, no ripple |
 | `divider` | `fg` at 35 % | 1 dp line between groups, never between rows |
 | `scrim` | `#000000` at 60 % | behind sheets |
@@ -789,11 +789,14 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 | Element | Behavior |
 |---|---|
 | Press | instant `pressed` fill (custom `Indication`), no ripple |
-| Screen push and pop | crossfade 150 ms |
-| Player sheet | M3 drag, settling in 250 ms |
-| Skip swipe | the art follows the finger and springs back with `spring(stiffness = 600f)` |
+| Screen push and pop | fade in rising 1/40 of the height over 300 ms, the old screen fades out in 200 ms, FastOutSlowIn (`Motion.screen`) |
+| Player sheet | M3 drag and its own settle (Material 3 1.4 keeps the sheet motion internal); its pages change like screens in 250 ms |
+| Skip swipe | the art follows the finger and eases back in 250 ms |
 | Explicit theme change | instant |
-| `cover` theme, each new cover palette | the 7 colors animate over 600 ms (`animateColorAsState(tween(600, easing = LinearEasing))`), as the desktop `coverFadeTime` does |
+| `cover` theme, each new cover palette | the 7 colors animate over 400 ms, FastOutSlowIn |
+| Artwork of the player and mini-player | the next song's art cross-fades in over 400 ms; list rows swap at once |
+| Ajustes → Animaciones | Lenta stretches every duration above 1.6 times, Sin animación snaps them, closes sheets without the slide and holds the background still |
+| Background (Ajustes → Fondo) | an AGSL shader at half resolution behind the whole app, stepped at 20 fps (each step redraws the whole window) while the activity is started, at a quarter speed under reduced motion; paused under the player sheet, which draws its own. A scrim of bg covers it (`scrimOf`): level 100 shows the most that keeps `fg` and `brightFg` at min(4.5:1, their contrast on bg) even over a white (light theme: black) pixel, with the scrim leaned to black (white); lower levels show less and lean only as far as needed |
 | Spinner | a braille frame every 100 ms |
 | Visualizer | the core's frames arrive at up to 30 fps, one request at a time; the core animates them. On pause or stop the last frame fades out in 300 ms, then drawing stops |
 | Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then polls 10 frames a second |
