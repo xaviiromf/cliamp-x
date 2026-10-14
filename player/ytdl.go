@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gopxl/beep/v2"
@@ -57,11 +58,28 @@ var (
 	ytdlCookielessTimeout = 12 * time.Second
 )
 
+// ytdlAudioCap is the highest audio bitrate, in kbps, of the format that a
+// yt-dlp start picks, or 0 for the best one. ytdlPremium turns off the
+// cookieless first runs, so a Premium account gets its higher formats.
+var (
+	ytdlAudioCap atomic.Int32
+	ytdlPremium  atomic.Bool
+)
+
+// SetYTDLQuality caps the audio bitrate of the yt-dlp starts that follow,
+// in kbps. 0 picks the best format.
+func SetYTDLQuality(kbps int) { ytdlAudioCap.Store(int32(max(0, kbps))) }
+
+// SetYTDLPremium turns the Premium quality on or off. On Android, on makes
+// the yt-dlp runs use the signed-in cookies from the first run, at the cost
+// of the slower start that the cookieless runs avoid.
+func SetYTDLPremium(on bool) { ytdlPremium.Store(on) }
+
 // ytdlCookieless reports whether the yt-dlp runs that resolve pageURL go
 // first without its cookies, and with them only when that run fails (sign-in,
 // age, members or Premium only): a signed-in YouTube page on Android.
 func ytdlCookieless(pageURL string) bool {
-	return ytdlCookielessFirst && ytdlcookies.ForURL(pageURL) != "" &&
+	return ytdlCookielessFirst && !ytdlPremium.Load() && ytdlcookies.ForURL(pageURL) != "" &&
 		(playlist.IsYouTubeURL(pageURL) || playlist.IsYouTubeMusicURL(pageURL))
 }
 
@@ -147,6 +165,7 @@ type ytdlPipeStreamer struct {
 	ffmpegErr  <-chan error  // ffmpeg exit error from monitoring goroutine
 	ytdlDone   <-chan struct{}
 	ffmpegDone <-chan struct{}
+	formatPath string // where yt-dlp prints the format it picked, or ""
 	pcmBuf     []byte
 	f32        bool // true = f32le, false = s16le
 	closeOnce  sync.Once
@@ -233,6 +252,9 @@ func (y *ytdlPipeStreamer) Close() error {
 		}
 		y.pipe.Close()
 		y.relay.Close()
+		if y.formatPath != "" {
+			_ = os.Remove(y.formatPath)
+		}
 		// The monitor goroutines own Wait. Killing both children and waiting
 		// for their done signals guarantees Close does not leave zombies.
 		if y.ytdlDone != nil {
@@ -243,6 +265,19 @@ func (y *ytdlPipeStreamer) Close() error {
 		}
 	})
 	return nil
+}
+
+// pickedFormat reads the format that yt-dlp printed before its download,
+// which the first audio byte follows. It is zero when yt-dlp printed none.
+func (y *ytdlPipeStreamer) pickedFormat() AudioFormat {
+	if y.formatPath == "" {
+		return AudioFormat{}
+	}
+	data, err := os.ReadFile(y.formatPath)
+	if err != nil {
+		return AudioFormat{}
+	}
+	return parseYTDLFormat(string(data))
 }
 
 // monitorExit waits for cmd to exit and reports the result on a buffered
@@ -282,6 +317,19 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 // and drops the video.
 const ytdlFormat = "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best"
 
+// ytdlFormatSpec is ytdlFormat under the bitrate cap of SetYTDLQuality. A
+// page with no direct audio format under the cap falls back to ytdlFormat,
+// so a cap never stops a song from playing. "?" keeps the formats whose
+// bitrate yt-dlp does not know.
+func ytdlFormatSpec() string {
+	limit := ytdlAudioCap.Load()
+	if limit <= 0 {
+		return ytdlFormat
+	}
+	capped := fmt.Sprintf("bestaudio[abr<=?%d]", limit)
+	return capped + "[protocol=https]/" + capped + "[protocol=http]/" + ytdlFormat
+}
+
 // decodeYTDLPipeInfo is decodeYTDLPipe that, with infoPath, has yt-dlp load
 // the page info prefetched there instead of extracting it again, which
 // starts the audio seconds sooner. Without cookies, yt-dlp runs without the
@@ -312,12 +360,25 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 
 	// Start yt-dlp: download best audio to stdout.
 	ytdlArgs := []string{
-		"-f", ytdlFormat,
+		"-f", ytdlFormatSpec(),
 		"--no-playlist",
 		"--quiet",
 		"--no-warnings",
 		"--socket-timeout", "15",
 		"-o", "-",
+	}
+	// yt-dlp names the format it picked in a file, for the now-playing
+	// format line; stdout carries the audio.
+	formatPath := ""
+	removeFormat := func() {
+		if formatPath != "" {
+			_ = os.Remove(formatPath)
+		}
+	}
+	if f, err := os.CreateTemp("", "cliamp-x-format-*"); err == nil {
+		formatPath = f.Name()
+		f.Close()
+		ytdlArgs = append(ytdlArgs, "--print-to-file", ytdlFormatTemplate, formatPath)
 	}
 	if cookies {
 		ytdlArgs = appendYTDLCookieArgs(ytdlArgs, pageURL)
@@ -335,6 +396,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		pr.Close()
 		pw.Close()
 		closeRelayPipes()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp start: %w", err)
 	}
 
@@ -362,6 +424,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
 	}
 	ffmpegCmd.Stdout = pcmW
@@ -373,6 +436,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("ffmpeg start: %w", err)
 	}
 
@@ -408,6 +472,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		ffmpegErr:  ffmpegErrCh,
 		ytdlDone:   ytdlDone,
 		ffmpegDone: ffmpegDone,
+		formatPath: formatPath,
 		pipeReport: pipeReport{state: newPipeStreamState(0)},
 		f32:        bitDepth == 32,
 	}, format, nil
@@ -465,6 +530,7 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			path:         pageURL,
 			ytdlSeek:     true,
 			streamOffset: time.Duration(startSec) * time.Second,
+			audio:        decoder.pickedFormat(),
 		}, true), nil
 	}
 }

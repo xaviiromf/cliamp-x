@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -61,6 +62,13 @@ func installCookielessFixtures(t *testing.T, mode string) string {
 	calls := filepath.Join(dir, "calls")
 	writeExecutable(t, filepath.Join(dir, "yt-dlp"), `#!/bin/sh
 echo "$*" >> "$YTDL_CALLS"
+n=0
+for a in "$@"; do
+  if [ "$n" = 2 ]; then echo "opus 129.5 48000" > "$a"; n=0
+  elif [ "$n" = 1 ]; then n=2
+  elif [ "$a" = "--print-to-file" ]; then n=1
+  fi
+done
 case "$*" in
   *--cookies*) ;;
   *) case "$YTDL_MODE" in
@@ -81,6 +89,9 @@ esac
 	return calls
 }
 
+// formatFile matches the temporary file of --print-to-file.
+var formatFile = regexp.MustCompile(`\S*cliamp-x-format-\S*`)
+
 // On Android the runs that resolve a signed-in YouTube page for playback go
 // first without the cookies, and with them only when that run fails. Other
 // platforms and other hosts keep their cookies on the one run.
@@ -100,12 +111,15 @@ func TestYTDLCookielessFirst(t *testing.T) {
 	}{
 		{
 			name: "stream",
-			args: "-f " + ytdlFormat + " --no-playlist --quiet --no-warnings --socket-timeout 15 -o -",
+			args: "-f " + ytdlFormat + " --no-playlist --quiet --no-warnings --socket-timeout 15 -o - --print-to-file " + ytdlFormatTemplate + " FORMAT",
 			run: func(t *testing.T, url string) {
 				p := &Player{sr: 44100, bitDepth: 16}
 				tp, err := p.buildYTDLPipeline(url, 0)
 				if err != nil {
 					t.Fatalf("buildYTDLPipeline: %v", err)
+				}
+				if want := (AudioFormat{Codec: "opus", Kbps: 130, Rate: 48000}); tp.audio != want {
+					t.Errorf("audio = %+v, want %+v", tp.audio, want)
 				}
 				tp.close()
 			},
@@ -136,6 +150,7 @@ func TestYTDLCookielessFirst(t *testing.T) {
 	tests := []struct {
 		name     string
 		android  bool
+		premium  bool
 		signedIn bool
 		mode     string
 		url      string
@@ -150,6 +165,7 @@ func TestYTDLCookielessFirst(t *testing.T) {
 		{name: "android falls back on a hung run", android: true, signedIn: true, mode: "hang", url: music, want: []bool{false, true}},
 		{name: "android signed out runs once", android: true, mode: "ok", url: music, want: []bool{false}},
 		{name: "android other host keeps its cookies", android: true, signedIn: true, mode: "ok", url: cloud, want: []bool{true}},
+		{name: "android premium quality keeps the cookies", android: true, premium: true, signedIn: true, mode: "ok", url: music, want: []bool{true}},
 	}
 	for _, tt := range tests {
 		for _, r := range runs {
@@ -158,6 +174,8 @@ func TestYTDLCookielessFirst(t *testing.T) {
 				first, timeout := ytdlCookielessFirst, ytdlCookielessTimeout
 				ytdlCookielessFirst, ytdlCookielessTimeout = tt.android, 300*time.Millisecond
 				t.Cleanup(func() { ytdlCookielessFirst, ytdlCookielessTimeout = first, timeout })
+				SetYTDLPremium(tt.premium)
+				t.Cleanup(func() { SetYTDLPremium(false) })
 				if tt.signedIn {
 					for _, host := range []string{"youtube.com", "youtu.be", "music.youtube.com", "soundcloud.com"} {
 						ytdlcookies.SetForHost(host, ytdlcookies.FilePrefix+"/cfg/ytmusic_cookies.txt")
@@ -178,7 +196,11 @@ func TestYTDLCookielessFirst(t *testing.T) {
 					}
 					want = append(want, argv+" -- "+tt.url)
 				}
-				if got := readLines(t, calls); !slices.Equal(got, want) {
+				got := readLines(t, calls)
+				for i := range got {
+					got[i] = formatFile.ReplaceAllString(got[i], "FORMAT")
+				}
+				if !slices.Equal(got, want) {
 					t.Fatalf("yt-dlp runs:\n got %q\nwant %q", got, want)
 				}
 			})
@@ -203,5 +225,43 @@ func TestYTDLOutputNoFallbackAfterTheCallerGivesUp(t *testing.T) {
 	}
 	if got := readLines(t, calls); len(got) != 1 || strings.Contains(got[0], "--cookies") {
 		t.Fatalf("yt-dlp runs = %q, want only the cookieless one", got)
+	}
+}
+
+func TestYTDLFormatSpec(t *testing.T) {
+	tests := []struct {
+		kbps int
+		want string
+	}{
+		{0, ytdlFormat},
+		{-5, ytdlFormat},
+		{64, "bestaudio[abr<=?64][protocol=https]/bestaudio[abr<=?64][protocol=http]/" + ytdlFormat},
+		{128, "bestaudio[abr<=?128][protocol=https]/bestaudio[abr<=?128][protocol=http]/" + ytdlFormat},
+	}
+	t.Cleanup(func() { SetYTDLQuality(0) })
+	for _, tt := range tests {
+		SetYTDLQuality(tt.kbps)
+		if got := ytdlFormatSpec(); got != tt.want {
+			t.Errorf("SetYTDLQuality(%d): ytdlFormatSpec() = %q, want %q", tt.kbps, got, tt.want)
+		}
+	}
+}
+
+func TestParseYTDLFormat(t *testing.T) {
+	tests := []struct {
+		line string
+		want AudioFormat
+	}{
+		{"opus 129.478 48000\n", AudioFormat{Codec: "opus", Kbps: 129, Rate: 48000}},
+		{"mp4a.40.2 130.2 44100", AudioFormat{Codec: "aac", Kbps: 130, Rate: 44100}},
+		{"NA NA NA", AudioFormat{}},
+		{"none 64 NA", AudioFormat{Kbps: 64}},
+		{"", AudioFormat{}},
+		{"opus 64", AudioFormat{}},
+	}
+	for _, tt := range tests {
+		if got := parseYTDLFormat(tt.line); got != tt.want {
+			t.Errorf("parseYTDLFormat(%q) = %+v, want %+v", tt.line, got, tt.want)
+		}
 	}
 }

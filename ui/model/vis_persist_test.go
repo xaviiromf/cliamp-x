@@ -54,6 +54,14 @@ func (s *recordingSaver) SaveFloats(key string, values []float64) error {
 	return s.record(key, "["+strings.Join(parts, ", ")+"]")
 }
 
+func (s *recordingSaver) SaveSectionBool(section, key string, value bool) error {
+	return s.record(section+"."+key, strconv.FormatBool(value))
+}
+
+func (s *recordingSaver) SaveSectionString(section, key, value string) error {
+	return s.record(section+"."+key, config.QuoteString(value))
+}
+
 func visTestModel(saver ConfigSaver) *Model {
 	return &Model{vis: ui.NewVisualizer(44100), configSaver: saver}
 }

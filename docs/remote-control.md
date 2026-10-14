@@ -112,6 +112,11 @@ false, zero or empty.
 | `normalize` | The volume normalization: `off`, `track` or `album` |
 | `crossfade` | The crossfade between songs of different albums, in seconds |
 | `eq_auto` | The EQ preset follows the genre of each song |
+| `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
+| `network` | The network that the app last reported: `wifi` or `mobile` |
+| `premium_quality` | yt-dlp runs with the sign-in from the first try (Android) |
+| `scrobble_listenbrainz`, `scrobble_lastfm` | The scrobbling service has its credentials and takes reports. For Last.fm that needs the session key of the sign-in |
+| `audio_codec`, `audio_kbps`, `audio_rate` | The source of the playing track: its codec (such as `opus`, `aac`, `mp3` or `flac`), its bitrate in kbps and its sample rate in Hz. A YouTube song reports the format that yt-dlp picked. A local file reports its codec from the extension and its mean bitrate; its rate only when cliamp-x decodes it without ffmpeg. Each one is left out while unknown |
 
 `theme` holds the colors on screen. With the cover theme, they are the
 colors of the cover it shows, or of the cover it blends to, under the name
@@ -150,8 +155,8 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
-| Settings | `settings.set` |
-| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `stats` |
+| Settings | `settings.set`, `lastfm.auth` |
+| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `download.auto`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
 `sleep` sets the sleep timer with `value` in whole minutes, up to 1440. The
@@ -362,9 +367,9 @@ A `track` with no title fails with `invalid_params`.
 
 ### Settings
 
-`settings.set` sets one setting with `name` and a whole-number `value`, and
-saves it in `config.toml`, as its key does. The snapshot then reports the
-new state.
+`settings.set` sets one setting with `name` and a whole-number `value`, or
+with `text` for the names that take text, and saves it in `config.toml`, as
+its key does. The snapshot then reports the new state.
 
 | `name` | `value` |
 | --- | --- |
@@ -374,12 +379,36 @@ new state.
 | `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
 | `mono` | `0` off or `1` on |
 
+| `name` | `text` |
+| --- | --- |
+| `quality_wifi`, `quality_mobile` | `alta` (the best format), `normal` (up to 128 kbps) or `ahorro` (up to 64 kbps). Saved in `[ytmusic]` |
+| `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
+| `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
+| `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails |
+
+A quality change applies to the songs that start after it.
+
+`lastfm.auth` signs in to Last.fm once `lastfm_api_key` and
+`lastfm_api_secret` are set. With the `name` `start`, the result holds the
+`url` where the user allows cliamp-x and the `token` of the sign-in. After
+the user allows it, the `name` `finish` with that token in `text` gets the
+session key and saves it as `lastfm_session_key`; the key stays out of the
+result. A token the user has not allowed yet fails with `internal_error`
+and the Last.fm error in `detail`, such as `error 14`. Without the key and
+secret, another `name`, or `finish` with no token, the job fails with
+`invalid_params`. See [Scrobbling](configuration.md#scrobbling).
+
+```json
+{"ok":true,"url":"https://www.last.fm/api/auth/?api_key=…&token=…","token":"…"}
+```
+
 The result is `{"ok":true}`. Any other name or value fails with
 `invalid_params` and changes nothing. A failed save fails the job with
 `internal_error`.
 
 ```sh
 cliamp-x remote call settings.set --params '{"name":"crossfade","value":4}' --wait
+cliamp-x remote call settings.set --params '{"name":"network","text":"mobile"}' --wait
 ```
 
 ### Downloads and statistics
@@ -395,8 +424,22 @@ are the song that downloads now, `queued` the songs that wait, `failed` the
 songs that failed with the reason, `done` the songs downloaded since the
 queue last ran empty, and `directory` the folder of the files.
 `download.cancel` stops the running download and empties the queue.
-`download.retry` queues the failed songs again. Each of the four fails with
-`unavailable` when downloads are off.
+`download.retry` queues the failed songs again.
+
+`download.auto` fills an offline cache: it queues the ♥ favorites, newest
+first, then the Recently Played songs, that have no downloaded copy and do
+not wait in the queue already. It stops at `limit` songs, 50 without
+`limit`, and before the songs reach `value` MB, by an estimate of 128 kbps a
+song and four minutes for a song with no duration. Without `value`, or with
+`0`, there is no size cap. `total` in the result is the number of songs it
+queued. A `value` that is negative or not a whole number fails with
+`invalid_params`.
+
+```sh
+cliamp-x remote call download.auto --params '{"limit":100,"value":500}' --wait
+```
+
+Each of the five fails with `unavailable` when downloads are off.
 
 ```json
 {"ok":true,"downloads":{"running":true,"current":{"title":"One More Time","path":"https://music.youtube.com/watch?v=…"},"percent":42,
@@ -418,6 +461,27 @@ its artist. Another period fails with `invalid_params`.
   "top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":12,"secs":3840}],
   "top_genres":[{"name":"Electronic","plays":120,"secs":24000}],
   "daily":[0,12.5,40,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,61,22],"streak":3}}
+```
+
+With the `name` `wrapped`, `stats` sums the calendar year in `value`, such as
+`2026`, or the current year with `0` or no `value`, in the local time zone,
+for a yearly story. `stats` then also holds the `year`, the `minutes`
+listened, the `days` with plays, the top 10 `top_albums` with the album's
+artist in `detail`, the `first` song of the year with its `path` and the
+time it played, and `most_replayed`: the song played most times in one day,
+with the plays of that day. `streak` is the longest run of days in a row
+with plays, and `daily` is empty. A year before 1970 or after 9999, or not
+a whole number, fails with `invalid_params`.
+
+```json
+{"ok":true,"stats":{"plays":4210,"secs":846000,"songs":1320,"artists":410,
+  "top_artists":[{"name":"Daft Punk","plays":210,"secs":50400}],
+  "top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":64,"secs":20480}],
+  "top_genres":[{"name":"Electronic","plays":1500,"secs":300000}],
+  "daily":[],"streak":41,"year":2026,"minutes":14100,"days":298,
+  "top_albums":[{"name":"Discovery","detail":"Daft Punk","plays":180,"secs":43200}],
+  "first":{"name":"Aerodynamic","detail":"Daft Punk","path":"https://music.youtube.com/watch?v=…","at":"2026-01-01T00:42:10-03:00"},
+  "most_replayed":{"name":"One More Time","detail":"Daft Punk","plays":9,"secs":2880}}}
 ```
 
 ## Events

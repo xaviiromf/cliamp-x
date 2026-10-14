@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -19,8 +20,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/scrobble"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
@@ -38,8 +41,11 @@ import (
 // player.
 type normalizingEngine struct {
 	playbackFakeEngine
-	mode player.NormalizeMode
+	mode  player.NormalizeMode
+	audio player.AudioFormat
 }
+
+func (e *normalizingEngine) AudioFormat() player.AudioFormat { return e.audio }
 
 func (e *normalizingEngine) SetNormalize(mode player.NormalizeMode, _ float64) { e.mode = mode }
 func (e *normalizingEngine) Normalize() (player.NormalizeMode, float64)        { return e.mode, 0 }
@@ -119,6 +125,20 @@ func TestNativeSnapshotFields(t *testing.T) {
 		{name: "normalize", set: func(_ *Model, e *normalizingEngine) { e.mode = player.NormalizeAlbum }, want: map[string]any{"normalize": "album"}},
 		{name: "crossfade", set: func(m *Model, _ *normalizingEngine) { m.crossfade = 4 * time.Second }, want: map[string]any{"crossfade": 4.0}},
 		{name: "auto EQ", set: func(m *Model, _ *normalizingEngine) { m.eqAuto = true }, want: map[string]any{"eq_auto": true}},
+		{
+			name: "audio format",
+			set: func(_ *Model, e *normalizingEngine) {
+				e.audio = player.AudioFormat{Codec: "opus", Kbps: 130, Rate: 48000}
+			},
+			want: map[string]any{"audio_codec": "opus", "audio_kbps": 130.0, "audio_rate": 48000.0},
+		},
+		{
+			name: "quality",
+			set: func(m *Model, _ *normalizingEngine) {
+				m.ytQuality = ytQuality{wifi: "normal", mobile: "ahorro", network: "mobile", premium: true}
+			},
+			want: map[string]any{"quality_wifi": "normal", "quality_mobile": "ahorro", "network": "mobile", "premium_quality": true},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeOff}
@@ -1092,12 +1112,21 @@ func TestNativeSettingsSet(t *testing.T) {
 		saved   map[string]string
 		wantErr string
 	}{
-		{name: "auto radio", request: ipc.Request{Name: "auto_radio", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.autoRadio }},
+		{name: "auto radio", request: ipc.Request{Name: "auto_radio", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.autoRadio }, saved: map[string]string{"ytmusic.auto_radio": "true"}},
 		{name: "normalize album", request: ipc.Request{Name: "normalize", Value: 2}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeAlbum }, saved: map[string]string{"normalize": `"album"`}},
 		{name: "normalize off", request: ipc.Request{Name: "normalize"}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeOff }, saved: map[string]string{"normalize": `"off"`}},
 		{name: "crossfade", request: ipc.Request{Name: "crossfade", Value: 4}, check: func(m *Model, _ *normalizingEngine) bool { return m.crossfade == 4*time.Second }, saved: map[string]string{"crossfade": "4"}},
 		{name: "auto EQ", request: ipc.Request{Name: "eq_auto", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.eqAuto }, saved: map[string]string{"eq_auto": "true"}},
 		{name: "mono", request: ipc.Request{Name: "mono", Value: 1}, check: func(_ *Model, e *normalizingEngine) bool { return e.mono }, saved: map[string]string{"mono": "true"}},
+		{name: "quality on wifi", request: ipc.Request{Name: "quality_wifi", Text: " Ahorro "}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.wifi == "ahorro" }, saved: map[string]string{"ytmusic.quality_wifi": `"ahorro"`}},
+		{name: "quality on mobile", request: ipc.Request{Name: "quality_mobile", Text: "alta"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.mobile == "alta" }, saved: map[string]string{"ytmusic.quality_mobile": `"alta"`}},
+		{name: "network is not saved", request: ipc.Request{Name: "network", Text: "mobile"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.network == "mobile" }},
+		{name: "premium quality", request: ipc.Request{Name: "premium_quality", Text: "on"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.premium }, saved: map[string]string{"ytmusic.premium_quality": "true"}},
+		{name: "listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: " tok "}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "tok" }, saved: map[string]string{"scrobble.listenbrainz_token": `"tok"`}},
+		{name: "token with a line break", request: ipc.Request{Name: "lastfm_api_key", Text: "a\nb"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "premium as a number", request: ipc.Request{Name: "premium_quality", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown name", request: ipc.Request{Name: "volume", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "crossfade too long", request: ipc.Request{Name: "crossfade", Value: 13}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "half a second", request: ipc.Request{Name: "crossfade", Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
@@ -1107,7 +1136,7 @@ func TestNativeSettingsSet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeTrack}
 			saver := &recordingSaver{}
-			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver}
+			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver, scrobbler: scrobble.New(scrobble.Config{}, filepath.Join(t.TempDir(), "queue.json"))}
 			response := runV2(t, m, "settings.set", tc.request)
 			if tc.wantErr != "" {
 				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {
@@ -1171,10 +1200,72 @@ func TestNativeDownloads(t *testing.T) {
 	}
 
 	m.downloads.manifest = nil
-	for _, op := range []string{"download", "download.status", "download.cancel", "download.retry"} {
+	for _, op := range []string{"download", "download.status", "download.cancel", "download.retry", "download.auto"} {
 		if response := runV2(t, m, op, ipc.Request{Track: &ipc.TrackInfo{Path: song("x").Path}}); response.Error != ipc.V2ErrorCodeUnavailable {
 			t.Fatalf("%s without offline downloads = %+v, want unavailable", op, response)
 		}
+	}
+}
+
+// download.auto queues the liked songs, then the recently played ones, that
+// have no downloaded copy, up to the song limit and the size estimate.
+func TestNativeDownloadAuto(t *testing.T) {
+	yt := func(id string, secs int) playlist.Track {
+		return playlist.Track{Path: "https://music.youtube.com/watch?v=" + id, Title: id, DurationSecs: secs}
+	}
+	a, b, d, e := yt("aaaaaaaaaaa", 300), yt("bbbbbbbbbbb", 0), yt("ddddddddddd", 200), yt("eeeeeeeeeee", 100)
+	for _, tc := range []struct {
+		name    string
+		request ipc.Request
+		want    []string
+		wantErr string
+	}{
+		{name: "default limits", want: []string{a.Title, b.Title, d.Title}},
+		{name: "song limit", request: ipc.Request{Limit: 2}, want: []string{a.Title, b.Title}},
+		// 9 MB holds a (4.8 MB) and b (3.84 MB at four minutes), not d.
+		{name: "size limit", request: ipc.Request{Value: 9}, want: []string{a.Title, b.Title}},
+		{name: "size below one song", request: ipc.Request{Value: 1}, want: nil},
+		{name: "negative size", request: ipc.Request{Value: -1}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "part of a megabyte", request: ipc.Request{Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, _ := newActionTestModel(t)
+			dir := t.TempDir()
+			m.historyStore = history.NewAt(filepath.Join(dir, "history.toml"))
+			for _, track := range []playlist.Track{b, a, {Path: "/music/local.mp3", Title: "local"}} {
+				if _, err := m.favStore.Toggle(track); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i, track := range []playlist.Track{e, d, b} {
+				if err := m.historyStore.Record(track, time.Unix(int64(1000+i), 0)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			file := filepath.Join(dir, "e.m4a")
+			if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.downloads.manifest.Add(e.Path, file); err != nil {
+				t.Fatal(err)
+			}
+			m.downloads.running = true // no real download starts
+
+			response := runV2(t, m, "download.auto", tc.request)
+			if tc.wantErr != "" {
+				if response.Error != tc.wantErr || len(m.downloads.queue) != 0 {
+					t.Fatalf("download.auto = %+v, queue %d; want %s", response, len(m.downloads.queue), tc.wantErr)
+				}
+				return
+			}
+			var got []string
+			for _, job := range m.downloads.queue {
+				got = append(got, job.Track.Title)
+			}
+			if !response.OK || response.Total != len(tc.want) || !slices.Equal(got, tc.want) {
+				t.Fatalf("download.auto = %+v, queued %v; want %v", response, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -1207,6 +1298,32 @@ func TestNativeStats(t *testing.T) {
 	}
 	if response := runV2(t, m, "stats", ipc.Request{Name: "decade"}); response.Error != ipc.V2ErrorCodeInvalidParams {
 		t.Fatalf("stats of an unknown period = %+v", response)
+	}
+
+	// wrapped sums a calendar year: value 0 is this year.
+	last := time.Date(now.Year()-1, 6, 1, 12, 0, 0, 0, time.Local)
+	if err := m.statsLog.Record(stats.Play{At: last, Key: "/c", Title: "C", Artist: "Past", Album: "Then", Secs: 600}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		year      float64
+		wantYear  int
+		wantFirst string
+	}{{0, now.Year(), ""}, {float64(now.Year() - 1), now.Year() - 1, "C"}} {
+		response := runV2(t, m, "stats", ipc.Request{Name: "wrapped", Value: tc.year})
+		s := response.Stats
+		if !response.OK || s == nil || s.Year != tc.wantYear {
+			t.Fatalf("wrapped %v = %+v", tc.year, response)
+		}
+		if tc.wantFirst != "" && (s.First == nil || s.First.Name != tc.wantFirst || s.Minutes != 10 || s.Days != 1 || s.Streak != 1 ||
+			len(s.TopAlbums) != 1 || s.TopAlbums[0].Name != "Then" || s.MostReplayed == nil || s.MostReplayed.Name != "C") {
+			t.Fatalf("wrapped %v = %+v", tc.year, s)
+		}
+	}
+	for _, year := range []float64{1969, 2025.5, 10000} {
+		if response := runV2(t, m, "stats", ipc.Request{Name: "wrapped", Value: year}); response.Error != ipc.V2ErrorCodeInvalidParams {
+			t.Fatalf("wrapped of year %v = %+v, want invalid_params", year, response)
+		}
 	}
 	m.statsLog = nil
 	if response := runV2(t, m, "stats", ipc.Request{Name: "week"}); response.Error != ipc.V2ErrorCodeUnavailable {

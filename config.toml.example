@@ -198,6 +198,14 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Add the songs you play to your YouTube Music history, which improves
 # your recommendations. Off by default.
 # report_history = false
+# Audio quality of YouTube songs: "alta" (the best format), "normal" (up to
+# 128 kbps) or "ahorro" (up to 64 kbps, saves data). quality_mobile applies
+# while the Android app reports mobile data; quality_wifi everywhere else.
+# quality_wifi = "alta"
+# quality_mobile = "normal"
+# Android only: start yt-dlp with your sign-in, so a YouTube Music Premium
+# account gets its higher quality formats (256 kbps). Songs start slower.
+# premium_quality = false
 
 # SponsorBlock skips the parts of YouTube videos that the community marked:
 # intros, outros, sponsor reads, self-promotion and the non-music parts of
@@ -207,6 +215,20 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Categories to skip: music_offtopic, intro, outro, sponsor, selfpromo,
 # interaction, preview, filler.
 # categories = ["music_offtopic", "intro", "outro", "sponsor", "selfpromo"]
+
+# Scrobbling: cliamp-x reports the song that starts and the song you listened
+# to (past half its length, longer than 30 s) to ListenBrainz and Last.fm.
+# A scrobble that fails without a connection waits and goes out later.
+# ListenBrainz: the user token from https://listenbrainz.org/settings/.
+# Last.fm: the API key and shared secret of an API account that you create
+# at https://www.last.fm/api/account/create; the app or
+# "cliamp-x remote call lastfm.auth" signs in and saves the session key.
+# A value of "$NAME" reads the environment variable NAME.
+# [scrobble]
+# listenbrainz_token = "${LISTENBRAINZ_TOKEN}"
+# lastfm_api_key = ""
+# lastfm_api_secret = ""
+# lastfm_session_key = ""
 
 [downloads]
 directory = ""

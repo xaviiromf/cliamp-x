@@ -40,6 +40,7 @@ func New(p player.Engine, pl *playlist.Playlist, providers []provider.Entry, def
 		configSaver:      cs,
 		vis:              ui.NewVisualizer(float64(p.SampleRate())),
 		seekStepLarge:    30 * time.Second,
+		ytQuality:        ytQuality{wifi: "alta", mobile: "normal", network: "wifi"},
 		plVisible:        5,
 		eqPresetIdx:      -1, // custom until a preset is selected
 		eqCustomBands:    p.EQBands(),

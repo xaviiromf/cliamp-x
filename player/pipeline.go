@@ -43,6 +43,9 @@ type trackPipeline struct {
 
 	// level is the loudness normalization stage in front of stream, or nil.
 	level *levelStreamer
+
+	// audio is the codec, bitrate and rate of the source, as far as known.
+	audio AudioFormat
 }
 
 // positionAndDuration is the clock of the pipeline. The caller holds the
@@ -238,6 +241,9 @@ func (p *Player) buildUnleveledSource(path string, knownDuration, offset time.Du
 		tp.path = path
 	}
 	tp.setKnownDuration(knownDuration)
+	if !isURL(source) && !isSSH(source) {
+		tp.audio = localAudioFormat(source, tp)
+	}
 	if offset > 0 && tp.seekable {
 		if sample := relativeSeekSample(tp, offset); sample > 0 {
 			// Ignored deliberately: a failed seek should start the track from

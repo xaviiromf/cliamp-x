@@ -56,6 +56,15 @@ language = "es"
 region = "cl"
 auto_radio = false
 report_history = true
+quality_wifi = "Normal"
+quality_mobile = "ahorro"
+premium_quality = true
+
+[scrobble]
+listenbrainz_token = "${CLIAMP_GOLDEN_YT_SECRET}"
+lastfm_api_key = " key "
+lastfm_api_secret = 'secret'
+lastfm_session_key = "sess"
 
 [plugins]
 disabled = webhook, discord-rpc
@@ -116,6 +125,7 @@ eq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]   # bass up
 // so a parser change cannot move a value without a test failure.
 func TestLoadGolden(t *testing.T) {
 	t.Setenv("CLIAMP_GOLDEN_YT_SECRET", "yt-secret")
+	t.Setenv("LISTENBRAINZ_TOKEN", "lb-from-env")
 	example := readExampleConfig(t)
 	f, tr := false, true
 
@@ -130,7 +140,11 @@ func TestLoadGolden(t *testing.T) {
 		Region:         "CL",
 		AutoRadio:      &f,
 		ReportHistory:  true,
+		QualityWifi:    "normal",
+		QualityMobile:  "ahorro",
+		PremiumQuality: true,
 	}
+	sectionsWant.Scrobble = ScrobbleConfig{ListenBrainzToken: "yt-secret", LastfmAPIKey: "key", LastfmAPISecret: "secret", LastfmSessionKey: "sess"}
 	sectionsWant.Plugins = map[string]map[string]string{
 		"": {"disabled": "webhook, discord-rpc"},
 		"lastfm": {
@@ -198,6 +212,7 @@ func TestLoadGolden(t *testing.T) {
 	allWant.Normalize = "track"
 	allWant.NormalizeTarget = -14
 	allWant.Crossfade = 6
+	allWant.Scrobble = ScrobbleConfig{ListenBrainzToken: "lb-from-env"}
 	allWant.SponsorBlock = SponsorBlockConfig{Categories: []string{"music_offtopic", "intro", "outro", "sponsor", "selfpromo"}}
 	allWant.Expanded = true
 	allWant.Theme = "Tokyo Night"
@@ -208,6 +223,8 @@ func TestLoadGolden(t *testing.T) {
 		Language:       "es",
 		Region:         "CL",
 		AutoRadio:      &f,
+		QualityWifi:    "alta",
+		QualityMobile:  "normal",
 	}
 
 	listsWant := defaultConfig()

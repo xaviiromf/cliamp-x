@@ -144,6 +144,20 @@ type RuntimeSnapshot struct {
 	Normalize    string      `json:"normalize,omitempty"`
 	Crossfade    int         `json:"crossfade,omitempty"`
 	EQAuto       bool        `json:"eq_auto,omitempty"`
+	// The YouTube audio quality on each network, the network the app last
+	// reported, and the Premium quality switch.
+	QualityWifi    string `json:"quality_wifi,omitempty"`
+	QualityMobile  string `json:"quality_mobile,omitempty"`
+	Network        string `json:"network,omitempty"`
+	PremiumQuality bool   `json:"premium_quality,omitempty"`
+	// The source of the playing track: its codec, bitrate in kbps and
+	// sample rate in Hz, each left out while unknown.
+	AudioCodec string `json:"audio_codec,omitempty"`
+	AudioKbps  int    `json:"audio_kbps,omitempty"`
+	AudioRate  int    `json:"audio_rate,omitempty"`
+	// The scrobbling services that take reports.
+	ScrobbleListenBrainz bool `json:"scrobble_listenbrainz,omitempty"`
+	ScrobbleLastfm       bool `json:"scrobble_lastfm,omitempty"`
 }
 
 // NoticeInfo is the status line text and its kind: activity, success,

@@ -264,6 +264,7 @@ var spanish = map[string]string{
 	"Resumed at %s":                    "Reanudada en %s",
 	"Resuming at %s…":                  "Reanudando en %s…",
 	"Retry":                            "Reintentar",
+	"Auto cache":                       "Caché automática",
 	"Run":                              "Ejecutar",
 	"Save":                             "Guardar",
 	"Save Queue":                       "Guardar la cola",

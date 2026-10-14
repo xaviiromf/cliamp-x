@@ -197,6 +197,15 @@ type YouTubeMusicConfig struct {
 	Region         string // gl of the YouTube Music pages, or "" for $LANG
 	AutoRadio      *bool  // nil = default (false): continue with related songs when the queue ends
 	ReportHistory  bool   // add played songs to the YouTube Music history
+	QualityWifi    string // audio quality on Wi-Fi: "alta", "normal", "ahorro", or "" for alta
+	QualityMobile  string // audio quality on mobile data: "alta", "normal", "ahorro", or "" for normal
+	PremiumQuality bool   // Android: run yt-dlp with the cookies first, for the Premium formats
+}
+
+// ValidQuality reports whether q names an audio quality: alta, normal or
+// ahorro.
+func ValidQuality(q string) bool {
+	return q == "alta" || q == "normal" || q == "ahorro"
 }
 
 // IsSet reports whether the YouTube Music provider is enabled.
@@ -234,6 +243,43 @@ func (y *YouTubeMusicConfig) set(key, val string) {
 		if v, ok := parseBool(val); ok {
 			y.ReportHistory = v
 		}
+	case "quality_wifi", "quality_mobile":
+		q := strings.ToLower(strings.TrimSpace(parseString(val)))
+		if !ValidQuality(q) {
+			return
+		}
+		if key == "quality_wifi" {
+			y.QualityWifi = q
+		} else {
+			y.QualityMobile = q
+		}
+	case "premium_quality":
+		if v, ok := parseBool(val); ok {
+			y.PremiumQuality = v
+		}
+	}
+}
+
+// ScrobbleConfig holds the [scrobble] credentials. A service with a key
+// left empty is off.
+type ScrobbleConfig struct {
+	ListenBrainzToken string // the user token of ListenBrainz
+	LastfmAPIKey      string // the API key of the user's Last.fm API account
+	LastfmAPISecret   string // its shared secret
+	LastfmSessionKey  string // the session key from the Last.fm sign-in
+}
+
+// set applies one key of the [scrobble] section.
+func (s *ScrobbleConfig) set(key, val string) {
+	switch key {
+	case "listenbrainz_token":
+		s.ListenBrainzToken = strings.TrimSpace(parseString(val))
+	case "lastfm_api_key":
+		s.LastfmAPIKey = strings.TrimSpace(parseString(val))
+	case "lastfm_api_secret":
+		s.LastfmAPISecret = strings.TrimSpace(parseString(val))
+	case "lastfm_session_key":
+		s.LastfmSessionKey = strings.TrimSpace(parseString(val))
 	}
 }
 
@@ -294,6 +340,7 @@ type Config struct {
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	SponsorBlock     SponsorBlockConfig           // skipping of marked YouTube segments
+	Scrobble         ScrobbleConfig               // ListenBrainz and Last.fm scrobbling
 	Normalize        string                       // loudness normalization: "track", "album" or "off" (default "track")
 	NormalizeTarget  float64                      // normalization target in LUFS, or 0 for the default (-14)
 	Crossfade        int                          // seconds a track overlaps the next, 0-12 (default 0)
@@ -384,6 +431,8 @@ func Load() (Config, error) {
 			cfg.YouTubeMusic.set(key, val)
 		case "sponsorblock":
 			cfg.SponsorBlock.set(key, val)
+		case "scrobble":
+			cfg.Scrobble.set(key, val)
 		default:
 			// Keys of a plugin section go to the plugin, and keys of a
 			// [providers.<key>] section to that provider. Any other section,

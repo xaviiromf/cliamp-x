@@ -32,6 +32,7 @@ type Request struct {
 	Kind     string      `json:"kind,omitempty"` // what taste.rate rates: song, album, artist or genre
 	Cols     int         `json:"cols,omitempty"` // the vis.frame grid
 	Rows     int         `json:"rows,omitempty"`
+	Text     string      `json:"text,omitempty"` // the value of a settings.set name that takes text
 }
 
 // Response is the operation-specific data embedded in a successful V2 job.
@@ -77,6 +78,8 @@ type Response struct {
 	Downloads  *DownloadsInfo `json:"downloads,omitempty"`
 	Stats      *StatsInfo     `json:"stats,omitempty"`
 	Lines      []string       `json:"lines,omitempty"` // a vis.frame frame, one row each, with ANSI SGR colors
+	URL        string         `json:"url,omitempty"`   // the page that lastfm.auth start opens
+	Token      string         `json:"token,omitempty"` // the token that lastfm.auth finish takes
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.
@@ -237,6 +240,24 @@ type StatsInfo struct {
 	TopGenres  []StatsCount `json:"top_genres,omitempty"`
 	Daily      []float64    `json:"daily"`
 	Streak     int          `json:"streak"`
+	// The wrapped name fills these: the year, the minutes listened, the
+	// days with plays, the top albums, the first song of the year and the
+	// song replayed most in one day.
+	Year         int          `json:"year,omitempty"`
+	Minutes      int          `json:"minutes,omitempty"`
+	Days         int          `json:"days,omitempty"`
+	TopAlbums    []StatsCount `json:"top_albums,omitempty"`
+	First        *StatsPlay   `json:"first,omitempty"`
+	MostReplayed *StatsCount  `json:"most_replayed,omitempty"`
+}
+
+// StatsPlay is one listened song: its title, its artist in Detail, its path
+// and when it played, in RFC 3339.
+type StatsPlay struct {
+	Name   string `json:"name"`
+	Detail string `json:"detail,omitempty"`
+	Path   string `json:"path,omitempty"`
+	At     string `json:"at"`
 }
 
 // StatsCount is one ranked artist, song or genre. Detail is a song's artist.

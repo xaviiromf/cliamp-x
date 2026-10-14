@@ -191,6 +191,7 @@ func (m *Model) nowPlaying(track playlist.Track) {
 		m.emitPlugin(luaplugin.EventTrackChange, trackEventData(track, m.player.Duration()))
 	}
 
+	m.scrobbleNowPlaying(track)
 	reporter := m.findPlaybackReporter(track)
 	if reporter == nil {
 		return
@@ -275,6 +276,7 @@ func (m *Model) maybeScrobble(track playlist.Track, elapsed, duration time.Durat
 		data["played_secs"] = elapsed.Seconds()
 		m.emitPlugin(luaplugin.EventTrackScrobble, data)
 	}
+	m.scrobbleListen(track, elapsed, duration)
 
 	reporter := m.findPlaybackReporter(track)
 	if reporter == nil {

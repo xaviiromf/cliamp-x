@@ -9,6 +9,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/scrobble"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/luaplugin"
 	"github.com/xaviiromf/cliamp-x/player"
@@ -339,6 +340,7 @@ type Model struct {
 	vis         *ui.Visualizer
 	// autoRadio keeps playing related songs when the queue runs out.
 	autoRadio     bool
+	ytQuality     ytQuality // the YouTube audio quality per network
 	seekStepLarge time.Duration
 	pausedAt      time.Time
 
@@ -599,6 +601,8 @@ type Model struct {
 	downloads downloadState // offline downloads
 	stats     statsState    // the statistics screen
 	statsLog  *stats.Log    // where listened songs are recorded
+	// scrobbler reports to ListenBrainz and Last.fm, or is nil.
+	scrobbler *scrobble.Scrobbler
 
 	previewOff      bool   // the preview pane is turned off; the cover cache stays
 	fullVisCoverOff bool   // no cover beside the full-screen visualizer

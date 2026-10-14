@@ -28,6 +28,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/internal/resume"
+	"github.com/xaviiromf/cliamp-x/internal/scrobble"
 	"github.com/xaviiromf/cliamp-x/internal/sponsorblock"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
@@ -180,6 +181,9 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		m.SetOffline(manifest, cfg.Downloads.Directory)
 		// The statistics screen sums up this log of listened songs.
 		m.SetStatsLog(stats.Open(filepath.Join(dir, "plays.jsonl")))
+		sc := cfg.Scrobble
+		m.SetScrobbler(scrobble.New(scrobble.Config{ListenBrainzToken: sc.ListenBrainzToken, LastfmKey: sc.LastfmAPIKey,
+			LastfmSecret: sc.LastfmAPISecret, LastfmSession: sc.LastfmSessionKey}, filepath.Join(dir, "scrobble_queue.json")))
 		lyrics.SetCacheDir(filepath.Join(dir, "lyrics"))
 		m.SetSearchHistory(filepath.Join(dir, "search_history.json"))
 	}
@@ -340,6 +344,7 @@ func configureModel(m *model.Model, cfg config.Config, headless, visualizer60FPS
 	m.SetInitialDirectory(cfg.InitialDirectory)
 	m.SetDownloadsDirectory(cfg.Downloads.Directory)
 	m.SetAutoRadio(cfg.YouTubeMusic.AutoRadioEnabled())
+	m.SetYTQuality(cfg.YouTubeMusic.QualityWifi, cfg.YouTubeMusic.QualityMobile, cfg.YouTubeMusic.PremiumQuality)
 	m.SetEQAuto(cfg.EQAuto)
 	if cfg.EQPreset != "" && cfg.EQPreset != "Custom" {
 		m.SetEQPreset(cfg.EQPreset, nil)

@@ -76,6 +76,10 @@ type ipcRuntimeFingerprint struct {
 	normalize    string
 	crossfade    time.Duration
 	eqAuto       bool
+	ytQuality    ytQuality
+	audio        player.AudioFormat
+	scrobbleLB   bool
+	scrobbleLfm  bool
 	themeBG      string
 	themeAccent  string
 }
@@ -110,6 +114,9 @@ type ipcV2ResponseMsg struct {
 	JobID     string
 	Operation string
 	Response  ipc.Response
+	// lastfmSession is the session key of a Last.fm sign-in, which stays
+	// out of the job result.
+	lastfmSession string
 }
 
 func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
@@ -253,7 +260,9 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return nil
 	case "settings.set":
 		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
-	case "download", "download.status", "download.cancel", "download.retry":
+	case "lastfm.auth":
+		return m.handleV2LastfmAuth(ctx, msg.Jobs, msg.JobID, request)
+	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
 		return m.handleV2Download(msg.Jobs, msg.JobID, request)
 	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
@@ -675,16 +684,23 @@ var settingMax = map[string]float64{"auto_radio": 1, "normalize": 2, "crossfade"
 
 // handleV2Setting changes one setting and saves it, as its key does. A
 // switch takes 0 or 1, normalize 0 off, 1 track or 2 album, and crossfade
-// whole seconds from 0 to 12.
+// whole seconds from 0 to 12. The names that take text read it from text.
 func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
 	v := request.Value
-	limit, ok := settingMax[request.Name]
-	if !ok || v != math.Trunc(v) || v < 0 || v > limit {
+	limit, numeric := settingMax[request.Name]
+	ok := numeric && v == math.Trunc(v) && v >= 0 && v <= limit
+	var err error
+	if !numeric {
+		ok, err = m.setQualitySetting(request.Name, strings.TrimSpace(request.Text))
+	}
+	if !numeric && !ok {
+		ok, err = m.setScrobbleSetting(request.Name, strings.TrimSpace(request.Text))
+	}
+	if !ok {
 		m.failV2Job(jobs, jobID, v2InvalidParamsError())
 		return nil
 	}
 	on := v == 1
-	var err error
 	switch request.Name {
 	case "auto_radio":
 		err = m.setAutoRadio(on)
@@ -711,9 +727,17 @@ func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Re
 	return nil
 }
 
+// autoCacheDefaultSongs is the song limit of download.auto without limit,
+// and autoCacheMaxMB the largest size cap it takes.
+const (
+	autoCacheDefaultSongs = 50
+	autoCacheMaxMB        = 1 << 20
+)
+
 // handleV2Download queues a track or a provider item for download, and
-// reads, cancels or retries the download queue. Without offline downloads
-// every one is unavailable.
+// reads, cancels or retries the download queue. download.auto queues the
+// liked and recently played songs. Without offline downloads every one is
+// unavailable.
 func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
 	if m.downloads.manifest == nil {
 		m.failV2Job(jobs, jobID, v2UnavailableError())
@@ -735,6 +759,27 @@ func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.R
 		m.cancelDownloads()
 	case "download.retry":
 		cmd = m.retryFailedDownloads()
+	case "download.auto":
+		limit := request.Limit
+		if limit == 0 {
+			limit = autoCacheDefaultSongs
+		}
+		mb := request.Value
+		if mb < 0 || mb != math.Trunc(mb) || mb > autoCacheMaxMB {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		picked, err := m.autoCacheJobs(limit, int64(mb)<<20)
+		if err != nil {
+			v2Err := v2InternalError()
+			v2Err.Detail = err.Error()
+			m.failV2Job(jobs, jobID, v2Err)
+			return nil
+		}
+		response.Total = len(picked)
+		if len(picked) > 0 {
+			cmd = m.queueDownloads(L("Auto cache"), picked)
+		}
 	}
 	m.completeV2Job(jobs, jobID, response)
 	return cmd
@@ -790,7 +835,10 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 		cmd = m.handleIPCRemixes(ctx, ipcTrackFromInfo(*request.Track), reply)
 	case "stats":
 		period, ok := statsPeriods[request.Name]
-		if !ok {
+		year := int(request.Value)
+		wrapped := request.Name == "wrapped" && request.Value == math.Trunc(request.Value) &&
+			(year == 0 || year >= 1970 && year <= 9999)
+		if !ok && !wrapped {
 			m.failV2Job(jobs, jobID, v2InvalidParamsError())
 			return nil
 		}
@@ -798,7 +846,11 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 			m.failV2Job(jobs, jobID, v2UnavailableError())
 			return nil
 		}
-		cmd = m.handleIPCStats(period, reply)
+		if wrapped {
+			cmd = m.handleIPCWrapped(year, reply)
+		} else {
+			cmd = m.handleIPCStats(period, reply)
+		}
 	default:
 		cmd = m.handleIPCHistory(ipcHistoryRequest{Op: request.Cmd, Limit: request.Limit, Reply: reply})
 	}
@@ -818,6 +870,11 @@ func waitV2ResponseCmd(ctx context.Context, jobs *ipc.JobStore, jobID string, re
 
 // handleV2Response finishes a V2 job with the response of its async work.
 func (m *Model) handleV2Response(msg ipcV2ResponseMsg) {
+	if msg.Response.OK && msg.lastfmSession != "" {
+		if _, err := m.setScrobbleSetting("lastfm_session_key", msg.lastfmSession); err != nil {
+			msg.Response = ipc.Response{Error: err.Error()}
+		}
+	}
 	if msg.Response.OK {
 		if msg.Operation == "device" {
 			m.applyV2DeviceResponse(msg.Response)
@@ -911,6 +968,8 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 			info.StreamTitle = m.streamTitle
 		}
 		snapshot.Track = &info
+		audio := m.playingAudioFormat()
+		snapshot.AudioCodec, snapshot.AudioKbps, snapshot.AudioRate = audio.Codec, audio.Kbps, audio.Rate
 	}
 	snapshot.PlaybackDetached = m.playbackDetached
 	position, duration := m.playbackClock()
@@ -954,6 +1013,9 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 	snapshot.Normalize = m.normalizeName()
 	snapshot.Crossfade = int(m.crossfade / time.Second)
 	snapshot.EQAuto = m.eqAuto
+	snapshot.QualityWifi, snapshot.QualityMobile = m.ytQuality.wifi, m.ytQuality.mobile
+	snapshot.Network, snapshot.PremiumQuality = m.ytQuality.network, m.ytQuality.premium
+	snapshot.ScrobbleListenBrainz, snapshot.ScrobbleLastfm = m.scrobbleServices()
 	return snapshot
 }
 
@@ -1065,6 +1127,9 @@ func (m *Model) runtimeFingerprint() ipcRuntimeFingerprint {
 	fingerprint.normalize = m.normalizeName()
 	fingerprint.crossfade = m.crossfade
 	fingerprint.eqAuto = m.eqAuto
+	fingerprint.ytQuality = m.ytQuality
+	fingerprint.audio = m.playingAudioFormat()
+	fingerprint.scrobbleLB, fingerprint.scrobbleLfm = m.scrobbleServices()
 	palette := m.themePalette()
 	fingerprint.themeBG, fingerprint.themeAccent = palette.BG, palette.Accent
 	return fingerprint
