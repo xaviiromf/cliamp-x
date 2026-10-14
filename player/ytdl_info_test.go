@@ -9,9 +9,10 @@ import (
 	"time"
 )
 
-// A prefetched page makes the next start load it instead of extracting the
-// page again, and a start whose prefetched info fails extracts it as before.
-func TestYTDLPrefetchedInfoIsUsedOnce(t *testing.T) {
+// A prefetched page makes the next start, and the seeks of that track, load
+// it instead of extracting the page again, and a start whose prefetched info
+// fails extracts it as before.
+func TestYTDLPrefetchedInfoServesStartAndSeeks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses POSIX process fixtures")
 	}
@@ -42,15 +43,20 @@ head -c 4096 /dev/zero
 		t.Fatalf("buildYTDLPipeline: %v", err)
 	}
 	tp.decoder.Close()
-	calls := readLines(t, log)
-	if len(calls) != 2 || !strings.Contains(calls[0], "-J") || !strings.Contains(calls[1], "--load-info-json") || strings.Contains(calls[1], "-- "+url) {
-		t.Fatalf("yt-dlp calls = %q, want one -J then one start from the info", calls)
+	// A seek, as a rewind to the start, restarts yt-dlp from the same info.
+	tp, err = p.buildYTDLPipeline(url, 30)
+	if err != nil {
+		t.Fatalf("buildYTDLPipeline seek: %v", err)
 	}
-	p.ytdlInfo.mu.Lock()
-	left := len(p.ytdlInfo.entries)
-	p.ytdlInfo.mu.Unlock()
-	if left != 0 {
-		t.Fatalf("%d prefetched pages left after the start, want 0", left)
+	tp.decoder.Close()
+	calls := readLines(t, log)
+	if len(calls) != 3 || !strings.Contains(calls[0], "-J") {
+		t.Fatalf("yt-dlp calls = %q, want one -J then two starts from the info", calls)
+	}
+	for _, c := range calls[1:] {
+		if !strings.Contains(c, "--load-info-json") || strings.Contains(c, "-- "+url) {
+			t.Fatalf("yt-dlp call = %q, want a start from the info", c)
+		}
 	}
 
 	// A stale prefetch falls back to a normal start.

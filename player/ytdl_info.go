@@ -89,23 +89,34 @@ func fetchYTDLInfo(ctx context.Context, pageURL, path string) error {
 	return os.WriteFile(path, out, 0o600)
 }
 
-// take returns the prefetched info file of pageURL and forgets it; the
-// caller removes the file. It waits for an extraction still running, which
-// is never slower than starting a new one. It returns "" when there is none.
-func (c *ytdlInfoCache) take(pageURL string) string {
+// get returns the prefetched info file of pageURL, kept for the seeks of
+// the track, which restart yt-dlp: without it a rewind waits seconds for a
+// new extraction. It waits for an extraction still running, which is never
+// slower than starting a new one. It returns "" when there is none.
+func (c *ytdlInfoCache) get(pageURL string) string {
 	c.mu.Lock()
 	e, ok := c.entries[pageURL]
-	delete(c.entries, pageURL)
 	c.mu.Unlock()
 	if !ok {
 		return ""
 	}
 	<-e.done
 	if e.err != nil || time.Since(e.at) > ytdlInfoTTL {
-		_ = os.Remove(e.path)
+		c.drop(pageURL, e.path)
 		return ""
 	}
 	return e.path
+}
+
+// drop forgets the stale or failed info file path of pageURL and removes
+// it, so the next start extracts the page again.
+func (c *ytdlInfoCache) drop(pageURL, path string) {
+	c.mu.Lock()
+	if e, ok := c.entries[pageURL]; ok && e.path == path {
+		delete(c.entries, pageURL)
+	}
+	c.mu.Unlock()
+	_ = os.Remove(path)
 }
 
 // evictOldestLocked drops the oldest entry. The caller holds c.mu.

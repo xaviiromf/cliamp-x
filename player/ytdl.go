@@ -418,16 +418,8 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
-	// A start at the beginning uses the page info prefetched for it, if any.
-	info := ""
-	if startSec == 0 {
-		info = p.ytdlInfo.take(pageURL)
-	}
-	defer func() {
-		if info != "" {
-			_ = os.Remove(info)
-		}
-	}()
+	// A start, or a seek, uses the page info prefetched for it, if any.
+	info := p.ytdlInfo.get(pageURL)
 	cookieless := ytdlCookieless(pageURL)
 	for attempt := 1; ; attempt++ {
 		decoder, format, err := decodeYTDLPipeInfo(pageURL, info, !cookieless, p.sr, p.bitDepth, startSec)
@@ -443,7 +435,7 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			if info != "" {
 				// The prefetched info went stale: extract the page again,
 				// which does not count as a retry.
-				_ = os.Remove(info)
+				p.ytdlInfo.drop(pageURL, info)
 				info = ""
 				attempt--
 				continue
