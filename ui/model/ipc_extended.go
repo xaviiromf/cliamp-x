@@ -874,20 +874,55 @@ func (m *Model) handleIPCStats(period stats.Period, reply chan ipc.Response) tea
 			reply <- ipcResponseError(err)
 			return nil
 		}
-		s := stats.Summarize(plays, period, time.Now(), statsTop, statsDays)
-		counts := func(in []stats.Count) []ipc.StatsCount {
-			out := make([]ipc.StatsCount, len(in))
-			for i, c := range in {
-				out[i] = ipc.StatsCount(c)
-			}
-			return out
-		}
-		reply <- ipc.Response{OK: true, Stats: &ipc.StatsInfo{
-			Plays: s.Plays, Secs: s.Secs, Songs: s.Songs, Artists: s.Artists, TopArtists: counts(s.TopArtists),
-			TopSongs: counts(s.TopSongs), TopGenres: counts(s.TopGenres), Daily: s.Daily, Streak: s.Streak,
-		}}
+		info := ipcStatsInfo(stats.Summarize(plays, period, time.Now(), statsTop, statsDays))
+		reply <- ipc.Response{OK: true, Stats: &info}
 		return nil
 	}
+}
+
+// handleIPCWrapped sums the play log over the calendar year, or the current
+// year when year is 0, in the local zone.
+func (m *Model) handleIPCWrapped(year int, reply chan ipc.Response) tea.Cmd {
+	log := m.statsLog
+	return func() tea.Msg {
+		plays, err := log.Load()
+		if err != nil {
+			reply <- ipcResponseError(err)
+			return nil
+		}
+		if year == 0 {
+			year = time.Now().Year()
+		}
+		w := stats.Wrapped(plays, year, time.Local, statsTop)
+		info := ipcStatsInfo(w.Summary)
+		info.Year, info.Minutes, info.Days = w.Year, int(w.Secs/60), w.Days
+		info.TopAlbums = ipcStatsCounts(w.TopAlbums)
+		if p := w.First; p != nil {
+			info.First = &ipc.StatsPlay{Name: p.Title, Detail: p.Artist, Path: p.Key, At: p.At.Format(time.RFC3339)}
+		}
+		if c := w.MostReplayed; c != nil {
+			most := ipc.StatsCount(*c)
+			info.MostReplayed = &most
+		}
+		reply <- ipc.Response{OK: true, Stats: &info}
+		return nil
+	}
+}
+
+// ipcStatsInfo converts a summary for the stats operation.
+func ipcStatsInfo(s stats.Summary) ipc.StatsInfo {
+	return ipc.StatsInfo{
+		Plays: s.Plays, Secs: s.Secs, Songs: s.Songs, Artists: s.Artists, TopArtists: ipcStatsCounts(s.TopArtists),
+		TopSongs: ipcStatsCounts(s.TopSongs), TopGenres: ipcStatsCounts(s.TopGenres), Daily: s.Daily, Streak: s.Streak,
+	}
+}
+
+func ipcStatsCounts(in []stats.Count) []ipc.StatsCount {
+	out := make([]ipc.StatsCount, len(in))
+	for i, c := range in {
+		out[i] = ipc.StatsCount(c)
+	}
+	return out
 }
 
 func (m *Model) ipcProvider(key string) (provider.Entry, bool) {

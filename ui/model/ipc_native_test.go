@@ -1130,6 +1130,32 @@ func TestNativeStats(t *testing.T) {
 	if response := runV2(t, m, "stats", ipc.Request{Name: "decade"}); response.Error != ipc.V2ErrorCodeInvalidParams {
 		t.Fatalf("stats of an unknown period = %+v", response)
 	}
+
+	// wrapped sums a calendar year: value 0 is this year.
+	last := time.Date(now.Year()-1, 6, 1, 12, 0, 0, 0, time.Local)
+	if err := m.statsLog.Record(stats.Play{At: last, Key: "/c", Title: "C", Artist: "Past", Album: "Then", Secs: 600}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		year      float64
+		wantYear  int
+		wantFirst string
+	}{{0, now.Year(), ""}, {float64(now.Year() - 1), now.Year() - 1, "C"}} {
+		response := runV2(t, m, "stats", ipc.Request{Name: "wrapped", Value: tc.year})
+		s := response.Stats
+		if !response.OK || s == nil || s.Year != tc.wantYear {
+			t.Fatalf("wrapped %v = %+v", tc.year, response)
+		}
+		if tc.wantFirst != "" && (s.First == nil || s.First.Name != tc.wantFirst || s.Minutes != 10 || s.Days != 1 || s.Streak != 1 ||
+			len(s.TopAlbums) != 1 || s.TopAlbums[0].Name != "Then" || s.MostReplayed == nil || s.MostReplayed.Name != "C") {
+			t.Fatalf("wrapped %v = %+v", tc.year, s)
+		}
+	}
+	for _, year := range []float64{1969, 2025.5, 10000} {
+		if response := runV2(t, m, "stats", ipc.Request{Name: "wrapped", Value: year}); response.Error != ipc.V2ErrorCodeInvalidParams {
+			t.Fatalf("wrapped of year %v = %+v, want invalid_params", year, response)
+		}
+	}
 	m.statsLog = nil
 	if response := runV2(t, m, "stats", ipc.Request{Name: "week"}); response.Error != ipc.V2ErrorCodeUnavailable {
 		t.Fatalf("stats without a log = %+v", response)

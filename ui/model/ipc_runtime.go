@@ -786,7 +786,10 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 		cmd = m.handleIPCRemixes(ctx, ipcTrackFromInfo(*request.Track), reply)
 	case "stats":
 		period, ok := statsPeriods[request.Name]
-		if !ok {
+		year := int(request.Value)
+		wrapped := request.Name == "wrapped" && request.Value == math.Trunc(request.Value) &&
+			(year == 0 || year >= 1970 && year <= 9999)
+		if !ok && !wrapped {
 			m.failV2Job(jobs, jobID, v2InvalidParamsError())
 			return nil
 		}
@@ -794,7 +797,11 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 			m.failV2Job(jobs, jobID, v2UnavailableError())
 			return nil
 		}
-		cmd = m.handleIPCStats(period, reply)
+		if wrapped {
+			cmd = m.handleIPCWrapped(year, reply)
+		} else {
+			cmd = m.handleIPCStats(period, reply)
+		}
 	default:
 		cmd = m.handleIPCHistory(ipcHistoryRequest{Op: request.Cmd, Limit: request.Limit, Reply: reply})
 	}

@@ -432,6 +432,27 @@ its artist. Another period fails with `invalid_params`.
   "daily":[0,12.5,40,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,61,22],"streak":3}}
 ```
 
+With the `name` `wrapped`, `stats` sums the calendar year in `value`, such as
+`2026`, or the current year with `0` or no `value`, in the local time zone,
+for a yearly story. `stats` then also holds the `year`, the `minutes`
+listened, the `days` with plays, the top 10 `top_albums` with the album's
+artist in `detail`, the `first` song of the year with its `path` and the
+time it played, and `most_replayed`: the song played most times in one day,
+with the plays of that day. `streak` is the longest run of days in a row
+with plays, and `daily` is empty. A year before 1970 or after 9999, or not
+a whole number, fails with `invalid_params`.
+
+```json
+{"ok":true,"stats":{"plays":4210,"secs":846000,"songs":1320,"artists":410,
+  "top_artists":[{"name":"Daft Punk","plays":210,"secs":50400}],
+  "top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":64,"secs":20480}],
+  "top_genres":[{"name":"Electronic","plays":1500,"secs":300000}],
+  "daily":[],"streak":41,"year":2026,"minutes":14100,"days":298,
+  "top_albums":[{"name":"Discovery","detail":"Daft Punk","plays":180,"secs":43200}],
+  "first":{"name":"Aerodynamic","detail":"Daft Punk","path":"https://music.youtube.com/watch?v=…","at":"2026-01-01T00:42:10-03:00"},
+  "most_replayed":{"name":"One More Time","detail":"Daft Punk","plays":9,"secs":2880}}}
+```
+
 ## Events
 
 Subscribe with an exact topic list. The acknowledgement is V2. Later lines use

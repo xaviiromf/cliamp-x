@@ -141,15 +141,6 @@ func Summarize(plays []Play, period Period, now time.Time, top, days int) Summar
 	artists := map[string]*Count{}
 	songs := map[string]*Count{}
 	genres := map[string]*Count{}
-	bump := func(m map[string]*Count, key, name, detail string, secs float64) {
-		c, ok := m[key]
-		if !ok {
-			c = &Count{Name: name, Detail: detail}
-			m[key] = c
-		}
-		c.Plays++
-		c.Secs += secs
-	}
 	for _, p := range plays {
 		if p.At.Before(from) || p.At.After(now) {
 			continue
@@ -159,11 +150,7 @@ func Summarize(plays []Play, period Period, now time.Time, top, days int) Summar
 		if p.Artist != "" {
 			bump(artists, strings.ToLower(p.Artist), p.Artist, "", p.Secs)
 		}
-		title := p.Title
-		if title == "" {
-			title = filepath.Base(p.Key)
-		}
-		bump(songs, p.Key, title, p.Artist, p.Secs)
+		bump(songs, p.Key, p.title(), p.Artist, p.Secs)
 		if p.Genre != "" {
 			bump(genres, strings.ToLower(p.Genre), p.Genre, "", p.Secs)
 		}
@@ -174,6 +161,82 @@ func Summarize(plays []Play, period Period, now time.Time, top, days int) Summar
 	s.TopGenres = ranked(genres, top)
 	s.Daily, s.Streak = daily(plays, now, days)
 	return s
+}
+
+// bump counts one play of secs under key in m, named name.
+func bump(m map[string]*Count, key, name, detail string, secs float64) {
+	c, ok := m[key]
+	if !ok {
+		c = &Count{Name: name, Detail: detail}
+		m[key] = c
+	}
+	c.Plays++
+	c.Secs += secs
+}
+
+// title is the song's title, or the base name of its path.
+func (p Play) title() string {
+	if p.Title != "" {
+		return p.Title
+	}
+	return filepath.Base(p.Key)
+}
+
+// Wrap is the listening of one calendar year, for the yearly story.
+type Wrap struct {
+	Summary              // the year's totals and rankings; Streak is the longest
+	Year         int     // the calendar year
+	Days         int     // days with plays
+	TopAlbums    []Count // Detail is the album's artist
+	First        *Play   // the first song of the year
+	MostReplayed *Count  // the song played most times in one day, with that day's plays
+}
+
+// Wrapped sums the plays of year in loc: Summarize's totals and rankings,
+// the top albums, the days with plays, the longest streak, the first song,
+// and the song replayed most in one day. top caps each ranking.
+func Wrapped(plays []Play, year int, loc *time.Location, top int) Wrap {
+	from := time.Date(year, 1, 1, 0, 0, 0, 0, loc)
+	to := from.AddDate(1, 0, 0)
+	var in []Play
+	for _, p := range plays {
+		if !p.At.Before(from) && p.At.Before(to) {
+			in = append(in, p)
+		}
+	}
+	w := Wrap{Summary: Summarize(in, All, to, top, 0), Year: year}
+	albums := map[string]*Count{}
+	perDay := map[string]*Count{} // a song on one day
+	days := map[time.Time]bool{}
+	for i, p := range in {
+		if w.First == nil || p.At.Before(w.First.At) {
+			w.First = &in[i]
+		}
+		if p.Album != "" {
+			bump(albums, strings.ToLower(p.Album+"\x00"+p.Artist), p.Album, p.Artist, p.Secs)
+		}
+		t := p.At.In(loc)
+		day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+		days[day] = true
+		bump(perDay, day.Format(time.DateOnly)+"\x00"+p.Key, p.title(), p.Artist, p.Secs)
+	}
+	w.TopAlbums = ranked(albums, top)
+	if best := ranked(perDay, 1); len(best) == 1 {
+		w.MostReplayed = &best[0]
+	}
+	w.Days = len(days)
+	w.Streak = 0
+	for day := range days {
+		if days[day.AddDate(0, 0, -1)] {
+			continue // not the first day of a run
+		}
+		run := 0
+		for d := day; days[d]; d = d.AddDate(0, 0, 1) {
+			run++
+		}
+		w.Streak = max(w.Streak, run)
+	}
+	return w
 }
 
 func ranked(m map[string]*Count, top int) []Count {

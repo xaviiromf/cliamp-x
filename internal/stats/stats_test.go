@@ -60,3 +60,45 @@ func TestStreakSurvivesQuietToday(t *testing.T) {
 		t.Fatalf("streak = %d, want 2 when only today is empty", s.Streak)
 	}
 }
+
+func TestWrapped(t *testing.T) {
+	loc := time.FixedZone("CLT", -3*3600)
+	at := func(month, day, hour int) time.Time {
+		return time.Date(2025, time.Month(month), day, hour, 0, 0, 0, loc)
+	}
+	plays := []Play{
+		{At: time.Date(2024, 12, 31, 23, 0, 0, 0, loc), Key: "old", Title: "Last Year", Artist: "Z", Secs: 100},
+		{At: at(1, 2, 10), Key: "s2", Title: "Two", Artist: "Beta", Album: "B-Sides", Genre: "Pop", Secs: 120},
+		{At: at(1, 1, 9), Key: "s1", Title: "One", Artist: "Alpha", Album: "First", Genre: "Rock", Secs: 180},
+		{At: at(1, 3, 9), Key: "s1", Title: "One", Artist: "Alpha", Album: "First", Secs: 180},
+		{At: at(3, 5, 9), Key: "s3", Title: "Three", Artist: "Alpha", Album: "first", Secs: 60},
+		{At: at(3, 5, 10), Key: "s3", Title: "Three", Artist: "Alpha", Album: "first", Secs: 60},
+		{At: at(3, 5, 11), Key: "s3", Title: "Three", Artist: "Alpha", Album: "first", Secs: 60},
+		{At: at(3, 6, 9), Key: "s1", Title: "One", Artist: "Alpha", Album: "First", Secs: 180},
+		// 2026-01-01 00:30 in Chile is still 2025 in UTC: the zone decides.
+		{At: time.Date(2026, 1, 1, 3, 30, 0, 0, time.UTC), Key: "new", Title: "Next Year", Artist: "Y", Secs: 100},
+	}
+	w := Wrapped(plays, 2025, loc, 10)
+	if w.Year != 2025 || w.Plays != 7 || w.Secs != 840 || w.Songs != 3 || w.Artists != 2 || w.Days != 5 {
+		t.Fatalf("totals = %+v", w)
+	}
+	if w.Streak != 3 {
+		t.Errorf("longest streak = %d, want 3 (Jan 1 to 3)", w.Streak)
+	}
+	if w.First == nil || w.First.Key != "s1" || !w.First.At.Equal(at(1, 1, 9)) {
+		t.Errorf("first = %+v, want One on Jan 1", w.First)
+	}
+	if w.MostReplayed == nil || w.MostReplayed.Name != "Three" || w.MostReplayed.Plays != 3 {
+		t.Errorf("most replayed = %+v, want Three 3 times on Mar 5", w.MostReplayed)
+	}
+	// Album names group regardless of case, with the album's artist.
+	if len(w.TopAlbums) != 2 || w.TopAlbums[0].Name != "First" || w.TopAlbums[0].Detail != "Alpha" || w.TopAlbums[0].Plays != 6 {
+		t.Errorf("top albums = %+v", w.TopAlbums)
+	}
+	if w.TopSongs[0].Name != "One" || w.TopArtists[0].Name != "Alpha" || len(w.TopGenres) != 2 {
+		t.Errorf("rankings = %+v %+v %+v", w.TopSongs, w.TopArtists, w.TopGenres)
+	}
+	if empty := Wrapped(plays, 2020, loc, 10); empty.Plays != 0 || empty.First != nil || empty.MostReplayed != nil || empty.Streak != 0 {
+		t.Errorf("empty year = %+v", empty)
+	}
+}

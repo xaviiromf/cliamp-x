@@ -117,7 +117,7 @@ func TestNativeOperationParameters(t *testing.T) {
 		"download.status":  nil,
 		"download.cancel":  nil,
 		"download.retry":   nil,
-		"stats":            {"name"},
+		"stats":            {"name", "value"},
 	} {
 		operation, ok := registry.Lookup(name)
 		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {

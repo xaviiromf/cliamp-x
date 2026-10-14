@@ -235,6 +235,24 @@ type StatsInfo struct {
 	TopGenres  []StatsCount `json:"top_genres,omitempty"`
 	Daily      []float64    `json:"daily"`
 	Streak     int          `json:"streak"`
+	// The wrapped name fills these: the year, the minutes listened, the
+	// days with plays, the top albums, the first song of the year and the
+	// song replayed most in one day.
+	Year         int          `json:"year,omitempty"`
+	Minutes      int          `json:"minutes,omitempty"`
+	Days         int          `json:"days,omitempty"`
+	TopAlbums    []StatsCount `json:"top_albums,omitempty"`
+	First        *StatsPlay   `json:"first,omitempty"`
+	MostReplayed *StatsCount  `json:"most_replayed,omitempty"`
+}
+
+// StatsPlay is one listened song: its title, its artist in Detail, its path
+// and when it played, in RFC 3339.
+type StatsPlay struct {
+	Name   string `json:"name"`
+	Detail string `json:"detail,omitempty"`
+	Path   string `json:"path,omitempty"`
+	At     string `json:"at"`
 }
 
 // StatsCount is one ranked artist, song or genre. Detail is a song's artist.
