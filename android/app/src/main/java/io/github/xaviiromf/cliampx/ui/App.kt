@@ -75,7 +75,6 @@ import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.PlaybackClock
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
-import io.github.xaviiromf.cliampx.SettingsActivity
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Updates
 import io.github.xaviiromf.cliampx.Ytdlp
@@ -118,6 +117,12 @@ fun App(firstRun: Boolean) {
                         is Screen.Genre -> GenreScreen(screen)
                         is Screen.ParaTi -> ParaTiScreen(screen)
                         is Screen.Remixes -> RemixesScreen(screen)
+                        is Screen.Settings -> SettingsScreen(screen)
+                        Screen.Themes -> ThemesScreen()
+                        Screen.Visualizers -> VisualizersScreen()
+                        Screen.Eq -> snap?.let { EqPage(it) { Nav.pop() } }
+                        Screen.Stats -> StatsScreen()
+                        Screen.Ratings -> RatingsScreen()
                     }
                 }
             }
@@ -342,7 +347,7 @@ fun Banners() {
             Text(stringResource(R.string.update_banner, version), Modifier.weight(1f), color = p.textPrimary, style = Type.caption)
             BracketButton(stringResource(R.string.update_install)) {
                 Updates.offer.value = null
-                context.startActivity(Intent(context, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_UPDATE, true))
+                Nav.settings(install = true)
             }
             BracketButton(stringResource(R.string.later)) { Updates.offer.value = null }
         }

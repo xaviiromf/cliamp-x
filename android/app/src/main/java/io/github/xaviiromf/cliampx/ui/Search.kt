@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -90,6 +91,8 @@ fun SearchScreen() {
     val context = LocalContext.current
     // Clearing the focus hides the keyboard, and a closing sheet then has no field to give it back to (§1.2).
     val focus = LocalFocusManager.current
+    // A hardware Enter clears the focus but leaves the soft keyboard up: hide it too.
+    val keyboard = LocalSoftwareKeyboardController.current
     val prefs = remember { context.getSharedPreferences("ui", Context.MODE_PRIVATE) }
     var recent by remember { mutableStateOf(prefs.getString(RECENT, "").orEmpty().lines().filter(String::isNotBlank)) }
     fun keep(list: List<String>) {
@@ -102,6 +105,7 @@ fun SearchScreen() {
         submitted = query.trim()
         keep(recents(recent, submitted))
         focus.clearFocus()
+        keyboard?.hide()
     }
     var attempt by remember { mutableIntStateOf(0) }
     // The query the list shows: only a new one scrolls back to the top.

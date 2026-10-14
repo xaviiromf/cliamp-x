@@ -38,6 +38,16 @@ sealed interface Screen {
     /** The endless "For you" grid of albums, or of artists. */
     data class ParaTi(val artists: Boolean) : Screen
     data class Remixes(val track: Track) : Screen
+
+    /** Ajustes; install checks for an app update and installs it (the Inicio banner's [ Instalar ]). */
+    data class Settings(val install: Boolean = false) : Screen
+    data object Themes : Screen
+    data object Visualizers : Screen
+
+    /** The equalizer, pushed from Ajustes. */
+    data object Eq : Screen
+    data object Stats : Screen
+    data object Ratings : Screen
 }
 
 /** The page an item opens, or null for a song (which plays). */
@@ -60,9 +70,13 @@ enum class PlayerPage { Player, Queue, Eq }
 sealed interface Sheet {
     /**
      * A song's actions. index is its live-playlist index in the queue's
-     * Siguiente rows, read at playlist revision; next its play-next position.
+     * Siguiente rows, read at playlist revision; next its play-next
+     * position; list the local list it is row of.
      */
-    data class Song(val track: Track, val index: Int? = null, val next: Int? = null, val revision: Long = 0) : Sheet
+    data class Song(
+        val track: Track, val index: Int? = null, val next: Int? = null, val revision: Long = 0,
+        val list: String? = null, val row: Int = 0,
+    ) : Sheet
 
     /** The actions of an album, artist, playlist or genre. */
     data class Of(val item: Item) : Sheet
@@ -70,11 +84,20 @@ sealed interface Sheet {
     /** Añadir a una lista… for tracks, or for the songs of the album or playlist item. */
     data class AddTo(val tracks: List<Track>, val item: Item? = null) : Sheet
 
-    /** Nueva lista: a name, then the tracks go in. */
-    data class NewList(val tracks: List<Track>, val item: Item? = null) : Sheet
+    /** Nueva lista: a name, then the tracks go in, or with queue the whole queue. */
+    data class NewList(val tracks: List<Track>, val item: Item? = null, val queue: Boolean = false) : Sheet
+
+    /** Renombrar… a local list. */
+    data class Rename(val item: Item) : Sheet
+
+    /** Eliminar a local list, after a confirmation. */
+    data class DeleteList(val item: Item) : Sheet
     data object PlayerMore : Sheet
+    data object QueueMore : Sheet
     data object Speed : Sheet
     data object Sleep : Sheet
+    data object Normalize : Sheet
+    data object Crossfade : Sheet
     data object ClearQueue : Sheet
 }
 
@@ -124,6 +147,19 @@ object Nav {
         player = false
         page = PlayerPage.Player
         stack += Entry(screen, "s${serial++}")
+    }
+
+    /** Opens Ajustes on Inicio's stack, from anywhere (§2.5). */
+    fun settings(install: Boolean = false) {
+        tab = Tab.Home
+        if ((top.screen as? Screen.Settings)?.install == install) return
+        open(Screen.Settings(install))
+    }
+
+    /** Replaces the open tab's top screen, as a renamed list's page. */
+    fun replace(screen: Screen) {
+        pop()
+        open(screen)
     }
 
     /** Pops the open tab's top screen. */

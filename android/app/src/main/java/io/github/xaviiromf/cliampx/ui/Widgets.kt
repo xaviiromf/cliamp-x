@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.Item
+import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.PlaybackClock
 import io.github.xaviiromf.cliampx.R
@@ -100,7 +101,7 @@ import kotlin.math.abs
 
 object Glyphs {
     /** Text glyphs drawn in JetBrains Mono; GlyphTest checks each one is in the font. */
-    const val ALL = "─▸▶◌✓✕✗░·…>_[]●‖■×◉≈◎→↓+"
+    const val ALL = "─▸▶◌✓✕✗░·…>_[]●‖■×◉≈◎→↓+›—«»▁▂▃▄▅▆▇█"
 
     /** JetBrains Mono 2.304 has no braille: Android draws these with its fallback font. */
     const val SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -503,6 +504,10 @@ fun Tile(item: Item, modifier: Modifier = Modifier, width: Dp = 136.dp, onClick:
         Box {
             ArtBox(item.art.ifEmpty { item.track?.art.orEmpty() }, width)
             if (item.unseen) Text("●", Modifier.background(p.bg).padding(horizontal = 4.dp), color = p.accent, style = Type.body)
+            // ♥: a saved album or a followed artist.
+            if (item.favorite && (item.kind == Kind.ALBUM || item.kind == Kind.ARTIST)) {
+                Icon(painterResource(R.drawable.ic_heart), null, Modifier.align(Alignment.TopEnd).background(p.bg).padding(4.dp).size(16.dp), tint = p.favorite)
+            }
         }
         Text(item.title, Modifier.padding(top = 6.dp), color = p.textPrimary, style = Type.tile, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(item.subtitle, color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)

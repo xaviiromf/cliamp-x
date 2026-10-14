@@ -25,6 +25,7 @@ import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import io.github.xaviiromf.cliampx.ui.Nav
 import com.termux.terminal.KeyHandler
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
@@ -57,7 +58,7 @@ class TerminalActivity : AppCompatActivity(), ServiceConnection {
         keys = LinearLayout(this).apply {
             addView(keyRow("ESC" to { key(KeyEvent.KEYCODE_ESCAPE) }, "/" to { char('/') }, "F1" to { key(KeyEvent.KEYCODE_F1) },
                 "F5" to { key(KeyEvent.KEYCODE_F5) }, "↑" to { key(KeyEvent.KEYCODE_DPAD_UP) }, "⌨" to ::toggleKeyboard,
-                "⋮" to { startActivity(Intent(this@TerminalActivity, SettingsActivity::class.java)) }), row())
+                "⋮" to ::openSettings), row())
             addView(keyRow("TAB" to { key(KeyEvent.KEYCODE_TAB) }, "CTRL" to ::toggleCtrl, "SPC" to { char(' ') },
                 "←" to { key(KeyEvent.KEYCODE_DPAD_LEFT) }, "↓" to { key(KeyEvent.KEYCODE_DPAD_DOWN) },
                 "→" to { key(KeyEvent.KEYCODE_DPAD_RIGHT) }, "↵" to { key(KeyEvent.KEYCODE_ENTER) }), row())
@@ -126,6 +127,12 @@ class TerminalActivity : AppCompatActivity(), ServiceConnection {
 
     private fun startCore() {
         ContextCompat.startForegroundService(this, Intent(this, CliampService::class.java))
+    }
+
+    /** ⋮: back to the native UI, on Ajustes. */
+    private fun openSettings() {
+        Nav.settings()
+        finish()
     }
 
     /** Back is Esc, except on the queue with nothing open, where it returns to the native UI. */

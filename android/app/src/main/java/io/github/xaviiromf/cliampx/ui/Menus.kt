@@ -54,17 +54,21 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.Item
 import io.github.xaviiromf.cliampx.Kind
+import io.github.xaviiromf.cliampx.Library
 import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Track
+import io.github.xaviiromf.cliampx.speedLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -101,10 +105,20 @@ fun SheetHost(s: Snapshot?) {
                 is Sheet.Of -> ItemActions(sheet.item, close)
                 is Sheet.AddTo -> AddTo(sheet)
                 is Sheet.NewList -> NewList(sheet, close)
+                is Sheet.Rename -> Rename(sheet.item, close)
+                is Sheet.DeleteList -> Confirm(stringResource(R.string.delete_list_confirm, sheet.item.title), stringResource(R.string.delete), close) {
+                    Remote.editList("playlist.delete", JSONObject().put("playlist", sheet.item.id)) {
+                        // The list's page goes with it.
+                        if ((Nav.top.screen as? Screen.Playlist)?.let { it.provider == "local" && it.id == sheet.item.id } == true) Nav.pop()
+                    }
+                }
                 Sheet.PlayerMore -> PlayerMore(s, close)
+                Sheet.QueueMore -> QueueMore()
                 Sheet.Speed -> SpeedSheet(s, close)
                 Sheet.Sleep -> SleepSheet(s, close)
-                Sheet.ClearQueue -> ClearQueue(close)
+                Sheet.Normalize -> NormalizeSheet(s, close)
+                Sheet.Crossfade -> CrossfadeSheet(s, close)
+                Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
             }
         }
     }
@@ -205,6 +219,12 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
         }
     }
     if ("taste.rate" in ops) RateRows(Item(Kind.SONG, track.path, track.name, track.artist, track.art, track), close)
+    if (sheet.list != null && "playlist.remove" in ops) {
+        MenuRow("✗", stringResource(R.string.remove_from_list), "menu_remove_list", LocalPalette.current.error) {
+            Remote.editList("playlist.remove", JSONObject().put("playlist", sheet.list).put("index", sheet.row))
+            close()
+        }
+    }
     if (sheet.index != null || sheet.next != null) {
         MenuRow("✗", stringResource(R.string.remove_from_queue), "menu_remove", LocalPalette.current.error) {
             if (sheet.next != null) {
@@ -269,6 +289,10 @@ private fun ItemActions(item: Item, close: () -> Unit) {
                 }
             }
             if (item.kind == Kind.ALBUM && "taste.rate" in ops) RateRows(item, close)
+            if (Library.editable(item)) {
+                if ("playlist.rename" in ops) MenuRow(">", stringResource(R.string.rename_more), "menu_rename") { Nav.sheet = Sheet.Rename(item) }
+                if ("playlist.delete" in ops) MenuRow("✗", stringResource(R.string.delete), "menu_delete", p.error) { Nav.sheet = Sheet.DeleteList(item) }
+            }
         }
         Kind.ARTIST -> {
             if (yt && signedIn == true && "provider.favorite" in ops) {
@@ -334,25 +358,49 @@ private fun AddTo(sheet: Sheet.AddTo) {
         lists(stringResource(R.string.youtube_music), (yt as? Load.Done)?.let { Load.Done(it.value.filter(Item::writable)) } ?: yt, "list_yt")
     }
     val (local, _) = rememberLoad("playlists:local") { Remote.playlists("local") }
-    lists(stringResource(R.string.local), (local as? Load.Done)?.let { Load.Done(it.value.filter { row -> row.id !in VIRTUAL }) } ?: local, "list_local")
+    lists(stringResource(R.string.local), (local as? Load.Done)?.let { Load.Done(it.value.filter { row -> row.id !in Library.VIRTUAL }) } ?: local, "list_local")
 }
 
-/** The local provider's lists that are not playlist files: they take no songs. */
-private val VIRTUAL = setOf("Favorites", "Recently Played")
-
-/** Nueva lista (§3.12): the name (the only text field besides Buscar), the target, Crear and Cancelar. */
+/** Nueva lista (§3.12): the name, the target, Crear and Cancelar. */
 @Composable
 private fun NewList(sheet: Sheet.NewList, close: () -> Unit) {
-    val p = LocalPalette.current
     val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
-    var name by remember { mutableStateOf("") }
     var target by remember { mutableStateOf(if (signedIn == true) "ytmusic" else "local") }
+    NameSheet(stringResource(if (sheet.queue) R.string.save_queue else R.string.new_list), "", stringResource(R.string.create), close, target = {
+        if (signedIn == true) {
+            Row(Modifier.padding(horizontal = 12.dp)) {
+                BracketChip(stringResource(R.string.youtube_music), target == "ytmusic", Modifier.testTag("target_ytmusic")) { target = "ytmusic" }
+                BracketChip(stringResource(R.string.local), target == "local", Modifier.testTag("target_local")) { target = "local" }
+            }
+        }
+    }) { name -> Remote.createList(target, name, sheet.tracks, sheet.item, sheet.queue) { Nav.sheet = null } }
+}
+
+/** Renombrar… a local list; its page follows the new name. */
+@Composable
+private fun Rename(item: Item, close: () -> Unit) {
+    NameSheet(stringResource(R.string.rename), item.title, stringResource(R.string.rename), close) { name ->
+        Remote.editList("playlist.rename", JSONObject().put("playlist", item.id).put("new_name", name)) {
+            Nav.sheet = null
+            val top = Nav.top.screen as? Screen.Playlist
+            if (top != null && top.provider == "local" && top.id == item.id) Nav.replace(Screen.Playlist("local", name, name, top.art))
+        }
+    }
+}
+
+/**
+ * The name sheet (§3.12): the only text field besides Buscar, focused at
+ * once, then target's chips, the confirm key pill and Cancelar.
+ */
+@Composable
+private fun NameSheet(title: String, initial: String, confirm: String, close: () -> Unit, target: @Composable () -> Unit = {}, done: (String) -> Unit) {
+    val p = LocalPalette.current
+    var name by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    val create = {
-        if (name.isNotBlank()) Remote.createList(target, name.trim(), sheet.tracks, sheet.item) { Nav.sheet = null }
-    }
-    SectionRule(stringResource(R.string.new_list))
+    val ok = name.text.isNotBlank() && name.text.trim() != initial
+    val submit = { if (ok) done(name.text.trim()) }
+    SectionRule(title)
     BasicTextField(
         name, { name = it },
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).focusRequester(focus).testTag("name_field"),
@@ -360,12 +408,12 @@ private fun NewList(sheet: Sheet.NewList, close: () -> Unit) {
         textStyle = Type.body.copy(color = p.textPrimary),
         cursorBrush = SolidColor(p.accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { create() }),
+        keyboardActions = KeyboardActions(onDone = { submit() }),
         decorationBox = { field ->
             Row(Modifier.height(48.dp).background(p.surfaceHigh).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("> ", color = p.accent, style = Type.body)
                 Box(Modifier.weight(1f)) {
-                    if (name.isEmpty()) {
+                    if (name.text.isEmpty()) {
                         Text(
                             buildAnnotatedString {
                                 append(stringResource(R.string.name))
@@ -379,14 +427,9 @@ private fun NewList(sheet: Sheet.NewList, close: () -> Unit) {
             }
         },
     )
-    if (signedIn == true) {
-        Row(Modifier.padding(horizontal = 12.dp)) {
-            BracketChip(stringResource(R.string.youtube_music), target == "ytmusic", Modifier.testTag("target_ytmusic")) { target = "ytmusic" }
-            BracketChip(stringResource(R.string.local), target == "local", Modifier.testTag("target_local")) { target = "local" }
-        }
-    }
+    target()
     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        KeyPill(stringResource(R.string.create), Modifier.testTag("name_create"), enabled = name.isNotBlank(), onClick = create)
+        KeyPill(confirm, Modifier.testTag("name_create"), enabled = ok, onClick = submit)
         BracketButton(stringResource(R.string.cancel), onClick = close)
     }
 }
@@ -414,7 +457,7 @@ private fun SpeedSheet(s: Snapshot?, close: () -> Unit) {
     SectionRule(stringResource(R.string.speed))
     FlowRow(Modifier.padding(horizontal = 12.dp)) {
         for (v in listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)) {
-            val label = (if (v % 1 == 0.0) v.toInt().toString() else v.toString()) + "x"
+            val label = speedLabel(v)
             BracketChip(label, s != null && abs(s.speed - v) < 0.01, Modifier.testTag("speed_$label")) {
                 Remote.fire("speed", JSONObject().put("value", v))
                 close()
@@ -448,14 +491,22 @@ private fun SleepSheet(s: Snapshot?, close: () -> Unit) {
     if (active != null) Text(active, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = p.textSecondary, style = Type.label)
 }
 
-/** ¿Vaciar la cola? with Vaciar in the error color. */
+/** The queue's ⋮ (§2.7): Guardar como lista… and Vaciar cola. */
 @Composable
-private fun ClearQueue(close: () -> Unit) {
+private fun QueueMore() {
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    if ("playlist.create" in ops) MenuRow("+", stringResource(R.string.save_queue_more), "menu_save_queue") { Nav.sheet = Sheet.NewList(emptyList(), queue = true) }
+    MenuRow("✗", stringResource(R.string.clear_queue), "menu_clear_queue", LocalPalette.current.error) { Nav.sheet = Sheet.ClearQueue }
+}
+
+/** A confirmation (§3.12): the question, the action in the error color, and Cancelar. */
+@Composable
+private fun Confirm(question: String, action: String, close: () -> Unit, run: () -> Unit) {
     val p = LocalPalette.current
-    Text(stringResource(R.string.clear_queue_confirm), Modifier.padding(16.dp), color = p.textPrimary, style = Type.body)
+    Text(question, Modifier.padding(16.dp), color = p.textPrimary, style = Type.body)
     Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        BracketButton(stringResource(R.string.clear), Modifier.testTag("confirm"), color = p.error) {
-            Remote.fire("queue.clear")
+        BracketButton(action, Modifier.testTag("confirm"), color = p.error) {
+            run()
             close()
         }
         BracketButton(stringResource(R.string.cancel), color = p.accent, onClick = close)

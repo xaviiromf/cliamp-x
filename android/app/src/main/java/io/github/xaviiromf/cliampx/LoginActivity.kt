@@ -103,6 +103,17 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
+        /**
+         * Cerrar sesión: forgets the YouTube Music sign-in, the WebView's
+         * cookies too, and restarts the core without it.
+         */
+        fun signOut(context: Context) {
+            Core.cookies(context).delete()
+            File(Core.configDir(context), "ytmusic_auth.json").delete()
+            CookieManager.getInstance().removeAllCookies(null)
+            CliampService.send(context, CliampService.ACTION_RESTART)
+        }
+
         /** Saves a cookies.txt as the YouTube Music sign-in and restarts the core to read it. */
         fun saveSignIn(context: Context, cookies: String) {
             val config = Core.configDir(context).apply { mkdirs() }

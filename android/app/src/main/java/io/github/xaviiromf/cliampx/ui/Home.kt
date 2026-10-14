@@ -40,7 +40,6 @@ import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
-import io.github.xaviiromf.cliampx.SettingsActivity
 import kotlinx.coroutines.launch
 
 /**
@@ -63,9 +62,7 @@ fun HomeScreen() {
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("C L I A M P - X", color = p.accent, style = Type.logo)
                     Spacer(Modifier.weight(1f))
-                    IconBtn(R.drawable.ic_settings, stringResource(R.string.settings), Modifier.testTag("settings")) {
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
-                    }
+                    IconBtn(R.drawable.ic_settings, stringResource(R.string.settings), Modifier.testTag("settings")) { Nav.open(Screen.Settings()) }
                 }
             }
             item(key = "banners") {
@@ -146,9 +143,9 @@ private fun LibraryShelves() {
     }
 }
 
-/** Signed out: the public home, and a card that offers the sign-in (§2.10). Dismissed for good. */
+/** Signed out: a card that offers the sign-in (§2.10); on Inicio it can be dismissed for good. */
 @Composable
-private fun SignInCard() {
+fun SignInCard(dismissible: Boolean = true) {
     val p = LocalPalette.current
     val context = LocalContext.current
     val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
@@ -157,11 +154,12 @@ private fun SignInCard() {
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) Toast.makeText(context, LoginActivity.importCookies(context, uri), Toast.LENGTH_LONG).show()
     }
-    if (signedIn != false || dismissed) return
-    Card("banner_signin", onClose = {
+    if (signedIn != false || dismissible && dismissed) return
+    val close = {
         dismissed = true
         prefs.edit { putBoolean(SIGN_IN_DISMISSED, true) }
-    }) {
+    }
+    Card("banner_signin", onClose = close.takeIf { dismissible }) {
         Text(stringResource(R.string.sign_in_card), color = p.textPrimary, style = Type.caption)
         FlowRow {
             BracketButton(stringResource(R.string.sign_in_short), Modifier.testTag("signin_login")) {
@@ -187,7 +185,7 @@ private fun BatteryCard() {
     if (!optimized || !prefs.getBoolean(PLAYED, false)) return
     Card("banner_battery") {
         Text(stringResource(R.string.battery_card), color = p.textPrimary, style = Type.caption)
-        BracketButton(stringResource(R.string.battery_short)) { SettingsActivity.ignoreBatteryOptimizations(context) }
+        BracketButton(stringResource(R.string.battery_short)) { ignoreBatteryOptimizations(context) }
     }
 }
 

@@ -60,12 +60,13 @@ private val FREQS = listOf("70", "180", "320", "600", "1k", "3k", "6k", "12k", "
 
 /**
  * The equalizer page (§2.8, §3.15): ten block columns dragged in 1 dB steps
- * between -12 and +12, the gains, and the presets. A drag sends its value
+ * between -12 and +12, the gains, and the presets; also pushed from Ajustes,
+ * where back pops it. A drag sends its value
  * through a conflated sender: one eq call in flight, the latest wins.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EqPage(s: Snapshot) {
+fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
     val p = LocalPalette.current
     val ops by Remote.ops.collectAsStateWithLifecycle()
     var presets by remember { mutableStateOf(emptyList<String>()) }
@@ -112,7 +113,7 @@ fun EqPage(s: Snapshot) {
     val preset = if (s.eqPreset == "Custom" || s.eqPreset.isEmpty()) stringResource(R.string.eq_custom) else s.eqPreset
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("eq_back")) { Nav.page = PlayerPage.Player }
+            IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("eq_back"), onClick = back)
             Text(
                 "▸─ " + stringResource(R.string.eq) + " · " + preset + " " + "─".repeat(80), Modifier.weight(1f),
                 color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,

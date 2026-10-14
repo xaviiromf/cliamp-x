@@ -69,6 +69,12 @@ data class ThemeInfo(
             o.optString("name"), o.optString("bg"), o.optString("accent"), o.optString("bright_fg"),
             o.optString("fg"), o.optString("green"), o.optString("yellow"), o.optString("red"),
         )
+
+        /** The themes of `theme {name:"list"}` (G17), Default first. */
+        fun list(result: JSONObject): List<ThemeInfo> {
+            val a = result.optJSONArray("themes") ?: return emptyList()
+            return List(a.length()) { parse(a.getJSONObject(it)) }
+        }
     }
 }
 
@@ -110,6 +116,7 @@ data class Snapshot(
     val eqBands: List<Double>,
     val visualizer: String,
     val receivedAt: Long,
+    val mono: Boolean = false,
 ) {
     val playing get() = state == "playing"
 
@@ -149,6 +156,7 @@ data class Snapshot(
             eqBands = o.optJSONArray("eq_bands")?.let { a -> List(a.length()) { a.optDouble(it, 0.0) } }.orEmpty(),
             visualizer = o.optString("visualizer"),
             receivedAt = receivedAt,
+            mono = o.optBoolean("mono"),
         )
     }
 }
@@ -294,7 +302,10 @@ object Items {
     fun genres(result: JSONObject): Pair<List<Item>, List<Sort>> =
         objects(result, "genres").map {
             Item(Kind.GENRE, it.optString("id"), RowName.of(it.optString("name")), favorite = it.optBoolean("favorite"), section = it.optString("group"))
-        } to objects(result, "sorts").map { Sort(it.optString("id"), it.optString("label")) }
+        } to sorts(result)
+
+    /** The play orders of provider.genres and provider.albums. */
+    fun sorts(result: JSONObject) = objects(result, "sorts").map { Sort(it.optString("id"), it.optString("label")) }
 
     /** provider.home shelves. */
     fun shelves(result: JSONObject) = objects(result, "shelves").map { shelf ->
@@ -494,3 +505,102 @@ fun nextVisualizer(current: String): String {
     val cycle = listOf("Bars", "ClassicPeak", "Mirror")
     return cycle[(cycle.indexOf(current) + 1) % cycle.size]
 }
+
+/** The offline download queue of download.status (G15). */
+@Immutable
+data class Downloads(
+    val running: Boolean,
+    val current: Track?,
+    val percent: Int,
+    val queued: List<Track>,
+    val done: Int,
+    val failed: List<Pair<Track, String>>,
+    val directory: String,
+) {
+    companion object {
+        fun parse(result: JSONObject): Downloads {
+            val o = result.optJSONObject("downloads") ?: JSONObject()
+            val failed = o.optJSONArray("failed")
+            return Downloads(
+                o.optBoolean("running"), o.optJSONObject("current")?.let(Track::parse), o.optDouble("percent", 0.0).toInt(),
+                Track.list(JSONObject().put("tracks", o.optJSONArray("queued"))), o.optInt("done"),
+                List(failed?.length() ?: 0) { i -> failed!!.getJSONObject(i).let { Track.parse(it.optJSONObject("track") ?: JSONObject()) to it.optString("error") } },
+                o.optString("directory"),
+            )
+        }
+    }
+}
+
+/** One ranked artist, song or genre of the statistics; detail is a song's artist. */
+@Immutable
+data class StatCount(val name: String, val detail: String, val plays: Int)
+
+/** The listening summary of a period (G16); daily holds the minutes of the last 30 days, oldest first. */
+@Immutable
+data class Stats(
+    val plays: Int, val secs: Double, val songs: Int, val artists: Int,
+    val topArtists: List<StatCount>, val topSongs: List<StatCount>, val topGenres: List<StatCount>,
+    val daily: List<Double>, val streak: Int,
+) {
+    companion object {
+        fun parse(result: JSONObject): Stats {
+            val o = result.optJSONObject("stats") ?: JSONObject()
+            fun counts(name: String) = o.optJSONArray(name).let { a ->
+                List(a?.length() ?: 0) { i -> a!!.getJSONObject(i).let { StatCount(it.optString("name"), it.optString("detail"), it.optInt("plays")) } }
+            }
+            val daily = o.optJSONArray("daily")
+            return Stats(
+                o.optInt("plays"), o.optDouble("secs", 0.0), o.optInt("songs"), o.optInt("artists"),
+                counts("top_artists"), counts("top_songs"), counts("top_genres"),
+                List(daily?.length() ?: 0) { daily!!.optDouble(it, 0.0) }, o.optInt("streak"),
+            )
+        }
+
+        /**
+         * The daily minutes as rows of block glyphs, top row first, rows tall:
+         * each column fills to its share of the busiest day in eighths.
+         */
+        fun chart(daily: List<Double>, rows: Int = 4): List<String> {
+            val max = daily.maxOrNull()?.takeIf { it > 0 } ?: return List(rows) { " ".repeat(daily.size) }
+            val levels = daily.map { Math.round(it / max * rows * 8).toInt() }
+            return (rows - 1 downTo 0).map { r -> levels.joinToString("") { " ▁▂▃▄▅▆▇█"[(it - r * 8).coerceIn(0, 8)].toString() } }
+        }
+    }
+}
+
+/** A "Me interesa" (interest 1) or "No me interesa" (-1) rating of taste.list (G11). id is a song's path, else the item's ID. */
+@Immutable
+data class Rating(val id: String, val kind: String, val name: String, val artist: String, val interest: Int) {
+    companion object {
+        fun list(result: JSONObject): List<Rating> {
+            val a = result.optJSONArray("ratings") ?: return emptyList()
+            return List(a.length()) { i ->
+                a.getJSONObject(i).let { Rating(it.optString("id"), it.optString("kind"), it.optString("name"), it.optString("artist"), it.optInt("interest")) }
+            }
+        }
+    }
+}
+
+/** Biblioteca's rows (§3.5) from the provider lists. */
+object Library {
+    /** The rows of YouTube Music's ♥, Historial and Música local, which Biblioteca pins. */
+    val PINNED = listOf("fav", "hist", "local:all")
+
+    /** The local provider's lists that are not playlist files: they take no songs and cannot be renamed. */
+    val VIRTUAL = setOf("Favorites", "Recently Played")
+
+    /** The account's own lists: the rows of the first section (§5.3 Biblioteca), without the pinned ones. */
+    fun own(rows: List<Item>): List<Item> {
+        val section = rows.firstOrNull()?.section ?: return emptyList()
+        return rows.filter { it.section == section && it.id !in PINNED }
+    }
+
+    /** A local playlist file: one that can be renamed, deleted and edited. */
+    fun editable(item: Item) = item.provider == "local" && item.kind == Kind.PLAYLIST && item.id !in VIRTUAL
+}
+
+/** 1x, 0.75x, 1.25x: a speed as the sheet and Ajustes show it. */
+fun speedLabel(v: Double) = (if (v % 1 == 0.0) v.toInt().toString() else v.toString()) + "x"
+
+/** The settings.set value of a snapshot normalize name: 0 off, 1 by song, 2 by album; -1 when the player has none. */
+fun normalizeValue(name: String) = listOf("off", "track", "album").indexOf(name)

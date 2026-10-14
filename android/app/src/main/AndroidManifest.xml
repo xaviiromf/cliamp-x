@@ -57,12 +57,6 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
 
-        <!-- configChanges: rotating keeps an update download going. -->
-        <activity
-            android:name=".SettingsActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
-            android:exported="false" />
-
         <activity
             android:name=".LoginActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"

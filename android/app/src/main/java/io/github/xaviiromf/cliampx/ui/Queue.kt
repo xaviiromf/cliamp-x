@@ -163,7 +163,7 @@ fun QueuePage(s: Snapshot) {
                 "▸─ " + stringResource(R.string.queue) + " " + "─".repeat(80), Modifier.weight(1f),
                 color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
             )
-            IconBtn(R.drawable.ic_more, stringResource(R.string.clear_queue), Modifier.testTag("queue_more")) { Nav.sheet = Sheet.ClearQueue }
+            IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("queue_more")) { Nav.sheet = Sheet.QueueMore }
         }
         Row(Modifier.padding(horizontal = 12.dp)) {
             BracketChip(stringResource(R.string.shuffle), s.shuffle, Modifier.testTag("queue_shuffle")) {

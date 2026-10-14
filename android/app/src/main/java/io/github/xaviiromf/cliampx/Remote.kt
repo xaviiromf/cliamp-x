@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -364,18 +365,32 @@ object Remote {
         }
     }
 
-    /** Every row of a provider's lists (§5.5 "all pages"). */
-    suspend fun playlists(provider: String): List<Item> = cached("playlists:$provider", 600_000) {
-        io {
-            val rows = ArrayList<Item>()
-            do {
-                val result = call("provider.playlists", JSONObject().put("provider", provider).put("offset", rows.size).put("limit", 200))
-                val page = Items.playlists(result)
-                rows += page
-            } while (page.isNotEmpty() && Paging.next(rows.size, result.optInt("total")) != null)
-            rows
-        }
+    /** Every row of a paged list (§5.5 "all pages"): page reads the rows from an offset and the full length. */
+    private suspend fun <T> all(page: suspend (Int) -> Pair<List<T>, Int>): List<T> = io {
+        val rows = ArrayList<T>()
+        do {
+            val (items, total) = page(rows.size)
+            rows += items
+        } while (items.isNotEmpty() && Paging.next(rows.size, total) != null)
+        rows
     }
+
+    /** Every row of a provider's lists. */
+    suspend fun playlists(provider: String): List<Item> = cached("playlists:$provider", 600_000) {
+        all { offset -> call("provider.playlists", JSONObject().put("provider", provider).put("offset", offset).put("limit", 200)).let { Items.playlists(it) to it.optInt("total") } }
+    }
+
+    /** The account's artists, ♥ the followed ones (§5.3 Biblioteca). */
+    suspend fun artists(): List<Item> = cached("artists", 600_000) {
+        all { offset -> call("provider.artists", yt().put("offset", offset).put("limit", 200)).let { Items.artists(it) to it.optInt("total") } }
+    }
+
+    /** A page of the account's albums in sort order, and the orders; total is the page length, as foryou (§5.5). */
+    suspend fun albums(sort: String, offset: Int): Pair<List<Item>, List<Sort>> = cached("albums:$sort:$offset", 600_000) {
+        io { call("provider.albums", yt().put("sort", sort).put("offset", offset).put("limit", ALBUMS)).let { Items.albums(it) to Items.sorts(it) } }
+    }
+
+    const val ALBUMS = 100
 
     /** The genres, or with moods the moods and moments, and the play orders (G3); kept for the session. */
     suspend fun genres(moods: Boolean): Pair<List<Item>, List<Sort>> = cached("genres:$moods", Long.MAX_VALUE) {
@@ -459,16 +474,24 @@ object Remote {
         scope.launch { report { add(provider, playlist, tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() }) } }
     }
 
-    /** Nueva lista: creates name on provider (G20 gives its ID), then adds the songs; done runs after. */
-    fun createList(provider: String, name: String, tracks: List<Track>, item: Item?, done: () -> Unit) {
+    /**
+     * Nueva lista: creates name on provider (G20 gives its ID), then adds the
+     * songs, or with queue the whole queue (Guardar como lista); done runs after.
+     */
+    fun createList(provider: String, name: String, tracks: List<Track>, item: Item?, queue: Boolean, done: () -> Unit) {
         scope.launch {
             report {
                 val id = call("playlist.create", JSONObject().put("provider", provider).put("playlist", name)).optString("playlist").ifEmpty { name }
-                add(provider, id, tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() })
+                add(provider, id, if (queue) queueTracks() else tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() })
+                reload() // Biblioteca shows the new list
                 done()
             }
         }
     }
+
+    /** The whole queue in track order, every page of queue.list. */
+    private suspend fun queueTracks(): List<Track> =
+        all { offset -> call("queue.list", JSONObject().put("offset", offset).put("limit", 200)).let { Track.list(it) to it.optInt("total") } }
 
     private suspend fun add(provider: String, playlist: String, tracks: List<Track>) {
         val params = JSONObject().put("provider", provider).put("playlist", playlist)
@@ -478,7 +501,54 @@ object Remote {
             else -> call("playlist.add_many", params.put("tracks", JSONArray(tracks.map { it.json() })))
         }
         invalidate() // the list's cached rows and counts are old (§5.3)
-        _info.tryEmit(app.getString(R.string.added))
+        _info.tryEmit(app.getString(if (tracks.isEmpty()) R.string.list_created else R.string.added))
+    }
+
+    // One local list edit at a time, in the order given: a row's index counts the removals before it.
+    private val edits = Channel<suspend () -> Unit>(Channel.UNLIMITED).also { ch -> scope.launch { for (edit in ch) edit() } }
+
+    /**
+     * Runs a local playlist edit (playlist.rename, .delete, .remove) after
+     * the ones before it; then the screens on show load again and done runs
+     * on Main, or, when it fails, the error shows and failed runs on Main.
+     */
+    fun editList(op: String, params: JSONObject, failed: () -> Unit = {}, done: () -> Unit = {}) {
+        edits.trySend {
+            try {
+                call(op, params.put("provider", "local"))
+                reload()
+                withContext(Dispatchers.Main) { done() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showError(e)
+                withContext(Dispatchers.Main) { failed() }
+            }
+        }
+    }
+
+    /** Deshacer: forgets a rating (taste.rate value 0, G11); a song or item rated "No me interesa" shows again. */
+    suspend fun unrate(r: Rating) {
+        call("taste.rate", JSONObject().put("kind", r.kind).put("playlist", r.id).put("value", 0))
+        _hidden.update { it - r.id }
+        invalidate()
+    }
+
+    suspend fun ratings(): List<Rating> = io { Rating.list(call("taste.list")) }
+
+    suspend fun stats(period: String): Stats = io { Stats.parse(call("stats", JSONObject().put("name", period))) }
+
+    suspend fun downloads(): Downloads = io { Downloads.parse(call("download.status")) }
+
+    /** The themes with their colors (G17); a theme file added later shows after a reconnect. */
+    suspend fun themes(): List<ThemeInfo> = cached("themes", Long.MAX_VALUE) { io { ThemeInfo.list(call("theme", JSONObject().put("name", "list"))) } }
+
+    /** Every visualizer mode of the core, None last. */
+    suspend fun visualizers(): List<String> = cached("vis:list", Long.MAX_VALUE) {
+        io {
+            val items = call("vis", JSONObject().put("name", "list")).optJSONArray("items") ?: JSONArray()
+            List(items.length()) { items.getString(it) }
+        }
     }
 
     /** Turns shuffle on, then plays: [⤨] on a page (§5.3 Album). */

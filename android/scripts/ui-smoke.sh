@@ -10,7 +10,10 @@
 # and s16 (visualizer). Browse (M3): s2 (Inicio signed out), then after s3
 # s9 (album row 2), s10 (artist), s11 (genre and sort), s18 (back to the
 # launcher), s19l (Letras open while rotating: no crash), s20 (offline) and
-# s23 (radio and remixes; they need the Batch C operations). With none, it
+# s23 (radio and remixes; they need the Batch C operations). Library (M4):
+# s12 (a local song), s24 (download an album, then play it offline; after
+# s3), s25 (a rating and its Deshacer; after s3) and s26 (statistics).
+# Settings (M5): s13 (themes; while a YouTube song plays). With none, it
 # runs s3 and s4. The elements are found by their Compose test tags, which
 # the app exposes as resource IDs.
 set -euo pipefail
@@ -273,6 +276,108 @@ s23() {
 	tap menu_remixes
 	waitfor row_0 60
 	shot s23-remixes
+}
+
+# playing: whether the media session reports a song that plays.
+playing() { adb shell dumpsys media_session | grep -m1 -q 'PlaybackState {state=PLAYING'; }
+
+# scrollto ID: swipes the list up until the element shows, at most 6 times.
+scrollto() {
+	for _ in 1 2 3 4 5 6; do
+		node "$1" >/dev/null && return
+		swipe 540 1700 540 700 300
+		sleep 1
+	done
+	node "$1" >/dev/null
+}
+
+s12() {
+	tap tab_library
+	tap lib_local
+	waitfor row_0 30
+	tap row_0
+	sleep 6
+	shot s12-local
+	playing || fail "the local song does not play"
+	adb shell input keyevent KEYCODE_BACK
+}
+
+s24() {
+	results
+	tap tile_albums_0
+	waitfor detail_download 60
+	tap detail_download
+	sleep 2
+	tap tab_library
+	tap lib_chip_downloads
+	sleep 8
+	shot s24-progress
+	local end=$((SECONDS + 600))
+	while node downloads_cancel >/dev/null && ((SECONDS < end)); do sleep 5; done
+	shot s24-done
+	adb shell svc wifi disable
+	adb shell svc data disable
+	tap downloads_play
+	sleep 10
+	shot s24-offline
+	playing || fail "the downloads do not play offline"
+	adb shell svc wifi enable
+	adb shell svc data enable
+}
+
+s25() {
+	results
+	swipe 540 1700 540 500 400 # down to the songs
+	waitfor row_0 10
+	drag row_0 0 0 800 # a long-press
+	tap menu_not_interested
+	sleep 2
+	shot s25-hidden
+	tap tab_library
+	tap lib_ratings
+	waitfor rating_no_0 20
+	shot s25-ratings
+	tap rating_no_0_undo
+	sleep 2
+	shot s25-undone
+	! node rating_no_0 >/dev/null || fail "Deshacer left the rating"
+	adb shell input keyevent KEYCODE_BACK
+}
+
+s26() {
+	tap tab_library
+	tap lib_stats
+	for p in week month year all; do
+		tap "stats_$p"
+		waitfor stats_summary 20 || fail "no summary for $p"
+		shot "s26-$p"
+	done
+	adb shell input keyevent KEYCODE_BACK
+}
+
+# Needs a YouTube song that plays (s4) for the cover theme; ends on the Default theme.
+s13() {
+	tap tab_home
+	tap settings
+	tap set_theme
+	waitfor theme_default 20
+	scrollto theme_winamp && tap theme_winamp
+	sleep 2
+	shot s13-winamp
+	scrollto theme_catppuccin-latte || { swipe 540 700 540 1900 300; swipe 540 700 540 1900 300; }
+	tap theme_catppuccin-latte
+	sleep 2
+	shot s13-latte
+	tap theme_cover
+	sleep 2
+	shot s13-cover
+	adb shell input keyevent KEYCODE_MEDIA_NEXT
+	sleep 15
+	shot s13-cover-next
+	swipe 540 700 540 1900 300
+	tap theme_default
+	adb shell input keyevent KEYCODE_BACK
+	adb shell input keyevent KEYCODE_BACK
 }
 
 for s in "${@:-s3 s4}"; do

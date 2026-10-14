@@ -26,6 +26,12 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.Item
 import io.github.xaviiromf.cliampx.Kind
+import io.github.xaviiromf.cliampx.Library
 import io.github.xaviiromf.cliampx.Page
 import io.github.xaviiromf.cliampx.Paging
 import io.github.xaviiromf.cliampx.R
@@ -193,7 +200,11 @@ fun PlaylistScreen(s: Screen.Playlist) {
                 .takeWhile { it != null }.flatMap { it!!.rows }.toList(),
         )
     }
-    val rows = page?.rows.orEmpty() + more
+    val all = page?.rows.orEmpty() + more
+    // Rows swiped away from a local list, by place, until the list is read again.
+    var gone by remember(page) { mutableStateOf(emptySet<Int>()) }
+    val shown = all.indices.filter { it !in gone }
+    val rows = shown.map { all[it] }
     val list = rememberLazyListState()
     LaunchedEffect(page) {
         if (page == null) return@LaunchedEffect
@@ -212,6 +223,9 @@ fun PlaylistScreen(s: Screen.Playlist) {
     val pv = (preview as? Load.Done)?.value
     val art = s.art.ifEmpty { pv?.art.orEmpty() }.ifEmpty { rows.firstOrNull()?.art.orEmpty() }
     val item = Item(Kind.PLAYLIST, s.id, s.title, art = art, provider = s.provider)
+    val editable = Library.editable(item) && "playlist.remove" in ops
+    // A row's place in the list on the core: its place when read, less the rows removed above it since.
+    fun index(i: Int) = shown[i] - gone.count { it < shown[i] }
     Pull(Remote::reload) {
         LazyColumn(Modifier.fillMaxSize(), state = list) {
             item(key = "top") { TopBar(more = { Nav.sheet = Sheet.Of(item) }) }
@@ -221,7 +235,7 @@ fun PlaylistScreen(s: Screen.Playlist) {
                     ArtBox(art, 160.dp)
                     Column(Modifier.padding(start = 16.dp)) {
                         Text(s.title, color = p.accent, style = Type.display, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        if (page != null) Text(listLength(total, rows), color = p.textSecondary, style = Type.label)
+                        if (page != null) Text(listLength(total - gone.size, rows), color = p.textSecondary, style = Type.label)
                     }
                 }
             }
@@ -233,15 +247,45 @@ fun PlaylistScreen(s: Screen.Playlist) {
             item(key = "rule") { SectionRule(stringResource(R.string.songs)) }
             if (first !is Load.Done) item(key = "state") { LoadState(first, retry) }
             if (page != null && rows.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.no_songs)) }
-            itemsIndexed(rows, key = { i, t -> "$i:${t.path}" }) { i, t ->
-                TrackRow(
-                    t, snap?.track?.path == t.path, Modifier.testTag("row_$i"),
-                    onLongClick = { Nav.sheet = Sheet.Song(t) },
-                    trailing = { IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("row_more_$i")) { Nav.sheet = Sheet.Song(t) } },
-                ) { Remote.load(s.provider, s.id, i, t) }
+            itemsIndexed(rows, key = { i, t -> "${shown[i]}:${t.path}" }) { i, t ->
+                val sheet = { Nav.sheet = if (editable) Sheet.Song(t, list = s.id, row = index(i)) else Sheet.Song(t) }
+                val row = @Composable {
+                    TrackRow(
+                        t, snap?.track?.path == t.path, Modifier.testTag("row_$i"), onLongClick = sheet,
+                        trailing = { IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("row_more_$i"), onClick = sheet) },
+                    ) { Remote.load(s.provider, s.id, index(i), t) }
+                }
+                if (editable) {
+                    SwipeRemove({
+                        val at = shown[i]
+                        Remote.editList("playlist.remove", JSONObject().put("playlist", s.id).put("index", index(i)), failed = { gone = gone - at })
+                        gone = gone + at
+                    }) { row() }
+                } else {
+                    row()
+                }
             }
         }
     }
+}
+
+/** A row that a swipe to the start removes (§2.4): the red label shows behind it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeRemove(remove: () -> Unit, content: @Composable () -> Unit) {
+    val p = LocalPalette.current
+    // Not saveable: a reloaded list reuses keys, and a restored "dismissed" state would remove the row that takes the key.
+    val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold = { it * 0.4f }) }
+    SwipeToDismissBox(
+        state,
+        backgroundContent = {
+            Box(Modifier.fillMaxSize().background(p.surface).padding(end = 16.dp), contentAlignment = Alignment.CenterEnd) {
+                Text("✗ " + stringResource(R.string.remove_from_list), color = p.error, style = Type.body)
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        onDismiss = { if (it == SwipeToDismissBoxValue.EndToStart) remove() },
+    ) { content() }
 }
 
 /** `n canciones · h min`; the length only once every row is loaded. */
@@ -250,6 +294,7 @@ private fun listLength(total: Int, rows: List<Track>): String {
     val count = pluralStringResource(R.plurals.songs_count, total, total)
     if (rows.size < total || rows.isEmpty()) return count
     val min = rows.sumOf { it.durationSecs } / 60
+    if (min == 0) return count // local files without a duration tag
     return count + " · " + if (min >= 60) stringResource(R.string.hours_minutes, min / 60, min % 60) else stringResource(R.string.minutes, min)
 }
 
