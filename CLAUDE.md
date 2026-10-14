@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What cliamp-x is
 
-A fork of [cliamp](https://github.com/bjarneo/cliamp) by Bjarne Øverli: a TUI music player inspired by Winamp, cut down to YouTube Music plus local files, for Linux. It plays YouTube Music with the user's own browser session (audio through yt-dlp, no ads), local files, `ssh://` paths, HTTP streams, HLS and RSS feeds. It has built-in visualizers, a 10-band parametric EQ, synced lyrics, Lua plugins, V2 IPC remote control, a headless mode and MPRIS media controls. The user docs are in Spanish for `README.md` and `docs/youtube-music.md`, English elsewhere.
+A fork of [cliamp](https://github.com/bjarneo/cliamp) by Bjarne Øverli: a TUI music player inspired by Winamp, cut down to YouTube Music plus local files, for Linux and Android. It plays YouTube Music with the user's own browser session (audio through yt-dlp, no ads), local files, `ssh://` paths, HTTP streams, HLS and RSS feeds. It has built-in visualizers, a 10-band parametric EQ, synced lyrics, Lua plugins, V2 IPC remote control, a headless mode and MPRIS media controls. The user docs are in Spanish for `README.md` and `docs/youtube-music.md`, English elsewhere.
 
 - Install: `./scripts/install.sh`, or `make build` / `make install`.
 - Module: `github.com/xaviiromf/cliamp-x`. Package `main` sits at the repo root.
@@ -35,6 +35,7 @@ Package `main` at the repo root:
 | `open.go` | `cliamp-x open` for `cliamp-x://` links. It maps each parsed link to a fixed set of operations |
 | `waybar.go` | `cliamp-x waybar`: a Waybar custom module that prints one JSON line per playback change from `state.get` and the IPC events |
 | `main_darwin.go` | Locks the main goroutine to the main OS thread on macOS with cgo |
+| `main_android.go` | Loads the zone in `TZ` at start, because Go pins `time.Local` to UTC on Android |
 
 Each directory below is a Go package:
 
@@ -67,10 +68,12 @@ Each directory below is a Go package:
 | `theme/` | The theme loader and the built-in themes in `themes/` |
 | `cmd/` | The bodies of the `playlist`, `history` and `protocol` subcommands |
 | `applog/` | The log file `cliamp.log` in the config directory |
-| `upgrade/` | Self-update for `cliamp-x upgrade` |
-| `internal/` | Private helpers: `appdir` for the config, data and plugin directories, `appmeta` for the version, `authurl` for sign-in URLs, `browser`, `credstore` for credential files, `deeplink` for `cliamp-x://` parsing, `fileutil`, `fuzzy`, `httpclient` for the stream client and `NewAPI`, `netdiag`, `playback` for the shared messages and `Notifier`, `plugintrust`, `resume`, `sshurl`, `tomlutil` for `[[section]]` files, `ytdlcookies` and `ytdlp` |
+| `upgrade/` | Self-update for `cliamp-x upgrade`, and `upgrade --check --json` (`Check`, `Report`) for the Android app's update check. On Android `Run` refuses to replace the binary |
+| `internal/` | Private helpers: `appdir` for the config, data and plugin directories, `appmeta` for the version, `authurl` for sign-in URLs, `browser`, `credstore` for credential files, `deeplink` for `cliamp-x://` parsing, `fileutil`, `extbin` (runs yt-dlp and ffmpeg: `CLIAMP_YTDLP` and `CLIAMP_FFMPEG` override the argv, their `_ENV` variables add `K=V` pairs separated by 0x1F, and yt-dlp gets `--ffmpeg-location`), `fuzzy`, `httpclient` for the stream client and `NewAPI`, `netdiag`, `playback` for the shared messages and `Notifier`, `plugintrust`, `resume`, `sshurl`, `tomlutil` for `[[section]]` files, `ytdlcookies` and `ytdlp` |
 
-Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/install.sh` is the installer. `packaging/` holds the AUR package and the `nfpm.yaml` for deb and rpm. `nix/package.nix` and `flake.nix` build the Nix package. `.github/workflows/` holds `ci.yml`, `release.yml` and `distros.yml`, which runs the installer in a container of each distribution family.
+Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/install.sh` is the installer. `packaging/` holds the AUR package and the `nfpm.yaml` for deb and rpm. `nix/package.nix` and `flake.nix` build the Nix package. `.github/workflows/` holds `ci.yml` (it also builds the Android core), `release.yml` (it adds the signed APK when the keystore secrets exist), `distros.yml`, which runs the installer in a container of each distribution family, `android.yml` (tests, lint and build of the app when `android/` changes) and `nightly.yml` (the signed nightly APK of `main` and `android`).
+
+`android/` holds the Android app (`io.github.xaviiromf.cliampx`). `CliampService` runs `libcliamp.so`, the Go core built by `make android-core`, in a terminal session and owns the MediaSession. `Remote.kt` is the one IPC V2 client of the native Compose UI in `ui/`, `Ytdlp.kt` keeps yt-dlp current, `Vis.kt` and `ui/Visualizer.kt` draw the native visualizers, `TerminalActivity` is Modo terminal (the TUI; the core draws only while it is visible, through `ui.render`). `android/UI-SPEC.md` is the design contract, `android/PLAN.md` the port plan, `android/README.md` the build guide and `docs/android.md` the user guide. On Android the core tries yt-dlp without cookies first (`player/`), and `GOOS=android` also matches the `linux` build tag, so linux-only files carry `&& !android`.
 
 ### Runtime flow (read this before touching `main.go`)
 
@@ -94,7 +97,7 @@ Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/
 
 - It does not open the provider browser at start.
 - It never offers to install yt-dlp.
-- `v2Operations` removes the `theme` and `vis` operations.
+- `v2Operations` removes the `theme`, `vis` and `ui.render` operations.
 - It keeps the saved theme at exit.
 
 `docs/headless.md` is the user guide.
@@ -178,6 +181,7 @@ Lua plugins run in isolated `gopher-lua` VMs. A crash stays in its plugin. Each 
 | `make check` | `fmt`, `vet` and `test` |
 | `make install` | Builds and installs the binary into `~/.local/bin` |
 | `make clean` | Removes the binary |
+| `make android-core` | Builds the Go core for Android into `android/app/src/main/jniLibs/<abi>/libcliamp.so`. Needs `ANDROID_NDK_HOME`; `ANDROID_ABI=x86_64` builds for the emulator, where arm64 Go binaries crash |
 
 One test or one package: `mise exec -- go test ./ui/model -run 'TestSpanishCatalog' -count=1`. Add `-race` for the concurrency tests in `player/` and `luaplugin/`. The visualizer golden tests live in `ui/` and read `ui/testdata`.
 
@@ -247,6 +251,7 @@ Golden path for a non-trivial change:
 | What visualizers exist? | `ui/vis_registry.go`, `ui/vis_*.go`, `ui/vis_driver.go` |
 | How is configuration resolved and saved? | `config/config.go` for `Load`, `save` and `SaveSection`. `config/flags.go` for the CLI overrides. `config/saver.go` for the typed savers |
 | Why does my audio break silently on Linux? | The README troubleshooting section |
+| How does the Android app work? | `android/UI-SPEC.md`, `android/README.md`, `android/app/src/main/java/io/github/xaviiromf/cliampx/Remote.kt` and `docs/android.md` |
 
 ---
 

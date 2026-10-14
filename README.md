@@ -148,6 +148,11 @@ Cada release publica binarios para x86_64 y aarch64 (compatibles con glibc 2.28
 o superior), un `.tar.gz`, un `.deb` y un `.rpm`. En Arch hay un PKGBUILD en
 [packaging/aur](packaging/aur/PKGBUILD) (`makepkg -si`).
 
+### Android
+
+Cada release publica `cliamp-x-<versión>-arm64-v8a.apk` para Android 10 o
+superior, con una interfaz táctil propia. Ver [Android](docs/android.md).
+
 ### Compilar a mano
 
 Necesitas [Go](https://go.dev/dl/) 1.21 o superior (descarga solo la versión
@@ -277,6 +282,7 @@ actualizaciones de este repositorio no rompen tus proveedores. La guía está en
 - [Módulo de Waybar y notificaciones](docs/waybar.md)
 - [Controles multimedia (MPRIS)](docs/mediactl.md)
 - [Links cliamp-x://](docs/url-scheme.md)
+- [Android](docs/android.md)
 - [Agregar un proveedor (para forks)](docs/adding-providers.md)
 
 ## Solución de problemas
