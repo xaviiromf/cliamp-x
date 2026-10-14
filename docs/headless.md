@@ -52,7 +52,7 @@ way in both modes:
 
 The view settings in `config.toml`, such as `visualizer`, `simplified`, and
 `expanded`, do not apply. `spectrum.get` and `cliamp-x visstream` always use the
-default `Bars` analysis.
+default `Bars` analysis, and `vis.frame` draws `Bars`.
 
 ## Use cases
 

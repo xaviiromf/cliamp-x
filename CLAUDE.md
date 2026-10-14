@@ -108,7 +108,7 @@ The socket is `cliamp-x.sock` in the config directory. `ipc.DefaultSocketPath` r
 
 | Place | What it owns |
 |-------|--------------|
-| `ipc/v2.go`, `ipc/server.go` | The envelope, `capabilities`, `job.get`, `job.cancel`, `subscribe`, and the direct reads `state.get` and `spectrum.get` |
+| `ipc/v2.go`, `ipc/server.go` | The envelope, `capabilities`, `job.get`, `job.cancel`, `subscribe`, and the direct reads `state.get`, `spectrum.get` and `vis.frame` |
 | `ipc/operations.go` | `DefaultOperationRegistry`: the name, the parameters and the parameter checks of each operation |
 | `ipc/jobs.go`, `ipc/pubsub.go` | The job store and the event broker |
 | `main.go` | `newV2Dispatcher` sends each job to the Model as `model.V2RequestMsg`, and runs `plugin.call` and `plugin.commands` against `luaplugin`. `v2Operations` picks the operations of the runtime |

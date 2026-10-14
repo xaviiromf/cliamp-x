@@ -208,6 +208,7 @@ func TestV2DispatcherReads(t *testing.T) {
 	}{
 		{name: "state", method: "state.get", send: answer},
 		{name: "spectrum", method: "spectrum.get", send: answer},
+		{name: "vis frame", method: "vis.frame", send: answer},
 		{name: "no answer", method: "state.get", send: func(tea.Msg) {}, code: ipc.V2ErrorCodeUnavailable},
 		{name: "canceled", method: "spectrum.get", send: func(tea.Msg) {}, canceled: true, code: ipc.V2ErrorCodeCanceled},
 	} {

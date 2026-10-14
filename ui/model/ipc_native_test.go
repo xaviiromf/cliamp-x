@@ -16,6 +16,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
@@ -305,6 +306,107 @@ func TestNativeSpectrumWhileRenderPaused(t *testing.T) {
 			second := spectrumBands(t, &m)
 			if len(first) == 0 || slices.Max(first) <= 0 || slices.Equal(first, second) {
 				t.Fatalf("spectrum.get bands %v then %v, want sound that changes", first, second)
+			}
+		})
+	}
+}
+
+// visFrame sends vis.frame with params through Update.
+func visFrame(t *testing.T, m *Model, params string) (ipc.Response, *ipc.V2Error) {
+	t.Helper()
+	reply := make(chan V2RequestResult, 1)
+	updated, _ := m.Update(V2RequestMsg{Request: ipc.V2Request{Method: "vis.frame", Params: json.RawMessage(params)}, Reply: reply})
+	*m = updated.(Model)
+	result := <-reply
+	if result.Error != nil {
+		return ipc.Response{}, result.Error
+	}
+	var response ipc.Response
+	if err := json.Unmarshal(result.Result.Result, &response); err != nil {
+		t.Fatal(err)
+	}
+	return response, nil
+}
+
+// vis.frame draws the visualizer on the client's grid while the screen
+// draws nothing, in color, and the grid survives the next message.
+func TestNativeVisFrame(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		headless           bool
+		mode               string
+		params             string
+		wantErr            string
+		wantCols, wantRows int
+	}{
+		{name: "render paused", mode: "Bars", params: `{"cols":30,"rows":6}`, wantCols: 30, wantRows: 6},
+		{name: "headless", headless: true, mode: "Bars", params: `{"cols":24,"rows":4}`, wantCols: 24, wantRows: 4},
+		{name: "a dot mode", mode: "BarsDot", params: `{"cols":20,"rows":5}`, wantCols: 20, wantRows: 5},
+		{name: "wave", mode: "Wave", params: `{"cols":20,"rows":5}`, wantCols: 20, wantRows: 5},
+		{name: "clamped", mode: "Bars", params: `{"cols":9999,"rows":9999}`, wantCols: maxVisFrameCols, wantRows: maxVisFrameRows},
+		{name: "none draws nothing", mode: "None", params: `{"cols":30,"rows":6}`},
+		{name: "no grid", mode: "Bars", params: `{}`, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "zero rows", mode: "Bars", params: `{"cols":30,"rows":0}`, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "bad json", mode: "Bars", params: `{"cols":"x"}`, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CLIAMP_CONFIG_DIR", t.TempDir())
+			engine := &toneEngine{freq: 440}
+			engine.playing = true
+			pl := playlist.New()
+			pl.Add(playlist.Track{Path: "/music/one.flac", Title: "One"})
+			m := New(engine, pl, []provider.Entry{{Key: "local", Name: "Local", Provider: commandsTestProvider{name: "Local"}}}, "", nil, nil, nil, nil, nil, nil)
+			m.termTitle.introActive = false
+			if tc.headless {
+				m.SetHeadless(true)
+			} else {
+				updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+				m = updated.(Model)
+				if response := runV2(t, &m, "ui.render", ipc.Request{Name: "off"}); !response.OK {
+					t.Fatalf("ui.render off = %+v", response)
+				}
+			}
+			if !m.SetVisualizer(tc.mode) {
+				t.Fatalf("no mode %q", tc.mode)
+			}
+
+			response, err := visFrame(t, &m, tc.params)
+			if tc.wantErr != "" {
+				if err == nil || err.Code != tc.wantErr {
+					t.Fatalf("error = %v, want %s", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The analysis runs at most every TickAnalyze, so the second frame has sound.
+			time.Sleep(ui.TickAnalyze + 5*time.Millisecond)
+			response, err = visFrame(t, &m, tc.params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.Visualizer != tc.mode {
+				t.Fatalf("visualizer = %q, want %q", response.Visualizer, tc.mode)
+			}
+			if len(response.Lines) != tc.wantRows {
+				t.Fatalf("%d lines, want %d", len(response.Lines), tc.wantRows)
+			}
+			if tc.wantRows == 0 {
+				return
+			}
+			for i, line := range response.Lines {
+				if w := textWidth(line); w != tc.wantCols {
+					t.Fatalf("line %d is %d cells wide, want %d: %q", i, w, tc.wantCols, line)
+				}
+			}
+			if frame := strings.Join(response.Lines, ""); !strings.Contains(frame, "\x1b[") || strings.TrimSpace(ansi.Strip(frame)) == "" {
+				t.Fatalf("frame %q, want colored glyphs", frame)
+			}
+			updated, _ := m.Update(tea.FocusMsg{})
+			m = updated.(Model)
+			if m.vis.Cols != tc.wantCols || m.vis.Rows != tc.wantRows {
+				t.Fatalf("grid after a message = %dx%d, want %dx%d", m.vis.Cols, m.vis.Rows, tc.wantCols, tc.wantRows)
 			}
 		})
 	}

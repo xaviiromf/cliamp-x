@@ -315,6 +315,11 @@ func (m *Model) recomputeLayout() {
 			}
 			m.vis.Rows = rows
 		}
+		if (m.renderPaused || m.headless) && m.visFrameCols > 0 {
+			// The vis.frame client draws the visualizer while the screen
+			// does not; its grid stays, so no mode restarts on each message.
+			m.vis.Cols, m.vis.Rows = m.visFrameCols, m.visFrameRows
+		}
 	}
 }
 
