@@ -63,10 +63,11 @@ import kotlin.math.abs
  * Owns the Go core: its terminal session, the media session and notification
  * that stand in for MPRIS, audio focus, and Remote, the IPC link of the native
  * UI. Modo terminal only binds and shows the session, so closing it never
- * signals the core. It is also the Android Auto media browser (Auto), and it
- * follows the audio output for the EQ per output and the resume on connect.
+ * signals the core. AutoService lends its session and browse tree (Auto) to
+ * Android Auto, and it follows the audio output for the EQ per output and the
+ * resume on connect. Not exported: its start commands quit, restart and open links.
  */
-class CliampService : MediaBrowserServiceCompat(), TerminalSessionClient {
+class CliampService : Service(), TerminalSessionClient {
     inner class LocalBinder : Binder() {
         val service get() = this@CliampService
     }
@@ -100,8 +101,10 @@ class CliampService : MediaBrowserServiceCompat(), TerminalSessionClient {
     private var seekPath: String? = null
     private var seekAt = 0L
 
-    // Android Auto and the system media controls bind the browser; Modo terminal binds the session.
-    override fun onBind(intent: Intent): IBinder? = if (intent.action == SERVICE_INTERFACE) super.onBind(intent) else binder
+    // Modo terminal binds the terminal session, AutoService the media session.
+    override fun onBind(intent: Intent): IBinder = binder
+
+    val sessionToken: MediaSessionCompat.Token get() = media.sessionToken
 
     override fun onCreate() {
         super.onCreate()
@@ -114,7 +117,6 @@ class CliampService : MediaBrowserServiceCompat(), TerminalSessionClient {
             setCallback(mediaCallback)
             isActive = true
         }
-        sessionToken = media.sessionToken
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.channel_playback), NotificationManager.IMPORTANCE_LOW)
         )
@@ -226,16 +228,15 @@ class CliampService : MediaBrowserServiceCompat(), TerminalSessionClient {
         }
     }
 
-    override fun onGetRoot(clientPackageName: String, clientUid: Int, rootHints: Bundle?): BrowserRoot? =
-        if (Auto.trusted(clientPackageName, clientUid, packageName)) BrowserRoot(Auto.ROOT, null) else null
-
-    override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaBrowserCompat.MediaItem>>) {
+    /** AutoService's browse tree. */
+    fun browse(parentId: String, result: MediaBrowserServiceCompat.Result<MutableList<MediaBrowserCompat.MediaItem>>) {
         result.detach()
         if (parentId == Auto.ROOT) return result.sendResult(Auto.root(this).toMutableList()) // no core needed
         withCore(emptyList(), { result.sendResult(it.toMutableList()) }) { Auto.children(this, parentId) }
     }
 
-    override fun onSearch(query: String, extras: Bundle?, result: Result<MutableList<MediaBrowserCompat.MediaItem>>) {
+    /** AutoService's voice search. */
+    fun search(query: String, result: MediaBrowserServiceCompat.Result<MutableList<MediaBrowserCompat.MediaItem>>) {
         result.detach()
         withCore(emptyList(), { result.sendResult(it.toMutableList()) }) { Auto.search(query) }
     }

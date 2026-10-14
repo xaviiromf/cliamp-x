@@ -28,7 +28,7 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.Cliamp">
 
-        <!-- Android Auto lists the app as a media app (CliampService is its browser). -->
+        <!-- Android Auto lists the app as a media app (AutoService is its browser). -->
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
@@ -80,13 +80,18 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
             android:exported="false" />
 
-        <!-- Exported for Android Auto and the system media controls, which bind the media browser
-             (onGetRoot lets only them in). Its start actions are the media keys any app can send,
-             Salir, and cliamp-x:// links, which MainActivity already takes from any app. -->
+        <!-- Private: its start commands quit, restart and open links. The widget, the tile and the
+             notification reach it through the app's own PendingIntents. -->
         <service
             android:name=".CliampService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- The media browser for Android Auto and the system media controls (onGetRoot lets only
+             them in). It takes no start commands; it lends CliampService's session and tree. -->
+        <service
+            android:name=".AutoService"
             android:exported="true"
-            android:foregroundServiceType="mediaPlayback"
             tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />

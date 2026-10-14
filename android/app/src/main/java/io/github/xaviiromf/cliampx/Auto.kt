@@ -7,7 +7,7 @@ import android.support.v4.media.MediaDescriptionCompat
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The Android Auto browse tree of CliampService: Inicio (one folder per
+ * The Android Auto browse tree that AutoService serves: Inicio (one folder per
  * shelf), Biblioteca (the saved lists), Me gusta and Recientes, plus voice
  * search. A media ID is its folder and row, home/2/5; play() finds the row
  * again from the folder, so an ID still plays after the process restarted.

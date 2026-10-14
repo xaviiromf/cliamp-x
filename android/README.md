@@ -19,6 +19,7 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 |------|--------------|
 | `Core.kt` | Where the core lives and the environment it runs in. Writes the first `config.toml` |
 | `CliampService.kt` | Foreground service (`mediaPlayback`). Owns the terminal session of the core, the media session and its notification, and audio focus. Starts `Remote` and the yt-dlp update |
+| `AutoService.kt` | The exported media browser for Android Auto and the system media controls: binds `CliampService`, which is not exported, and serves its media session and the `Auto.kt` tree to trusted callers only |
 | `Remote.kt` | The UI's link to the core: the `runtime.state` subscription and its merge, operations as V2 jobs, the yt-dlp play gate and error watcher, and the serialized `ui.render` mode |
 | `Models.kt` | The core's JSON as immutable models (`Snapshot`, `Track` with its raw JSON) and the pure helpers: snapshot merge, playback clock, search sections, error wording |
 | `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
