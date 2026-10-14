@@ -253,7 +253,7 @@ private fun SettingRow(label: String, value: String, tag: String, onClick: () ->
     }
 }
 
-/** A switch row: `[On]` in accent bold, `[Off]` dim brackets; a tap flips it (settings.set 0 or 1). */
+/** A switch row: `[Encendido]` in accent bold, `[Apagado]` dim brackets; a tap flips it (settings.set 0 or 1). */
 @Composable
 private fun Toggle(label: String, on: Boolean, tag: String, set: (Int) -> Unit) {
     val p = LocalPalette.current

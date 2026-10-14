@@ -7,7 +7,8 @@
 # Scenarios, by the numbers of §9.3. s1 (cold start) and s1b (a song tapped
 # during the first yt-dlp update) clear the app data. Search: s3, then s4
 # (play a search song). While a song plays: s5 (player gestures), s6 (seek),
-# s7 (queue swipe and drag; after s4, whose rows have different titles), s8
+# s7 (queue swipe and drag; after s4: it compares row titles, so the queue
+# needs distinct ones, as search results give; repeated titles fail it), s8
 # (play next; after s3), s14 (EQ drag), s15 (sleep timer), s16
 # (visualizer), s17 (Modo terminal round trips and the screen off in it),
 # s19 (rotation: the player stays portrait, Modo terminal turns), s21 (core
@@ -182,7 +183,9 @@ s7() {
 	local before x1 y1 x2 y2
 	before=$(text row_1)
 	drag row_1 -800 0 300
-	sleep 2
+	# The core's refetch can take a while on the emulator: poll for 10 s.
+	local end=$((SECONDS + 10))
+	until [[ $(text row_1) != "$before" ]] || ((SECONDS >= end)); do sleep 1; done
 	[[ $(text row_1) != "$before" ]] || fail "the swipe left row 1 in place"
 	shot s7-removed
 	before=$(text row_0)

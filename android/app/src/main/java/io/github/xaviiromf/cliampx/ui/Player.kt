@@ -153,6 +153,8 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
                 IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("player_more")) { Nav.sheet = Sheet.PlayerMore }
             }
             ModeTags(s)
+            // The art fills the width on a tall screen; the height left splits above and below the stack, never inside it (§3.9).
+            Spacer(Modifier.weight(1f))
             Box(Modifier.padding(top = 8.dp).size(art)) { ArtArea(s, view, art) { view = it } }
             Box(Modifier.fillMaxWidth().height(if (strip) 72.dp else 0.dp).padding(horizontal = 24.dp, vertical = 8.dp)) {
                 if (strip && view == ArtView.Cover && s.visualizer.isNotEmpty() && s.visualizer != "None") {
@@ -164,7 +166,6 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
                     )
                 }
             }
-            Spacer(Modifier.weight(1f))
             Column(Modifier.padding(horizontal = 24.dp)) {
                 TitleBlock(s)
                 val seekLabel = stringResource(R.string.seek)
@@ -173,6 +174,7 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
             }
             Transport(s)
             Chips(s, view) { view = it }
+            Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -434,7 +436,7 @@ fun repeatLabel(mode: String) = stringResource(
     },
 )
 
-/** [Letras] [Cola: n] [EQ] [⏲ 23:40]. */
+/** [Letras] [En cola: n] [EQ] [⏲ 23:40]. */
 @Composable
 private fun Chips(s: Snapshot, view: ArtView, setView: (ArtView) -> Unit) {
     Row(

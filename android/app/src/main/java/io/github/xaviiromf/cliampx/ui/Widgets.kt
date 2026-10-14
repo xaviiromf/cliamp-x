@@ -187,7 +187,9 @@ fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier) {
 @Composable
 fun TrackRow(
     track: Track, playing: Boolean, modifier: Modifier = Modifier, marker: String = "",
-    onLongClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null,
+    // Two lines tell apart long titles that share a prefix; the queue keeps one for its fixed-height drag, cut in the middle.
+    titleLines: Int = 2, onClick: () -> Unit,
 ) {
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
@@ -197,7 +199,7 @@ fun TrackRow(
                 onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
                 onClick = onClick,
             )
-            .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp),
+            .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ArtBox(track.art, 48.dp)
@@ -209,7 +211,8 @@ fun TrackRow(
                     append((if (playing) "▶" else "") + track.name)
                 },
                 color = if (playing) p.playing else p.textPrimary,
-                style = if (playing) Type.bodyStrong else Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = if (playing) Type.bodyStrong else Type.body, maxLines = titleLines,
+                overflow = if (titleLines == 1) TextOverflow.MiddleEllipsis else TextOverflow.Ellipsis,
             )
             Row {
                 Text(

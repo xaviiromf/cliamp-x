@@ -78,7 +78,7 @@
     <string name="repeat_all">Todo</string>
     <string name="repeat_one">Una</string>
     <string name="lyrics">Letras</string>
-    <string name="queue_count">Cola: %1$d</string>
+    <string name="queue_count">En cola: %1$d</string>
     <string name="eq_short" translatable="false">EQ</string>
     <string name="like">Me gusta</string>
     <string name="unlike">Quitar de Me gusta</string>
@@ -92,7 +92,7 @@
     <string name="queue">Cola</string>
     <string name="queue_now">Sonando</string>
     <string name="queue_play_next">A continuación (%1$d)</string>
-    <string name="queue_up_next">Siguiente (%1$d)</string>
+    <string name="queue_up_next">Siguen (%1$d)</string>
     <string name="queue_empty">No hay más canciones.</string>
     <string name="clear">Vaciar</string>
     <string name="clear_queue">Vaciar cola</string>
@@ -108,8 +108,8 @@
     <string name="eq_mid">Medios</string>
     <string name="eq_high">Agudos</string>
     <string name="eq_auto">EQ automático: %1$s</string>
-    <string name="on" translatable="false">On</string>
-    <string name="off" translatable="false">Off</string>
+    <string name="on">Encendido</string>
+    <string name="off">Apagado</string>
     <string name="eq_band">Banda de %1$s Hz</string>
     <string name="speed">Velocidad</string>
     <string name="speed_more">Velocidad…</string>

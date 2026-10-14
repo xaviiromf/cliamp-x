@@ -166,7 +166,7 @@ private fun LikeRow(track: Track, close: () -> Unit) {
     val on = liked.likes(track)
     MenuRow(
         "", stringResource(if (on) R.string.unlike else R.string.like), "menu_like", p.favorite,
-        icon = if (on) R.drawable.ic_heart_outline else R.drawable.ic_heart,
+        icon = if (on) R.drawable.ic_heart else R.drawable.ic_heart_outline,
     ) {
         Remote.favorite(track)
         close()
@@ -268,7 +268,7 @@ private fun ItemActions(item: Item, close: () -> Unit) {
                 val pid = item.id.removePrefix("al:")
                 val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }
                 (favorites[pid] ?: (preview as? Load.Done)?.value?.favorite)?.let { saved ->
-                    MenuRow("", stringResource(if (saved) R.string.unsave else R.string.save), "menu_save", p.favorite, icon = if (saved) R.drawable.ic_heart_outline else R.drawable.ic_heart) {
+                    MenuRow("", stringResource(if (saved) R.string.unsave else R.string.save), "menu_save", p.favorite, icon = if (saved) R.drawable.ic_heart else R.drawable.ic_heart_outline) {
                         run { Remote.toggle("provider.favorite", pid) }
                     }
                 }

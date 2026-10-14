@@ -110,8 +110,10 @@ fun SearchScreen() {
     var attempt by remember { mutableIntStateOf(0) }
     // The query the list shows: only a new one scrolls back to the top.
     var shown by rememberSaveable { mutableStateOf("") }
-    // Back from another tab, the last rows show at once, at their scroll position, while they refresh.
-    var results by remember { mutableStateOf<Results>(Remote.peek<List<Section>>("search:$submitted")?.let(Results::Done) ?: Results.None) }
+    // Back from another tab, the last rows show at once, at their scroll position.
+    var results by remember {
+        mutableStateOf<Results>((last?.takeIf { it.first == submitted }?.second ?: Remote.peek<List<Section>>("search:$submitted"))?.let(Results::Done) ?: Results.None)
+    }
     val list = rememberLazyListState()
     val browse = rememberLazyListState()
     val snap by Remote.state.collectAsStateWithLifecycle()
@@ -132,9 +134,11 @@ fun SearchScreen() {
             shown = ""
             return@LaunchedEffect
         }
-        if (submitted != shown || results !is Results.Done) results = Results.Loading
+        // Back from another tab with the same query: keep its rows and scroll, no new search.
+        if (submitted == shown && results is Results.Done) return@LaunchedEffect
+        results = Results.Loading
         results = try {
-            Results.Done(Remote.search(submitted))
+            Results.Done(Remote.search(submitted).also { last = submitted to it })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -302,3 +306,6 @@ private fun GenreTile(genre: Item, i: Int, modifier: Modifier = Modifier) {
 }
 
 private const val RECENT = "recent_searches"
+
+/** The last query's results, kept in the process: a cache invalidation must not lose them on a tab switch. */
+private var last: Pair<String, List<Section>>? = null

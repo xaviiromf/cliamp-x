@@ -100,7 +100,8 @@ fun LibraryScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { ScreenRule(stringResource(R.string.tab_library)) }
                         if ("playlist.create" in ops) {
-                            IconBtn(R.drawable.ic_add, stringResource(R.string.new_list), Modifier.padding(top = 8.dp).testTag("lib_new")) {
+                            // Centered on the rule's text line, which sits 16 dp down in its 56 dp row.
+                            IconBtn(R.drawable.ic_add, stringResource(R.string.new_list), Modifier.align(Alignment.Top).padding(top = 4.dp).testTag("lib_new")) {
                                 Nav.sheet = Sheet.NewList(emptyList())
                             }
                         }
@@ -108,15 +109,15 @@ fun LibraryScreen() {
                 }
                 item(key = "pinned") {
                     Column {
-                        Pinned("", R.drawable.ic_heart, stringResource(R.string.lib_liked), count("fav"), "lib_liked", p.favorite) {
+                        Pinned(R.drawable.ic_heart, stringResource(R.string.lib_liked), count("fav"), "lib_liked", p.favorite) {
                             Nav.open(Screen.Playlist("ytmusic", "fav", it))
                         }
-                        Pinned("", R.drawable.ic_history, stringResource(R.string.lib_history), 0, "lib_history") { Nav.open(Screen.Playlist("ytmusic", "hist", it)) }
-                        Pinned("", R.drawable.ic_note, stringResource(R.string.lib_local), count("local:all"), "lib_local") {
+                        Pinned(R.drawable.ic_history, stringResource(R.string.lib_history), 0, "lib_history") { Nav.open(Screen.Playlist("ytmusic", "hist", it)) }
+                        Pinned(R.drawable.ic_note, stringResource(R.string.lib_local), count("local:all"), "lib_local") {
                             Nav.open(Screen.Playlist("ytmusic", "local:all", it))
                         }
-                        if ("taste.list" in ops) Pinned("✓", null, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
-                        if ("stats" in ops) Pinned("", R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
+                        if ("taste.list" in ops) Pinned(R.drawable.ic_check, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
+                        if ("stats" in ops) Pinned(R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
                     }
                 }
                 item(key = "chips") {
@@ -139,16 +140,16 @@ fun LibraryScreen() {
     }
 }
 
-/** A pinned row (56 dp): a one-cell glyph, text or vector, the label and a count. A tap gets the label. */
+/** A pinned row (56 dp): an icon, the label and a count. A tap gets the label. */
 @Composable
-private fun Pinned(glyph: String, @DrawableRes icon: Int?, label: String, count: Int, tag: String, color: androidx.compose.ui.graphics.Color = LocalPalette.current.accent, open: (String) -> Unit) {
+private fun Pinned(@DrawableRes icon: Int, label: String, count: Int, tag: String, color: androidx.compose.ui.graphics.Color = LocalPalette.current.accent, open: (String) -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { open(label) }.padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(32.dp)) {
-            if (icon != null) Icon(painterResource(icon), null, Modifier.size(20.dp), tint = color) else Text(glyph, color = color, style = Type.body)
+            Icon(painterResource(icon), null, Modifier.size(20.dp), tint = color)
         }
         Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (count > 0) Text(pluralStringResource(R.plurals.songs_count, count, count), color = p.textSecondary, style = Type.label)

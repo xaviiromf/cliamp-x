@@ -243,6 +243,7 @@ private fun LazyListScope.rows(
                 trailing = if (!handle) null else {
                     { DragHandle(rows, r.key, rowPx, move) }
                 },
+                titleLines = 1,
             ) { play(r) }
         }
     }
