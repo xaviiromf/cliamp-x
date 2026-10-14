@@ -18,7 +18,7 @@ Lee antes de empezar: `CLAUDE.md`, `docs/remote-control.md`, `docs/headless.md`,
 | Tema | Decisión | Motivo |
 |------|----------|--------|
 | UI | La misma TUI Bubbletea, dibujada por la vista de terminal de Termux (`terminal-emulator` + `terminal-view`, Apache 2) dentro de una Activity Kotlin | Mantiene estética, temas, visualizadores y plugins al 100%. Nada de Compose, Flutter ni reescritura |
-| UI (reemplaza la fila anterior) | Interfaz nativa táctil tipo Spotify con la estética de cliamp-x, en Jetpack Compose, según `android/UI-SPEC.md`. La TUI queda como "Modo terminal" | Lo pidió el usuario tras probar la TUI en el teléfono: poco intuitiva y sin teclado no se usa cómodo |
+| UI (reemplaza la fila anterior) | Interfaz nativa táctil tipo Spotify con la estética de cliamp-x, en Jetpack Compose, según `android/UI-SPEC.md` (hecha: hitos M1 a M6 de su §10). Solo en vertical. La TUI queda como "Modo terminal", que sí gira | Lo pidió el usuario tras probar la TUI en el teléfono: poco intuitiva y sin teclado no se usa cómodo |
 | Núcleo | El mismo módulo Go, compilado con el NDK como ejecutable PIE llamado `libcliamp.so`, empaquetado en `jniLibs/arm64-v8a/` y ejecutado desde `nativeLibraryDir` en un pty | Android 10+ solo permite `exec` desde `nativeLibraryDir`. Es lo que hace Termux. Sin gomobile |
 | yt-dlp y ffmpeg | Librería `youtubedl-android` (`io.github.junkfood02.youtubedl-android:library` y `:ffmpeg`), que empaqueta Python, yt-dlp y ffmpeg | Única forma probada de tener yt-dlp en un APK. Además permite actualizar yt-dlp sin reinstalar la app |
 | Audio | `beep` sobre `oto` v3, cuyo `driver_android.go` usa Oboe | Ya es el backend actual. Un proceso hijo del mismo UID puede abrir audio |
@@ -184,3 +184,5 @@ Criterio de salida: un APK instalado con versión antigua detecta la nueva, la d
 ## 6. Fuera de alcance de la primera versión
 
 Widget de pantalla de inicio, Android Auto, Wear OS, otras ABIs, gráficos kitty, control del volumen del player con las teclas físicas, Play Store.
+
+Diferido por el usuario en la UI nativa (`UI-SPEC.md` §10): el reproductor en horizontal, los visualizadores ClassicPeak y Mirror nativos (todo modo de barras se dibuja como Bars) y las etiquetas de TalkBack.

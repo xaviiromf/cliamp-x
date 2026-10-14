@@ -306,7 +306,8 @@ func (m Model) withDetails(it previewItem) previewItem {
 // previewCmds starts the image and detail loads the pane needs now and soon:
 // the highlighted row, the rows around it, and the song that plays.
 func (m *Model) previewCmds() tea.Cmd {
-	if m.layout.previewRows <= 0 || m.art == nil {
+	// Nobody sees the pane while nothing is drawn.
+	if m.layout.previewRows <= 0 || m.art == nil || m.renderPaused {
 		return nil
 	}
 	if m.previewDetails == nil {

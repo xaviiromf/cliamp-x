@@ -7,6 +7,7 @@ import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Where the Go core lives and the environment it runs in. */
 object Core {
@@ -16,16 +17,59 @@ object Core {
     fun socket(ctx: Context) = File(configDir(ctx), "cliamp-x.sock")
     fun cookies(ctx: Context) = File(configDir(ctx), "ytmusic_cookies.txt")
 
+    /** The yt-dlp zipapp that CLIAMP_YTDLP runs and Ytdlp replaces. */
+    fun ytdlp(ctx: Context) = File(File(ctx.noBackupFilesDir, YoutubeDL.baseName), "${YoutubeDL.ytdlpDirName}/${YoutubeDL.ytdlpBin}")
+
+    /** The yt-dlp plugin directory that CLIAMP_YTDLP passes with --plugin-dirs. */
+    private fun ytdlpPlugins(ctx: Context) = File(ctx.filesDir, "yt-dlp-plugins")
+
+    /**
+     * yt-dlp solves YouTube's JS challenge from the whole player on each run:
+     * about 11 s of QuickJS on the A55, for every song. Its cache of the
+     * preprocessed player is off by default (big files, never pruned), and
+     * this plugin turns it on, so a later song solves from the cache (UI-SPEC
+     * §12.2). The section carries the yt-dlp version, as a new solver may
+     * preprocess differently; pruneSolverCache removes old files.
+     */
+    private val SOLVER_CACHE = """
+        |# Written by the cliamp-x app at each core start.
+        |from yt_dlp.extractor.youtube.jsc._builtin.ejs import EJSBaseJCP
+        |from yt_dlp.version import __version__
+        |
+        |EJSBaseJCP._ENABLE_PREPROCESSED_PLAYER_CACHE = True
+        |EJSBaseJCP._CACHE_SECTION = f'challenge-solver-{__version__}'
+        |""".trimMargin()
+
+    /** Deletes the cached players (about 4 MB each) older than a week, and the sections they leave empty. */
+    fun pruneSolverCache(cache: File, now: Long) {
+        File(cache, "yt-dlp").listFiles { f -> f.name.startsWith("challenge-solver") }?.forEach { dir ->
+            dir.listFiles()?.filter { now - it.lastModified() > 7 * 86_400_000L }?.forEach { it.delete() }
+            dir.delete() // only when empty
+        }
+    }
+
+    private val unpacked = AtomicBoolean(false)
+
     /**
      * Unpacks Python, yt-dlp and ffmpeg (youtubedl-android does it once per
      * library version), makes the directories and writes the first config.
      * Slow on the first start: call it off the main thread.
      */
     fun prepare(ctx: Context) {
-        YoutubeDL.getInstance().init(ctx)
-        FFmpeg.getInstance().init(ctx)
+        // Once per process: a core restart needs no second unpack check.
+        if (!unpacked.get()) {
+            YoutubeDL.getInstance().init(ctx)
+            FFmpeg.getInstance().init(ctx)
+            unpacked.set(true)
+        }
         listOf(File(ctx.filesDir, "home"), configDir(ctx), File(ctx.filesDir, "data"), File(ctx.cacheDir, "tmp"))
             .forEach { it.mkdirs() }
+        val plugin = File(ytdlpPlugins(ctx), "cliampx/yt_dlp_plugins/extractor/cliampx_solver_cache.py")
+        if (!plugin.isFile || plugin.readText() != SOLVER_CACHE) {
+            plugin.parentFile?.mkdirs()
+            plugin.writeText(SOLVER_CACHE)
+        }
+        pruneSolverCache(ctx.cacheDir, System.currentTimeMillis())
         val config = configFile(ctx)
         if (!config.exists()) {
             @Suppress("DEPRECATION") // only the path is used, as locallib reads it by path
@@ -57,7 +101,7 @@ object Core {
         val pythonHome = "$python/usr"
         val libraryPath = "$python/usr/lib:$base/packages/ffmpeg/usr/lib:$base/packages/aria2c/usr/lib"
         val certs = "$python/usr/etc/tls/cert.pem"
-        val ytdlp = File(base, "${YoutubeDL.ytdlpDirName}/${YoutubeDL.ytdlpBin}")
+        val ytdlp = ytdlp(ctx)
         val locale = Locale.getDefault()
         val sep = "\u001f"
         return arrayOf(
@@ -72,8 +116,8 @@ object Core {
             "TZ=${TimeZone.getDefault().id}",
             "PATH=$lib:${System.getenv("PATH")}",
             // yt-dlp is libpython.so running the yt-dlp zipapp. QuickJS solves the
-            // YouTube signatures, as the library passes it.
-            "CLIAMP_YTDLP=$lib/libpython.so $ytdlp --js-runtimes quickjs:$lib/libqjs.so",
+            // YouTube signatures, as the library passes it, with the solver cache plugin.
+            "CLIAMP_YTDLP=$lib/libpython.so $ytdlp --js-runtimes quickjs:$lib/libqjs.so --plugin-dirs ${ytdlpPlugins(ctx)}",
             "CLIAMP_YTDLP_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs${sep}PYTHONHOME=$pythonHome${sep}HOME=$pythonHome",
             "CLIAMP_FFMPEG=$lib/libffmpeg.so",
             "CLIAMP_FFMPEG_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs",

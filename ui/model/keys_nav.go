@@ -686,18 +686,24 @@ func (m *Model) replaceQueueFromNav(tracks []playlist.Track) tea.Cmd {
 	if len(tracks) == 0 {
 		return nil
 	}
+	m.focus = focusPlaylist
+	m.navBrowser.visible = false
+	m.status.Successf(statusTTLDefault, "Replaced queue with %d tracks", len(tracks))
+	return m.replaceQueueAt(tracks, 0)
+}
+
+// replaceQueueAt replaces the queue with tracks and plays from start. Keys
+// and IPC share it.
+func (m *Model) replaceQueueAt(tracks []playlist.Track, start int) tea.Cmd {
 	m.stopPlayback()
 	m.player.ClearPreload()
 	m.retireTracksPaging()
 	m.replacePlaylistKeepingContext(tracks)
 	m.clearLoadedPlaylist()
 	m.setHeaderStateFromTracks(tracks)
-	m.plCursor = 0
+	m.plCursor = start
 	m.plScroll = 0
-	m.playlist.SetIndex(0)
-	m.focus = focusPlaylist
-	m.navBrowser.visible = false
-	m.status.Successf(statusTTLDefault, "Replaced queue with %d tracks", len(tracks))
+	m.playlist.SetIndex(start)
 	return m.playCurrentTrack()
 }
 

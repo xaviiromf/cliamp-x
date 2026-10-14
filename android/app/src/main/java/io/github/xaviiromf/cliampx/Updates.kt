@@ -9,6 +9,7 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -43,6 +44,9 @@ object Updates {
     private val SHA256 = Regex("[0-9a-f]{64}")
 
     fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** The newer release the daily check found, which the Inicio banner offers. */
+    val offer = MutableStateFlow<String?>(null)
 
     /** Asks the core for the newest release of the chosen channel. Blocks; throws with the core's error. */
     fun check(ctx: Context): Release {
@@ -82,6 +86,7 @@ object Updates {
             val conn = URL(apk.url).openConnection().apply {
                 connectTimeout = 30_000
                 readTimeout = 30_000
+                useCaches = false // not in the image cache
             }
             conn.getInputStream().use { input ->
                 part.outputStream().use { out ->

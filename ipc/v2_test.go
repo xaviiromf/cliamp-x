@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -87,6 +88,72 @@ func TestUIRenderOperation(t *testing.T) {
 		if err := registry.Validate("ui.render", json.RawMessage(params)); err != nil {
 			t.Fatalf("Validate(ui.render, %s) = %+v, want nil", params, err)
 		}
+	}
+}
+
+// The native Android UI reads these parameters from capabilities.
+func TestNativeOperationParameters(t *testing.T) {
+	registry := DefaultOperationRegistry()
+	for name, want := range map[string][]string{
+		"queue.replace":       {"tracks", "index", "if_revision"},
+		"queue.list":          {"sort", "offset", "limit"},
+		"provider.load":       {"provider", "playlist", "index"},
+		"provider.load_album": {"provider", "album", "index"},
+		// batch B: browse
+		"provider.artists":        {"provider", "sort", "offset", "limit"},
+		"provider.home":           {"provider"},
+		"provider.genres":         {"provider", "playlist"},
+		"provider.genre_tracks":   {"provider", "playlist", "sort", "offset", "limit"},
+		"provider.genre_favorite": {"provider", "playlist"},
+		"provider.refresh":        {"provider"},
+		"provider.preview":        {"provider", "playlist"},
+		// batch C: actions, library, settings
+		"taste.rate":       {"kind", "playlist", "name", "track", "value"},
+		"taste.list":       nil,
+		"radio.start":      {"provider", "playlist", "name", "track"},
+		"discover.remixes": {"track"},
+		"settings.set":     {"name", "value"},
+		"download":         {"provider", "playlist", "name", "track"},
+		"download.status":  nil,
+		"download.cancel":  nil,
+		"download.retry":   nil,
+		"stats":            {"name"},
+	} {
+		operation, ok := registry.Lookup(name)
+		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {
+			t.Errorf("%s = %+v (registered %v), want an async operation with %v", name, operation, ok, want)
+		}
+	}
+}
+
+// The new snapshot fields keep their JSON names, and a cloned snapshot
+// owns its notice.
+func TestRuntimeSnapshotNativeFields(t *testing.T) {
+	snapshot := RuntimeSnapshot{
+		Buffering: true, Seeking: true, Error: "e", ErrorKind: "network", ErrorPath: "/a",
+		Notice: &NoticeInfo{Text: "Saved", Kind: "success"}, SleepMinutes: -1, SleepAt: 7,
+		AutoRadio: true, Normalize: "track", Crossfade: 3, EQAuto: true,
+	}
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"buffering", "seeking", "error", "error_kind", "error_path", "notice", "sleep_minutes", "sleep_at", "auto_radio", "normalize", "crossfade", "eq_auto"} {
+		if _, ok := fields[name]; !ok {
+			t.Errorf("snapshot JSON %s has no %s", data, name)
+		}
+	}
+	if string(fields["notice"]) != `{"text":"Saved","kind":"success"}` {
+		t.Errorf("notice = %s", fields["notice"])
+	}
+	clone := cloneSnapshot(&snapshot)
+	clone.Notice.Text = "changed"
+	if snapshot.Notice.Text != "Saved" {
+		t.Error("the clone shares its notice")
 	}
 }
 
@@ -375,4 +442,67 @@ func errorCode(err *V2Error) string {
 		return ""
 	}
 	return err.Code
+}
+
+// The browse result shapes keep their JSON names.
+func TestBrowseResultFields(t *testing.T) {
+	favorite := true
+	response := Response{
+		OK:       true,
+		Shelves:  []ShelfInfo{{Title: "Picks", Items: []ShelfItemInfo{{Kind: "song", ID: "v", Title: "T", Subtitle: "A", ImageURL: "i", Track: &TrackInfo{Path: "p"}}}}},
+		Genres:   []GenreInfo{{ID: "g", Name: "Rock", Group: "Genres", Favorite: true}},
+		Preview:  &PreviewInfo{ImageURL: "i", Lines: []string{"l"}, Favorite: &favorite},
+		Albums:   []AlbumInfo{{ID: "a", Name: "N", ImageURL: "i", Favorite: true, Single: true}},
+		Artists:  []ArtistInfo{{ID: "r", Name: "N", ImageURL: "i", Favorite: true}},
+		Playlist: "x",
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"ok":true,"playlist":"x","artists":[{"id":"r","name":"N","image_url":"i","favorite":true}],` +
+		`"albums":[{"id":"a","name":"N","image_url":"i","favorite":true,"single":true}],` +
+		`"shelves":[{"title":"Picks","items":[{"kind":"song","id":"v","title":"T","subtitle":"A","image_url":"i","track":{"path":"p"}}]}],` +
+		`"genres":[{"id":"g","name":"Rock","group":"Genres","favorite":true}],` +
+		`"preview":{"image_url":"i","lines":["l"],"favorite":true}}`
+	if string(data) != want {
+		t.Fatalf("JSON = %s\nwant   %s", data, want)
+	}
+	playlist, _ := json.Marshal(PlaylistInfo{ID: "pl:x", Name: "N", Provider: "ytmusic", ImageURL: "i", Writable: true, Unseen: true})
+	if want := `{"id":"pl:x","name":"N","provider":"ytmusic","image_url":"i","writable":true,"unseen":true}`; string(playlist) != want {
+		t.Fatalf("playlist JSON = %s, want %s", playlist, want)
+	}
+}
+
+// The batch C result shapes keep their JSON names, and kind reaches the
+// request.
+func TestActionResultFields(t *testing.T) {
+	response := Response{
+		OK:      true,
+		Ratings: []RatingInfo{{ID: "UCa", Kind: "artist", Name: "Band", Interest: -1, At: "2026-10-13T12:00:00Z"}},
+		Downloads: &DownloadsInfo{
+			Running: true, Current: &TrackInfo{Path: "c"}, Percent: 42, Queued: []TrackInfo{{Path: "q"}}, Done: 1,
+			Failed: []DownloadFailure{{Track: TrackInfo{Path: "f"}, Error: "HTTP Error 403"}}, Directory: "/music",
+		},
+		Stats: &StatsInfo{
+			Plays: 2, Secs: 180, Songs: 1, Artists: 1, TopArtists: []StatsCount{{Name: "Band", Plays: 2, Secs: 180}},
+			TopSongs: []StatsCount{{Name: "A", Detail: "Band", Plays: 2, Secs: 180}}, Daily: []float64{0, 3}, Streak: 1,
+		},
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"ok":true,"ratings":[{"id":"UCa","kind":"artist","name":"Band","interest":-1,"at":"2026-10-13T12:00:00Z"}],` +
+		`"downloads":{"running":true,"current":{"path":"c"},"percent":42,"queued":[{"path":"q"}],"done":1,` +
+		`"failed":[{"track":{"path":"f"},"error":"HTTP Error 403"}],"directory":"/music"},` +
+		`"stats":{"plays":2,"secs":180,"songs":1,"artists":1,"top_artists":[{"name":"Band","plays":2,"secs":180}],` +
+		`"top_songs":[{"name":"A","detail":"Band","plays":2,"secs":180}],"daily":[0,3],"streak":1}}`
+	if string(data) != want {
+		t.Fatalf("JSON = %s\nwant   %s", data, want)
+	}
+	var request Request
+	if err := json.Unmarshal([]byte(`{"kind":"song","value":-1}`), &request); err != nil || request.Kind != "song" || request.Value != -1 {
+		t.Fatalf("request = %+v, %v", request, err)
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/taste"
 	"github.com/xaviiromf/cliamp-x/theme"
 	"github.com/xaviiromf/cliamp-x/ui"
 )
@@ -63,6 +64,20 @@ type ipcRuntimeFingerprint struct {
 	buffering    bool
 	durationSecs int64
 	seekable     bool
+	// A landing seek, a failed start, a status line that comes or expires,
+	// and a new cover palette publish too.
+	seeking      bool
+	playErr      string
+	playErrPath  string
+	notice       ipc.NoticeInfo
+	sleepMinutes int
+	sleepAt      int64
+	autoRadio    bool
+	normalize    string
+	crossfade    time.Duration
+	eqAuto       bool
+	themeBG      string
+	themeAccent  string
 }
 
 // SetIPCBroker enables GUI-facing V2 state events. It must be called before
@@ -199,7 +214,7 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		m.setSleepMinutes(int(request.Value))
 		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true})
 		return nil
-	case "queue", "track.play", "track.queue", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "queue.list":
+	case "queue", "track.play", "track.queue", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "queue.list", "queue.replace":
 		return m.handleV2QueueRequest(ctx, msg.Jobs, msg.JobID, request)
 	case "playnext.list", "playnext.remove", "playnext.move", "playnext.clear":
 		return m.handleV2PlayNext(msg.Jobs, msg.JobID, request)
@@ -221,7 +236,16 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		request.Cmd = "provider.load"
 		request.Provider = "local"
 		return m.handleV2LibraryRequest(ctx, msg.Jobs, msg.JobID, request)
-	case "url.load", "save", "lyrics", "history", "history.clear":
+	case "taste.rate":
+		return m.handleV2TasteRate(msg.Jobs, msg.JobID, request)
+	case "taste.list":
+		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true, Ratings: m.ipcRatings()})
+		return nil
+	case "settings.set":
+		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
+	case "download", "download.status", "download.cancel", "download.retry":
+		return m.handleV2Download(msg.Jobs, msg.JobID, request)
+	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
 	}
 	if isV2LibraryOperation(request.Cmd) {
@@ -242,8 +266,25 @@ func (m *Model) handleV2QueueRequest(ctx context.Context, jobs *ipc.JobStore, jo
 		return m.rearmStalePreload()
 	}
 	if request.Cmd == "queue.list" {
+		if strings.EqualFold(request.Sort, "upnext") {
+			m.completeV2Job(jobs, jobID, m.v2UpNextResponsePage(request.Offset, request.Limit))
+			return nil
+		}
 		m.completeV2Job(jobs, jobID, m.v2PlaylistResponsePage(request.Offset, request.Limit))
 		return nil
+	}
+	if request.Cmd == "queue.replace" {
+		if len(request.Tracks) == 0 || len(request.Tracks) > 1000 {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		tracks := make([]playlist.Track, len(request.Tracks))
+		for i, info := range request.Tracks {
+			tracks[i] = ipcTrackFromInfo(info)
+		}
+		cmd := m.replaceQueueAt(tracks, max(0, min(request.Index, len(tracks)-1)))
+		m.completeV2Job(jobs, jobID, m.v2PlaylistResponse())
+		return cmd
 	}
 	if request.Cmd == "track.play" || request.Cmd == "track.queue" {
 		if request.Track == nil || request.Track.Path == "" {
@@ -335,11 +376,14 @@ func (m *Model) handleV2PlayNext(jobs *ipc.JobStore, jobID string, request ipc.R
 func (m *Model) handleV2Theme(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
 	if strings.EqualFold(request.Name, "list") {
 		items := make([]string, 0, len(m.themes)+1)
+		themes := make([]ipc.ThemeInfo, 0, len(m.themes)+1)
 		items = append(items, theme.DefaultName)
+		themes = append(themes, ipc.ThemeInfo{Name: theme.DefaultName})
 		for _, entry := range m.themes {
 			items = append(items, entry.Name)
+			themes = append(themes, ipcThemeInfo(entry))
 		}
-		m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Items: items})
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Items: items, Themes: themes})
 		return nil
 	}
 	m.themes = theme.LoadAll()
@@ -459,6 +503,14 @@ func (m *Model) applyV2DeviceResponse(response ipc.Response) {
 }
 
 func (m *Model) handleV2EQ(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if strings.EqualFold(request.Name, "list") {
+		items := make([]string, 0, len(eqPresets)+1)
+		for _, preset := range eqPresets {
+			items = append(items, preset.Name)
+		}
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Items: append(items, "Custom"), EQPreset: m.EQPresetName()})
+		return nil
+	}
 	if request.Band > 0 || (request.Band == 0 && request.Name == "") {
 		if request.Band >= eqBandCount {
 			m.failV2Job(jobs, jobID, v2InvalidParamsError())
@@ -551,6 +603,133 @@ func (m *Model) handleV2Render(jobs *ipc.JobStore, jobID string, request ipc.Req
 	return nil
 }
 
+// handleV2TasteRate rates a song, album, artist or genre as the I and H keys
+// do: value 1 is interested and -1 not interested. A song is its track,
+// anything else its ID in playlist. Value 0 forgets the rating of playlist,
+// or of the track path, as the ratings menu does.
+func (m *Model) handleV2TasteRate(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if m.taste == nil {
+		m.failV2Job(jobs, jobID, v2UnavailableError())
+		return nil
+	}
+	kind, value := taste.Kind(request.Kind), int(request.Value)
+	var track playlist.Track
+	id := request.Playlist
+	if request.Track != nil && (value == taste.Neutral || kind == taste.Song) {
+		track = ipcTrackFromInfo(*request.Track)
+		id = track.Path
+	}
+	rateable := kind == taste.Song || kind == taste.Album || kind == taste.Artist || kind == taste.Genre
+	if float64(value) != request.Value || value < -1 || value > 1 || id == "" ||
+		value != taste.Neutral && (!rateable || kind == taste.Song && request.Track == nil) {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return nil
+	}
+	if value == taste.Neutral {
+		if _, err := m.taste.Rate(id, taste.Item{Kind: kind}, taste.Neutral); err != nil {
+			v2Err := v2InternalError()
+			v2Err.Detail = err.Error()
+			m.failV2Job(jobs, jobID, v2Err)
+			return nil
+		}
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+		return nil
+	}
+	target := interestTarget{kind: kind, id: id, name: request.Name, track: track}
+	if kind == taste.Song {
+		if target.name == "" {
+			target.name = track.DisplayName()
+		}
+		if cur, idx := m.currentPlaybackTrack(); value < 0 && idx >= 0 && cur.Path == id && m.player.IsPlaying() {
+			target.hide = (*Model).skipNext
+		}
+	}
+	cmd := m.applyInterest(target, value)
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+	return cmd
+}
+
+// ipcRatings lists the ratings for taste.list, "not interested" first.
+func (m *Model) ipcRatings() []ipc.RatingInfo {
+	ratings := m.taste.Ratings()
+	items := make([]ipc.RatingInfo, len(ratings))
+	for i, r := range ratings {
+		items[i] = ipc.RatingInfo{ID: r.ID, Kind: string(r.Item.Kind), Name: r.Item.Name, Artist: r.Item.Artist, Interest: r.Interest, At: r.Item.At.Format(time.RFC3339)}
+	}
+	return items
+}
+
+// settingMax is the largest value of each settings.set name. Every value is
+// a whole number from 0.
+var settingMax = map[string]float64{"auto_radio": 1, "normalize": 2, "crossfade": 12, "eq_auto": 1, "mono": 1}
+
+// handleV2Setting changes one setting and saves it, as its key does. A
+// switch takes 0 or 1, normalize 0 off, 1 track or 2 album, and crossfade
+// whole seconds from 0 to 12.
+func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	v := request.Value
+	limit, ok := settingMax[request.Name]
+	if !ok || v != math.Trunc(v) || v < 0 || v > limit {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return nil
+	}
+	on := v == 1
+	var err error
+	switch request.Name {
+	case "auto_radio":
+		err = m.setAutoRadio(on)
+	case "normalize":
+		err = m.setNormalizeMode(player.NormalizeMode(v))
+	case "crossfade":
+		m.SetCrossfade(int(v))
+		err = m.saveConfigFloat("crossfade", v, 0)
+	case "eq_auto":
+		err = m.setEQAuto(on)
+	case "mono":
+		if on != m.player.Mono() {
+			m.player.ToggleMono()
+		}
+		err = m.saveConfigBool("mono", on)
+	}
+	if err != nil {
+		v2Err := v2InternalError()
+		v2Err.Detail = err.Error()
+		m.failV2Job(jobs, jobID, v2Err)
+		return nil
+	}
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+	return nil
+}
+
+// handleV2Download queues a track or a provider item for download, and
+// reads, cancels or retries the download queue. Without offline downloads
+// every one is unavailable.
+func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if m.downloads.manifest == nil {
+		m.failV2Job(jobs, jobID, v2UnavailableError())
+		return nil
+	}
+	var cmd tea.Cmd
+	response := ipc.Response{OK: true}
+	switch request.Cmd {
+	case "download":
+		seed, ok := m.ipcSeed(request)
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.downloadSeed(seed)
+	case "download.status":
+		response.Downloads = m.downloadsInfo()
+	case "download.cancel":
+		m.cancelDownloads()
+	case "download.retry":
+		cmd = m.retryFailedDownloads()
+	}
+	m.completeV2Job(jobs, jobID, response)
+	return cmd
+}
+
 // switchValue returns the new state of an on and off setting that is now
 // current. name is on, off, toggle or empty, in lower case. ok is false for
 // any other name.
@@ -586,6 +765,30 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 		cmd = m.handleIPCSave(ipcSaveRequest{Context: ctx, Reply: reply})
 	case "lyrics":
 		cmd = m.handleIPCLyrics(ipcLyricsRequest{Context: ctx, Reply: reply})
+	case "radio.start":
+		seed, ok := m.ipcSeed(request)
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.moreLikeThisFrom(seed, reply)
+	case "discover.remixes":
+		if request.Track == nil || request.Track.Title == "" {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.handleIPCRemixes(ctx, ipcTrackFromInfo(*request.Track), reply)
+	case "stats":
+		period, ok := statsPeriods[request.Name]
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		if m.statsLog == nil {
+			m.failV2Job(jobs, jobID, v2UnavailableError())
+			return nil
+		}
+		cmd = m.handleIPCStats(period, reply)
 	default:
 		cmd = m.handleIPCHistory(ipcHistoryRequest{Op: request.Cmd, Limit: request.Limit, Reply: reply})
 	}
@@ -714,16 +917,67 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 	if m.vis != nil {
 		snapshot.Visualizer = m.vis.ModeName()
 	}
-	if m.themeIdx >= 0 && m.themeIdx < len(m.themes) {
-		entry := m.themes[m.themeIdx]
-		snapshot.Theme = &ipc.ThemeInfo{Name: entry.Name, BG: entry.BG, Accent: entry.Accent, Fg: entry.FG, BrightFg: entry.BrightFG, Green: entry.Green, Yellow: entry.Yellow, Red: entry.Red}
-	} else {
-		snapshot.Theme = &ipc.ThemeInfo{Name: theme.DefaultName}
-	}
+	palette := ipcThemeInfo(m.themePalette())
+	snapshot.Theme = &palette
 	if err := m.player.StreamErr(); err != nil {
 		snapshot.StreamError = err.Error()
 	}
+	snapshot.Buffering = m.buffering
+	if m.seek.active {
+		// The engine reports the old position until a decoder seek lands.
+		snapshot.Seeking = true
+		snapshot.Position = m.seek.targetPos.Seconds()
+	}
+	if m.playErr != nil {
+		snapshot.Error = m.playErr.Error()
+		snapshot.ErrorKind = playErrorKind(m.playErr)
+		snapshot.ErrorPath = m.playErrPath
+	}
+	if notice := m.runtimeNotice(time.Now()); notice.Text != "" {
+		snapshot.Notice = &notice
+	}
+	snapshot.SleepMinutes = m.sleep.minutes
+	if m.sleep.minutes > 0 {
+		snapshot.SleepAt = m.sleep.at.Unix()
+	}
+	snapshot.AutoRadio = m.autoRadio
+	snapshot.Normalize = m.normalizeName()
+	snapshot.Crossfade = int(m.crossfade / time.Second)
+	snapshot.EQAuto = m.eqAuto
 	return snapshot
+}
+
+// ipcThemeInfo converts a theme for IPC. The Default theme has no colors.
+func ipcThemeInfo(t theme.Theme) ipc.ThemeInfo {
+	return ipc.ThemeInfo{Name: t.Name, BG: t.BG, Accent: t.Accent, Fg: t.FG, BrightFg: t.BrightFG, Green: t.Green, Yellow: t.Yellow, Red: t.Red}
+}
+
+// runtimeNotice returns the status line while it shows, or a zero notice.
+func (m *Model) runtimeNotice(now time.Time) ipc.NoticeInfo {
+	if m.status.text == "" || m.status.Expired(now) {
+		return ipc.NoticeInfo{}
+	}
+	kind := "success"
+	switch m.status.kind {
+	case feedbackActivity:
+		kind = "activity"
+	case feedbackWarning:
+		kind = "warning"
+	case feedbackError:
+		kind = "error"
+	}
+	return ipc.NoticeInfo{Text: m.status.text, Kind: kind}
+}
+
+// normalizeName names the normalization mode of the engine, or "" when the
+// engine has none.
+func (m *Model) normalizeName() string {
+	n, ok := m.player.(normalizer)
+	if !ok {
+		return ""
+	}
+	mode, _ := n.Normalize()
+	return normalizeModeName(mode)
 }
 
 func (m *Model) publishIPCRuntimeState() {
@@ -787,15 +1041,33 @@ func (m *Model) runtimeFingerprint() ipcRuntimeFingerprint {
 	if err := m.player.StreamErr(); err != nil {
 		fingerprint.streamError = err.Error()
 	}
+	fingerprint.seeking = m.seek.active
+	if m.playErr != nil {
+		fingerprint.playErr = m.playErr.Error()
+		fingerprint.playErrPath = m.playErrPath
+	}
+	fingerprint.notice = m.runtimeNotice(time.Now())
+	fingerprint.sleepMinutes = m.sleep.minutes
+	if m.sleep.minutes > 0 {
+		fingerprint.sleepAt = m.sleep.at.Unix()
+	}
+	fingerprint.autoRadio = m.autoRadio
+	fingerprint.normalize = m.normalizeName()
+	fingerprint.crossfade = m.crossfade
+	fingerprint.eqAuto = m.eqAuto
+	palette := m.themePalette()
+	fingerprint.themeBG, fingerprint.themeAccent = palette.BG, palette.Accent
 	return fingerprint
 }
 
 func (m *Model) v2BandsResponse() ipc.Response {
 	response := ipc.Response{OK: true}
+	// The low-power tick is too slow for a spectrum client, so each
+	// request analyzes the audio that plays now.
 	if m.headless {
-		// The low-power tick is too slow for a spectrum client, so each
-		// request analyzes the audio that plays now.
 		m.tickVisualizer(time.Now())
+	} else if m.renderPaused {
+		m.tickVisualizerForClient(time.Now())
 	}
 	if m.vis != nil {
 		response.Visualizer = m.vis.ModeName()
@@ -824,6 +1096,22 @@ func (m *Model) v2PlaylistResponsePage(offset, limit int) ipc.Response {
 		items[i] = ipcTrackInfo(track, index, m.playlist.QueuePosition(index), m.playlistTrackFavorited(track))
 	}
 	return ipc.Response{OK: true, Tracks: items, Index: m.playlist.Index(), Total: total}
+}
+
+// v2UpNextResponsePage lists the tracks after the playing one in play
+// order, the shuffle order while shuffle is on. index stays the track's
+// index in the live playlist, and total counts every track after it.
+func (m *Model) v2UpNextResponsePage(offset, limit int) ipc.Response {
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	pos := m.playlist.OrderCursor()
+	indices, tracks := m.playlist.OrderWindow(pos+1+offset, limit)
+	items := make([]ipc.TrackInfo, len(tracks))
+	for i, track := range tracks {
+		items[i] = ipcTrackInfo(track, indices[i], m.playlist.QueuePosition(indices[i]), m.playlistTrackFavorited(track))
+	}
+	return ipc.Response{OK: true, Tracks: items, Index: m.playlist.Index(), Total: max(0, m.playlist.Len()-pos-1)}
 }
 
 func (m *Model) v2PlayNextResponse() ipc.Response {
@@ -902,7 +1190,7 @@ func isV2LibraryOperation(operation string) bool {
 
 func v2MutatesLivePlaylist(operation string) bool {
 	switch operation {
-	case "queue", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "track.play", "track.queue", "playnext.remove", "playnext.move", "playnext.clear":
+	case "queue", "queue.play", "queue.enqueue", "queue.remove", "queue.move", "queue.clear", "queue.replace", "track.play", "track.queue", "playnext.remove", "playnext.move", "playnext.clear":
 		return true
 	default:
 		return false

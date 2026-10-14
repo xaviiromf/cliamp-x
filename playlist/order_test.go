@@ -65,6 +65,26 @@ func TestOrderPosition(t *testing.T) {
 	}
 }
 
+// A play-next track does not move the order cursor, so the order goes on
+// after the track it interrupted.
+func TestOrderCursor(t *testing.T) {
+	if got := New().OrderCursor(); got != -1 {
+		t.Fatalf("empty OrderCursor() = %d, want -1", got)
+	}
+	p := makePlaylist(4, false)
+	p.SetIndex(1)
+	p.Queue(3)
+	if _, ok := p.Next(); !ok || p.Index() != 3 {
+		t.Fatalf("Next() played %d, want the queued track 3", p.Index())
+	}
+	if got := p.OrderCursor(); got != 1 {
+		t.Fatalf("OrderCursor() while a play-next track plays = %d, want 1", got)
+	}
+	if next, _ := p.Next(); next.Title != "C" {
+		t.Fatalf("Next() after the play-next track = %q, want C", next.Title)
+	}
+}
+
 func TestOrderFollowsShuffleToggle(t *testing.T) {
 	p := makePlaylist(8, false)
 	p.SetIndex(5)

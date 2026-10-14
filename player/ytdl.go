@@ -18,6 +18,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
+	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
 // pipeBufSize is the buffer size for audio pipe readers (yt-dlp, ffmpeg).
@@ -44,25 +45,64 @@ func appendYTDLCookieArgs(args []string, pageURL string) []string {
 	return append(args, ytdlcookies.Args(ytdlcookies.ForURL(pageURL))...)
 }
 
+// On Android, yt-dlp with the signed-in cookies uses YouTube web clients
+// whose JavaScript challenge costs the bundled QuickJS about 11 s of CPU on
+// every run, while without cookies it uses clients that need no challenge.
+// There the runs that resolve a signed-in YouTube page for playback go first
+// without the cookies. Variables so tests can set them.
+var (
+	ytdlCookielessFirst = runtime.GOOS == "android"
+	// ytdlCookielessTimeout bounds that first run, so a hung one plus the
+	// cookie run on a phone (about 16 s) stays within ytdlPipeTimeout.
+	ytdlCookielessTimeout = 12 * time.Second
+)
+
+// ytdlCookieless reports whether the yt-dlp runs that resolve pageURL go
+// first without its cookies, and with them only when that run fails (sign-in,
+// age, members or Premium only): a signed-in YouTube page on Android.
+func ytdlCookieless(pageURL string) bool {
+	return ytdlCookielessFirst && ytdlcookies.ForURL(pageURL) != "" &&
+		(playlist.IsYouTubeURL(pageURL) || playlist.IsYouTubeMusicURL(pageURL))
+}
+
+// ytdlOutput runs yt-dlp with args on pageURL and returns what it prints.
+// When ytdlCookieless picks pageURL, a first run without the cookies gets at
+// most ytdlCookielessTimeout, and a run with them follows only when it fails.
+func ytdlOutput(ctx context.Context, pageURL string, args ...string) ([]byte, error) {
+	run := func(ctx context.Context, cookies bool) ([]byte, error) {
+		a := args
+		if cookies {
+			a = appendYTDLCookieArgs(a, pageURL)
+		}
+		// "--" stops yt-dlp parsing pageURL as a flag. Callers gate on
+		// playlist.IsURL, but keep the terminator so a future caller cannot
+		// turn a crafted URL into --exec and reach arbitrary command execution.
+		cmd := extbin.Command(ctx, "yt-dlp", append(a, "--", pageURL)...)
+		// WaitDelay ensures cmd.Output() doesn't hang indefinitely if the
+		// process is killed but I/O pipe goroutines haven't drained. Without
+		// this, a zombie yt-dlp child keeping stdout open can block Output()
+		// forever, which in turn blocks the start and leaves the UI stuck at
+		// "Buffering...".
+		cmd.WaitDelay = 3 * time.Second
+		return cmd.Output()
+	}
+	if ytdlCookieless(pageURL) {
+		first, cancel := context.WithTimeout(ctx, ytdlCookielessTimeout)
+		out, err := run(first, false)
+		cancel()
+		if err == nil || ctx.Err() != nil {
+			return out, err
+		}
+	}
+	return run(ctx, true)
+}
+
 // probeYTDLDuration runs a quick yt-dlp --print duration to obtain
 // the track duration when --flat-playlist didn't provide it.
 func probeYTDLDuration(pageURL string) time.Duration {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	args := []string{"--skip-download", "--no-playlist", "--socket-timeout", "10", "--print", "duration"}
-	args = appendYTDLCookieArgs(args, pageURL)
-	// "--" stops yt-dlp parsing pageURL as a flag. Callers gate on
-	// playlist.IsURL, but keep the terminator so a future caller cannot turn
-	// a crafted URL into --exec and reach arbitrary command execution.
-	args = append(args, "--", pageURL)
-	cmd := extbin.Command(ctx, "yt-dlp", args...)
-	// WaitDelay ensures cmd.Output() doesn't hang indefinitely if the
-	// process is killed but I/O pipe goroutines haven't drained. Without
-	// this, a zombie yt-dlp child keeping stdout open can block Output()
-	// forever, which in turn blocks the start and leaves the UI stuck at
-	// "Buffering...".
-	cmd.WaitDelay = 3 * time.Second
-	out, err := cmd.Output()
+	out, err := ytdlOutput(ctx, pageURL, "--skip-download", "--no-playlist", "--socket-timeout", "10", "--print", "duration")
 	if err != nil {
 		return 0
 	}
@@ -231,7 +271,7 @@ func monitorExit(cmd *exec.Cmd, stderr *limitedBuffer, name string) (<-chan erro
 // and returns a streaming PCM decoder. If startSec > 0, ffmpeg -ss is used
 // to skip to the desired position in the input stream.
 func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
-	return decodeYTDLPipeInfo(pageURL, "", sr, bitDepth, startSec)
+	return decodeYTDLPipeInfo(pageURL, "", true, sr, bitDepth, startSec)
 }
 
 // ytdlFormat picks the audio format yt-dlp downloads. Prefer direct
@@ -244,8 +284,9 @@ const ytdlFormat = "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio
 
 // decodeYTDLPipeInfo is decodeYTDLPipe that, with infoPath, has yt-dlp load
 // the page info prefetched there instead of extracting it again, which
-// starts the audio seconds sooner.
-func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
+// starts the audio seconds sooner. Without cookies, yt-dlp runs without the
+// cookie arguments of pageURL.
+func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRate, bitDepth, startSec int) (*ytdlPipeStreamer, beep.Format, error) {
 	if !YTDLPAvailable() {
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp is required — install: %s", ytdlp.InstallHint())
 	}
@@ -278,7 +319,9 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 		"--socket-timeout", "15",
 		"-o", "-",
 	}
-	ytdlArgs = appendYTDLCookieArgs(ytdlArgs, pageURL)
+	if cookies {
+		ytdlArgs = appendYTDLCookieArgs(ytdlArgs, pageURL)
+	}
 	if infoPath != "" {
 		ytdlArgs = append(ytdlArgs, "--load-info-json", infoPath)
 	} else {
@@ -375,28 +418,33 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, sr beep.SampleRate, bitDepth, 
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
 
-	// A start at the beginning uses the page info prefetched for it, if any.
-	info := ""
-	if startSec == 0 {
-		info = p.ytdlInfo.take(pageURL)
-	}
-	defer func() {
-		if info != "" {
-			_ = os.Remove(info)
-		}
-	}()
+	// A start, or a seek, uses the page info prefetched for it, if any.
+	info := p.ytdlInfo.get(pageURL)
+	cookieless := ytdlCookieless(pageURL)
 	for attempt := 1; ; attempt++ {
-		decoder, format, err := decodeYTDLPipeInfo(pageURL, info, p.sr, p.bitDepth, startSec)
+		decoder, format, err := decodeYTDLPipeInfo(pageURL, info, !cookieless, p.sr, p.bitDepth, startSec)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := prefillYTDLPipe(decoder); err != nil {
+		wait := ytdlPipeTimeout
+		if cookieless {
+			wait = ytdlCookielessTimeout
+		}
+		if err := prefillYTDLPipe(decoder, wait); err != nil {
 			if info != "" {
 				// The prefetched info went stale: extract the page again,
 				// which does not count as a retry.
-				_ = os.Remove(info)
+				p.ytdlInfo.drop(pageURL, info)
 				info = ""
+				attempt--
+				continue
+			}
+			if cookieless {
+				// The page needs the session (sign-in, age, members or
+				// Premium only): play it with the cookies, which does not
+				// count as a retry either.
+				cookieless = false
 				attempt--
 				continue
 			}
@@ -455,13 +503,13 @@ func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Dura
 	return tp, nil
 }
 
-func prefillYTDLPipe(decoder *ytdlPipeStreamer) error {
+func prefillYTDLPipe(decoder *ytdlPipeStreamer, timeout time.Duration) error {
 	// Pre-fill: block until yt-dlp + ffmpeg produce initial audio data.
 	// This runs in a tea.Cmd goroutine (not the UI thread), so a chain that
-	// fails before its first byte reports why before the track starts. A 30s
+	// fails before its first byte reports why before the track starts. The
 	// timeout prevents hanging when yt-dlp is slow to produce output.
 	stop := func() { decoder.Close() }
-	return peekWithTimeout(decoder.reader, 1, ytdlPipeTimeout, stop, func(err error) error {
+	return peekWithTimeout(decoder.reader, 1, timeout, stop, func(err error) error {
 		// The audio pipe closed before producing a byte. Prefer the real
 		// cause from yt-dlp (e.g. "Sign in to confirm you're not a bot",
 		// "HTTP Error 404", DRM, region block) or ffmpeg over the opaque

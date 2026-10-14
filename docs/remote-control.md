@@ -97,10 +97,31 @@ operation reported.
 }
 ```
 
+The snapshot also carries these fields. Each one is left out when it is
+false, zero or empty.
+
+| Field | Meaning |
+| --- | --- |
+| `buffering` | A track is starting. `position` is 0 until it plays |
+| `seeking` | A seek that restarts the decoder, as on a YouTube track, is running. `position` holds its target until it lands |
+| `error`, `error_kind`, `error_path` | Why the last track start failed, and the path of that track. `error_kind` is `network`, `session`, `ytdlp`, `unavailable` or empty. A start that works clears them. Browse errors never appear here |
+| `notice` | The status line while it shows: `{"text":"…","kind":"…"}`, with the kind `activity`, `success`, `warning` or `error`. The text is in the interface language |
+| `sleep_minutes`, `sleep_at` | The sleep timer in minutes, `-1` for the end of the song, and the Unix time when it pauses |
+| `auto_radio` | The auto radio is on |
+| `normalize` | The volume normalization: `off`, `track` or `album` |
+| `crossfade` | The crossfade between songs of different albums, in seconds |
+| `eq_auto` | The EQ preset follows the genre of each song |
+
+`theme` holds the colors on screen. With the cover theme, they are the
+colors of the cover it shows, or of the cover it blends to, under the name
+of the cover theme.
+
 `revision` changes when meaningful runtime state changes. `playlist_revision`
 changes when the live playlist or play-next list changes. Position-only playback
-ticks do not create events. Send `if_revision` with destructive live-playlist or
-play-next operations to reject stale GUI actions with the `conflict` error code.
+ticks do not create events. A seek that lands, a failed start, a status line
+that appears or expires, and a new cover palette create one. Send
+`if_revision` with destructive live-playlist or play-next operations to reject
+stale GUI actions with the `conflict` error code.
 
 `track` keeps `provider_meta`, embedded playback flags, and directory-source
 state. A GUI can send a provider result through `track.play`,
@@ -122,11 +143,14 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | --- | --- |
 | Playback | `play`, `pause`, `toggle`, `stop`, `next`, `prev`, `volume`, `volume.adjust`, `seek`, `seek.absolute`, `speed`, `speed.adjust`, `sleep`, `shuffle`, `repeat`, `mono`, `eq`, `device` |
 | Appearance | `theme`, `vis`, `ui.render` |
-| Live playlist | `queue`, `queue.list`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
+| Live playlist | `queue`, `queue.list`, `queue.replace`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
-| Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog` |
+| Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
+| Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
+| Settings | `settings.set` |
+| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
 `sleep` sets the sleep timer with `value` in whole minutes, up to 1440. The
@@ -136,6 +160,29 @@ off, and `-1` pauses when the playing song ends. `cliamp-x sleep 30`,
 
 `queue.*` applies to the live playlist. `playnext.*` applies only to the
 play-next list. They use separate zero-based indexes.
+
+`queue.list` pages the live playlist in track order with `offset` and
+`limit`, at most 200 tracks a page. With the `sort` `upnext`, it lists the
+tracks after the playing one in play order, the shuffle order while shuffle
+is on. After a play-next track, the order goes on after the track it
+interrupted. `total` then counts the tracks after the playing one, and the
+`index` of each track stays its index in the live playlist, for `queue.play`
+and `queue.remove`.
+
+`queue.replace` replaces the live playlist with `tracks`, from 1 to 1000
+tracks as other operations return them, and plays the one at `index`. An
+index out of range plays the nearest track. The result is the first page of
+the new live playlist. The live playlist then mirrors no saved playlist.
+Empty or too many `tracks` fail with `invalid_params`.
+
+```sh
+cliamp-x remote call queue.replace --params '{"tracks":[{"path":"/music/a.flac"},{"path":"/music/b.flac"}],"index":1}' --wait
+```
+
+`provider.load` and `provider.load_album` replace the live playlist with the
+list or the album and play the track at `index`, or the first one when
+`index` is out of range. The result is the first page of the new live
+playlist, as `queue.list` gives it, with `playlist` naming the loaded list.
 
 `queue`, `queue.move`, and `queue.remove` follow the rules of the
 `Shift+Up`, `Shift+Down`, and `x` keys. The Lua `cliamp.queue` functions
@@ -172,7 +219,9 @@ cliamp-x remote call vis --params '{"name":"list"}' --wait
 
 `theme list` and `cliamp-x theme list` return `Default - Terminal colors` as
 the first item. `theme` accepts that name or `default` to select the terminal
-colors.
+colors. The `list` result also gives `themes`, the same themes in the same
+order with their colors in the form of the snapshot `theme`. The Default
+theme has its name only.
 
 `ui.render` takes the `name` `off` or `on`. `off` stops drawing the screen
 and lowers the frame rate to the low-power cadence. Playback and every other
@@ -186,7 +235,9 @@ cliamp-x remote call ui.render --params '{"name":"off"}' --wait
 
 `eq` takes a built-in preset name, such as `Rock`, or a `band` and a `value`.
 It also accepts `Custom` to restore the saved custom curve. An unknown
-preset name fails the job and does not change the EQ.
+preset name fails the job and does not change the EQ. The name `list` returns
+the built-in presets and `Custom` in `items`, and the active preset in
+`eq_preset`.
 
 `shuffle` and `mono` take the `name` `on`, `off` or `toggle`. `repeat` takes
 `off`, `all`, `one` or `cycle`. With no `name`, they toggle or cycle. Any
@@ -195,13 +246,178 @@ other name fails the job with `invalid_params` and changes nothing.
 `playlist.bookmark` keeps its name for existing scripts. It toggles the favorite
 ♥ of `track`, as `f` does in the TUI. It needs a known `provider` key, but it
 does not change the playlist. The `bookmark` field of that row in
-`queue.list` changes. cliamp-x matches the row by path.
+`queue.list` changes. cliamp-x matches the row by path. The result gives
+the new state in `favorite`.
+
+`provider.favorite` saves or removes an album, artist or playlist in the
+provider account and gives the new state in `favorite`.
+`playlist.create` gives the ID of the new playlist in `playlist`. YouTube
+Music IDs look like `pl:VL…`. A local playlist's ID is its name.
+
+`provider.list` gives `signed_in` for a provider with an account, such as
+YouTube Music. It reads the stored session and makes no request.
 
 Use IDs returned by `provider.playlists` for subsequent provider operations.
+
+Rows carry their picture and state beside their names, which keep the marks
+the TUI shows:
+
+- `provider.playlists` rows give `image_url`, `writable` (the row takes new
+  tracks with `playlist.add`) and `unseen` (a new release not opened yet,
+  named `● …`).
+- Album rows of `provider.albums` and `provider.artist_albums` give
+  `image_url`, `favorite` (saved in the account, named `♥ …`) and `single`
+  (a single or EP, named `… · Singles`).
+- Artist rows of `provider.artists` give `image_url` and `favorite` (followed
+  in the account, named `♥ …`).
+
+YouTube Music pictures are square album art when YouTube Music has it, else
+the largest thumbnail. A `googleusercontent.com` URL ends in a size such as
+`=w400-h400-l90-rj`, which a client can change to get another size.
+
+`provider.artists` with the `sort` `foryou` pages the endless list of
+recommended artists, as `provider.albums` does with `foryou`: `limit` is 40
+by default and at most 200, `total` is the length of the page, and the next
+page starts at `offset + limit`. An empty page ends the list.
+
+`provider.home` gives the home page in `shelves`, each with a `title` and
+`items`, and the shelf count in `total`. Each item has a `kind` (`song`,
+`album`, `playlist` or `artist`), an `id` for the provider operations, a
+`title`, a `subtitle` and an `image_url`. A song also has its `track`, for
+`queue.replace`. Items the taste store hides and shelves left empty are
+dropped. When the home page cannot load, the job fails with the reason.
+
+```json
+{"ok":true,"total":1,"shelves":[{"title":"Quick picks","items":[
+  {"kind":"song","id":"abcdefghijk","title":"Tune","subtitle":"Band","image_url":"https://lh3.googleusercontent.com/…=w400-h400-l90-rj","track":{"path":"https://music.youtube.com/watch?v=abcdefghijk","title":"Tune","artist":"Band"}},
+  {"kind":"album","id":"MPREb_…","title":"Record","subtitle":"Album • Band"},
+  {"kind":"playlist","id":"pl:VLRDCLAK…","title":"Mix"},
+  {"kind":"artist","id":"UC…","title":"Band"}]}]}
+```
+
+`provider.genres` gives the categories in `genres`, each with `id`, `name`,
+`group` and `favorite`, the play orders in `sorts`, and the count in
+`total`. With `playlist` set to a browse entry, such as `browse:moods` for
+YouTube Music, it gives that catalog. `provider.genre_tracks` gives the
+tracks of the genre `playlist` in the `sort` order, paged with `offset` and
+`limit` (at most 200), with `total`. `provider.genre_favorite` stars or
+unstars the genre `playlist` and gives the new state in `favorite`.
+
+`provider.refresh` drops the cached lists of the provider, so the next read
+asks the service again, and starts the `foryou` lists over.
+
+`provider.preview` gives the picture and the non-blank detail lines of an album,
+artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube
+Music album (`MPREb_…`) or artist (`UC…`) of a signed-in account it also
+gives `favorite`, whether the album is saved or the artist followed.
+
+```json
+{"ok":true,"preview":{"image_url":"https://lh3.googleusercontent.com/…","lines":["Album · 2024","Band","10 songs • 40 minutes"],"favorite":true}}
+```
 
 Request provider list responses with `offset` and `limit` when the provider
 supports paging. Use `playlist.replace` to save a GUI-created order, sort, or
 deduplication result as one operation when the provider supports playlist saving.
+
+### Ratings, radio and remixes
+
+`taste.rate` rates a song, album, artist or genre as the `I` and `H` keys
+do. `kind` is `song`, `album`, `artist` or `genre`, and `value` is `1` for
+interested or `-1` for not interested. A song needs its `track`. Any other
+kind needs its ID in `playlist`, and `name` names it in the ratings list.
+Interested in a song also gives it the ♥, and not interested takes the ♥
+away, sends a dislike to YouTube Music and skips the song when it plays.
+`value` `0` forgets the rating of the ID in `playlist`, or of the `track`
+path, as the `P` menu does, with any `kind`. The result is `{"ok":true}`.
+Another kind or value, or a missing ID, fails with `invalid_params`.
+
+```sh
+cliamp-x remote call taste.rate --params '{"kind":"artist","playlist":"UC…","name":"Band","value":-1}' --wait
+```
+
+`taste.list` gives every rating in `ratings`, not interested first, newest
+first in each group. `interest` is `1` or `-1`, and `at` is the time of the
+rating in RFC 3339. A song's ID is its path, and its name is the one the
+TUI shows.
+
+```json
+{"ok":true,"ratings":[{"id":"genre:…","kind":"genre","name":"Reggaeton","interest":-1,"at":"2026-10-13T12:00:00-03:00"},
+  {"id":"https://music.youtube.com/watch?v=…","kind":"song","name":"Daft Punk - One More Time","artist":"Daft Punk","interest":1,"at":"2026-10-12T20:15:00-03:00"}]}
+```
+
+`radio.start` starts a radio, as `M` does: it replaces the live playlist
+with a song and the songs related to it, and plays the first one. The seed
+is a `track`, or the item `playlist` of `provider` named `name`: an album,
+an artist, a playlist or a `genre:` mix. The result is the first page of the
+new live playlist, as `queue.list` gives it. When no provider can relate the
+seed or too few songs come back, the job fails with the reason in `detail`,
+such as `No related songs found`. A newer radio, from `M` or another
+`radio.start`, fails the older job with the `detail` `superseded`.
+
+`discover.remixes` finds remixes and other versions of `track`, as `X`
+does, without opening a screen. The result gives them in `tracks`, grouped,
+with the group name in `provider_meta.section`, and their count in `total`.
+A `track` with no title fails with `invalid_params`.
+
+### Settings
+
+`settings.set` sets one setting with `name` and a whole-number `value`, and
+saves it in `config.toml`, as its key does. The snapshot then reports the
+new state.
+
+| `name` | `value` |
+| --- | --- |
+| `auto_radio` | `0` off or `1` on |
+| `normalize` | `0` off, `1` by song or `2` by album |
+| `crossfade` | Seconds from `0` to `12` |
+| `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
+| `mono` | `0` off or `1` on |
+
+The result is `{"ok":true}`. Any other name or value fails with
+`invalid_params` and changes nothing. A failed save fails the job with
+`internal_error`.
+
+```sh
+cliamp-x remote call settings.set --params '{"name":"crossfade","value":4}' --wait
+```
+
+### Downloads and statistics
+
+`download` downloads a song for offline play, as `D` does: a `track`, or the
+songs of the item `playlist` of `provider` named `name`. It answers
+`{"ok":true}` once the songs are queued, or while the songs of an item load.
+Songs already downloaded or queued, and songs that are not YouTube or
+yt-dlp links, are skipped.
+
+`download.status` gives the queue in `downloads`. `current` and `percent`
+are the song that downloads now, `queued` the songs that wait, `failed` the
+songs that failed with the reason, `done` the songs downloaded since the
+queue last ran empty, and `directory` the folder of the files.
+`download.cancel` stops the running download and empties the queue.
+`download.retry` queues the failed songs again. Each of the four fails with
+`unavailable` when downloads are off.
+
+```json
+{"ok":true,"downloads":{"running":true,"current":{"title":"One More Time","path":"https://music.youtube.com/watch?v=…"},"percent":42,
+  "queued":[{"title":"Aerodynamic","path":"https://music.youtube.com/watch?v=…"}],"done":2,
+  "failed":[{"track":{"title":"Digital Love","path":"https://music.youtube.com/watch?v=…"},"error":"HTTP Error 403"}],
+  "directory":"/home/user/Music/cliamp-x"}}
+```
+
+`stats` sums what was listened to in the period `name`: `week`, `month`,
+`year` or `all`, as the `S` screen does. `stats` holds the plays, the
+seconds listened, the distinct songs and artists, the top 10 artists, songs
+and genres, `daily` with the minutes of each of the last 30 days, oldest
+first, and the `streak` of days in a row with plays. A song's `detail` is
+its artist. Another period fails with `invalid_params`.
+
+```json
+{"ok":true,"stats":{"plays":340,"secs":45000,"songs":210,"artists":90,
+  "top_artists":[{"name":"Daft Punk","plays":42,"secs":9800}],
+  "top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":12,"secs":3840}],
+  "top_genres":[{"name":"Electronic","plays":120,"secs":24000}],
+  "daily":[0,12.5,40,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,61,22],"streak":3}}
+```
 
 ## Events
 
@@ -225,7 +441,9 @@ If a client cannot keep up, it receives `system.overflow` with
 `cliamp-x visstream` uses V2 `spectrum.get` internally. It outputs one plain
 NDJSON frame at 30 FPS by default for status-bar and visualizer integrations.
 Use `--fps` to set a rate from 1 through 60. GUI clients can request one current
-frame with `spectrum.get`.
+frame with `spectrum.get`. While `ui.render` is `off`, and in headless mode,
+each `spectrum.get` analyzes the audio that plays at that moment, so a
+client that polls at its own frame rate gets live bands.
 
 ## CLI V2 Client
 

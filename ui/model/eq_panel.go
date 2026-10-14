@@ -167,8 +167,11 @@ func (m *Model) eqPanelAdjustScroll() {
 }
 
 // toggleEQAuto turns the genre-following EQ on or off and saves the choice.
-func (m *Model) toggleEQAuto() {
-	m.eqAuto = !m.eqAuto
+func (m *Model) toggleEQAuto() { _ = m.setEQAuto(!m.eqAuto) }
+
+// setEQAuto turns the genre-following EQ on or off and saves the choice.
+func (m *Model) setEQAuto(on bool) error {
+	m.eqAuto = on
 	if m.eqAuto {
 		m.status.Show(L("Auto EQ: the preset follows the genre of each song"), statusTTLMedium)
 		track, _ := m.currentPlaybackTrack()
@@ -177,7 +180,7 @@ func (m *Model) toggleEQAuto() {
 		m.eqAutoLabel = ""
 		m.status.Show(L("Auto EQ off"), statusTTLMedium)
 	}
-	_ = m.saveConfigBool("eq_auto", m.eqAuto)
+	return m.saveConfigBool("eq_auto", m.eqAuto)
 }
 
 // SetEQAuto turns on or off the genre-following EQ.

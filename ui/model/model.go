@@ -357,6 +357,8 @@ type Model struct {
 	titleOff        int       // scroll offset for the now-playing marquee
 	titleLastScroll time.Time // last time the title scrolled
 	err             error
+	playErr         error  // why the last track start failed, for IPC; never a browse error
+	playErrPath     string // the track that playErr is about
 	quitting        bool
 	width           int
 	height          int

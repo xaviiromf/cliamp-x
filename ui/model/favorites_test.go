@@ -428,6 +428,9 @@ func TestIPCBookmarkAliasTogglesFavorite(t *testing.T) {
 				if got := store.IsFavorited(tc.track.Path); got != want {
 					t.Fatalf("favorited = %v, want %v", got, want)
 				}
+				if response.Favorite == nil || *response.Favorite != want {
+					t.Fatalf("response favorite = %v, want %v", response.Favorite, want)
+				}
 				if _, ok := m.favSet[tc.track.Path]; ok != want {
 					t.Fatal("favSet does not match the store")
 				}

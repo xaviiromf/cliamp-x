@@ -166,7 +166,7 @@ LoginActivity (WebView sign-in, unchanged)
   - left: `01:23 / 03:45`;
   - right, the status: `▶ Sonando`, `‖ En pausa`, `◌ Cargando...`, `■ Detenido`, or `LIVE` for a stream.
 - **Transport:** shuffle, prev, the play/pause key pill (72 dp, accent fill), next, and repeat (a "1" badge for repeat one). Every target is at least 56 dp.
-- **Chips:** `[Letras] [Cola: n] [EQ] [⏲]`. With a sleep timer set, the last chip reads `[⏲ 23:40]`, or `[⏲ fin]` for end of song.
+- **Chips:** `[Letras] [En cola: n] [EQ] [⏲]`. With a sleep timer set, the last chip reads `[⏲ 23:40]`, or `[⏲ fin]` for end of song.
 - **⋮ menu:** the song actions (§2.6), then Velocidad…, Temporizador…, Modo terminal.
 - **Closing:** swipe down (only on this page), `⌄`, or system back.
 - **Error card:** replaces the art view (§2.10).
@@ -223,8 +223,8 @@ LoginActivity (WebView sign-in, unchanged)
 - Ecualizador: opens the Eq screen.
 - Velocidad and Temporizador: open sheets.
 - Normalización de volumen `[Por canción]`: a sheet with Apagada, Por canción, Por álbum.
-- Fundido entre canciones `[Off]`: a sheet with 0 to 12 s.
-- Toggles: EQ automático por género, Radio automática, Mono.
+- Fundido entre canciones `[Apagado]`: a sheet with 0 to 12 s.
+- Toggles: EQ automático por género, Radio automática, Mono. Every value is Spanish: `[Encendido]` or `[Apagado]`.
 
 **Cuenta**
 - `YouTube Music · Sesión iniciada` or `No has iniciado sesión`.
@@ -275,11 +275,11 @@ LoginActivity (WebView sign-in, unchanged)
 - **Sections:**
   - `── Sonando ──`: one row;
   - `── A continuación (n) ── [Vaciar]`: from `playnext.list`;
-  - `── Siguiente (n) ──`: the play order after the current song (shuffle aware).
+  - `── Siguen (n) ──`: the play order after the current song (shuffle aware).
 - **Gestures:**
   - tap a row → `queue.play`;
   - swipe end→start removes the row;
-  - drag the `≡` handle to reorder. Under shuffle the handle hides in "Siguiente", because the core refuses moves there.
+  - drag the `≡` handle to reorder. Under shuffle the handle hides in "Siguen", because the core refuses moves there.
 
 ### 2.8 Eq (player-sheet page, also pushed from Ajustes)
 
@@ -509,7 +509,7 @@ Remixes: same as Playlist without the header buttons; rules = provider_meta.sect
 │     ⤨      ◀◀     ┏━━━━━━┓     ▶▶      ⟳      │ 56dp targets; key pill 72dp
 │                   ┃  ‖   ┃                    │
 │                   ┗━━━━━━┛                    │
-│  [Letras]   [Cola: 3]    [EQ]    [⏲ 23:40]    │ bracket chips 48dp
+│  [Letras] [En cola: 3]  [EQ]    [⏲ 23:40]    │ bracket chips 48dp
 └──────────────────────────────────────────────┘
 ```
 **Sizing:**
@@ -517,6 +517,7 @@ Remixes: same as Playlist without the header buttons; rules = provider_meta.sect
 - Art = `min(maxWidth − 48.dp, maxHeight − 420.dp)`, computed in `BoxWithConstraints` inside `WindowInsets.safeDrawing`.
 - When the art would be under 240 dp, the strip hides and its 72 dp go to the art.
 - At 411×891 dp with gesture navigation, the art is 343 dp.
+- On a taller screen the art stops at the width: the height left splits evenly above the art and below the chips, never between the strip and the title.
 
 Error card (replaces the art view):
 ```
@@ -540,7 +541,7 @@ This is the only screen that changes layout in landscape. The other screens refl
 │ │ Visualizador /       │  ━━━━━━━━━━━━━━━●─────────────────────────────────  │
 │ │ Letras               │  01:23 / 03:45                          ▶ Sonando  │
 │ │ (square, height-fit) │      ⤨     ◀◀     [ ‖ ]     ▶▶     ⟳               │
-│ └──────────────────────┘  [Letras]  [Cola: 3]  [EQ]  [⏲]                    │
+│ └──────────────────────┘  [Letras]  [En cola: 3]  [EQ]  [⏲]                 │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -553,7 +554,7 @@ This is the only screen that changes layout in landscape. The other screens refl
 │ ── A continuación (2) ──────────── [Vaciar]   │
 │ [art] Q1 Get Lucky                      ≡     │ swipe ← removes; drag ≡ reorders
 │ [art] Q2 Instant Crush                  ≡     │
-│ ── Siguiente (118) ────────────────────────── │
+│ ── Siguen (118) ───────────────────────────── │
 │ [art]    Aerodynamic                    ≡     │ ≡ hidden while shuffle is on
 ```
 
@@ -601,10 +602,10 @@ Confirm (Eliminar lista, Vaciar cola): "¿Eliminar «Mi lista»?"  [ Eliminar ] 
 │ Velocidad             [1x]              › │ │ swatches: bg accent bright fg g y r  │ │   Mirror       Barras en espejo      │
 │ Temporizador          [Apagado]         › │ │ tap = apply now, UI recolors live    │ │   None         Sin visualizador      │
 │ Normalización de volumen [Por canción]  › │                                          │ Más modos (47) en Modo terminal    › │
-│ Fundido entre canciones  [Off]          › │
-│ EQ automático por género [Off]            │  tap toggles
-│ Radio automática      [Off]               │
-│ Mono                  [Off]               │
+│ Fundido entre canciones  [Apagado]      › │
+│ EQ automático por género [Apagado]        │  tap toggles
+│ Radio automática      [Apagado]           │
+│ Mono                  [Apagado]           │
 │ ── Cuenta ─────────────────────────────── │
 │ YouTube Music · Sesión iniciada           │
 │ [ Iniciar sesión ] [ Importar cookies.txt ] [ Cerrar sesión ]   (wraps)
@@ -635,7 +636,7 @@ Confirm (Eliminar lista, Vaciar cola): "¿Eliminar «Mi lista»?"  [ Eliminar ] 
 ```
 ```
 ── Temporizador ─────────────────────────   ── Velocidad ────────────────────   ── Normalización de volumen ──   ── Fundido entre canciones ──
-[15 min] [30 min] [45 min] [60 min]         [0.5x] [0.75x] [1x] [1.25x]         ● Apagada                      [Off] [2 s] [4 s] [6 s]
+[15 min] [30 min] [45 min] [60 min]         [0.5x] [0.75x] [1x] [1.25x]         ● Apagada                      [Apagado] [2 s] [4 s] [6 s]
 [90 min] [Fin de la canción] [Apagar]       [1.5x] [2x]                           Por canción                    [8 s] [10 s] [12 s]
 Activo: se pausa a las 23:40                                                      Por álbum
 ```
@@ -741,7 +742,7 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
   | section rule | 40 |
   | one-line row | 48 |
   | settings row | 56 |
-  | track row (48 dp art) | 64 |
+  | track row (48 dp art; the title wraps to 2 lines, the queue's stays 1 line cut in the middle) | 64 min |
   | carousel tile art | 136 |
   | genre tile | 64 |
   | mini-player | 64 |
@@ -761,9 +762,10 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 
 **Text glyphs,** verified in JetBrains Mono:
 ```
-> ▶ ◀ ■ ● ○ ◌ ◉ ◎ ◆ ━ ─ │ ┤ ┼ ┏ ┃ ┗ ▸ ♥ ✓ ✗ ✕ ↓ ↑ → ← › · … — ‖ ≡ ≈ ⋮ + ×
-▁▂▃▄▅▆▇█ ░▒▓ ▀▄ ▕▐ ⌄ and the braille block U+2800–28FF
+> ▶ ◀ ■ ● ○ ◌ ◉ ◎ ◆ ━ ─ │ ┤ ┼ ┏ ┃ ┗ ▸ ✓ ✗ ✕ ↓ ↑ → ← › · … — ‖ ≡ ≈ ⋮ + ×
+▁▂▃▄▅▆▇█ ░▒▓ ▀▄ ▕▐ ⌄
 ```
+**Text glyphs from Android's fallback font:** `♥` and the braille block U+2800–28FF (the spinner). The static JetBrains Mono 2.304 TTF lacks them; only the Nerd Font build has them (checked in M1 with `java.awt.Font.canDisplay`).
 
 **Not in JBM,** so drawn as vectors, never as text: `⤨ ⟳ ⟲ ↻ ★ ☆ ⏲ ⏸ ❚ ♫ ♪ ♡ ⚙ ⌕ ▤ ⇄ ▮ ◑`.
 - The core sends `★ ` on starred genre rows and `♫ ` in artist preview lines. Strip both (§5.6).
@@ -771,7 +773,7 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 
 **Vector drawables** (24 dp, flat, square joins):
 - Existing: `ic_play`, `ic_pause`, `ic_prev`, `ic_next`, `ic_close`.
-- Add: `ic_home`, `ic_search`, `ic_library`, `ic_queue`, `ic_more`, `ic_heart`, `ic_heart_outline`, `ic_shuffle`, `ic_repeat`, `ic_repeat_one`, `ic_download`, `ic_eq`, `ic_lyrics`, `ic_timer`, `ic_settings`, `ic_back`, `ic_expand_down`, `ic_drag`, `ic_radio`, `ic_add`, `ic_terminal`, `ic_star`, `ic_note`, `ic_history`, `ic_stats`.
+- Add: `ic_home`, `ic_search`, `ic_library`, `ic_queue`, `ic_more`, `ic_heart`, `ic_heart_outline`, `ic_shuffle`, `ic_repeat`, `ic_repeat_one`, `ic_download`, `ic_eq`, `ic_lyrics`, `ic_timer`, `ic_settings`, `ic_back`, `ic_expand_down`, `ic_drag`, `ic_radio`, `ic_add`, `ic_terminal`, `ic_star`, `ic_check`, `ic_note`, `ic_history`, `ic_stats`.
 - Source: Material Symbols **Sharp**, weight 400 (Apache 2.0). If the XML cannot be fetched, draw square-path vectors by hand.
 - Tint: textSecondary; accent when active; textPrimary for the transport icons.
 
@@ -1839,7 +1841,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 | S5 | Player gestures | swipe up on the mini-player; swipe left on `art`; screenshot; swipe down | the sheet opens, the title changes, the sheet closes |
 | S6 | Seek on a YouTube song | drag `seek` from 10 % to 60 % | the time reads about 60 % at once and stays there (no jump back) after 3 s |
 | S7 | Queue | `chip_queue`; swipe `row_1` left; drag a handle 2 rows | row removed; order changed; no conflict loop |
-| S8 | Context menu | long-press a search song → `menu_play_next` | `[Cola: n+1]` in the player |
+| S8 | Context menu | long-press a search song → `menu_play_next` | `[En cola: n+1]` in the player |
 | S9 | Album from row 3 | open an album result → `tap row_2` | the mini-player title equals row 2's title; the queue starts at it |
 | S10 | Artist | open an artist result | header, Populares, carousels; `detail_follow` hidden (signed out); Radio starts a queue |
 | S11 | Genre | Buscar empty → a genre tile → `detail_play`; switch the sort chip | it plays; the list changes |
@@ -1862,8 +1864,9 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 ### 9.4 Performance (release build)
 
 - **Frames:** run `adb shell dumpsys gfxinfo io.github.xaviiromf.cliampx reset`. Then scroll Inicio (5 swipes), scroll a carousel, scroll a 200-row playlist, and open and close the player 3 times with the visualizer on. Then run `dumpsys gfxinfo io.github.xaviiromf.cliampx`.
-  - Emulator: janky frames < 10 %.
-  - A55: < 5 %, 90th percentile ≤ 16 ms.
+  - A55: < 5 %, 90th percentile ≤ 16 ms. The frame numbers are judged on the A55 only.
+  - Emulator: not judged. Its SwiftShader renderer misses the frame budget for any app (the system Settings app also shows about 40 % janky frames there), so its numbers say nothing about this app.
+  - Acceptance run on the A55 (120 Hz): 25 % janky frames, 90th percentile 18 ms, short of the target. A later pass found no cheap hot spot: the visualizer, the seek line and the mini-player progress already redraw without recomposing, the title marquees stop after 3 runs and the art decodes off the main thread. The next step is a system trace on the A55 of the player open and close.
 - **CPU:** `adb shell top -b -n 3 -d 10 -o PID,%CPU,RES,ARGS | grep -E 'cliampx|libcliamp'`.
 
   | Situation | App | Core |
@@ -1934,6 +1937,10 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 
 **Integration rule:** the UI hides every element whose operation is not yet in `capabilities`. There are no other fallbacks.
 
+**Deferred by the user (M6):** the landscape player (§3.10), the ClassicPeak and Mirror renderers (every band mode draws as Bars) and the TalkBack labels (§9.5 item 18). MainActivity is locked to portrait, and Modo terminal still turns; S19 checks both.
+
+**Performance acceptance (M6):** the §9.4 frame numbers are judged on the A55 only; the emulator cannot meet any frame budget (§9.4). The A55 run (25 % janky, 90th percentile 18 ms) stays open until a trace there names the hot spot.
+
 ---
 
 ## 11. Open risks
@@ -1942,6 +1949,7 @@ See `open_risks`. The top three:
 1. The yt-dlp download path: GitHub redirects, rate limits and the SUMS file, plus Python compatibility of new yt-dlp releases.
 2. The error-kind classification of the real failure text.
 3. Compose smoothness on the A55 with a 30 fps visualizer.
+4. The items the user deferred in §10 stay open: landscape, ClassicPeak and Mirror, TalkBack.
 
 **Not covered:** nothing here was built or run.
 - The JBM glyph coverage was checked against the installed JetBrainsMono **Nerd Font**, a superset; `GlyphTest` confirms it against the static TTF.
@@ -1985,7 +1993,10 @@ pixelation the user sees. Rules:
 
 On the A55, an extraction with yt-dlp 2026.08.19 + QuickJS took 16 s (11.5 s
 CPU in the JS solver). yt-dlp caches the solved player under its cache
-directory. Add `XDG_CACHE_HOME=<cacheDir>/yt-dlp-cache` (or
+directory. (Correction: 2026.08.19 caches only the signature functions; its
+cache of the preprocessed player is off, `_ENABLE_PREPROCESSED_PLAYER_CACHE
+= False` in `jsc/_builtin/ejs.py`. The app turns it on with a yt-dlp plugin,
+see `android/README.md`.) Add `XDG_CACHE_HOME=<cacheDir>/yt-dlp-cache` (or
 `--cache-dir`) to the yt-dlp environment so the cache persists, then
 measure the first and the second play of different songs on the phone
 (the second should skip the solver work). Keep the core's next-track info

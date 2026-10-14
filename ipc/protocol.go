@@ -29,6 +29,7 @@ type Request struct {
 	Tracks   []TrackInfo `json:"tracks,omitempty"`
 	Topics   []string    `json:"topics,omitempty"`
 	Play     bool        `json:"play,omitempty"`
+	Kind     string      `json:"kind,omitempty"` // what taste.rate rates: song, album, artist or genre
 }
 
 // Response is the operation-specific data embedded in a successful V2 job.
@@ -65,6 +66,14 @@ type Response struct {
 	Lyrics     []LyricLine    `json:"lyrics,omitempty"`
 	History    []HistoryInfo  `json:"history,omitempty"`
 	Devices    []DeviceInfo   `json:"devices,omitempty"`
+	Favorite   *bool          `json:"favorite,omitempty"`
+	Themes     []ThemeInfo    `json:"themes,omitempty"`
+	Shelves    []ShelfInfo    `json:"shelves,omitempty"`
+	Genres     []GenreInfo    `json:"genres,omitempty"`
+	Preview    *PreviewInfo   `json:"preview,omitempty"`
+	Ratings    []RatingInfo   `json:"ratings,omitempty"`
+	Downloads  *DownloadsInfo `json:"downloads,omitempty"`
+	Stats      *StatsInfo     `json:"stats,omitempty"`
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.
@@ -114,6 +123,9 @@ type PlaylistInfo struct {
 	DurationSecs int    `json:"duration_secs,omitempty"`
 	Favoritable  bool   `json:"favoritable,omitempty"`
 	Favorite     bool   `json:"favorite,omitempty"`
+	ImageURL     string `json:"image_url,omitempty"`
+	Writable     bool   `json:"writable,omitempty"` // takes new tracks with playlist.add
+	Unseen       bool   `json:"unseen,omitempty"`   // a new release not opened yet
 }
 
 type ProviderInfo struct {
@@ -123,12 +135,15 @@ type ProviderInfo struct {
 	BrowseArtists bool   `json:"browse_artists,omitempty"`
 	BrowseAlbums  bool   `json:"browse_albums,omitempty"`
 	Catalog       bool   `json:"catalog,omitempty"`
+	SignedIn      *bool  `json:"signed_in,omitempty"`
 }
 
 type ArtistInfo struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	AlbumCount int    `json:"album_count,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	Favorite   bool   `json:"favorite,omitempty"` // followed in the account
 }
 
 type AlbumInfo struct {
@@ -139,6 +154,94 @@ type AlbumInfo struct {
 	Year       int    `json:"year,omitempty"`
 	TrackCount int    `json:"track_count,omitempty"`
 	Genre      string `json:"genre,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	Favorite   bool   `json:"favorite,omitempty"` // saved in the account
+	Single     bool   `json:"single,omitempty"`
+}
+
+// ShelfInfo is one titled row of the provider.home cards.
+type ShelfInfo struct {
+	Title string          `json:"title"`
+	Items []ShelfItemInfo `json:"items"`
+}
+
+// ShelfItemInfo is one card of a shelf. Kind is song, album, playlist or
+// artist. A song carries its track.
+type ShelfItemInfo struct {
+	Kind     string     `json:"kind"`
+	ID       string     `json:"id"`
+	Title    string     `json:"title"`
+	Subtitle string     `json:"subtitle,omitempty"`
+	ImageURL string     `json:"image_url,omitempty"`
+	Track    *TrackInfo `json:"track,omitempty"`
+}
+
+// GenreInfo is one category of provider.genres.
+type GenreInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Group    string `json:"group,omitempty"`
+	Favorite bool   `json:"favorite,omitempty"`
+}
+
+// PreviewInfo is the picture and the detail lines of an album, artist or
+// playlist. Favorite is set when the provider knows whether the item is
+// saved or followed.
+type PreviewInfo struct {
+	ImageURL string   `json:"image_url,omitempty"`
+	Lines    []string `json:"lines,omitempty"`
+	Favorite *bool    `json:"favorite,omitempty"`
+}
+
+// RatingInfo is one rating of taste.list. Interest is 1 for interested and
+// -1 for not interested; At is RFC 3339.
+type RatingInfo struct {
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`
+	Name     string `json:"name"`
+	Artist   string `json:"artist,omitempty"`
+	Interest int    `json:"interest"`
+	At       string `json:"at"`
+}
+
+// DownloadsInfo is the offline download queue of download.status. Done
+// counts the songs downloaded since the queue last ran empty.
+type DownloadsInfo struct {
+	Running   bool              `json:"running,omitempty"`
+	Current   *TrackInfo        `json:"current,omitempty"`
+	Percent   float64           `json:"percent,omitempty"`
+	Queued    []TrackInfo       `json:"queued,omitempty"`
+	Done      int               `json:"done,omitempty"`
+	Failed    []DownloadFailure `json:"failed,omitempty"`
+	Directory string            `json:"directory,omitempty"`
+}
+
+// DownloadFailure is a song whose download failed, with the reason.
+type DownloadFailure struct {
+	Track TrackInfo `json:"track"`
+	Error string    `json:"error"`
+}
+
+// StatsInfo is the listening summary of one period. Daily holds the minutes
+// of each of the last 30 days, oldest first.
+type StatsInfo struct {
+	Plays      int          `json:"plays"`
+	Secs       float64      `json:"secs"`
+	Songs      int          `json:"songs"`
+	Artists    int          `json:"artists"`
+	TopArtists []StatsCount `json:"top_artists,omitempty"`
+	TopSongs   []StatsCount `json:"top_songs,omitempty"`
+	TopGenres  []StatsCount `json:"top_genres,omitempty"`
+	Daily      []float64    `json:"daily"`
+	Streak     int          `json:"streak"`
+}
+
+// StatsCount is one ranked artist, song or genre. Detail is a song's artist.
+type StatsCount struct {
+	Name   string  `json:"name"`
+	Detail string  `json:"detail,omitempty"`
+	Plays  int     `json:"plays"`
+	Secs   float64 `json:"secs"`
 }
 
 type SortInfo struct {

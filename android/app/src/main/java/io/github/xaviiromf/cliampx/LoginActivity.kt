@@ -2,6 +2,7 @@ package io.github.xaviiromf.cliampx
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebView
@@ -11,6 +12,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -76,6 +78,40 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
             return out.toString()
+        }
+
+        private const val MAX_COOKIES = 1 shl 20
+
+        /** Reads a cookies.txt the user picked and saves it as the sign-in; returns the message to show. */
+        fun importCookies(context: Context, uri: Uri): Int {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val out = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    while (out.size() <= MAX_COOKIES) out.write(buffer, 0, input.read(buffer).takeIf { it >= 0 } ?: break)
+                    out.toString(Charsets.UTF_8.name())
+                }
+            }.getOrNull()
+            return when {
+                text == null -> R.string.import_failed
+                text.length > MAX_COOKIES || text.lineSequence().none { it.split('\t').size >= 7 } -> R.string.not_cookies
+                !text.contains("\tSAPISID\t") -> R.string.no_sign_in
+                else -> {
+                    saveSignIn(context, text)
+                    R.string.signed_in
+                }
+            }
+        }
+
+        /**
+         * Cerrar sesión: forgets the YouTube Music sign-in, the WebView's
+         * cookies too, and restarts the core without it.
+         */
+        fun signOut(context: Context) {
+            Core.cookies(context).delete()
+            File(Core.configDir(context), "ytmusic_auth.json").delete()
+            CookieManager.getInstance().removeAllCookies(null)
+            CliampService.send(context, CliampService.ACTION_RESTART)
         }
 
         /** Saves a cookies.txt as the YouTube Music sign-in and restarts the core to read it. */
