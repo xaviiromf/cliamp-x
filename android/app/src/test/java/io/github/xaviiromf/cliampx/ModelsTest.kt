@@ -305,15 +305,6 @@ class PlayerModelsTest {
     }
 
     @Test
-    fun resampleIsLinear() {
-        assertArrayEquals(floatArrayOf(0f, 0.5f, 1f), resample(floatArrayOf(0f, 1f), 3), 1e-6f)
-        assertArrayEquals(floatArrayOf(0.2f, 0.2f), resample(floatArrayOf(0.2f), 2), 0f)
-        assertArrayEquals(floatArrayOf(0f, 1f), resample(floatArrayOf(0f, 0.5f, 1f), 2), 1e-6f)
-        assertEquals(0, resample(FloatArray(0), 5).size)
-        assertEquals(0, resample(floatArrayOf(1f), 0).size)
-    }
-
-    @Test
     fun eqGains() {
         for ((y, want) in listOf(0f to 12, 240f to 0, 480f to -12, 250f to 0, 235f to 0, 230f to 1, -50f to 12, 900f to -12)) {
             assertEquals("tap at $y", want, eqGain(y, 480f))
@@ -324,14 +315,6 @@ class PlayerModelsTest {
         assertEquals(-2, eqDrag(1, 59f, 20f))
         assertEquals(12, eqDrag(10, -100f, 20f))
         assertEquals(-12, eqDrag(-12, 100f, 20f))
-    }
-
-    @Test
-    fun visualizerCycle() {
-        assertEquals("ClassicPeak", nextVisualizer("Bars"))
-        assertEquals("Mirror", nextVisualizer("ClassicPeak"))
-        assertEquals("Bars", nextVisualizer("Mirror"))
-        assertEquals("Bars", nextVisualizer("Matrix")) // a mode only Modo terminal draws
     }
 }
 

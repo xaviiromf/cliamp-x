@@ -60,6 +60,7 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.MainActivity
+import io.github.xaviiromf.cliampx.NATIVE_VIS
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
@@ -79,8 +80,21 @@ import java.io.File
 /** The name the core gives its terminal-colors theme, which Android draws as winamp (§4.1). */
 private const val DEFAULT_THEME = "Default - Terminal colors"
 
-/** The four native visualizers (§0) and their labels; any other mode draws only in Modo terminal. */
-private val NATIVE_VIS = listOf("Bars" to R.string.vis_bars, "ClassicPeak" to R.string.vis_classic_peak, "Mirror" to R.string.vis_mirror, "None" to R.string.vis_none)
+/** The label of each native visualizer of NATIVE_VIS (§0); any other mode draws as Bars, its own drawing only in Modo terminal. */
+private val VIS_LABELS = mapOf(
+    "Bars" to R.string.vis_bars, "ClassicPeak" to R.string.vis_classic_peak, "ClassicLED" to R.string.vis_classic_led,
+    "Bricks" to R.string.vis_bricks, "Columns" to R.string.vis_columns, "BarsDot" to R.string.vis_bars_dot,
+    "BarsOutline" to R.string.vis_bars_outline, "Mirror" to R.string.vis_mirror, "Butterfly" to R.string.vis_butterfly,
+    "Ascii" to R.string.vis_ascii, "Mosaic" to R.string.vis_mosaic, "Logo" to R.string.vis_logo,
+    "Spectrogram" to R.string.vis_spectrogram, "Terrain" to R.string.vis_terrain, "Skyline" to R.string.vis_skyline,
+    "Radial" to R.string.vis_radial, "Pulse" to R.string.vis_pulse, "Ripple" to R.string.vis_ripple,
+    "Tunnel" to R.string.vis_tunnel, "Spiral" to R.string.vis_spiral, "Helix" to R.string.vis_helix,
+    "Plasma" to R.string.vis_plasma, "Aurora" to R.string.vis_aurora, "Retro" to R.string.vis_retro,
+    "Flame" to R.string.vis_flame, "Rain" to R.string.vis_rain, "Matrix" to R.string.vis_matrix,
+    "Scatter" to R.string.vis_scatter, "Geyser" to R.string.vis_geyser, "Firework" to R.string.vis_firework,
+    "Bubbles" to R.string.vis_bubbles, "Sakura" to R.string.vis_sakura, "Firefly" to R.string.vis_firefly,
+    "Starfield" to R.string.vis_starfield, "None" to R.string.vis_none,
+)
 
 @SuppressLint("BatteryLife") // a music player that One UI must not suspend; no Play Store
 fun ignoreBatteryOptimizations(context: Context) {
@@ -474,7 +488,10 @@ fun VisualizersScreen() {
             s?.takeIf { it.playing }?.let { snap ->
                 item(key = "preview") { Visualizer(snap, Modifier.fillMaxWidth().height(120.dp).padding(horizontal = 16.dp, vertical = 8.dp).testTag("vis_preview")) }
             }
-            itemsIndexed(NATIVE_VIS, key = { _, v -> v.first }) { _, (name, label) ->
+            // Only the native modes this core has, so a row never sends a mode it lacks.
+            val names = (all as? Load.Done)?.value?.let { have -> NATIVE_VIS.filter { it in have } } ?: NATIVE_VIS
+            itemsIndexed(names, key = { _, v -> v }) { _, name ->
+                val label = VIS_LABELS.getValue(name)
                 val on = s?.visualizer == name
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { Remote.fire("vis", JSONObject().put("name", name)) }
@@ -487,7 +504,7 @@ fun VisualizersScreen() {
                 }
             }
             item(key = "more") {
-                val n = (all as? Load.Done)?.value?.size
+                val n = (all as? Load.Done)?.value?.count { it !in NATIVE_VIS }
                 SettingRow(
                     if (n != null) stringResource(R.string.vis_more_count, n) else stringResource(R.string.vis_more), "", "vis_terminal",
                 ) { context.startActivity(Intent(context, TerminalActivity::class.java)) }

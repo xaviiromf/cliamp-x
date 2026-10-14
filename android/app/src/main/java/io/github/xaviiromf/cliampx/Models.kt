@@ -473,18 +473,6 @@ fun seekHolds(target: Double, path: String?, releasedAt: Long, s: Snapshot, now:
     s.track?.path == path && now - releasedAt < holdMs &&
         (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
 
-/** The spectrum bands linearly resampled to n bars. */
-fun resample(bands: FloatArray, n: Int): FloatArray {
-    if (bands.isEmpty() || n <= 0) return FloatArray(0)
-    if (bands.size == 1) return FloatArray(n) { bands[0] }
-    return FloatArray(n) { i ->
-        val x = if (n == 1) 0f else i * (bands.size - 1f) / (n - 1)
-        val lo = x.toInt().coerceAtMost(bands.size - 2)
-        val f = x - lo
-        bands[lo] * (1 - f) + bands[lo + 1] * f
-    }
-}
-
 /** The EQ gain of a tap at y in a column height tall: +12 dB at the top, -12 at the bottom, in 1 dB steps. */
 fun eqGain(y: Float, height: Float): Int =
     if (height <= 0) 0 else Math.round(12 - y / height * 24).coerceIn(-12, 12)
@@ -499,12 +487,6 @@ fun eqDrag(base: Int, dy: Float, cell: Float): Int =
  */
 fun eqPending(local: Map<Int, Int>, core: List<Double>, sent: Map<Int, Int>): Pair<Int, Int>? =
     local.entries.firstOrNull { (band, db) -> sent[band] != db && core.getOrNull(band)?.roundToInt() != db }?.toPair()
-
-/** The next native visualizer of the strip's cycle (§2.3): Bars, ClassicPeak, Mirror. */
-fun nextVisualizer(current: String): String {
-    val cycle = listOf("Bars", "ClassicPeak", "Mirror")
-    return cycle[(cycle.indexOf(current) + 1) % cycle.size]
-}
 
 /** The offline download queue of download.status (G15). */
 @Immutable

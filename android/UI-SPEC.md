@@ -36,7 +36,7 @@
 | Core | Same process model. The Go core runs in the pty owned by `CliampService`, and the native UI uses V2 IPC only. The core draws (`ui.render on`) only while Modo terminal is visible; otherwise it is `off`. No new render mode |
 | yt-dlp | The app downloads the newest yt-dlp release itself, with timeouts, a SHA-256 check and an atomic rename over the file that `CLIAMP_YTDLP` runs. While yt-dlp has never been updated, the first play waits up to 45 s for the update. After that it checks daily |
 | Default theme | "Default - Terminal colors" is drawn with the built-in `winamp` palette, the closest match to the green-on-black Termux view the user had |
-| Visualizer | Drawn natively on a Canvas from `spectrum.get`. Native renderers: **Bars** (M2), then **ClassicPeak** and **Mirror** (M6). Any other band mode the core is in draws as Bars. The exact ASCII modes stay in Modo terminal |
+| Visualizer | Drawn natively on a Canvas from `spectrum.get`, the bands eased at the display rate (`Vis.kt`, `ui/Visualizer.kt`). 34 native renderers, each matched to a core mode name (`NATIVE_VIS`): Bars, ClassicPeak, ClassicLED, Bricks, Columns, BarsDot, BarsOutline, Mirror, Butterfly, Ascii, Mosaic, Logo, Spectrogram, Terrain, Skyline, Radial, Pulse, Ripple, Tunnel, Spiral, Helix, Plasma, Aurora, Retro, Flame, Rain, Matrix, Scatter, Geyser, Firework, Bubbles, Sakura, Firefly, Starfield. Any other band mode draws as Bars; the raw-sample modes (Wave, Scope, Heartbeat, Stereo) send no bands. The exact ASCII modes stay in Modo terminal |
 | Volume | Android media volume: the hardware keys and the system panel. The core's own volume is not exposed |
 | Modo terminal only | Lua plugins, blocked words and artists, `ssh://` paths, `vis_palette`, the lyrics offset, the output device, and the exact ASCII drawing of all 47 visualizer modes |
 
@@ -158,7 +158,7 @@ LoginActivity (WebView sign-in, unchanged)
 - **Art area gestures:**
   - tap toggles Portada ⇄ Visualizador;
   - a horizontal swipe skips (Portada and Visualizador only), with the mini-player rule.
-- **Visualizer strip,** 72 dp under the art. It shows only in the Portada view, when the mode is not None and the art is at least 240 dp. A tap cycles Bars → ClassicPeak → Mirror via `vis {name}`.
+- **Visualizer strip,** 72 dp under the art. It shows only in the Portada view, when the mode is not None and the art is at least 240 dp. A tap cycles through the native modes in `NATIVE_VIS` order (None left out) via `vis {name}`.
 - **Title block:**
   - the title (display style, accent bold, marquee) with `♥` at the right;
   - `Artista · Álbum` below. Tapping the artist opens the Artist page when `provider_meta["ytmusic.artist"]` exists; tapping the album opens the Album page when `provider_meta["ytmusic.album"]` exists.
@@ -217,7 +217,7 @@ LoginActivity (WebView sign-in, unchanged)
 
 **Apariencia**
 - Tema: the picker. A tap applies the theme at once, and the whole UI, the picker included, recolors. That is the live preview.
-- Visualizador: the picker, with a live 120 dp preview while music plays.
+- Visualizador: the picker, with a live 120 dp preview while music plays. It lists only the native modes the core reports in `vis list`; "Más modos (n) en Modo terminal" counts the rest.
 
 **Reproducción**
 - Ecualizador: opens the Eq screen.
@@ -795,8 +795,8 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 | Explicit theme change | instant |
 | `cover` theme, each new cover palette | the 7 colors animate over 600 ms (`animateColorAsState(tween(600, easing = LinearEasing))`), as the desktop `coverFadeTime` does |
 | Spinner | a braille frame every 100 ms |
-| Visualizer | redraws on each spectrum frame (at most 30 fps). On pause or stop the bars decay to 0 in 300 ms, then drawing stops |
-| Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades |
+| Visualizer | spectrum frames arrive at 30 fps; the levels, peaks and particles step at the display rate (up to 120 fps) on one Canvas with no allocation per frame. On pause or stop the levels fade to 0 in 300 ms, then drawing stops |
+| Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then steps once per spectrum frame with no easing, and the modes that move on their own (particles, scrolling, spinning) draw as Bars |
 
 ### 4.6 Live theme flow
 
@@ -1937,7 +1937,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 
 **Integration rule:** the UI hides every element whose operation is not yet in `capabilities`. There are no other fallbacks.
 
-**Deferred by the user (M6):** the landscape player (§3.10), the ClassicPeak and Mirror renderers (every band mode draws as Bars) and the TalkBack labels (§9.5 item 18). MainActivity is locked to portrait, and Modo terminal still turns; S19 checks both.
+**Deferred by the user (M6):** the landscape player (§3.10) and the TalkBack labels (§9.5 item 18). The ClassicPeak and Mirror renderers are done, with 32 more native modes (§0). MainActivity is locked to portrait, and Modo terminal still turns; S19 checks both.
 
 **Performance acceptance (M6):** the §9.4 frame numbers are judged on the A55 only; the emulator cannot meet any frame budget (§9.4). The A55 run (25 % janky, 90th percentile 18 ms) stays open until a trace there names the hot spot.
 
@@ -1949,7 +1949,7 @@ See `open_risks`. The top three:
 1. The yt-dlp download path: GitHub redirects, rate limits and the SUMS file, plus Python compatibility of new yt-dlp releases.
 2. The error-kind classification of the real failure text.
 3. Compose smoothness on the A55 with a 30 fps visualizer.
-4. The items the user deferred in §10 stay open: landscape, ClassicPeak and Mirror, TalkBack.
+4. The items the user deferred in §10 stay open: landscape, TalkBack.
 
 **Not covered:** nothing here was built or run.
 - The JBM glyph coverage was checked against the installed JetBrainsMono **Nerd Font**, a superset; `GlyphTest` confirms it against the static TTF.
