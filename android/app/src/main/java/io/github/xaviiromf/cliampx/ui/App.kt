@@ -122,6 +122,7 @@ fun App(firstRun: Boolean) {
                             Screen.Backgrounds -> BackgroundsScreen()
                             Screen.Eq -> snap?.let { EqPage(it) { Nav.pop() } }
                             Screen.Stats -> StatsScreen()
+                            Screen.Wrapped -> WrappedScreen()
                             Screen.Ratings -> RatingsScreen()
                         }
                     }

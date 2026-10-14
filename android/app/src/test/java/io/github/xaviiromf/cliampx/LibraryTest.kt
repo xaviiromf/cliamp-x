@@ -11,6 +11,9 @@ import org.junit.Test
 object LibraryFixtures {
     const val STATS = """{"ok":true,"stats":{"plays":4,"secs":495.111927435,"songs":3,"artists":3,"top_artists":[{"name":"Daft Punk","plays":2,"secs":294.743219953},{"name":"Sebastian Martinez","plays":1,"secs":143.498866213}],"top_songs":[{"name":"Digital Love","detail":"Daft Punk","plays":2,"secs":294.743219953}],"top_genres":[{"name":"Blues","plays":1,"secs":143.498866213}],"daily":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8.25186545725],"streak":1}}"""
 
+    // The documented shape of stats wrapped (docs/remote-control.md).
+    const val WRAPPED = """{"ok":true,"stats":{"plays":4210,"secs":846000,"songs":1320,"artists":410,"top_artists":[{"name":"Daft Punk","plays":210,"secs":50400}],"top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":64,"secs":20480}],"top_genres":[{"name":"Electronic","plays":1500,"secs":300000}],"daily":[],"streak":41,"year":2026,"minutes":14100,"days":298,"top_albums":[{"name":"Discovery","detail":"Daft Punk","plays":180,"secs":43200}],"first":{"name":"Aerodynamic","detail":"Daft Punk","path":"https://music.youtube.com/watch?v=x","at":"2026-01-01T00:42:10-03:00"},"most_replayed":{"name":"One More Time","detail":"Daft Punk","plays":9,"secs":2880}}}"""
+
     // The failed row is the documented shape (docs/remote-control.md); the rest is real.
     const val DOWNLOADS = """{"ok":true,"downloads":{"running":true,"current":{"title":"One More Time","artist":"Daft Punk","album":"Discovery","path":"https://music.youtube.com/watch?v=FGBhQbmPwH8","duration_secs":321,"stream":true,"provider_meta":{"ytmusic.album":"MPREb_7ltM34kr0mH","ytmusic.id":"FGBhQbmPwH8"}},"percent":42.5,"queued":[{"title":"Aerodynamic","artist":"Daft Punk","album":"Discovery","path":"https://music.youtube.com/watch?v=L93-7vRfxNs","duration_secs":213,"stream":true}],"done":2,"failed":[{"track":{"title":"Digital Love","path":"https://music.youtube.com/watch?v=4whD6uAryMs"},"error":"HTTP Error 403"}],"directory":"/data/user/0/io.github.xaviiromf.cliampx/files/home/Music/cliamp-x"}}"""
 
@@ -41,6 +44,28 @@ class LibraryTest {
         val empty = Stats.parse(JSONObject("""{"ok":true}"""))
         assertEquals(0, empty.plays)
         assertTrue(empty.topSongs.isEmpty() && empty.daily.isEmpty())
+    }
+
+    @Test
+    fun wrapped() {
+        val w = Wrap.parse(JSONObject(LibraryFixtures.WRAPPED))
+        assertEquals(2026, w.year)
+        assertEquals(14100, w.minutes)
+        assertEquals(298, w.days)
+        assertEquals(41, w.streak)
+        assertEquals(StatCount("Discovery", "Daft Punk", 180), w.topAlbums.single())
+        assertEquals(StatCount("Aerodynamic", "Daft Punk", 0), w.first)
+        assertEquals("2026-01-01T00:42:10-03:00", w.firstAt)
+        assertEquals(StatCount("One More Time", "Daft Punk", 9), w.mostReplayed)
+        assertEquals(Wrap.Card.entries, w.cards)
+        // Cards without data drop out; a year without plays has none.
+        val bare = w.copy(topGenres = emptyList(), topAlbums = emptyList(), streak = 0, first = null, mostReplayed = null)
+        assertEquals(listOf(Wrap.Card.Intro, Wrap.Card.Minutes, Wrap.Card.Artists, Wrap.Card.Songs), bare.cards)
+        val empty = Wrap.parse(JSONObject("""{"ok":true,"stats":{"daily":[],"year":2025}}"""))
+        assertEquals(2025, empty.year)
+        assertTrue(empty.cards.isEmpty())
+        assertNull(empty.first)
+        assertEquals("", empty.firstAt)
     }
 
     @Test

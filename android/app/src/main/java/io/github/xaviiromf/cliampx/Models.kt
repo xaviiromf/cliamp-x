@@ -515,7 +515,11 @@ data class Downloads(
 
 /** One ranked artist, song or genre of the statistics; detail is a song's artist. */
 @Immutable
-data class StatCount(val name: String, val detail: String, val plays: Int)
+data class StatCount(val name: String, val detail: String, val plays: Int) {
+    companion object {
+        fun parse(o: JSONObject) = StatCount(o.optString("name"), o.optString("detail"), o.optInt("plays"))
+    }
+}
 
 /** The listening summary of a period (G16); daily holds the minutes of the last 30 days, oldest first. */
 @Immutable
@@ -527,9 +531,7 @@ data class Stats(
     companion object {
         fun parse(result: JSONObject): Stats {
             val o = result.optJSONObject("stats") ?: JSONObject()
-            fun counts(name: String) = o.optJSONArray(name).let { a ->
-                List(a?.length() ?: 0) { i -> a!!.getJSONObject(i).let { StatCount(it.optString("name"), it.optString("detail"), it.optInt("plays")) } }
-            }
+            fun counts(name: String) = o.optJSONArray(name).let { a -> List(a?.length() ?: 0) { i -> StatCount.parse(a!!.getJSONObject(i)) } }
             val daily = o.optJSONArray("daily")
             return Stats(
                 o.optInt("plays"), o.optDouble("secs", 0.0), o.optInt("songs"), o.optInt("artists"),
@@ -546,6 +548,48 @@ data class Stats(
             val max = daily.maxOrNull()?.takeIf { it > 0 } ?: return List(rows) { " ".repeat(daily.size) }
             val levels = daily.map { Math.round(it / max * rows * 8).toInt() }
             return (rows - 1 downTo 0).map { r -> levels.joinToString("") { " ▁▂▃▄▅▆▇█"[(it - r * 8).coerceIn(0, 8)].toString() } }
+        }
+    }
+}
+
+/**
+ * A calendar year of listening, `stats` wrapped (T8): the story "Tu año en
+ * cliamp-x". first is the year's first song (plays 0), played at firstAt
+ * (RFC 3339); mostReplayed the song played most in one day, with that day's plays.
+ */
+@Immutable
+data class Wrap(
+    val year: Int, val minutes: Int, val days: Int, val plays: Int, val songs: Int, val artists: Int, val streak: Int,
+    val topArtists: List<StatCount>, val topSongs: List<StatCount>, val topAlbums: List<StatCount>, val topGenres: List<StatCount>,
+    val first: StatCount?, val firstAt: String, val mostReplayed: StatCount?,
+) {
+    /** The story's cards, in order. */
+    enum class Card { Intro, Minutes, Artists, Songs, Albums, Genres, Streak, Moments }
+
+    /** The cards with something to show; none for a year without plays. */
+    val cards: List<Card>
+        get() = if (plays == 0) emptyList() else Card.entries.filter {
+            when (it) {
+                Card.Intro, Card.Minutes -> true
+                Card.Artists -> topArtists.isNotEmpty()
+                Card.Songs -> topSongs.isNotEmpty()
+                Card.Albums -> topAlbums.isNotEmpty()
+                Card.Genres -> topGenres.isNotEmpty()
+                Card.Streak -> streak > 0
+                Card.Moments -> first != null || mostReplayed != null
+            }
+        }
+
+    companion object {
+        fun parse(result: JSONObject): Wrap {
+            val o = result.optJSONObject("stats") ?: JSONObject()
+            fun counts(name: String) = o.optJSONArray(name).let { a -> List(a?.length() ?: 0) { i -> StatCount.parse(a!!.getJSONObject(i)) } }
+            val first = o.optJSONObject("first")
+            return Wrap(
+                o.optInt("year"), o.optInt("minutes"), o.optInt("days"), o.optInt("plays"), o.optInt("songs"), o.optInt("artists"), o.optInt("streak"),
+                counts("top_artists"), counts("top_songs"), counts("top_albums"), counts("top_genres"),
+                first?.let(StatCount::parse), first?.optString("at").orEmpty(), o.optJSONObject("most_replayed")?.let(StatCount::parse),
+            )
         }
     }
 }

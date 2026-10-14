@@ -546,6 +546,9 @@ object Remote {
 
     suspend fun stats(period: String): Stats = io { Stats.parse(call("stats", JSONObject().put("name", period))) }
 
+    /** The calendar year's story (T8), or the current year's with 0. */
+    suspend fun wrapped(year: Int): Wrap = io { Wrap.parse(call("stats", JSONObject().put("name", "wrapped").put("value", year))) }
+
     suspend fun downloads(): Downloads = io { Downloads.parse(call("download.status")) }
 
     /** The themes with their colors (G17); a theme file added later shows after a reconnect. */

@@ -49,6 +49,9 @@ sealed interface Screen {
     /** The equalizer, pushed from Ajustes. */
     data object Eq : Screen
     data object Stats : Screen
+
+    /** Tu año en cliamp-x, pushed from Estadísticas. */
+    data object Wrapped : Screen
     data object Ratings : Screen
 }
 

@@ -36,6 +36,13 @@ session.
 | Rows | Tap to play from there; long-press or `⋮` for actions (play next, queue, like, more like this, go to album or artist, download) |
 | Queue | Swipe a row to remove it, drag `≡` to reorder |
 
+**Biblioteca → Estadísticas → Tu año en cliamp-x** tells this year (or the
+last one) as swipeable cards in the current theme and font: minutes and days
+of music, top artists, songs, albums and genres, the longest streak, the first
+song of the year and the one replayed most in one day. **Compartir imagen**
+under a card shares it as a PNG through the system share sheet. The figures
+come from the core's play log (`stats wrapped`), which stays on the phone.
+
 The main interface is portrait only. Modo terminal rotates.
 
 ## Settings

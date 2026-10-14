@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
 private val PERIODS = listOf("week" to R.string.stats_week, "month" to R.string.stats_month, "year" to R.string.stats_year, "all" to R.string.stats_all)
 
 /**
- * Estadísticas (§3.16): the period chips, the summary, the minutes of the
+ * Estadísticas (§3.16): the period chips, Tu año en cliamp-x, the summary, the minutes of the
  * last 30 days as a block chart, then the top artists, songs and genres.
  * Read again on each visit and period, never cached.
  */
@@ -57,6 +57,9 @@ fun StatsScreen() {
                 Row(Modifier.padding(horizontal = 12.dp)) {
                     for ((id, label) in PERIODS) BracketChip(stringResource(label), id == period, Modifier.testTag("stats_$id")) { period = id }
                 }
+            }
+            item(key = "wrapped") {
+                BracketButton("▸ " + stringResource(R.string.wrapped), Modifier.padding(horizontal = 12.dp).testTag("stats_wrapped")) { Nav.open(Screen.Wrapped) }
             }
             if (s == null) {
                 item(key = "state") { LoadState(load, retry) }
