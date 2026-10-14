@@ -80,6 +80,23 @@ screen, about half a CPU core on a Galaxy A55 while the app is in view. **Animac
 Lenta, Normal or Sin animación for the screen, player page, artwork and
 cover-palette transitions; Sin animación also holds the background still.
 
+**Ajustes → Red y descargas** sets the YouTube audio quality separately for
+Wi-Fi and mobile data (Alta: the best format, Normal: up to 128 kbps,
+Ahorro: up to 64 kbps). The app tells the core which network it uses; a
+metered network counts as mobile data. **Calidad Premium** asks for the
+256 kbps formats of a Premium account from the first try. **Descargas solo
+con Wi-Fi** refuses a download on mobile data. **Caché automática** downloads
+your liked songs, then the recently played ones, at most every 12 hours, up
+to a number of songs and a size (an estimate of 128 kbps per song); it can
+be held to Wi-Fi, and **Llenar ahora** fills it at once. The player shows the
+format of the playing stream under the time, such as `OPUS · 160 kbps · 48 kHz`.
+
+**Ajustes → Scrobbling** sends what you play to ListenBrainz (paste your
+token from listenbrainz.org/settings) or Last.fm (paste the key and secret
+of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
+in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
+credential. Scrobbles that fail on a network error are sent later.
+
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification

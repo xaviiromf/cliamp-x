@@ -490,7 +490,7 @@ private fun Buttons(rows: List<Track>, shuffle: Boolean = true, play: (Int) -> U
 @Composable
 private fun DownloadChip(id: String, title: String) {
     BracketChip("↓", false, Modifier.testTag("detail_download")) {
-        Remote.fire("download", JSONObject().put("provider", "ytmusic").put("playlist", id).put("name", title))
+        Remote.download(JSONObject().put("provider", "ytmusic").put("playlist", id).put("name", title))
     }
 }
 

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android integrations and audio settings (FINAL-PLAN T7). -->
+<resources>
+    <string name="set_network">Red y descargas</string>
+    <string name="network_now_wifi">Ahora: Wi-Fi</string>
+    <string name="network_now_mobile">Ahora: datos móviles</string>
+    <string name="quality_high">Alta</string>
+    <string name="quality_normal">Normal</string>
+    <string name="quality_saver">Ahorro</string>
+    <string name="quality_wifi">Calidad con Wi-Fi</string>
+    <string name="quality_mobile">Calidad con datos móviles</string>
+    <string name="quality_help">Alta usa el mejor formato, Normal hasta 128 kbps y Ahorro hasta 64 kbps. Cuenta desde la siguiente canción.</string>
+    <string name="premium_quality">Calidad Premium</string>
+    <string name="premium_quality_help">Con YouTube Music Premium, pide desde el principio los formatos de 256 kbps con tu sesión.</string>
+    <string name="downloads_wifi_only">Descargas solo con Wi-Fi</string>
+    <string name="auto_cache">Caché automática</string>
+    <string name="auto_cache_help">Descarga tus canciones que te gustan y las escuchadas hace poco, como mucho cada 12 horas.</string>
+    <string name="auto_cache_wifi_only">Caché solo con Wi-Fi</string>
+    <string name="auto_cache_songs">Canciones como máximo</string>
+    <string name="auto_cache_size">Tamaño como máximo</string>
+    <string name="no_limit">Sin límite</string>
+    <string name="auto_cache_now">Llenar ahora</string>
+    <string name="wifi_only_blocked">Solo se descarga con Wi-Fi. Conéctate a una red Wi-Fi o cambia el ajuste.</string>
+    <plurals name="cache_queued">
+        <item quantity="one">%1$d canción en la cola de descargas.</item>
+        <item quantity="other">%1$d canciones en la cola de descargas.</item>
+    </plurals>
+    <string name="set_scrobble">Scrobbling</string>
+    <string name="connected">conectado</string>
+    <string name="disconnected">sin conectar</string>
+    <string name="lb_token">Token…</string>
+    <string name="disconnect">Desconectar</string>
+    <string name="lb_help">Pega el token de listenbrainz.org/settings.</string>
+    <string name="lastfm_key">Clave API…</string>
+    <string name="lastfm_secret">Secreto API…</string>
+    <string name="lastfm_connect">Conectar</string>
+    <string name="lastfm_finish">Ya lo autoricé</string>
+    <string name="lastfm_need_keys">Primero pon la clave y el secreto de tu API de Last.fm.</string>
+    <string name="lastfm_help">Crea una cuenta de API en last.fm/api, pon su clave y su secreto y pulsa Conectar.</string>
+    <string name="lastfm_finish_help">Autoriza cliamp-x en el navegador y vuelve aquí para pulsar Ya lo autoricé.</string>
+    <string name="save_short">Guardar</string>
+</resources>

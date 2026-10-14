@@ -94,6 +94,8 @@ sealed interface Sheet {
 
     /** Eliminar a local list, after a confirmation. */
     data class DeleteList(val item: Item) : Sheet
+    /** A scrobbling credential for settings.set name (Ajustes → Scrobbling). */
+    data class Credential(val name: String, @StringRes val title: Int) : Sheet
     data object PlayerMore : Sheet
     data object QueueMore : Sheet
     data object Speed : Sheet

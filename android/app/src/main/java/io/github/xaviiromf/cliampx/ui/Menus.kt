@@ -120,6 +120,9 @@ fun SheetHost(s: Snapshot?) {
                             if ((Nav.top.screen as? Screen.Playlist)?.let { it.provider == "local" && it.id == sheet.item.id } == true) Nav.pop()
                         }
                     }
+                    is Sheet.Credential -> NameSheet(stringResource(sheet.title), "", stringResource(R.string.save_short), close, null, hint = stringResource(sheet.title)) { text, failed ->
+                        Remote.setText(sheet.name, text, failed) { Nav.sheet = null }
+                    }
                     Sheet.PlayerMore -> PlayerMore(s, close)
                     Sheet.QueueMore -> QueueMore()
                     Sheet.Speed -> SpeedSheet(s, close)
@@ -223,7 +226,7 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
     }
     if ("download" in ops) {
         MenuRow("↓", stringResource(R.string.download), "menu_download") {
-            Remote.fire("download", JSONObject().put("track", track.json()))
+            Remote.download(JSONObject().put("track", track.json()))
             close()
         }
     }
@@ -294,7 +297,7 @@ private fun ItemActions(item: Item, close: () -> Unit) {
             if (item.kind == Kind.ALBUM && "playlist.add" in ops) MenuRow("+", stringResource(R.string.add_to_list_more), "menu_add") { Nav.sheet = Sheet.AddTo(emptyList(), item) }
             if (yt && "download" in ops) {
                 MenuRow("↓", stringResource(R.string.download), "menu_download") {
-                    run { Remote.fire("download", JSONObject().put("provider", "ytmusic").put("playlist", item.id).put("name", item.title)) }
+                    run { Remote.download(JSONObject().put("provider", "ytmusic").put("playlist", item.id).put("name", item.title)) }
                 }
             }
             if (item.kind == Kind.ALBUM && "taste.rate" in ops) RateRows(item, close)
@@ -418,6 +421,7 @@ private fun NameSheet(
     confirm: String,
     close: () -> Unit,
     taken: List<String>?,
+    hint: String = stringResource(R.string.name),
     target: @Composable () -> Unit = {},
     done: (name: String, failed: (String) -> Unit) -> Unit,
 ) {
@@ -455,7 +459,7 @@ private fun NameSheet(
                     if (name.text.isEmpty()) {
                         Text(
                             buildAnnotatedString {
-                                append(stringResource(R.string.name))
+                                append(hint)
                                 withStyle(SpanStyle(color = p.accent)) { append("_") }
                             },
                             color = p.textSecondary, style = Type.body,
