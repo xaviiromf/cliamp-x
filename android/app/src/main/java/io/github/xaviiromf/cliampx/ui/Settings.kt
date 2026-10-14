@@ -189,9 +189,12 @@ fun SettingsScreen(screen: Screen.Settings) {
                     }
                     Toggle(stringResource(R.string.player_vis), Looks.playerVis, "set_player_vis") { Looks.putPlayerVis(it == 1) }
                     Choice(stringResource(R.string.launcher_icon), LauncherIcon.entries.map { it.label }, icon.ordinal, "set_icon") {
-                        icon = LauncherIcon.entries[it]
-                        LauncherIcon.set(context, icon)
+                        if (it != icon.ordinal) {
+                            icon = LauncherIcon.entries[it]
+                            LauncherIcon.set(context, icon)
+                        }
                     }
+                    Help(stringResource(R.string.launcher_icon_help))
                     SettingRow(stringResource(R.string.stereo_charging), "", "set_stereo") { openDreamSettings(context) }
                     Help(stringResource(R.string.stereo_help))
                 }

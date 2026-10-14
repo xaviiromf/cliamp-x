@@ -44,7 +44,7 @@ the artwork, the song and the visualizer. It dims from 22:00 to 07:00 and
 moves a few pixels every minute against burn-in; a tap leaves it. Open it
 from the player's `⋮`, or let it start by itself while charging: **Ajustes →
 Modo estéreo al cargar** opens the system's screen saver settings, where you
-pick cliamp-x and start it while charging.
+pick Modo estéreo.
 
 ## Settings
 
@@ -75,9 +75,10 @@ battery setting, updates, the yt-dlp update and Modo terminal.
   player behind the artwork, dimmed under the text (also in the player's
   `⋮`). The strip under the artwork then hides.
 - **Icono de la app**: Predeterminado, Verde, Ámbar, Synthwave or Game Boy.
-  The launcher may take a few seconds to show the new icon, and a home
-  screen shortcut to the old one goes away; add it again from the app
-  drawer. On Android 13 and newer every icon also has the themed
+  Android closes the app when the icon changes (the music keeps
+  playing); open it again from the new icon. The launcher may take a few
+  seconds to show it, and a home screen shortcut to the old one goes
+  away; add it again from the app drawer. On Android 13 and newer every icon also has the themed
   (monochrome) version.
 
 **Fondo** draws an animated background behind the whole app, the player and
