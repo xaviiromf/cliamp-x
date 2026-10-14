@@ -243,5 +243,13 @@ Pon `enabled = false` para desactivar el proveedor. Consulta
 - **Una canción no arranca**: el aviso dice qué hacer cuando reconoce la
   causa: sin conexión, sesión caducada (`cliamp-x login`), yt-dlp
   desactualizado (`yt-dlp -U`) o video no disponible en tu país.
+- **Android tarda en empezar una canción**: con las cookies de la sesión,
+  yt-dlp usa clientes de YouTube que piden resolver un desafío de JavaScript,
+  y en el teléfono eso cuesta unos 11 s por canción. Por eso, en Android,
+  yt-dlp resuelve primero cada canción de YouTube sin las cookies (unos 4 s).
+  Solo si ese intento falla, o no da audio en 12 s, la pide con la sesión: así
+  siguen sonando las canciones con restricción de edad, solo para miembros o
+  solo Premium. Con Premium, el audio puede llegar en la calidad normal. La
+  biblioteca, los me gusta y el inicio siguen usando la sesión.
 - **Errores**: revisa `~/.config/cliamp-x/cliamp.log`, o arranca con
   `cliamp-x --log-level debug`.
