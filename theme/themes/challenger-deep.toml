@@ -1,0 +1,9 @@
+# Challenger Deep — deep space with pastel stars.
+# Official values: github.com/challenger-deep-theme/vim
+bg = "#1e1c31"
+accent = "#c991e1"
+bright_fg = "#cbe3e7"
+fg = "#a6b3cc"
+green = "#95ffa4"
+yellow = "#ffe9aa"
+red = "#ff8080"

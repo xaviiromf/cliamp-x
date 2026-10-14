@@ -1,0 +1,10 @@
+# Kanagawa Lotus — the light variant of Kanagawa.
+# Official values: github.com/rebelot/kanagawa.nvim
+# For 4.5:1 text contrast, darkened from the palette: fg #716e61, green #6f894e, yellow #77713f, red #c84053.
+bg = "#f2ecbc"
+accent = "#4d699b"
+bright_fg = "#545464"
+fg = "#6b685c"
+green = "#5a6f3f"
+yellow = "#6f693b"
+red = "#b83b4c"

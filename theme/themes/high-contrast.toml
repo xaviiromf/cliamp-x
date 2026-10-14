@@ -1,0 +1,9 @@
+# High Contrast — pure white and saturated colors on black, for
+# low vision and bright rooms.
+bg = "#000000"
+accent = "#ffff00"
+bright_fg = "#ffffff"
+fg = "#e0e0e0"
+green = "#00ff00"
+yellow = "#ffff00"
+red = "#ff6060"

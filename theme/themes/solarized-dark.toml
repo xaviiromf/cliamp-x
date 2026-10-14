@@ -1,0 +1,10 @@
+# Solarized Dark — Ethan Schoonover's precision palette.
+# Official values: ethanschoonover.com/solarized
+# For 4.5:1 text contrast, lightened from the palette: accent #268bd2, red #dc322f.
+bg = "#002b36"
+accent = "#3a95d6"
+bright_fg = "#93a1a1"
+fg = "#839496"
+green = "#859900"
+yellow = "#b58900"
+red = "#e56765"

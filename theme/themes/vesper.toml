@@ -1,0 +1,9 @@
+# Vesper — peppermint and orange on black.
+# Official values: github.com/raunofreiberg/vesper
+bg = "#101010"
+accent = "#ffc799"
+bright_fg = "#ffffff"
+fg = "#a0a0a0"
+green = "#99ffe4"
+yellow = "#ffc799"
+red = "#ff8080"

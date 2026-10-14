@@ -1,0 +1,9 @@
+# GitHub Dark — the default dark mode of github.com.
+# Official values: github.com/primer/primitives
+bg = "#0d1117"
+accent = "#58a6ff"
+bright_fg = "#e6edf3"
+fg = "#9198a1"
+green = "#3fb950"
+yellow = "#d29922"
+red = "#f85149"

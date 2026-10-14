@@ -1,0 +1,9 @@
+# Matrix — green phosphor code rain. The film's palette:
+# #0d0208 #003b00 #008f11 #00ff41. The spectrum climbs from dim to bright.
+bg = "#0d0208"
+accent = "#00ff41"
+bright_fg = "#00ff41"
+fg = "#008f11"
+green = "#008f11"
+yellow = "#00ff41"
+red = "#b3ffc4"

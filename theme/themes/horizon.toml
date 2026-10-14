@@ -1,0 +1,10 @@
+# Horizon — warm pinks and teals at dusk.
+# Official values: github.com/jolaleye/horizon-theme-vscode
+# For 4.5:1 text contrast, lightened from the palette: fg #6c6f93.
+bg = "#1c1e26"
+accent = "#26bbd9"
+bright_fg = "#d5d8da"
+fg = "#8285a3"
+green = "#29d398"
+yellow = "#fab795"
+red = "#e95678"

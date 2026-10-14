@@ -1,0 +1,10 @@
+# Rosé Pine Dawn — the light variant of Rosé Pine.
+# Official values: rosepinetheme.com/palette
+# For 4.5:1 text contrast, darkened from the palette: accent #907aa9, fg #797593, yellow #ea9d34, red #b4637a.
+bg = "#faf4ed"
+accent = "#79668e"
+bright_fg = "#575279"
+fg = "#6f6c87"
+green = "#286983"
+yellow = "#966421"
+red = "#a0586d"

@@ -1,0 +1,9 @@
+# Oxocarbon — IBM Carbon colors on near black.
+# Official values: github.com/nyoom-engineering/oxocarbon.nvim
+bg = "#161616"
+accent = "#33b1ff"
+bright_fg = "#ffffff"
+fg = "#dde1e6"
+green = "#42be65"
+yellow = "#be95ff"
+red = "#ee5396"

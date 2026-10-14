@@ -1,0 +1,10 @@
+# Night Owl — Sarah Drasner's theme for night coding.
+# Official values: github.com/sdras/night-owl-vscode-theme
+# For 4.5:1 text contrast, lightened from the palette: fg #5f7e97.
+bg = "#011627"
+accent = "#82aaff"
+bright_fg = "#d6deeb"
+fg = "#65839b"
+green = "#addb67"
+yellow = "#ecc48d"
+red = "#ef5350"

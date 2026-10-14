@@ -1,0 +1,10 @@
+# Tomorrow Night — Chris Kempson's dark Tomorrow.
+# Official values: github.com/chriskempson/tomorrow-theme
+# For 4.5:1 text contrast, lightened from the palette: red #cc6666.
+bg = "#1d1f21"
+accent = "#81a2be"
+bright_fg = "#c5c8c6"
+fg = "#969896"
+green = "#b5bd68"
+yellow = "#f0c674"
+red = "#ce6b6b"

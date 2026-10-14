@@ -1,0 +1,9 @@
+# Poimandres — pastel minimal on deep blue.
+# Official values: github.com/drcmda/poimandres-theme
+bg = "#1b1e28"
+accent = "#add7ff"
+bright_fg = "#e4f0fb"
+fg = "#a6accd"
+green = "#5de4c7"
+yellow = "#fffac2"
+red = "#d0679d"

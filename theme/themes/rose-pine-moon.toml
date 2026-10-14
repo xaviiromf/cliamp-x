@@ -1,0 +1,9 @@
+# Rosé Pine Moon — the softer dark variant of Rosé Pine.
+# Official values: rosepinetheme.com/palette
+bg = "#232136"
+accent = "#c4a7e7"
+bright_fg = "#e0def4"
+fg = "#908caa"
+green = "#9ccfd8"
+yellow = "#f6c177"
+red = "#eb6f92"

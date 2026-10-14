@@ -1,0 +1,9 @@
+# Cyberpunk Neon — cyan and magenta on deep navy.
+# Official values: github.com/Roboron3042/Cyberpunk-Neon
+bg = "#000b1e"
+accent = "#ea00d9"
+bright_fg = "#d7d7d5"
+fg = "#0abdc6"
+green = "#00ff00"
+yellow = "#f57800"
+red = "#ff0000"

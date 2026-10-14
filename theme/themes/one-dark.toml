@@ -1,0 +1,10 @@
+# One Dark — Atom's default dark syntax theme.
+# Official values: github.com/atom/atom (one-dark-syntax)
+# For 4.5:1 text contrast, lightened from the palette: fg #828997, red #e06c75.
+bg = "#282c34"
+accent = "#61afef"
+bright_fg = "#abb2bf"
+fg = "#8e95a1"
+green = "#98c379"
+yellow = "#e5c07b"
+red = "#e2737c"

@@ -1,0 +1,9 @@
+# GitHub Light — the default light mode of github.com.
+# Official values: github.com/primer/primitives
+bg = "#ffffff"
+accent = "#0969da"
+bright_fg = "#1f2328"
+fg = "#59636e"
+green = "#1a7f37"
+yellow = "#9a6700"
+red = "#d1242f"

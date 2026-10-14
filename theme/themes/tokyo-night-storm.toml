@@ -1,0 +1,9 @@
+# Tokyo Night Storm — the stormy blue variant of Tokyo Night.
+# Official values: github.com/enkia/tokyo-night-vscode-theme
+bg = "#24283b"
+accent = "#7aa2f7"
+bright_fg = "#c0caf5"
+fg = "#a9b1d6"
+green = "#9ece6a"
+yellow = "#e0af68"
+red = "#f7768e"

@@ -1,0 +1,10 @@
+# One Light — Atom's default light syntax theme.
+# Official values: github.com/atom/atom (one-light-syntax)
+# For 4.5:1 text contrast, darkened from the palette: accent #4078f2, green #50a14f, yellow #c18401, red #e45649.
+bg = "#fafafa"
+accent = "#3a6cda"
+bright_fg = "#383a42"
+fg = "#696c77"
+green = "#3f7f3e"
+yellow = "#986801"
+red = "#c2493e"

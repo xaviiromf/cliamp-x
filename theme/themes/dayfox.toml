@@ -1,0 +1,9 @@
+# Dayfox — the light fox.
+# Official values: github.com/EdenEast/nightfox.nvim
+bg = "#f6f2ee"
+accent = "#2848a9"
+bright_fg = "#3d2b5a"
+fg = "#643f61"
+green = "#396847"
+yellow = "#ac5402"
+red = "#a5222f"

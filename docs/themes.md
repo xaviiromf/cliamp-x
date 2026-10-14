@@ -1,6 +1,6 @@
 # Themes
 
-cliamp-x includes 22 color themes that pass contrast checks. You can add custom themes with TOML files.
+cliamp-x includes 77 color themes that pass contrast checks. You can add custom themes with TOML files.
 
 Press `t` during playback to open the theme picker. Use `↑`/`↓` to navigate and preview each theme. Press `Enter` to select it or `Esc` to cancel.
 
@@ -8,7 +8,7 @@ cliamp-x saves your selection and restores it at the next start.
 
 ## Built-in themes
 
-alucard, amber, ayu-mirage-dark, catppuccin, catppuccin-latte, cover, dracula, ember, ethereal, everforest, flexoki-light, gruvbox, hackerman, kanagawa, matte-black, miasma, neon-blade-runner, nord, osaka-jade, ristretto, rose-pine, tokyo-night, vantablack, winamp, winamp-modern
+alucard, amber, ayu-dark, ayu-light, ayu-mirage-dark, base16-ocean, c64, catppuccin, catppuccin-frappe, catppuccin-latte, catppuccin-macchiato, cga-blue, challenger-deep, cobalt2, cover, cyberpunk-neon, dayfox, dracula, ember, ethereal, everforest, everforest-light, flexoki-light, gameboy, github-dark, github-dark-dimmed, github-light, gruvbox, gruvbox-light, hackerman, high-contrast, high-contrast-light, horizon, iceberg, kanagawa, kanagawa-dragon, kanagawa-lotus, material-ocean, matrix, matte-black, miasma, monokai, monokai-pro, moonfly, neon-blade-runner, nightfox, night-owl, nord, one-dark, one-light, osaka-jade, outrun, oxocarbon, palenight, papercolor-light, poimandres, ristretto, rose-pine, rose-pine-dawn, rose-pine-moon, solarized-dark, solarized-light, sonokai, srcery, sunset, synthwave-84, tokyo-night, tokyo-night-light, tokyo-night-storm, tomorrow-night, vantablack, vaporwave, vesper, winamp, winamp-modern, zenburn, zx-spectrum
 
 `cover` follows the cover of the playing song: its accent and spectrum colors
 come from the cover's most vivid colors, on a dark shade of its main hue, and

@@ -1,0 +1,10 @@
+# Srcery — bold, warm colors on dark brown.
+# Official values: srcery.sh
+# For 4.5:1 text contrast, lightened from the palette: red #ef2f27.
+bg = "#1c1b19"
+accent = "#ff5f00"
+bright_fg = "#fce8c3"
+fg = "#baa67f"
+green = "#98bc37"
+yellow = "#fbb829"
+red = "#f1443d"
