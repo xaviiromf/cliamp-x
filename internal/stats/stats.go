@@ -215,8 +215,7 @@ func Wrapped(plays []Play, year int, loc *time.Location, top int) Wrap {
 		if p.Album != "" {
 			bump(albums, strings.ToLower(p.Album+"\x00"+p.Artist), p.Album, p.Artist, p.Secs)
 		}
-		t := p.At.In(loc)
-		day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+		day := calendarDay(p.At, loc)
 		days[day] = true
 		bump(perDay, day.Format(time.DateOnly)+"\x00"+p.Key, p.title(), p.Artist, p.Secs)
 	}
@@ -259,14 +258,20 @@ func ranked(m map[string]*Count, top int) []Count {
 	return out
 }
 
+// calendarDay returns t's date in loc as midnight UTC. UTC has no DST, so
+// AddDate(0, 0, ±1) always lands on the next key, even where a zone's
+// midnight does not exist (America/Santiago skips 00:00 when DST starts).
+func calendarDay(t time.Time, loc *time.Location) time.Time {
+	t = t.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
 // daily returns the minutes of each of the last days days and the streak.
 func daily(plays []Play, now time.Time, days int) ([]float64, int) {
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	today := calendarDay(now, now.Location())
 	minutes := map[time.Time]float64{}
 	for _, p := range plays {
-		t := p.At.In(now.Location())
-		d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, now.Location())
-		minutes[d] += p.Secs / 60
+		minutes[calendarDay(p.At, now.Location())] += p.Secs / 60
 	}
 	out := make([]float64, days)
 	for i := range days {

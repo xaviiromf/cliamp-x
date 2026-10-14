@@ -102,3 +102,23 @@ func TestWrapped(t *testing.T) {
 		t.Errorf("empty year = %+v", empty)
 	}
 }
+
+// A streak runs across the day DST starts at local midnight
+// (America/Santiago skips 2026-09-06 00:00).
+func TestStreakAcrossDSTStart(t *testing.T) {
+	loc, err := time.LoadLocation("America/Santiago")
+	if err != nil {
+		t.Skip("no tzdata:", err)
+	}
+	var plays []Play
+	for d := 1; d <= 30; d++ {
+		plays = append(plays, Play{At: time.Date(2026, 9, d, 12, 0, 0, 0, loc), Key: "a", Secs: 60})
+	}
+	if w := Wrapped(plays, 2026, loc, 5); w.Days != 30 || w.Streak != 30 {
+		t.Errorf("wrapped: days %d streak %d, want 30 30", w.Days, w.Streak)
+	}
+	now := time.Date(2026, 9, 30, 20, 0, 0, 0, loc)
+	if s := Summarize(plays, All, now, 5, 30); s.Streak != 30 || s.Daily[0] != 1 || s.Daily[29] != 1 {
+		t.Errorf("summary: streak %d daily %v, want 30 and one minute a day", s.Streak, s.Daily)
+	}
+}
