@@ -185,6 +185,10 @@ mucho tiempo, sin volver a conectarse a YouTube.
   recomprimir el audio. Una canción descargada suena desde el archivo, aunque
   no haya conexión, y la vista previa la marca con `↓`. Ver
   [Configuración](configuration.md#offline-downloads).
+- La caché automática (`download.auto`, que usa la app de Android) descarga
+  tus me gusta, de los más nuevos a los más viejos, y después lo que
+  escuchaste hace poco, hasta un límite de canciones y de MB. Salta las que
+  ya están descargadas.
 - Las letras de YouTube Music se suman a las de LRCLIB y NetEase. Como YouTube
   Music no trae tiempos, las letras sincronizadas de LRCLIB tienen prioridad y
   las de YouTube Music se usan cuando no hay otras. Las letras encontradas se

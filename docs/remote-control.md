@@ -154,7 +154,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
 | Settings | `settings.set` |
-| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `stats` |
+| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `download.auto`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
 `sleep` sets the sleep timer with `value` in whole minutes, up to 1440. The
@@ -407,8 +407,22 @@ are the song that downloads now, `queued` the songs that wait, `failed` the
 songs that failed with the reason, `done` the songs downloaded since the
 queue last ran empty, and `directory` the folder of the files.
 `download.cancel` stops the running download and empties the queue.
-`download.retry` queues the failed songs again. Each of the four fails with
-`unavailable` when downloads are off.
+`download.retry` queues the failed songs again.
+
+`download.auto` fills an offline cache: it queues the ♥ favorites, newest
+first, then the Recently Played songs, that have no downloaded copy and do
+not wait in the queue already. It stops at `limit` songs, 50 without
+`limit`, and before the songs reach `value` MB, by an estimate of 128 kbps a
+song and four minutes for a song with no duration. Without `value`, or with
+`0`, there is no size cap. `total` in the result is the number of songs it
+queued. A `value` that is negative or not a whole number fails with
+`invalid_params`.
+
+```sh
+cliamp-x remote call download.auto --params '{"limit":100,"value":500}' --wait
+```
+
+Each of the five fails with `unavailable` when downloads are off.
 
 ```json
 {"ok":true,"downloads":{"running":true,"current":{"title":"One More Time","path":"https://music.youtube.com/watch?v=…"},"percent":42,

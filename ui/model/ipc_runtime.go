@@ -245,7 +245,7 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return nil
 	case "settings.set":
 		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
-	case "download", "download.status", "download.cancel", "download.retry":
+	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
 		return m.handleV2Download(msg.Jobs, msg.JobID, request)
 	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
@@ -707,9 +707,17 @@ func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Re
 	return nil
 }
 
+// autoCacheDefaultSongs is the song limit of download.auto without limit,
+// and autoCacheMaxMB the largest size cap it takes.
+const (
+	autoCacheDefaultSongs = 50
+	autoCacheMaxMB        = 1 << 20
+)
+
 // handleV2Download queues a track or a provider item for download, and
-// reads, cancels or retries the download queue. Without offline downloads
-// every one is unavailable.
+// reads, cancels or retries the download queue. download.auto queues the
+// liked and recently played songs. Without offline downloads every one is
+// unavailable.
 func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
 	if m.downloads.manifest == nil {
 		m.failV2Job(jobs, jobID, v2UnavailableError())
@@ -731,6 +739,27 @@ func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.R
 		m.cancelDownloads()
 	case "download.retry":
 		cmd = m.retryFailedDownloads()
+	case "download.auto":
+		limit := request.Limit
+		if limit == 0 {
+			limit = autoCacheDefaultSongs
+		}
+		mb := request.Value
+		if mb < 0 || mb != math.Trunc(mb) || mb > autoCacheMaxMB {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		picked, err := m.autoCacheJobs(limit, int64(mb)<<20)
+		if err != nil {
+			v2Err := v2InternalError()
+			v2Err.Detail = err.Error()
+			m.failV2Job(jobs, jobID, v2Err)
+			return nil
+		}
+		response.Total = len(picked)
+		if len(picked) > 0 {
+			cmd = m.queueDownloads(L("Auto cache"), picked)
+		}
 	}
 	m.completeV2Job(jobs, jobID, response)
 	return cmd

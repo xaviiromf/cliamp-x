@@ -297,3 +297,48 @@ func (m *Model) retryFailedDownloads() tea.Cmd {
 	d.failedJobs = nil
 	return m.queueDownloads(L("Retry"), jobs)
 }
+
+// The auto cache estimates each song at the 128 kbps of an offline m4a,
+// and a song with no duration at four minutes.
+const (
+	autoCacheBytesPerSec = 128_000 / 8
+	autoCacheUnknownSecs = 240
+)
+
+// autoCacheJobs picks the songs that the auto cache downloads: the liked
+// songs, newest first, then the recently played ones, that have no
+// downloaded copy and are not queued. It stops at limit songs and, by the
+// size estimate, before maxBytes; maxBytes 0 has no size cap.
+func (m *Model) autoCacheJobs(limit int, maxBytes int64) ([]offline.Job, error) {
+	liked, err := m.favStore.Tracks()
+	if err != nil {
+		return nil, err
+	}
+	recent, err := m.historyStore.Tracks(0)
+	if err != nil {
+		return nil, err
+	}
+	var jobs []offline.Job
+	seen := map[string]bool{}
+	var bytes int64
+	for _, t := range append(liked, recent...) {
+		if len(jobs) == limit {
+			break
+		}
+		if seen[t.Path] || !tracksave.NeedsDownload(t) || m.downloads.queued[t.Path] || m.isDownloaded(t) {
+			continue
+		}
+		seen[t.Path] = true
+		secs := int64(t.DurationSecs)
+		if secs <= 0 {
+			secs = autoCacheUnknownSecs
+		}
+		size := secs * autoCacheBytesPerSec
+		if maxBytes > 0 && bytes+size > maxBytes {
+			break
+		}
+		bytes += size
+		jobs = append(jobs, offline.Job{Track: t})
+	}
+	return jobs, nil
+}

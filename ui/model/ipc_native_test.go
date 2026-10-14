@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/xaviiromf/cliamp-x/favorites"
+	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
@@ -1093,10 +1095,72 @@ func TestNativeDownloads(t *testing.T) {
 	}
 
 	m.downloads.manifest = nil
-	for _, op := range []string{"download", "download.status", "download.cancel", "download.retry"} {
+	for _, op := range []string{"download", "download.status", "download.cancel", "download.retry", "download.auto"} {
 		if response := runV2(t, m, op, ipc.Request{Track: &ipc.TrackInfo{Path: song("x").Path}}); response.Error != ipc.V2ErrorCodeUnavailable {
 			t.Fatalf("%s without offline downloads = %+v, want unavailable", op, response)
 		}
+	}
+}
+
+// download.auto queues the liked songs, then the recently played ones, that
+// have no downloaded copy, up to the song limit and the size estimate.
+func TestNativeDownloadAuto(t *testing.T) {
+	yt := func(id string, secs int) playlist.Track {
+		return playlist.Track{Path: "https://music.youtube.com/watch?v=" + id, Title: id, DurationSecs: secs}
+	}
+	a, b, d, e := yt("aaaaaaaaaaa", 300), yt("bbbbbbbbbbb", 0), yt("ddddddddddd", 200), yt("eeeeeeeeeee", 100)
+	for _, tc := range []struct {
+		name    string
+		request ipc.Request
+		want    []string
+		wantErr string
+	}{
+		{name: "default limits", want: []string{a.Title, b.Title, d.Title}},
+		{name: "song limit", request: ipc.Request{Limit: 2}, want: []string{a.Title, b.Title}},
+		// 9 MB holds a (4.8 MB) and b (3.84 MB at four minutes), not d.
+		{name: "size limit", request: ipc.Request{Value: 9}, want: []string{a.Title, b.Title}},
+		{name: "size below one song", request: ipc.Request{Value: 1}, want: nil},
+		{name: "negative size", request: ipc.Request{Value: -1}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "part of a megabyte", request: ipc.Request{Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, _ := newActionTestModel(t)
+			dir := t.TempDir()
+			m.historyStore = history.NewAt(filepath.Join(dir, "history.toml"))
+			for _, track := range []playlist.Track{b, a, {Path: "/music/local.mp3", Title: "local"}} {
+				if _, err := m.favStore.Toggle(track); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i, track := range []playlist.Track{e, d, b} {
+				if err := m.historyStore.Record(track, time.Unix(int64(1000+i), 0)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			file := filepath.Join(dir, "e.m4a")
+			if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.downloads.manifest.Add(e.Path, file); err != nil {
+				t.Fatal(err)
+			}
+			m.downloads.running = true // no real download starts
+
+			response := runV2(t, m, "download.auto", tc.request)
+			if tc.wantErr != "" {
+				if response.Error != tc.wantErr || len(m.downloads.queue) != 0 {
+					t.Fatalf("download.auto = %+v, queue %d; want %s", response, len(m.downloads.queue), tc.wantErr)
+				}
+				return
+			}
+			var got []string
+			for _, job := range m.downloads.queue {
+				got = append(got, job.Track.Title)
+			}
+			if !response.OK || response.Total != len(tc.want) || !slices.Equal(got, tc.want) {
+				t.Fatalf("download.auto = %+v, queued %v; want %v", response, got, tc.want)
+			}
+		})
 	}
 }
 

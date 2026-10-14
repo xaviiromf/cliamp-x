@@ -117,6 +117,7 @@ func TestNativeOperationParameters(t *testing.T) {
 		"download.status":  nil,
 		"download.cancel":  nil,
 		"download.retry":   nil,
+		"download.auto":    {"limit", "value"},
 		"stats":            {"name", "value"},
 	} {
 		operation, ok := registry.Lookup(name)
