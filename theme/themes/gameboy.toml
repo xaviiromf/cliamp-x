@@ -1,0 +1,10 @@
+# Game Boy — the four greens of the original DMG screen:
+# #0f380f #306230 #8bac0f #9bbc0f.
+# For 4.5:1 text contrast, lightened from the palette: fg #306230, green #306230.
+bg = "#0f380f"
+accent = "#9bbc0f"
+bright_fg = "#9bbc0f"
+fg = "#83a183"
+green = "#83a183"
+yellow = "#8bac0f"
+red = "#9bbc0f"

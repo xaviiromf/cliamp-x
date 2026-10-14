@@ -1,0 +1,10 @@
+# SynthWave '84 — neon over a dark purple night.
+# Official values: github.com/robb0wen/synthwave-vscode
+# For 4.5:1 text contrast, lightened from the palette: red #fe4450.
+bg = "#262335"
+accent = "#ff7edb"
+bright_fg = "#ffffff"
+fg = "#848bbd"
+green = "#72f1b8"
+yellow = "#fede5d"
+red = "#fe4a55"

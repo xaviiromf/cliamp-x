@@ -1,0 +1,10 @@
+# Cobalt2 — Wes Bos's blue and gold.
+# Official values: github.com/wesbos/cobalt2-vscode
+# For 4.5:1 text contrast, lightened from the palette: red #ff628c.
+bg = "#193549"
+accent = "#ffc600"
+bright_fg = "#ffffff"
+fg = "#9effff"
+green = "#3ad900"
+yellow = "#ffee80"
+red = "#ff678f"

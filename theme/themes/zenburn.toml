@@ -1,0 +1,10 @@
+# Zenburn — the low-contrast classic for long sessions.
+# Official values: github.com/jnurmine/Zenburn
+# For 4.5:1 text contrast, lightened from the palette: green #7f9f7f, red #cc9393.
+bg = "#3f3f3f"
+accent = "#8cd0d3"
+bright_fg = "#ffffef"
+fg = "#dcdccc"
+green = "#99b299"
+yellow = "#f0dfaf"
+red = "#d29f9f"

@@ -1,0 +1,9 @@
+# Outrun — an original 1980s sunset grid: hot pink sun, cyan
+# horizon and a gold dashboard on violet.
+bg = "#1a0933"
+accent = "#ff2a6d"
+bright_fg = "#f6f0ff"
+fg = "#c9a7ff"
+green = "#2de2e6"
+yellow = "#f9c80e"
+red = "#ff3864"

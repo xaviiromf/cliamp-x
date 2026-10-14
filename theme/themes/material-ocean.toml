@@ -1,0 +1,9 @@
+# Material Ocean — the deep blue Material Theme.
+# Official values: material-theme.com
+bg = "#0f111a"
+accent = "#80cbc4"
+bright_fg = "#eeffff"
+fg = "#8f93a2"
+green = "#c3e88d"
+yellow = "#ffcb6b"
+red = "#f07178"

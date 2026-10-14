@@ -1,0 +1,9 @@
+# ZX Spectrum — the bright colors of the Sinclair ULA on black.
+# Values: #000000, #0000ff ... #ffffff, normal intensity #d7.
+bg = "#000000"
+accent = "#00ffff"
+bright_fg = "#ffffff"
+fg = "#d7d7d7"
+green = "#00ff00"
+yellow = "#ffff00"
+red = "#ff0000"

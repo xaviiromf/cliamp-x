@@ -1,0 +1,9 @@
+# Kanagawa Dragon — the dark ink variant of Kanagawa.
+# Official values: github.com/rebelot/kanagawa.nvim
+bg = "#181616"
+accent = "#8ba4b0"
+bright_fg = "#c5c9c5"
+fg = "#a6a69c"
+green = "#87a987"
+yellow = "#c4b28a"
+red = "#c4746e"

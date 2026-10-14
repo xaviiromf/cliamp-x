@@ -1,0 +1,9 @@
+# Vaporwave — the pastel aesthetic palette (#ff71ce #01cdfe #05ffa1
+# #b967ff #fffb96) on a dusk purple background.
+bg = "#1b1035"
+accent = "#01cdfe"
+bright_fg = "#fffbfd"
+fg = "#b967ff"
+green = "#05ffa1"
+yellow = "#fffb96"
+red = "#ff71ce"

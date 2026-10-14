@@ -1,0 +1,10 @@
+# Ayu Dark — the darkest variant of Ayu.
+# Official values: github.com/ayu-theme/ayu-colors
+# For 4.5:1 text contrast, lightened from the palette: fg #565b66.
+bg = "#0d1017"
+accent = "#e6b450"
+bright_fg = "#bfbdb6"
+fg = "#797d86"
+green = "#aad94c"
+yellow = "#ffb454"
+red = "#f07178"

@@ -1,0 +1,10 @@
+# Monokai — Wimer Hazenberg's classic.
+# Official values: monokai.nl
+# For 4.5:1 text contrast, lightened from the palette: red #f92672.
+bg = "#272822"
+accent = "#66d9ef"
+bright_fg = "#f8f8f2"
+fg = "#a59f85"
+green = "#a6e22e"
+yellow = "#e6db74"
+red = "#fa4f8d"

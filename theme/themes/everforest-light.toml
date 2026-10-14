@@ -1,0 +1,10 @@
+# Everforest Light — the light variant of Everforest.
+# Official values: github.com/sainnhe/everforest
+# For 4.5:1 text contrast, darkened from the palette: accent #3a94c5, fg #708089, green #8da101, yellow #dfa000, red #f85552.
+bg = "#fdf6e3"
+accent = "#2e769e"
+bright_fg = "#5c6a72"
+fg = "#64727a"
+green = "#687701"
+yellow = "#916800"
+red = "#c44341"

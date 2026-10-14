@@ -1,0 +1,10 @@
+# Solarized Light — the light variant of Solarized.
+# Official values: ethanschoonover.com/solarized
+# For 4.5:1 text contrast, darkened from the palette: accent #268bd2, fg #657b83, green #859900, yellow #b58900, red #dc322f.
+bg = "#fdf6e3"
+accent = "#2073ae"
+bright_fg = "#586e75"
+fg = "#5e727a"
+green = "#687700"
+yellow = "#8b6900"
+red = "#d3302d"

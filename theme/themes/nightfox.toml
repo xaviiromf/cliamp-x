@@ -1,0 +1,10 @@
+# Nightfox — the default dark fox.
+# Official values: github.com/EdenEast/nightfox.nvim
+# For 4.5:1 text contrast, lightened from the palette: red #c94f6d.
+bg = "#192330"
+accent = "#719cd6"
+bright_fg = "#cdcecf"
+fg = "#aeafb0"
+green = "#81b29a"
+yellow = "#dbc074"
+red = "#d26b84"

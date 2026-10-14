@@ -1,0 +1,9 @@
+# Monokai Pro — the modern Monokai filter.
+# Official values: monokai.pro
+bg = "#2d2a2e"
+accent = "#ab9df2"
+bright_fg = "#fcfcfa"
+fg = "#939293"
+green = "#a9dc76"
+yellow = "#ffd866"
+red = "#ff6188"

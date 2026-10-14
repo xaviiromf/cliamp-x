@@ -1,0 +1,10 @@
+# Tokyo Night Light — the day side of Tokyo Night.
+# Official values: github.com/enkia/tokyo-night-vscode-theme
+# For 4.5:1 text contrast, darkened from the palette: yellow #8f5e15.
+bg = "#d5d6db"
+accent = "#34548a"
+bright_fg = "#343b58"
+fg = "#565a6e"
+green = "#485e30"
+yellow = "#7e5312"
+red = "#8c4351"

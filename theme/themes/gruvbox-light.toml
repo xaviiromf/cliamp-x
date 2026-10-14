@@ -1,0 +1,10 @@
+# Gruvbox Light — retro groove on warm paper.
+# Official values: github.com/morhetz/gruvbox
+# For 4.5:1 text contrast, darkened from the palette: green #79740e, yellow #b57614.
+bg = "#fbf1c7"
+accent = "#076678"
+bright_fg = "#3c3836"
+fg = "#665c54"
+green = "#746f0d"
+yellow = "#946110"
+red = "#9d0006"

@@ -1,0 +1,10 @@
+# Sonokai — a Monokai Pro inspired scheme.
+# Official values: github.com/sainnhe/sonokai
+# For 4.5:1 text contrast, lightened from the palette: fg #7f8490.
+bg = "#2c2e34"
+accent = "#76cce0"
+bright_fg = "#e2e2e3"
+fg = "#9398a2"
+green = "#9ed072"
+yellow = "#e7c664"
+red = "#fc5d7c"

@@ -1,0 +1,9 @@
+# Catppuccin Macchiato — the medium-dark flavor.
+# Official values: catppuccin.com/palette
+bg = "#24273a"
+accent = "#c6a0f6"
+bright_fg = "#cad3f5"
+fg = "#a5adcb"
+green = "#a6da95"
+yellow = "#eed49f"
+red = "#ed8796"

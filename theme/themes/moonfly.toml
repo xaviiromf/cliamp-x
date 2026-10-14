@@ -1,0 +1,9 @@
+# Moonfly — a dark charcoal scheme.
+# Official values: github.com/bluz71/vim-moonfly-colors
+bg = "#080808"
+accent = "#80a0ff"
+bright_fg = "#bdbdbd"
+fg = "#949494"
+green = "#8cc85f"
+yellow = "#e3c78a"
+red = "#ff5454"

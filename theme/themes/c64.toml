@@ -1,0 +1,10 @@
+# Commodore 64 — the blue BASIC screen.
+# Pepto's measured VIC-II palette: pepto.de/projects/colorvic
+# For 4.5:1 text contrast, lightened from the palette: accent #70a4b2, fg #6c5eb5, red #9a6759.
+bg = "#352879"
+accent = "#76a8b5"
+bright_fg = "#ffffff"
+fg = "#a29ad0"
+green = "#9ad284"
+yellow = "#b8c76f"
+red = "#ba988e"

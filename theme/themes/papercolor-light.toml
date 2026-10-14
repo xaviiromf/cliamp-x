@@ -1,0 +1,10 @@
+# PaperColor Light — Material-inspired light scheme.
+# Official values: github.com/NLKNguyen/papercolor-theme
+# For 4.5:1 text contrast, darkened from the palette: fg #878787, green #008700, yellow #d75f00.
+bg = "#eeeeee"
+accent = "#005f87"
+bright_fg = "#444444"
+fg = "#696969"
+green = "#007c00"
+yellow = "#ae4d00"
+red = "#af0000"

@@ -1,0 +1,10 @@
+# CGA Blue — the blue DOS screen of 1980s file managers.
+# Values from the IBM CGA 16-color palette.
+# For 4.5:1 text contrast, lightened from the palette: red #ff5555.
+bg = "#0000aa"
+accent = "#55ffff"
+bright_fg = "#ffffff"
+fg = "#aaaaaa"
+green = "#55ff55"
+yellow = "#ffff55"
+red = "#ff6666"

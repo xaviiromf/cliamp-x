@@ -1,0 +1,9 @@
+# Palenight — the purple Material Theme.
+# Official values: material-theme.com
+bg = "#292d3e"
+accent = "#82aaff"
+bright_fg = "#bfc7d5"
+fg = "#a6accd"
+green = "#c3e88d"
+yellow = "#ffcb6b"
+red = "#f07178"

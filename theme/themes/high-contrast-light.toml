@@ -1,0 +1,9 @@
+# High Contrast Light — black and deep colors on white, for low
+# vision and bright rooms.
+bg = "#ffffff"
+accent = "#0000cc"
+bright_fg = "#000000"
+fg = "#1a1a1a"
+green = "#006600"
+yellow = "#7a5c00"
+red = "#c00000"

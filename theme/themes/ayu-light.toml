@@ -1,0 +1,10 @@
+# Ayu Light — the light variant of Ayu.
+# Official values: github.com/ayu-theme/ayu-colors
+# For 4.5:1 text contrast, darkened from the palette: accent #ffaa33, fg #8a9199, green #86b300, yellow #f2ae49, red #f07171.
+bg = "#fcfcfc"
+accent = "#9c681f"
+bright_fg = "#5c6166"
+fg = "#6e747a"
+green = "#5e7d00"
+yellow = "#946a2d"
+red = "#b45555"

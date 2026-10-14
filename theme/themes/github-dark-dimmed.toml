@@ -1,0 +1,10 @@
+# GitHub Dark Dimmed — the softer dark mode of github.com.
+# Official values: github.com/primer/primitives
+# For 4.5:1 text contrast, lightened from the palette: fg #768390, red #e5534b.
+bg = "#22272e"
+accent = "#539bf5"
+bright_fg = "#adbac7"
+fg = "#85919c"
+green = "#57ab5a"
+yellow = "#c69026"
+red = "#e8665f"

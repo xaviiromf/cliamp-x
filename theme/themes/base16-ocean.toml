@@ -1,0 +1,10 @@
+# Base16 Ocean — the ocean scheme of Base16.
+# Official values: github.com/chriskempson/base16
+# For 4.5:1 text contrast, lightened from the palette: red #bf616a.
+bg = "#2b303b"
+accent = "#8fa1b3"
+bright_fg = "#dfe1e8"
+fg = "#a7adba"
+green = "#a3be8c"
+yellow = "#ebcb8b"
+red = "#ce858c"
