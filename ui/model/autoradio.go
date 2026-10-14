@@ -39,8 +39,11 @@ func (m *Model) SetAutoRadio(on bool) { m.autoRadio = on }
 func (m Model) AutoRadio() bool { return m.autoRadio }
 
 // toggleAutoRadio flips the auto radio and saves the choice.
-func (m *Model) toggleAutoRadio() {
-	m.autoRadio = !m.autoRadio
+func (m *Model) toggleAutoRadio() { _ = m.setAutoRadio(!m.autoRadio) }
+
+// setAutoRadio turns the auto radio on or off and saves the choice.
+func (m *Model) setAutoRadio(on bool) error {
+	m.autoRadio = on
 	if m.autoRadio {
 		m.status.Show("Auto radio on: similar songs follow the end of the queue", statusTTLMedium)
 	} else {
@@ -49,8 +52,10 @@ func (m *Model) toggleAutoRadio() {
 	if s, ok := m.configSaver.(sectionBoolSaver); ok {
 		if err := s.SaveSectionBool("ytmusic", "auto_radio", m.autoRadio); err != nil {
 			m.status.Errorf(statusTTLDefault, "Saving auto radio failed: %s", err)
+			return err
 		}
 	}
+	return nil
 }
 
 // autoRadioCmd looks up songs related to seed, the last track of a queue

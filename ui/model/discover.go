@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
 )
@@ -87,11 +88,13 @@ func (m *Model) discoverTarget() (discoverSeed, bool) {
 }
 
 // moreLikeThisMsg carries a radio: the seed song first, then related ones.
+// reply, when set, gets the result of the IPC radio.start that asked for it.
 type moreLikeThisMsg struct {
 	label  string
 	tracks []playlist.Track
 	err    error
 	gen    uint64
+	reply  chan<- ipc.Response
 }
 
 // moreLikeThis starts a radio from the highlighted row. Like "Start radio"
@@ -102,6 +105,12 @@ func (m *Model) moreLikeThis() tea.Cmd {
 		m.status.Show(L("Highlight a song, album or artist"), statusTTLMedium)
 		return nil
 	}
+	return m.moreLikeThisFrom(seed, nil)
+}
+
+// moreLikeThisFrom looks up the radio of seed. reply, when set, gets the
+// result of radio.start, also when the radio cannot start.
+func (m *Model) moreLikeThisFrom(seed discoverSeed, reply chan<- ipc.Response) tea.Cmd {
 	gen := nextRequest(&m.requests.discover)
 	m.status.Activityf(statusTTLLong, "%s %s…", L("Finding songs like"), seed.label)
 	if seed.itemID != "" {
@@ -110,8 +119,7 @@ func (m *Model) moreLikeThis() tea.Cmd {
 			relater, _ = findCapable(m, func(provider.ItemRelater) bool { return true })
 		}
 		if relater == nil {
-			m.status.Show(L("This row has no related songs"), statusTTLMedium)
-			return nil
+			return m.radioFailed(reply, L("This row has no related songs"))
 		}
 		id, label := seed.itemID, seed.label
 		return func() tea.Msg {
@@ -119,15 +127,14 @@ func (m *Model) moreLikeThis() tea.Cmd {
 			defer cancel()
 			first, related, err := relater.RelatedToItem(ctx, id, moreLikeThisCount)
 			if err != nil {
-				return moreLikeThisMsg{label: label, err: err, gen: gen}
+				return moreLikeThisMsg{label: label, err: err, gen: gen, reply: reply}
 			}
-			return moreLikeThisMsg{label: label, tracks: append([]playlist.Track{first}, related...), gen: gen}
+			return moreLikeThisMsg{label: label, tracks: append([]playlist.Track{first}, related...), gen: gen, reply: reply}
 		}
 	}
 	relater, _ := findCapable(m, func(r provider.Relater) bool { return r.CanRelate(seed.track) })
 	if relater == nil {
-		m.status.Show(L("Works only with YouTube Music songs"), statusTTLMedium)
-		return nil
+		return m.radioFailed(reply, L("Works only with YouTube Music songs"))
 	}
 	track, label := seed.track, seed.label
 	return func() tea.Msg {
@@ -135,24 +142,39 @@ func (m *Model) moreLikeThis() tea.Cmd {
 		defer cancel()
 		related, err := relater.RelatedTracks(ctx, track, moreLikeThisCount)
 		if err != nil {
-			return moreLikeThisMsg{label: label, err: err, gen: gen}
+			return moreLikeThisMsg{label: label, err: err, gen: gen, reply: reply}
 		}
-		return moreLikeThisMsg{label: label, tracks: append([]playlist.Track{track}, related...), gen: gen}
+		return moreLikeThisMsg{label: label, tracks: append([]playlist.Track{track}, related...), gen: gen, reply: reply}
 	}
+}
+
+// radioFailed shows why a radio did not start, and fails the radio.start
+// that waits on reply.
+func (m *Model) radioFailed(reply chan<- ipc.Response, text string) tea.Cmd {
+	m.status.Show(text, statusTTLMedium)
+	if reply != nil {
+		reply <- ipc.Response{Error: text}
+	}
+	return nil
 }
 
 // handleMoreLikeThis replaces the queue with the radio and plays it.
 func (m *Model) handleMoreLikeThis(msg moreLikeThisMsg) tea.Cmd {
 	if msg.gen != m.requests.discover {
+		if msg.reply != nil {
+			msg.reply <- ipc.Response{Error: "superseded"}
+		}
 		return nil
 	}
 	if msg.err != nil {
 		m.status.Warningf(statusTTLMedium, "%s: %s", L("More like this"), msg.err)
+		if msg.reply != nil {
+			msg.reply <- ipc.Response{Error: msg.err.Error()}
+		}
 		return nil
 	}
 	if len(msg.tracks) < 2 {
-		m.status.Show(L("No related songs found"), statusTTLMedium)
-		return nil
+		return m.radioFailed(msg.reply, L("No related songs found"))
 	}
 	m.stopPlayback()
 	m.player.ClearPreload()
@@ -168,6 +190,9 @@ func (m *Model) handleMoreLikeThis(msg moreLikeThisMsg) tea.Cmd {
 		m.closeSearchOverlay()
 	}
 	m.status.Successf(statusTTLDefault, "%s %s: %d %s", L("Radio of"), msg.label, len(msg.tracks), L("songs"))
+	if msg.reply != nil {
+		msg.reply <- m.v2PlaylistResponse()
+	}
 	return m.playCurrentTrack()
 }
 

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
@@ -9,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/lyrics"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -625,7 +627,7 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 				request.Reply <- ipcResponseError(err)
 				return nil
 			}
-			preview := &ipc.PreviewInfo{ImageURL: details.ImageURL, Lines: details.Lines}
+			preview := &ipc.PreviewInfo{ImageURL: details.ImageURL, Lines: compactLines(details.Lines...)} // a playlist without author gives a blank line
 			if stater, ok := entry.Provider.(provider.FavoriteStater); ok {
 				if on, known := stater.FavoriteState(request.Playlist); known {
 					preview.Favorite = &on
@@ -820,6 +822,72 @@ func (m *Model) handleIPCHistoryCleared(msg ipcHistoryClearedMsg) tea.Cmd {
 	cmd := m.refreshHistoryViews()
 	msg.reply <- ipc.Response{OK: true}
 	return cmd
+}
+
+// ipcSeed returns what radio.start and download act on: track, or else the
+// item playlist of provider, named name.
+func (m *Model) ipcSeed(request ipc.Request) (discoverSeed, bool) {
+	if request.Track != nil {
+		track := ipcTrackFromInfo(*request.Track)
+		return discoverSeed{track: track, label: track.Title}, track.Path != ""
+	}
+	entry, ok := m.ipcProvider(request.Provider)
+	return discoverSeed{itemID: request.Playlist, prov: entry.Provider, label: cmp.Or(request.Name, request.Playlist)}, ok && request.Playlist != ""
+}
+
+// handleIPCRemixes finds the versions of track, grouped by kind in
+// provider_meta section, as X does, without opening the search overlay.
+func (m *Model) handleIPCRemixes(ctx context.Context, track playlist.Track, reply chan ipc.Response) tea.Cmd {
+	searcher, _ := findCapable(m, func(provider.Searcher) bool { return true })
+	if searcher == nil {
+		reply <- ipc.Response{Error: L("No provider can search")}
+		return nil
+	}
+	base := cleanSongTitle(track.Title)
+	if base == "" {
+		base = track.Title
+	}
+	favorite := m.trackFavoriteLookup(false)
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(requestContext(ctx), discoverTimeout)
+		defer cancel()
+		tracks, err := searchRemixes(ctx, searcher, track, base)
+		if err != nil {
+			reply <- ipcResponseError(err)
+		} else {
+			reply <- ipc.Response{OK: true, Tracks: ipcTrackInfos(tracks, favorite), Total: len(tracks)}
+		}
+		return nil
+	}
+}
+
+// statsPeriods are the period names of the stats operation.
+var statsPeriods = map[string]stats.Period{"week": stats.Week, "month": stats.Month, "year": stats.Year, "all": stats.All}
+
+// handleIPCStats sums the play log over period, as the statistics screen
+// does.
+func (m *Model) handleIPCStats(period stats.Period, reply chan ipc.Response) tea.Cmd {
+	log := m.statsLog
+	return func() tea.Msg {
+		plays, err := log.Load()
+		if err != nil {
+			reply <- ipcResponseError(err)
+			return nil
+		}
+		s := stats.Summarize(plays, period, time.Now(), statsTop, statsDays)
+		counts := func(in []stats.Count) []ipc.StatsCount {
+			out := make([]ipc.StatsCount, len(in))
+			for i, c := range in {
+				out[i] = ipc.StatsCount(c)
+			}
+			return out
+		}
+		reply <- ipc.Response{OK: true, Stats: &ipc.StatsInfo{
+			Plays: s.Plays, Secs: s.Secs, Songs: s.Songs, Artists: s.Artists, TopArtists: counts(s.TopArtists),
+			TopSongs: counts(s.TopSongs), TopGenres: counts(s.TopGenres), Daily: s.Daily, Streak: s.Streak,
+		}}
+		return nil
+	}
 }
 
 func (m *Model) ipcProvider(key string) (provider.Entry, bool) {

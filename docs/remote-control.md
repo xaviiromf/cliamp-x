@@ -148,6 +148,9 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
+| Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
+| Settings | `settings.set` |
+| Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
 `sleep` sets the sleep timer with `value` in whole minutes, up to 1440. The
@@ -303,7 +306,7 @@ unstars the genre `playlist` and gives the new state in `favorite`.
 `provider.refresh` drops the cached lists of the provider, so the next read
 asks the service again, and starts the `foryou` lists over.
 
-`provider.preview` gives the picture and the detail lines of an album,
+`provider.preview` gives the picture and the non-blank detail lines of an album,
 artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube
 Music album (`MPREb_…`) or artist (`UC…`) of a signed-in account it also
 gives `favorite`, whether the album is saved or the artist followed.
@@ -315,6 +318,106 @@ gives `favorite`, whether the album is saved or the artist followed.
 Request provider list responses with `offset` and `limit` when the provider
 supports paging. Use `playlist.replace` to save a GUI-created order, sort, or
 deduplication result as one operation when the provider supports playlist saving.
+
+### Ratings, radio and remixes
+
+`taste.rate` rates a song, album, artist or genre as the `I` and `H` keys
+do. `kind` is `song`, `album`, `artist` or `genre`, and `value` is `1` for
+interested or `-1` for not interested. A song needs its `track`. Any other
+kind needs its ID in `playlist`, and `name` names it in the ratings list.
+Interested in a song also gives it the ♥, and not interested takes the ♥
+away, sends a dislike to YouTube Music and skips the song when it plays.
+`value` `0` forgets the rating of the ID in `playlist`, or of the `track`
+path, as the `P` menu does, with any `kind`. The result is `{"ok":true}`.
+Another kind or value, or a missing ID, fails with `invalid_params`.
+
+```sh
+cliamp-x remote call taste.rate --params '{"kind":"artist","playlist":"UC…","name":"Band","value":-1}' --wait
+```
+
+`taste.list` gives every rating in `ratings`, not interested first, newest
+first in each group. `interest` is `1` or `-1`, and `at` is the time of the
+rating in RFC 3339. A song's ID is its path, and its name is the one the
+TUI shows.
+
+```json
+{"ok":true,"ratings":[{"id":"genre:…","kind":"genre","name":"Reggaeton","interest":-1,"at":"2026-10-13T12:00:00-03:00"},
+  {"id":"https://music.youtube.com/watch?v=…","kind":"song","name":"Daft Punk - One More Time","artist":"Daft Punk","interest":1,"at":"2026-10-12T20:15:00-03:00"}]}
+```
+
+`radio.start` starts a radio, as `M` does: it replaces the live playlist
+with a song and the songs related to it, and plays the first one. The seed
+is a `track`, or the item `playlist` of `provider` named `name`: an album,
+an artist, a playlist or a `genre:` mix. The result is the first page of the
+new live playlist, as `queue.list` gives it. When no provider can relate the
+seed or too few songs come back, the job fails with the reason in `detail`,
+such as `No related songs found`. A newer radio, from `M` or another
+`radio.start`, fails the older job with the `detail` `superseded`.
+
+`discover.remixes` finds remixes and other versions of `track`, as `X`
+does, without opening a screen. The result gives them in `tracks`, grouped,
+with the group name in `provider_meta.section`, and their count in `total`.
+A `track` with no title fails with `invalid_params`.
+
+### Settings
+
+`settings.set` sets one setting with `name` and a whole-number `value`, and
+saves it in `config.toml`, as its key does. The snapshot then reports the
+new state.
+
+| `name` | `value` |
+| --- | --- |
+| `auto_radio` | `0` off or `1` on |
+| `normalize` | `0` off, `1` by song or `2` by album |
+| `crossfade` | Seconds from `0` to `12` |
+| `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
+| `mono` | `0` off or `1` on |
+
+The result is `{"ok":true}`. Any other name or value fails with
+`invalid_params` and changes nothing. A failed save fails the job with
+`internal_error`.
+
+```sh
+cliamp-x remote call settings.set --params '{"name":"crossfade","value":4}' --wait
+```
+
+### Downloads and statistics
+
+`download` downloads a song for offline play, as `D` does: a `track`, or the
+songs of the item `playlist` of `provider` named `name`. It answers
+`{"ok":true}` once the songs are queued, or while the songs of an item load.
+Songs already downloaded or queued, and songs that are not YouTube or
+yt-dlp links, are skipped.
+
+`download.status` gives the queue in `downloads`. `current` and `percent`
+are the song that downloads now, `queued` the songs that wait, `failed` the
+songs that failed with the reason, `done` the songs downloaded since the
+queue last ran empty, and `directory` the folder of the files.
+`download.cancel` stops the running download and empties the queue.
+`download.retry` queues the failed songs again. Each of the four fails with
+`unavailable` when downloads are off.
+
+```json
+{"ok":true,"downloads":{"running":true,"current":{"title":"One More Time","path":"https://music.youtube.com/watch?v=…"},"percent":42,
+  "queued":[{"title":"Aerodynamic","path":"https://music.youtube.com/watch?v=…"}],"done":2,
+  "failed":[{"track":{"title":"Digital Love","path":"https://music.youtube.com/watch?v=…"},"error":"HTTP Error 403"}],
+  "directory":"/home/user/Music/cliamp-x"}}
+```
+
+`stats` sums what was listened to in the period `name`: `week`, `month`,
+`year` or `all`, as the `S` screen does. `stats` holds the plays, the
+seconds listened, the distinct songs and artists, the top 10 artists, songs
+and genres, `daily` with the minutes of each of the last 30 days, oldest
+first, and the `streak` of days in a row with plays. A song's `detail` is
+its artist. Another period fails with `invalid_params`.
+
+```json
+{"ok":true,"stats":{"plays":340,"secs":45000,"songs":210,"artists":90,
+  "top_artists":[{"name":"Daft Punk","plays":42,"secs":9800}],
+  "top_songs":[{"name":"One More Time","detail":"Daft Punk","plays":12,"secs":3840}],
+  "top_genres":[{"name":"Electronic","plays":120,"secs":24000}],
+  "daily":[0,12.5,40,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,61,22],"streak":3}}
+```
 
 ## Events
 

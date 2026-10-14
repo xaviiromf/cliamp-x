@@ -13,6 +13,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
+	"github.com/xaviiromf/cliamp-x/taste"
 	"github.com/xaviiromf/cliamp-x/theme"
 	"github.com/xaviiromf/cliamp-x/ui"
 )
@@ -235,7 +236,16 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		request.Cmd = "provider.load"
 		request.Provider = "local"
 		return m.handleV2LibraryRequest(ctx, msg.Jobs, msg.JobID, request)
-	case "url.load", "save", "lyrics", "history", "history.clear":
+	case "taste.rate":
+		return m.handleV2TasteRate(msg.Jobs, msg.JobID, request)
+	case "taste.list":
+		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true, Ratings: m.ipcRatings()})
+		return nil
+	case "settings.set":
+		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
+	case "download", "download.status", "download.cancel", "download.retry":
+		return m.handleV2Download(msg.Jobs, msg.JobID, request)
+	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
 	}
 	if isV2LibraryOperation(request.Cmd) {
@@ -593,6 +603,133 @@ func (m *Model) handleV2Render(jobs *ipc.JobStore, jobID string, request ipc.Req
 	return nil
 }
 
+// handleV2TasteRate rates a song, album, artist or genre as the I and H keys
+// do: value 1 is interested and -1 not interested. A song is its track,
+// anything else its ID in playlist. Value 0 forgets the rating of playlist,
+// or of the track path, as the ratings menu does.
+func (m *Model) handleV2TasteRate(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if m.taste == nil {
+		m.failV2Job(jobs, jobID, v2UnavailableError())
+		return nil
+	}
+	kind, value := taste.Kind(request.Kind), int(request.Value)
+	var track playlist.Track
+	id := request.Playlist
+	if request.Track != nil && (value == taste.Neutral || kind == taste.Song) {
+		track = ipcTrackFromInfo(*request.Track)
+		id = track.Path
+	}
+	rateable := kind == taste.Song || kind == taste.Album || kind == taste.Artist || kind == taste.Genre
+	if float64(value) != request.Value || value < -1 || value > 1 || id == "" ||
+		value != taste.Neutral && (!rateable || kind == taste.Song && request.Track == nil) {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return nil
+	}
+	if value == taste.Neutral {
+		if _, err := m.taste.Rate(id, taste.Item{Kind: kind}, taste.Neutral); err != nil {
+			v2Err := v2InternalError()
+			v2Err.Detail = err.Error()
+			m.failV2Job(jobs, jobID, v2Err)
+			return nil
+		}
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+		return nil
+	}
+	target := interestTarget{kind: kind, id: id, name: request.Name, track: track}
+	if kind == taste.Song {
+		if target.name == "" {
+			target.name = track.DisplayName()
+		}
+		if cur, idx := m.currentPlaybackTrack(); value < 0 && idx >= 0 && cur.Path == id && m.player.IsPlaying() {
+			target.hide = (*Model).skipNext
+		}
+	}
+	cmd := m.applyInterest(target, value)
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+	return cmd
+}
+
+// ipcRatings lists the ratings for taste.list, "not interested" first.
+func (m *Model) ipcRatings() []ipc.RatingInfo {
+	ratings := m.taste.Ratings()
+	items := make([]ipc.RatingInfo, len(ratings))
+	for i, r := range ratings {
+		items[i] = ipc.RatingInfo{ID: r.ID, Kind: string(r.Item.Kind), Name: r.Item.Name, Artist: r.Item.Artist, Interest: r.Interest, At: r.Item.At.Format(time.RFC3339)}
+	}
+	return items
+}
+
+// settingMax is the largest value of each settings.set name. Every value is
+// a whole number from 0.
+var settingMax = map[string]float64{"auto_radio": 1, "normalize": 2, "crossfade": 12, "eq_auto": 1, "mono": 1}
+
+// handleV2Setting changes one setting and saves it, as its key does. A
+// switch takes 0 or 1, normalize 0 off, 1 track or 2 album, and crossfade
+// whole seconds from 0 to 12.
+func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	v := request.Value
+	limit, ok := settingMax[request.Name]
+	if !ok || v != math.Trunc(v) || v < 0 || v > limit {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return nil
+	}
+	on := v == 1
+	var err error
+	switch request.Name {
+	case "auto_radio":
+		err = m.setAutoRadio(on)
+	case "normalize":
+		err = m.setNormalizeMode(player.NormalizeMode(v))
+	case "crossfade":
+		m.SetCrossfade(int(v))
+		err = m.saveConfigFloat("crossfade", v, 0)
+	case "eq_auto":
+		err = m.setEQAuto(on)
+	case "mono":
+		if on != m.player.Mono() {
+			m.player.ToggleMono()
+		}
+		err = m.saveConfigBool("mono", on)
+	}
+	if err != nil {
+		v2Err := v2InternalError()
+		v2Err.Detail = err.Error()
+		m.failV2Job(jobs, jobID, v2Err)
+		return nil
+	}
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+	return nil
+}
+
+// handleV2Download queues a track or a provider item for download, and
+// reads, cancels or retries the download queue. Without offline downloads
+// every one is unavailable.
+func (m *Model) handleV2Download(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if m.downloads.manifest == nil {
+		m.failV2Job(jobs, jobID, v2UnavailableError())
+		return nil
+	}
+	var cmd tea.Cmd
+	response := ipc.Response{OK: true}
+	switch request.Cmd {
+	case "download":
+		seed, ok := m.ipcSeed(request)
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.downloadSeed(seed)
+	case "download.status":
+		response.Downloads = m.downloadsInfo()
+	case "download.cancel":
+		m.cancelDownloads()
+	case "download.retry":
+		cmd = m.retryFailedDownloads()
+	}
+	m.completeV2Job(jobs, jobID, response)
+	return cmd
+}
+
 // switchValue returns the new state of an on and off setting that is now
 // current. name is on, off, toggle or empty, in lower case. ok is false for
 // any other name.
@@ -628,6 +765,30 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 		cmd = m.handleIPCSave(ipcSaveRequest{Context: ctx, Reply: reply})
 	case "lyrics":
 		cmd = m.handleIPCLyrics(ipcLyricsRequest{Context: ctx, Reply: reply})
+	case "radio.start":
+		seed, ok := m.ipcSeed(request)
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.moreLikeThisFrom(seed, reply)
+	case "discover.remixes":
+		if request.Track == nil || request.Track.Title == "" {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		cmd = m.handleIPCRemixes(ctx, ipcTrackFromInfo(*request.Track), reply)
+	case "stats":
+		period, ok := statsPeriods[request.Name]
+		if !ok {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		if m.statsLog == nil {
+			m.failV2Job(jobs, jobID, v2UnavailableError())
+			return nil
+		}
+		cmd = m.handleIPCStats(period, reply)
 	default:
 		cmd = m.handleIPCHistory(ipcHistoryRequest{Op: request.Cmd, Limit: request.Limit, Reply: reply})
 	}
