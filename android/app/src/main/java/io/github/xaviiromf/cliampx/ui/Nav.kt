@@ -65,8 +65,8 @@ fun Item.screen(): Screen? = when (kind) {
 @Immutable
 data class Entry(val screen: Screen, val key: String)
 
-/** The pages of the player sheet (§2.3, §2.7, §2.8). */
-enum class PlayerPage { Player, Queue, Eq }
+/** The pages of the player sheet (§2.3, §2.7, §2.8), and the full-screen lyrics. */
+enum class PlayerPage { Player, Queue, Eq, Lyrics }
 
 /** The small bottom sheets (§2.6, §3.12, §3.15). */
 sealed interface Sheet {

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="icon_background">#1A1B26</color>
+    <color name="icon_green">#000000</color>
+    <color name="icon_amber">#140C00</color>
+    <color name="icon_gameboy">#9BBC0F</color>
 </resources>

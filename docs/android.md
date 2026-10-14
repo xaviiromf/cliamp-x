@@ -32,11 +32,19 @@ session.
 | Buscar | Search (the only place the keyboard opens), recent searches, genre grids |
 | Biblioteca | Liked songs, history, local music, your playlists, downloads, ratings, statistics |
 | Mini-player | Tap or swipe up to open the player; swipe sideways to skip |
-| Player | Swipe the artwork to skip, tap it to switch artwork and visualizer, tap the visualizer to change mode, swipe down to close |
+| Player | Swipe the artwork to skip, tap it to switch artwork and visualizer, tap the visualizer to change mode, swipe down to close. `⋮` holds the full-screen lyrics, the background visualizer and Modo estéreo |
+| Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it |
 | Rows | Tap to play from there; long-press or `⋮` for actions (play next, queue, like, more like this, go to album or artist, download) |
 | Queue | Swipe a row to remove it, drag `≡` to reorder |
 
-The main interface is portrait only. Modo terminal rotates.
+The main interface is portrait only. Modo terminal and Modo estéreo rotate.
+
+**Modo estéreo** is an always-on screen for a phone on a stand: the clock,
+the artwork, the song and the visualizer. It dims from 22:00 to 07:00 and
+moves a few pixels every minute against burn-in; a tap leaves it. Open it
+from the player's `⋮`, or let it start by itself while charging: **Ajustes →
+Modo estéreo al cargar** opens the system's screen saver settings, where you
+pick cliamp-x and start it while charging.
 
 ## Settings
 
@@ -63,6 +71,14 @@ battery setting, updates, the yt-dlp update and Modo terminal.
   under 48 dp).
 - **Esquinas**: Cuadradas (the cliamp-x look) or Redondeadas.
 - **Vibración al mantener pulsado**: on or off.
+- **Visualizador de fondo en el reproductor**: the visualizer fills the
+  player behind the artwork, dimmed under the text (also in the player's
+  `⋮`). The strip under the artwork then hides.
+- **Icono de la app**: Predeterminado, Verde, Ámbar, Synthwave or Game Boy.
+  The launcher may take a few seconds to show the new icon, and a home
+  screen shortcut to the old one goes away; add it again from the app
+  drawer. On Android 13 and newer every icon also has the themed
+  (monochrome) version.
 
 **Fondo** draws an animated background behind the whole app, the player and
 the sheets included, in the colors of the current theme: Sólido (the
@@ -83,7 +99,9 @@ cover-palette transitions; Sin animación also holds the background still.
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification
-and on the lock screen. If One UI or another system stops it after a while,
+and on the lock screen. The notification takes the theme's accent; a song
+with no cover shows the cliamp-x logo in the theme's colors, so the lock
+screen player takes them too (a cover sets its own colors there). If One UI or another system stops it after a while,
 open **Ajustes → Batería** and let cliamp-x run unrestricted (on Samsung: add
 it to "Apps que nunca se suspenden").
 

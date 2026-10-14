@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -56,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -115,6 +117,10 @@ fun PlayerSheet(s: Snapshot) {
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
         Box(Modifier.fillMaxSize()) {
             Backdrop(Looks.playerLevel, Modifier.matchParentSize())
+            // The visualizer behind the artwork (Ajustes or ⋮), dimmed under the text; only one vis.frame grid runs at a time.
+            if (backgroundVis(s) && (Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics)) {
+                Visualizer(s, Modifier.matchParentSize().graphicsLayer { alpha = BACKGROUND_VIS_ALPHA }.testTag("vis_background"))
+            }
             Column(
                 Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                     .semantics { testTagsAsResourceId = true }.testTag("player"),
@@ -124,6 +130,7 @@ fun PlayerSheet(s: Snapshot) {
                         PlayerPage.Player -> PlayerPage(s, close)
                         PlayerPage.Queue -> QueuePage(s)
                         PlayerPage.Eq -> EqPage(s)
+                        PlayerPage.Lyrics -> KaraokePage(s)
                     }
                 }
                 // The shell's status line sits behind the sheet: the sheet's actions report here.
@@ -157,7 +164,7 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
             Spacer(Modifier.weight(1f))
             Box(Modifier.padding(top = 8.dp).size(art)) { ArtArea(s, view, art) { view = it } }
             Box(Modifier.fillMaxWidth().height(if (strip) 72.dp else 0.dp).padding(horizontal = 24.dp, vertical = 8.dp)) {
-                if (strip && view == ArtView.Cover && s.visualizer.isNotEmpty() && s.visualizer != "None") {
+                if (strip && view == ArtView.Cover && !backgroundVis(s) && s.visualizer.isNotEmpty() && s.visualizer != "None") {
                     Visualizer(
                         s,
                         Modifier.fillMaxSize().clickable(onClickLabel = stringResource(R.string.vis_next)) {
@@ -178,6 +185,12 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
         }
     }
 }
+
+/** Whether the visualizer fills the player behind the artwork. */
+fun backgroundVis(s: Snapshot) = Looks.playerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
+
+/** How much of the background visualizer shows under the player's text. */
+private const val BACKGROUND_VIS_ALPHA = 0.4f
 
 /**
  * The art side and whether the visualizer strip shows (§3.9): the rows
@@ -225,13 +238,20 @@ private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> 
     Box(
         Modifier.fillMaxSize()
             .then(if (view != ArtView.Lyrics) Modifier.skipSwipe() else Modifier)
-            .clickable { setView(if (view == ArtView.Cover) ArtView.Visualizer else ArtView.Cover) }
+            .clickable {
+                when {
+                    // A tap on the lyrics opens them full screen (karaoke).
+                    view == ArtView.Lyrics -> Nav.page = PlayerPage.Lyrics
+                    view == ArtView.Cover && !backgroundVis(s) -> setView(ArtView.Visualizer)
+                    else -> setView(ArtView.Cover)
+                }
+            }
             .testTag("art"),
     ) {
         when (view) {
             ArtView.Cover -> ArtBox(track.art, side, fade = true)
             ArtView.Visualizer -> Visualizer(s, Modifier.fillMaxSize())
-            ArtView.Lyrics -> LyricsView(s, side)
+            ArtView.Lyrics -> LyricsView(s, side, karaoke = false)
         }
     }
 }
@@ -270,13 +290,35 @@ private fun ErrorCard(s: Snapshot) {
     }
 }
 
+/** Karaoke: the lyrics full screen over the background, a tap on a synced line seeks to it. */
+@Composable
+private fun KaraokePage(s: Snapshot) {
+    val p = LocalPalette.current
+    val track = s.track ?: return
+    Column(Modifier.fillMaxSize().testTag("karaoke")) {
+        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("karaoke_back")) { Nav.page = PlayerPage.Player }
+            Text(
+                "▸─ " + stringResource(R.string.lyrics) + " " + "─".repeat(80), Modifier.weight(1f),
+                color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+            )
+        }
+        Text(
+            track.name + if (track.artist.isNotEmpty()) " · " + track.artist else "", Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            color = p.textSecondary, style = Type.label, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)) { LyricsView(s, maxHeight, karaoke = true) }
+    }
+}
+
 /**
  * The lyrics (§2.3): synced lines keep the one that sings centered in
  * accent bold and the others dim; plain lyrics just scroll. Loaded for each
- * song while the view is open, kept per path.
+ * song while the view is open, kept per path. karaoke draws them larger and
+ * lets a tap on a synced line seek there.
  */
 @Composable
-private fun LyricsView(s: Snapshot, side: Dp) {
+private fun LyricsView(s: Snapshot, side: Dp, karaoke: Boolean) {
     val p = LocalPalette.current
     val path = s.track?.path ?: return
     var lines by remember(path) { mutableStateOf<List<Lyric>?>(null) }
@@ -307,17 +349,30 @@ private fun LyricsView(s: Snapshot, side: Dp) {
             val list = rememberLazyListState()
             LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem(active) }
             // The padding lets the first and last lines reach the middle, where the active one sits.
-            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = (side / 2 - 14.dp).coerceAtLeast(0.dp))) {
+            val seekLabel = stringResource(R.string.lyrics_seek)
+            val seeks = karaoke && synced && s.seekable
+            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = (side / 2 - if (karaoke) 20.dp else 14.dp).coerceAtLeast(0.dp))) {
                 itemsIndexed(shown) { i, line ->
                     val on = i == active
                     Text(
-                        line.text.ifBlank { "…" }, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        line.text.ifBlank { "…" },
+                        Modifier.fillMaxWidth()
+                            .then(
+                                if (seeks) {
+                                    Modifier.clickable(onClickLabel = seekLabel) {
+                                        Remote.fire("seek.absolute", JSONObject().put("value", line.start))
+                                    }.heightIn(min = 48.dp).wrapContentHeight()
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                         color = when {
                             on -> p.accent
                             synced -> p.textSecondary
                             else -> p.textPrimary
                         },
-                        style = Type.body.bold(on), textAlign = TextAlign.Center,
+                        style = (if (karaoke) Type.headline.copy(fontWeight = FontWeight.Normal) else Type.body).bold(on), textAlign = TextAlign.Center,
                     )
                 }
             }

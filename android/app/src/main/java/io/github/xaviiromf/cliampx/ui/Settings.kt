@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.BuildConfig
 import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
+import io.github.xaviiromf.cliampx.LauncherIcon
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.MainActivity
 import io.github.xaviiromf.cliampx.R
@@ -132,6 +133,7 @@ fun SettingsScreen(screen: Screen.Settings) {
     var optimized by remember { mutableStateOf(false) }
     var music by remember { mutableStateOf(true) }
     val update = remember { UpdateFlow() }
+    var icon by remember { mutableStateOf(LauncherIcon.current(context)) }
     val scope = rememberCoroutineScope()
     LifecycleResumeEffect(Unit) {
         // Back from the battery, permission or install setting: read them again.
@@ -185,6 +187,13 @@ fun SettingsScreen(screen: Screen.Settings) {
                             BracketChip(stringResource(m.label), Looks.motion == m, Modifier.testTag("set_motion_" + m.name.lowercase())) { Looks.putMotion(m) }
                         }
                     }
+                    Toggle(stringResource(R.string.player_vis), Looks.playerVis, "set_player_vis") { Looks.putPlayerVis(it == 1) }
+                    Choice(stringResource(R.string.launcher_icon), LauncherIcon.entries.map { it.label }, icon.ordinal, "set_icon") {
+                        icon = LauncherIcon.entries[it]
+                        LauncherIcon.set(context, icon)
+                    }
+                    SettingRow(stringResource(R.string.stereo_charging), "", "set_stereo") { openDreamSettings(context) }
+                    Help(stringResource(R.string.stereo_help))
                 }
             }
             item(key = "playback") {
@@ -276,6 +285,15 @@ fun SettingsScreen(screen: Screen.Settings) {
                 }
             }
         }
+    }
+}
+
+/** The system's screen saver settings, where cliamp-x is picked for Modo estéreo; the display settings where a system hides them. */
+private fun openDreamSettings(context: Context) {
+    try {
+        context.startActivity(Intent(android.provider.Settings.ACTION_DREAM_SETTINGS))
+    } catch (e: android.content.ActivityNotFoundException) {
+        context.startActivity(Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS))
     }
 }
 

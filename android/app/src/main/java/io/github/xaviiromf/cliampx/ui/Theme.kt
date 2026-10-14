@@ -41,7 +41,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.ThemeInfo
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Typography
@@ -201,6 +205,15 @@ fun SheetBars() {
             isAppearanceLightNavigationBars = light
         }
     }
+}
+
+/** The core's live theme, glassy over a background: every window of the app draws in it. */
+@Composable
+fun LiveTheme(content: @Composable () -> Unit) {
+    val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
+    // A background shows through the bars and cards.
+    val palette = livePalette(theme).let { if (Looks.background == Background.Solid) it else it.copy(glass = 0.6f) }
+    CliampTheme(palette, content)
 }
 
 /** Colors, type, corners (square unless Ajustes rounds them), haptics and press feedback from the cliamp-x theme; system bar icons follow it. */
