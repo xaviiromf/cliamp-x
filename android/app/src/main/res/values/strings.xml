@@ -172,6 +172,8 @@
     <string name="local">Local</string>
     <string name="added">Añadido a la lista.</string>
     <string name="list_created">Lista creada.</string>
+    <string name="list_exists">Ya existe una lista con ese nombre.</string>
+    <string name="list_bad_name">El nombre no puede llevar / \\ : &lt; &gt; \" | ? *</string>
     <string name="lib_lists">Listas</string>
     <string name="lib_artists">Artistas</string>
     <string name="downloads">Descargas</string>

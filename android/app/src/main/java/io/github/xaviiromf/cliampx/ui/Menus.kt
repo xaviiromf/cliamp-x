@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -366,21 +367,29 @@ private fun AddTo(sheet: Sheet.AddTo) {
 private fun NewList(sheet: Sheet.NewList, close: () -> Unit) {
     val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
     var target by remember { mutableStateOf(if (signedIn == true) "ytmusic" else "local") }
-    NameSheet(stringResource(if (sheet.queue) R.string.save_queue else R.string.new_list), "", stringResource(R.string.create), close, target = {
+    val local = localNames()
+    NameSheet(stringResource(if (sheet.queue) R.string.save_queue else R.string.new_list), "", stringResource(R.string.create), close, local.takeIf { target == "local" }, target = {
         if (signedIn == true) {
             Row(Modifier.padding(horizontal = 12.dp)) {
                 BracketChip(stringResource(R.string.youtube_music), target == "ytmusic", Modifier.testTag("target_ytmusic")) { target = "ytmusic" }
                 BracketChip(stringResource(R.string.local), target == "local", Modifier.testTag("target_local")) { target = "local" }
             }
         }
-    }) { name -> Remote.createList(target, name, sheet.tracks, sheet.item, sheet.queue) { Nav.sheet = null } }
+    }) { name, failed -> Remote.createList(target, name, sheet.tracks, sheet.item, sheet.queue, failed) { Nav.sheet = null } }
+}
+
+/** The names of the local lists loaded so far, which a new name must not take. */
+@Composable
+private fun localNames(): List<String> {
+    val (local, _) = rememberLoad("playlists:local") { Remote.playlists("local") }
+    return (local as? Load.Done)?.value.orEmpty().map { it.id }
 }
 
 /** Renombrar… a local list; its page follows the new name. */
 @Composable
 private fun Rename(item: Item, close: () -> Unit) {
-    NameSheet(stringResource(R.string.rename), item.title, stringResource(R.string.rename), close) { name ->
-        Remote.editList("playlist.rename", JSONObject().put("playlist", item.id).put("new_name", name)) {
+    NameSheet(stringResource(R.string.rename), item.title, stringResource(R.string.rename), close, localNames()) { name, failed ->
+        Remote.editList("playlist.rename", JSONObject().put("playlist", item.id).put("new_name", name), failed) {
             Nav.sheet = null
             val top = Nav.top.screen as? Screen.Playlist
             if (top != null && top.provider == "local" && top.id == item.id) Nav.replace(Screen.Playlist("local", name, name, top.art))
@@ -390,19 +399,41 @@ private fun Rename(item: Item, close: () -> Unit) {
 
 /**
  * The name sheet (§3.12): the only text field besides Buscar, focused at
- * once, then target's chips, the confirm key pill and Cancelar.
+ * once, then target's chips, the confirm key pill and Cancelar. A name the
+ * local lists in taken would refuse, or a failed done, shows as ERR: under
+ * the field, since the sheet covers the status line (§2.10).
  */
 @Composable
-private fun NameSheet(title: String, initial: String, confirm: String, close: () -> Unit, target: @Composable () -> Unit = {}, done: (String) -> Unit) {
+private fun NameSheet(
+    title: String,
+    initial: String,
+    confirm: String,
+    close: () -> Unit,
+    taken: List<String>?,
+    target: @Composable () -> Unit = {},
+    done: (name: String, failed: (String) -> Unit) -> Unit,
+) {
     val p = LocalPalette.current
+    val res = LocalResources.current
     var name by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
+    var error by remember(taken == null) { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val ok = name.text.isNotBlank() && name.text.trim() != initial
-    val submit = { if (ok) done(name.text.trim()) }
+    val submit = {
+        if (ok) {
+            val n = name.text.trim()
+            val bad = taken?.let { Library.nameError(n, it) }
+            if (bad != null) error = res.getString(bad) else done(n) { error = it }
+        }
+    }
     SectionRule(title)
     BasicTextField(
-        name, { name = it },
+        name,
+        {
+            if (it.text != name.text) error = null
+            name = it
+        },
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).focusRequester(focus).testTag("name_field"),
         singleLine = true,
         textStyle = Type.body.copy(color = p.textPrimary),
@@ -427,6 +458,7 @@ private fun NameSheet(title: String, initial: String, confirm: String, close: ()
             }
         },
     )
+    error?.let { Text("ERR: $it", Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("name_error"), color = p.error, style = Type.body) }
     target()
     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         KeyPill(confirm, Modifier.testTag("name_create"), enabled = ok, onClick = submit)

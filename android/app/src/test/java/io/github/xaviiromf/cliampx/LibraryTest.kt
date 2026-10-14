@@ -104,6 +104,34 @@ class LibraryTest {
     }
 
     @Test
+    fun newListNames() {
+        val taken = listOf("Mi lista", "Gym")
+        for ((name, want) in listOf(
+            "Mi lista" to R.string.list_exists,
+            "Favorites" to R.string.list_exists,
+            "Recently Played" to R.string.list_exists,
+            "mi lista" to null, // the playlist files sit on a case-sensitive file system
+            "Rock/Pop" to R.string.list_bad_name,
+            "a\\b" to R.string.list_bad_name,
+            "Sí: no" to R.string.list_bad_name,
+            "¿Qué?" to R.string.list_bad_name,
+            "\"x\"" to R.string.list_bad_name,
+            ".." to R.string.list_bad_name,
+            "." to R.string.list_bad_name,
+            "...para ti" to null,
+            "Lista nueva" to null,
+        )) assertEquals(name, want, Library.nameError(name, taken))
+    }
+
+    @Test
+    fun gridColumns() {
+        // Two on a phone held upright, more across, as GridCells.Adaptive(160.dp) inside 16 dp sides.
+        for ((width, want) in listOf(200f to 2, 360f to 2, 411f to 2, 544f to 3, 600f to 3, 914f to 5)) {
+            assertEquals("$width dp", want, Library.columns(width))
+        }
+    }
+
+    @Test
     fun settingLabels() {
         assertEquals(listOf("0.5x", "0.75x", "1x", "1.25x", "2x"), listOf(0.5, 0.75, 1.0, 1.25, 2.0).map(::speedLabel))
         assertEquals(listOf(0, 1, 2, -1), listOf("off", "track", "album", "").map(::normalizeValue))

@@ -597,6 +597,22 @@ object Library {
 
     /** A local playlist file: one that can be renamed, deleted and edited. */
     fun editable(item: Item) = item.provider == "local" && item.kind == Kind.PLAYLIST && item.id !in VIRTUAL
+
+    /** A grid's columns in width dp, as GridCells.Adaptive(160.dp) with 16 dp sides and 12 dp gaps; never fewer than two. */
+    fun columns(width: Float) = maxOf(2, ((width - 32 + 12) / (160 + 12)).toInt())
+
+    /**
+     * Why the local provider would refuse name for a new list, or null: a
+     * name taken (a list in taken, or a virtual list) or a character a file
+     * name cannot hold (local/provider.go validateNewName). The core answers
+     * both with a bare "operation failed".
+     */
+    @StringRes
+    fun nameError(name: String, taken: Collection<String>): Int? = when {
+        name in taken || name in VIRTUAL -> R.string.list_exists
+        name == "." || name == ".." || name.any { it in "/\\:<>\"|?*" } -> R.string.list_bad_name
+        else -> null
+    }
 }
 
 /** 1x, 0.75x, 1.25x: a speed as the sheet and Ajustes show it. */

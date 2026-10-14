@@ -476,16 +476,29 @@ object Remote {
 
     /**
      * Nueva lista: creates name on provider (G20 gives its ID), then adds the
-     * songs, or with queue the whole queue (Guardar como lista); done runs after.
+     * songs, or with queue the whole queue (Guardar como lista); done runs
+     * after, or failed with the error's text.
      */
-    fun createList(provider: String, name: String, tracks: List<Track>, item: Item?, queue: Boolean, done: () -> Unit) {
+    fun createList(provider: String, name: String, tracks: List<Track>, item: Item?, queue: Boolean, failed: (String) -> Unit, done: () -> Unit) {
         scope.launch {
-            report {
+            attempt(failed) {
                 val id = call("playlist.create", JSONObject().put("provider", provider).put("playlist", name)).optString("playlist").ifEmpty { name }
                 add(provider, id, if (queue) queueTracks() else tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() })
                 reload() // Biblioteca shows the new list
                 done()
             }
+        }
+    }
+
+    /** Runs block; a failure goes to the status line and, on Main, to failed with its text, for a sheet that covers the status line. */
+    private suspend fun attempt(failed: (String) -> Unit, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            showError(e)
+            withContext(Dispatchers.Main) { failed(message(e)) }
         }
     }
 
@@ -510,19 +523,14 @@ object Remote {
     /**
      * Runs a local playlist edit (playlist.rename, .delete, .remove) after
      * the ones before it; then the screens on show load again and done runs
-     * on Main, or, when it fails, the error shows and failed runs on Main.
+     * on Main, or, when it fails, the error shows and failed gets its text on Main.
      */
-    fun editList(op: String, params: JSONObject, failed: () -> Unit = {}, done: () -> Unit = {}) {
+    fun editList(op: String, params: JSONObject, failed: (String) -> Unit = {}, done: () -> Unit = {}) {
         edits.trySend {
-            try {
+            attempt(failed) {
                 call(op, params.put("provider", "local"))
                 reload()
                 withContext(Dispatchers.Main) { done() }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                showError(e)
-                withContext(Dispatchers.Main) { failed() }
             }
         }
     }

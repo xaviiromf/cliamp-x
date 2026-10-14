@@ -92,45 +92,49 @@ fun LibraryScreen() {
     var sort by rememberSaveable { mutableStateOf("top") }
     val (albumPages, sorts, retryAlbums) = rememberAlbums(sort, list, chip == Chip.Albums)
     Pull({ refreshAll() }) {
-        LazyColumn(Modifier.fillMaxSize(), state = list) {
-            item(key = "top") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { ScreenRule(stringResource(R.string.tab_library)) }
-                    if ("playlist.create" in ops) {
-                        IconBtn(R.drawable.ic_add, stringResource(R.string.new_list), Modifier.padding(top = 8.dp).testTag("lib_new")) {
-                            Nav.sheet = Sheet.NewList(emptyList())
+        BoxWithConstraints {
+            // Álbumes' columns, as Para ti's Adaptive(160.dp) grid (§3.10).
+            val cols = Library.columns(maxWidth.value)
+            LazyColumn(Modifier.fillMaxSize(), state = list) {
+                item(key = "top") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { ScreenRule(stringResource(R.string.tab_library)) }
+                        if ("playlist.create" in ops) {
+                            IconBtn(R.drawable.ic_add, stringResource(R.string.new_list), Modifier.padding(top = 8.dp).testTag("lib_new")) {
+                                Nav.sheet = Sheet.NewList(emptyList())
+                            }
                         }
                     }
                 }
-            }
-            item(key = "pinned") {
-                Column {
-                    Pinned("", R.drawable.ic_heart, stringResource(R.string.lib_liked), count("fav"), "lib_liked", p.favorite) {
-                        Nav.open(Screen.Playlist("ytmusic", "fav", it))
-                    }
-                    Pinned("", R.drawable.ic_history, stringResource(R.string.lib_history), 0, "lib_history") { Nav.open(Screen.Playlist("ytmusic", "hist", it)) }
-                    Pinned("", R.drawable.ic_note, stringResource(R.string.lib_local), count("local:all"), "lib_local") {
-                        Nav.open(Screen.Playlist("ytmusic", "local:all", it))
-                    }
-                    if ("taste.list" in ops) Pinned("✓", null, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
-                    if ("stats" in ops) Pinned("", R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
-                }
-            }
-            item(key = "chips") {
-                FlowRow(Modifier.padding(horizontal = 12.dp)) {
-                    for (c in Chip.entries) {
-                        if (c == Chip.Downloads && "download.status" !in ops) continue
-                        BracketChip(stringResource(c.label), chip == c, Modifier.testTag(c.tag)) { chip = c }
+                item(key = "pinned") {
+                    Column {
+                        Pinned("", R.drawable.ic_heart, stringResource(R.string.lib_liked), count("fav"), "lib_liked", p.favorite) {
+                            Nav.open(Screen.Playlist("ytmusic", "fav", it))
+                        }
+                        Pinned("", R.drawable.ic_history, stringResource(R.string.lib_history), 0, "lib_history") { Nav.open(Screen.Playlist("ytmusic", "hist", it)) }
+                        Pinned("", R.drawable.ic_note, stringResource(R.string.lib_local), count("local:all"), "lib_local") {
+                            Nav.open(Screen.Playlist("ytmusic", "local:all", it))
+                        }
+                        if ("taste.list" in ops) Pinned("✓", null, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
+                        if ("stats" in ops) Pinned("", R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
                     }
                 }
+                item(key = "chips") {
+                    FlowRow(Modifier.padding(horizontal = 12.dp)) {
+                        for (c in Chip.entries) {
+                            if (c == Chip.Downloads && "download.status" !in ops) continue
+                            BracketChip(stringResource(c.label), chip == c, Modifier.testTag(c.tag)) { chip = c }
+                        }
+                    }
+                }
+                when (chip) {
+                    Chip.Lists -> lists(yt, retryYt)
+                    Chip.Albums -> albums(albumPages, sorts, sort, cols, { sort = it }, retryAlbums)
+                    Chip.Artists -> artists()
+                    Chip.Downloads -> item(key = "downloads") { DownloadsPanel() }
+                }
+                item(key = "end") { Spacer(Modifier.height(16.dp)) }
             }
-            when (chip) {
-                Chip.Lists -> lists(yt, retryYt)
-                Chip.Albums -> albums(albumPages, sorts, sort, { sort = it }, retryAlbums)
-                Chip.Artists -> artists()
-                Chip.Downloads -> item(key = "downloads") { DownloadsPanel() }
-            }
-            item(key = "end") { Spacer(Modifier.height(16.dp)) }
         }
     }
 }
@@ -231,24 +235,24 @@ private class AlbumPages {
 
 /**
  * Álbumes (§3.5): the play orders without foryou as chips, then a
- * two-column grid, ♥ on saved albums, a page of 100 at a time as the end
+ * grid of cols columns, ♥ on saved albums, a page of 100 at a time as the end
  * of the list comes near.
  */
 @OptIn(ExperimentalLayoutApi::class)
-private fun LazyListScope.albums(a: AlbumPages, sorts: List<Sort>, current: String, setSort: (String) -> Unit, retry: () -> Unit) {
+private fun LazyListScope.albums(a: AlbumPages, sorts: List<Sort>, current: String, cols: Int, setSort: (String) -> Unit, retry: () -> Unit) {
     item(key = "album_sorts") {
         FlowRow(Modifier.padding(horizontal = 12.dp)) {
             sorts.filter { it.id != "foryou" }.forEachIndexed { i, o -> BracketChip(o.label, o.id == current, Modifier.testTag("album_sort_$i")) { setSort(o.id) } }
         }
     }
     val items = a.pages.flatten()
-    itemsIndexed(items.chunked(2), key = { r, _ -> "album_row_$current:$r" }) { r, pair ->
+    itemsIndexed(items.chunked(cols), key = { r, _ -> "album_row_$current:$cols:$r" }) { r, row ->
         val favorites by Remote.favorites.collectAsStateWithLifecycle()
         BoxWithConstraints(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            val w = (maxWidth - 12.dp) / 2
+            val w = (maxWidth - 12.dp * (cols - 1)) / cols
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                pair.forEachIndexed { k, item ->
-                    Tile(item.copy(favorite = favorites[item.id] ?: item.favorite), Modifier.testTag("album_${r * 2 + k}"), width = w) { openItem(item, items) }
+                row.forEachIndexed { k, item ->
+                    Tile(item.copy(favorite = favorites[item.id] ?: item.favorite), Modifier.testTag("album_${r * cols + k}"), width = w) { openItem(item, items) }
                 }
             }
         }
