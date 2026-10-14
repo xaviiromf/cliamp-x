@@ -73,10 +73,10 @@ class Ipc(private val socket: File) {
 }
 
 /**
- * spectrum.get over one persistent connection (§5.1). Each next() asks for
- * one frame and returns its bands, 0..1. A read waits at most 2 s.
+ * vis.frame over one persistent connection (§5.1). Each next() asks for
+ * one frame on a cols x rows grid. A read waits at most 2 s.
  */
-class SpectrumStream(socket: File) : Closeable {
+class FrameStream(socket: File) : Closeable {
     private val s = LocalSocket().also {
         try {
             it.connect(LocalSocketAddress(socket.path, LocalSocketAddress.Namespace.FILESYSTEM))
@@ -87,13 +87,13 @@ class SpectrumStream(socket: File) : Closeable {
         }
     }
     private val reader = s.inputStream.bufferedReader()
-    private val request = "{\"version\":2,\"id\":\"s\",\"method\":\"spectrum.get\"}\n".toByteArray()
 
-    fun next(): FloatArray {
-        s.outputStream.write(request)
-        val line = reader.readLine() ?: throw IOException("ipc: spectrum closed")
-        val bands = JSONObject(line).optJSONObject("result")?.optJSONArray("bands") ?: return FloatArray(0)
-        return FloatArray(bands.length()) { bands.optDouble(it, 0.0).toFloat() }
+    fun next(cols: Int, rows: Int): VisFrame {
+        s.outputStream.write("{\"version\":2,\"id\":\"f\",\"method\":\"vis.frame\",\"params\":{\"cols\":$cols,\"rows\":$rows}}\n".toByteArray())
+        val line = reader.readLine() ?: throw IOException("ipc: vis.frame closed")
+        val result = JSONObject(line).optJSONObject("result") ?: JSONObject()
+        val lines = result.optJSONArray("lines") ?: JSONArray()
+        return VisFrame.parse(result.optString("visualizer"), List(lines.length()) { lines.optString(it) }, cols, rows)
     }
 
     override fun close() = s.close()

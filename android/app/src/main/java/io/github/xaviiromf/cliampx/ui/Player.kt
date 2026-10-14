@@ -76,7 +76,6 @@ import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Ytdlp
 import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.clock
-import io.github.xaviiromf.cliampx.nextVisualizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -161,7 +160,7 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
                     Visualizer(
                         s,
                         Modifier.fillMaxSize().clickable(onClickLabel = stringResource(R.string.vis_next)) {
-                            Remote.fire("vis", JSONObject().put("name", nextVisualizer(s.visualizer)))
+                            Remote.nextVisualizer(s.visualizer)
                         }.testTag("vis_strip"),
                     )
                 }

@@ -36,9 +36,9 @@
 | Core | Same process model. The Go core runs in the pty owned by `CliampService`, and the native UI uses V2 IPC only. The core draws (`ui.render on`) only while Modo terminal is visible; otherwise it is `off`. No new render mode |
 | yt-dlp | The app downloads the newest yt-dlp release itself, with timeouts, a SHA-256 check and an atomic rename over the file that `CLIAMP_YTDLP` runs. While yt-dlp has never been updated, the first play waits up to 45 s for the update. After that it checks daily |
 | Default theme | "Default - Terminal colors" is drawn with the built-in `winamp` palette, the closest match to the green-on-black Termux view the user had |
-| Visualizer | Drawn natively on a Canvas from `spectrum.get`, the bands eased at the display rate (`Vis.kt`, `ui/Visualizer.kt`). 34 native renderers, each matched to a core mode name (`NATIVE_VIS`): Bars, ClassicPeak, ClassicLED, Bricks, Columns, BarsDot, BarsOutline, Mirror, Butterfly, Ascii, Mosaic, Logo, Spectrogram, Terrain, Skyline, Radial, Pulse, Ripple, Tunnel, Spiral, Helix, Plasma, Aurora, Retro, Flame, Rain, Matrix, Scatter, Geyser, Firework, Bubbles, Sakura, Firefly, Starfield. Any other band mode draws as Bars; the raw-sample modes (Wave, Scope, Heartbeat, Stereo) send no bands. The exact ASCII modes stay in Modo terminal |
+| Visualizer | The core draws every mode (all 47 and any Lua mode) and `vis.frame` returns its rows with ANSI colors; the app draws them cell by cell on one Canvas in the monospace font (`Vis.kt` parses, `ui/Visualizer.kt` draws). Block, quadrant and sextant glyphs and braille dots are drawn as rectangles so they tile with no gap in any font; the 16 terminal colors of the Default theme map to the theme palette |
 | Volume | Android media volume: the hardware keys and the system panel. The core's own volume is not exposed |
-| Modo terminal only | Lua plugins, blocked words and artists, `ssh://` paths, `vis_palette`, the lyrics offset, the output device, and the exact ASCII drawing of all 47 visualizer modes |
+| Modo terminal only | Lua plugins, blocked words and artists, `ssh://` paths, `vis_palette`, the lyrics offset and the output device |
 
 ---
 
@@ -75,7 +75,7 @@
 5. **Performance and battery.**
    - The core keeps running with drawing off.
    - The native UI works only while it is visible:
-     - spectrum polling only while a visualizer is on screen and music plays;
+     - visualizer frame polling only while a visualizer is on screen and music plays;
      - the position ticker only while in the foreground and playing;
      - nothing polls in the background.
    - Lists are lazy and keyed. JSON is parsed off the main thread into immutable models. Images are decoded at target size and cached.
@@ -158,7 +158,7 @@ LoginActivity (WebView sign-in, unchanged)
 - **Art area gestures:**
   - tap toggles Portada ⇄ Visualizador;
   - a horizontal swipe skips (Portada and Visualizador only), with the mini-player rule.
-- **Visualizer strip,** 72 dp under the art. It shows only in the Portada view, when the mode is not None and the art is at least 240 dp. A tap cycles through the native modes in `NATIVE_VIS` order (None left out) via `vis {name}`.
+- **Visualizer strip,** 72 dp under the art. It shows only in the Portada view, when the mode is not None and the art is at least 240 dp. A tap cycles through every mode of `vis list` in the core's order (None left out) via `vis {name}`.
 - **Title block:**
   - the title (display style, accent bold, marquee) with `♥` at the right;
   - `Artista · Álbum` below. Tapping the artist opens the Artist page when `provider_meta["ytmusic.artist"]` exists; tapping the album opens the Album page when `provider_meta["ytmusic.album"]` exists.
@@ -217,7 +217,7 @@ LoginActivity (WebView sign-in, unchanged)
 
 **Apariencia**
 - Tema: the picker. A tap applies the theme at once, and the whole UI, the picker included, recolors. That is the live preview.
-- Visualizador: the picker, with a live 120 dp preview while music plays. It lists only the native modes the core reports in `vis list`; "Más modos (n) en Modo terminal" counts the rest.
+- Visualizador: the picker, with a live 120 dp preview while music plays. It lists every mode the core reports in `vis list`, None last, each with its Spanish label (a Lua mode shows its name only).
 
 **Reproducción**
 - Ecualizador: opens the Eq screen.
@@ -601,7 +601,7 @@ Confirm (Eliminar lista, Vaciar cola): "¿Eliminar «Mi lista»?"  [ Eliminar ] 
 │ Ecualizador           [Rock]            › │ │   cover  (colores de la portada)     │ │   ClassicPeak  Barras con picos      │
 │ Velocidad             [1x]              › │ │ swatches: bg accent bright fg g y r  │ │   Mirror       Barras en espejo      │
 │ Temporizador          [Apagado]         › │ │ tap = apply now, UI recolors live    │ │   None         Sin visualizador      │
-│ Normalización de volumen [Por canción]  › │                                          │ Más modos (47) en Modo terminal    › │
+│ Normalización de volumen [Por canción]  › │                                          │   …                                  │
 │ Fundido entre canciones  [Apagado]      › │
 │ EQ automático por género [Apagado]        │  tap toggles
 │ Radio automática      [Apagado]           │
@@ -795,8 +795,8 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 | Explicit theme change | instant |
 | `cover` theme, each new cover palette | the 7 colors animate over 600 ms (`animateColorAsState(tween(600, easing = LinearEasing))`), as the desktop `coverFadeTime` does |
 | Spinner | a braille frame every 100 ms |
-| Visualizer | spectrum frames arrive at 30 fps; the levels, peaks and particles step at the display rate (up to 120 fps) on one Canvas with no allocation per frame. On pause or stop the levels fade to 0 in 300 ms, then drawing stops |
-| Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then steps once per spectrum frame with no easing, and the modes that move on their own (particles, scrolling, spinning) draw as Bars |
+| Visualizer | the core's frames arrive at up to 30 fps, one request at a time; the core animates them. On pause or stop the last frame fades out in 300 ms, then drawing stops |
+| Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then polls 10 frames a second |
 
 ### 4.6 Live theme flow
 
@@ -832,7 +832,7 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
   - The read loop runs on IO and only parses and assigns, so it never blocks.
   - On EOF, an error or a `system.overflow` event: close the socket, back off from 200 ms to 2 s, and reconnect.
   - Cancelling the loop closes the socket.
-- **Spectrum:** one persistent socket. It sends `{"version":2,"id":"s","method":"spectrum.get"}` every 33 ms and reads `result.bands` (floats 0..1) and `result.visualizer`.
+- **Visualizer frames:** one persistent socket. It sends `{"version":2,"id":"f","method":"vis.frame","params":{"cols":C,"rows":R}}` at most every 33 ms and reads `result.lines` (rows with ANSI SGR colors) and `result.visualizer`.
 - **omitempty rules:** a missing number is 0, a missing bool false, a missing string "".
   - `speed == 0` means 1.0.
   - `index` can be −1 for an empty queue.
@@ -1017,7 +1017,7 @@ Cache 10 min. Pull: `provider.refresh`.
 Reads:
 - The snapshot.
 - `lyrics {}` when the Letras view opens, and on each track change while it stays open. Cache by `track.path`.
-- The spectrum stream (§5.4).
+- The visualizer frame stream (§5.4).
 
 Actions:
 
@@ -1104,14 +1104,14 @@ The ticker is a `delay(250)` loop local to the seek bar and the time text, runni
 - **Queue:** reacts to `playlist_revision` and `play_next_total`.
 - **Notices and errors:** §2.10, from the G7 fields.
 
-**Spectrum:** a cold `Flow<FloatArray>`, collected only while all of these hold:
+**Visualizer frames:** a cold, conflated `Flow<VisFrame>` on the view's cell grid, collected only while all of these hold:
 1. MainActivity is STARTED.
 2. A visualizer is visible: the player strip, the big view, or the Visualizador preview.
 3. `state == "playing"`.
 
 Each frame goes into a state holder read **only** inside the Canvas draw lambda.
-- Native renderers resample the bands linearly to their own bar count.
-- An empty `bands` array with a mode other than None (a raw-sample mode set in Modo terminal) shows the caption `Visualizador <name>: solo en Modo terminal`.
+- The grid comes from the view and the font: rows of about 12 dp fill the height exactly, the columns are whole cells of the font's advance, centered.
+- A new grid restarts the flow; the core keeps that grid while it draws nothing, so the stateful modes keep their animation.
 
 ### 5.5 Paging
 
@@ -1463,7 +1463,7 @@ Tests:
 | `Core.kt` | edit | Guard `YoutubeDL.init` + `FFmpeg.init` with an `AtomicBoolean`, set after the first success, so they run once per process |
 | `Ytdlp.kt` | new, about 130 lines | The yt-dlp updater, its status flow and the pure policy (§7.8) |
 | `Ipc.kt` | edit | Add `job(id)` and `cancel(id)`. Add `class SpectrumStream(socket)`: one persistent connection, `next(): FloatArray`, `close()`, soTimeout 2 s |
-| `Remote.kt` | new | The process-wide object: subscription, `state`, `connected`, `ops`, `signedIn`, `quitting`, `errors`, `call`/`fire`, the play gate, the result cache, render serialization, `spectrum()`, the error watcher. Typed helpers per operation live here (`home()`, `search(q)`, `queueReplace(tracks, i)` …). There is no separate Api file |
+| `Remote.kt` | new | The process-wide object: subscription, `state`, `connected`, `ops`, `signedIn`, `quitting`, `errors`, `call`/`fire`, the play gate, the result cache, render serialization, `visFrames()`, the error watcher. Typed helpers per operation live here (`home()`, `search(q)`, `queueReplace(tracks, i)` …). There is no separate Api file |
 | `Models.kt` | new | Immutable `@Immutable` data classes and pure parsers: `Snapshot`, `Track(raw)`, `ThemeInfo`, `Notice`, `Row`, `Album`, `Artist`, `Genre`, `Shelf`, `ShelfItem`, `Lyric`, `HistoryEntry`, `Downloads`, `Stats`, `Rating`, `Preview`. Also `RowName`, `searchSections`, `Snapshots.merge`, `PlaybackClock` |
 | `CliampService.kt` | edit | §7.11 |
 | `MainActivity.kt` | replace | `ComponentActivity`. Details below this table |
@@ -1532,7 +1532,7 @@ The new `MainActivity` does this:
 
 **Render:** `fun terminalVisible(on: Boolean)` (§7.6).
 
-**Spectrum:** `fun spectrum(): Flow<FloatArray>` is a `callbackFlow` on IO over `SpectrumStream`, one request every 33 ms. It reconnects after 500 ms on an error, and closes the stream in `awaitClose`.
+**Visualizer frames:** `fun visFrames(cols, rows, periodMs): Flow<VisFrame>` is a conflated flow on IO over `FrameStream`, one request at most every periodMs (33, or 100 under reduced motion), parsed on IO. It reconnects after 500 ms on an error.
 
 **Threading:** all socket I/O and JSON parsing run on IO. Composables collect with `collectAsStateWithLifecycle()`. No `JSONObject` reaches a composable.
 
@@ -1572,7 +1572,7 @@ Sizes: rows 48 dp (126 px), tiles 136 dp (357 px), the player at full width (108
 | Mini-player | drag up > 48 dp or fling up | `draggable(Orientation.Vertical)` | open the player sheet |
 | Mini-player, player art (Portada and Visualizador) | horizontal drag > 30 % width or fling > 1000 dp/s | `pointerInput { detectHorizontalDragGestures }` + `graphicsLayer.translationX`, spring back; the art keeps 24 dp from the screen edges | `next` (left), `prev` (right) |
 | Player art | tap | `clickable` | Portada ⇄ Visualizador |
-| Visualizer strip | tap | `clickable` | `vis {name: next native mode}` |
+| Visualizer strip | tap | `clickable` | `vis {name: next mode of vis list}` |
 | Player sheet (Player page) | swipe down, back | M3 | close |
 | Seek bar | drag, tap | `pointerInput` (`detectHorizontalDragGestures` + `detectTapGestures`) | `seek.absolute` on release (§5.4) |
 | Rows, tiles | tap / long-press / ⋮ | `combinedClickable(onLongClick)` + `HapticFeedbackType.LongPress`; ⋮ is a 48 dp `IconButton` | play / action sheet |

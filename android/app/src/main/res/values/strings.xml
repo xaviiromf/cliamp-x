@@ -86,7 +86,6 @@
     <string name="err_play">No se pudo reproducir.</string>
     <string name="sign_in_short">Iniciar sesión</string>
     <string name="no_lyrics">No hay letra para esta canción.</string>
-    <string name="vis_terminal_only">Visualizador %1$s: solo en Modo terminal</string>
     <string name="vis_next">Cambiar el visualizador</string>
     <string name="back">Volver</string>
     <string name="queue">Cola</string>
@@ -284,7 +283,17 @@
     <string name="vis_sakura">Pétalos de cerezo</string>
     <string name="vis_firefly">Luciérnagas</string>
     <string name="vis_starfield">Campo de estrellas</string>
+    <string name="vis_wave">Onda</string>
+    <string name="vis_scope">Osciloscopio</string>
+    <string name="vis_heartbeat">Latido</string>
+    <string name="vis_binary">Código binario</string>
+    <string name="vis_sand">Arena que cae</string>
+    <string name="vis_stereo">Medidor estéreo</string>
+    <string name="vis_omarchy">Logo Omarchy</string>
+    <string name="vis_red_sector">Demo Red Sector</string>
+    <string name="vis_yin_yang">Yin yang</string>
+    <string name="vis_cover_pulse">Portada que late</string>
+    <string name="vis_cover_bars">Barras de la portada</string>
+    <string name="vis_cover_shatter">Portada en pedazos</string>
     <string name="vis_none">Sin visualizador</string>
-    <string name="vis_more_count">Más modos (%1$d) en Modo terminal</string>
-    <string name="vis_more">Más modos en Modo terminal</string>
 </resources>
