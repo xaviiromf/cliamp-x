@@ -1,7 +1,6 @@
 package io.github.xaviiromf.cliampx.ui
 
 import android.graphics.Paint
-import android.graphics.Typeface
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -18,15 +17,12 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.VisFrame
@@ -72,14 +68,14 @@ private fun terminalColors(p: CliampPalette) = listOf(
 @Composable
 fun Visualizer(s: Snapshot, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
-    val context = LocalContext.current
     val target = with(LocalDensity.current) { 12.dp.toPx() }
-    val paints = remember {
-        val font = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+    // The chosen font (Ajustes > Fuente) sizes the cell grid and draws the glyphs.
+    val font = rememberTypeface()
+    val paints = remember(font) {
         Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = font } to Paint() // text, and cells with no seams
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
-    val grid = remember(size) {
+    val grid = remember(size, paints) {
         val text = paints.first
         text.textSize = 100f
         val m = text.fontMetrics

@@ -54,9 +54,9 @@ battery setting, updates, the yt-dlp update and Modo terminal.
   Press Start 2P, Terminus, Inconsolata, mononoki, Fantasque Sans Mono). Each
   comes from its official release or the Google Fonts repository and is
   checked against a pinned SHA-256 before use. The font applies to the whole
-  interface; the top of the picker previews it. Iosevka is not offered: it
-  ships only as archives of 23 MB or more (99 MB for the plain family), over
-  the 20 MB per-font download cap.
+  interface and the visualizer grid; the top of the picker previews it.
+  Iosevka is not offered: it ships only as archives of 23 MB or more (99 MB
+  for the plain family), over the 20 MB per-font download cap.
 - **Tamaño del texto**: Pequeño, Normal, Grande or Muy grande, on top of the
   system font size.
 - **Densidad de las listas**: Compacta, Normal or Amplia row heights (never
