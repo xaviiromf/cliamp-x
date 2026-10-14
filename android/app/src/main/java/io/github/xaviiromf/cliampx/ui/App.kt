@@ -117,6 +117,8 @@ fun App(firstRun: Boolean) {
                             is Screen.Remixes -> RemixesScreen(screen)
                             is Screen.Settings -> SettingsScreen(screen)
                             Screen.Themes -> ThemesScreen()
+                            Screen.ThemeEditor -> ThemeEditorScreen()
+                            Screen.Skins -> SkinsScreen()
                             Screen.Fonts -> FontsScreen()
                             Screen.Visualizers -> VisualizersScreen()
                             Screen.Backgrounds -> BackgroundsScreen()
