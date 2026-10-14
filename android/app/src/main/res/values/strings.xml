@@ -208,6 +208,32 @@
     <string name="stats_daily">Últimos 30 días</string>
     <string name="genres">Géneros</string>
     <string name="stats_none">No hay reproducciones en este período.</string>
+    <string name="wrapped">Tu año en cliamp-x</string>
+    <string name="wrapped_none">No hay reproducciones en %1$d.</string>
+    <string name="wrapped_share">Compartir imagen</string>
+    <string name="wrapped_page">Tarjeta %1$d de %2$d</string>
+    <string name="wrapped_minutes">Minutos escuchados</string>
+    <string name="wrapped_hours">Unas %1$d horas de música</string>
+    <string name="wrapped_days">Días con música: %1$d</string>
+    <string name="wrapped_artists">Tus artistas</string>
+    <string name="wrapped_songs">Tus canciones</string>
+    <string name="wrapped_albums">Tus álbumes</string>
+    <string name="wrapped_genres">Tus géneros</string>
+    <string name="wrapped_streak">Tu racha más larga</string>
+    <plurals name="wrapped_streak_unit">
+        <item quantity="one">día seguido</item>
+        <item quantity="other">días seguidos</item>
+    </plurals>
+    <string name="wrapped_first">Tu primera canción del año</string>
+    <string name="wrapped_most">La que más repetiste en un día</string>
+    <plurals name="wrapped_times">
+        <item quantity="one">%1$d vez ese día</item>
+        <item quantity="other">%1$d veces ese día</item>
+    </plurals>
+    <plurals name="artists_count">
+        <item quantity="one">%1$d artista</item>
+        <item quantity="other">%1$d artistas</item>
+    </plurals>
     <string name="ratings_none">No has valorado nada todavía.</string>
     <string name="undo">Deshacer</string>
     <string name="kind_song">Canción</string>

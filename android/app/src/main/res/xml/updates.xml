@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The downloaded update APK, shared with the system installer. -->
+<!-- The downloaded update APK, shared with the system installer, and the
+     Tu año en cliamp-x cards, shared as PNGs. -->
 <paths>
     <cache-path name="updates" path="updates/" />
+    <cache-path name="shares" path="shares/" />
 </paths>
