@@ -56,6 +56,9 @@ language = "es"
 region = "cl"
 auto_radio = false
 report_history = true
+quality_wifi = "Normal"
+quality_mobile = "ahorro"
+premium_quality = true
 
 [plugins]
 disabled = webhook, discord-rpc
@@ -130,6 +133,9 @@ func TestLoadGolden(t *testing.T) {
 		Region:         "CL",
 		AutoRadio:      &f,
 		ReportHistory:  true,
+		QualityWifi:    "normal",
+		QualityMobile:  "ahorro",
+		PremiumQuality: true,
 	}
 	sectionsWant.Plugins = map[string]map[string]string{
 		"": {"disabled": "webhook, discord-rpc"},
@@ -208,6 +214,8 @@ func TestLoadGolden(t *testing.T) {
 		Language:       "es",
 		Region:         "CL",
 		AutoRadio:      &f,
+		QualityWifi:    "alta",
+		QualityMobile:  "normal",
 	}
 
 	listsWant := defaultConfig()

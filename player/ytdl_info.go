@@ -82,7 +82,7 @@ func (p *Player) PrefetchYTDL(pageURL string) {
 
 // fetchYTDLInfo writes the page info of pageURL to path with yt-dlp -J.
 func fetchYTDLInfo(ctx context.Context, pageURL, path string) error {
-	out, err := ytdlOutput(ctx, pageURL, "-f", ytdlFormat, "--no-playlist", "--quiet", "--no-warnings", "--socket-timeout", "15", "-J")
+	out, err := ytdlOutput(ctx, pageURL, "-f", ytdlFormatSpec(), "--no-playlist", "--quiet", "--no-warnings", "--socket-timeout", "15", "-J")
 	if err != nil {
 		return err
 	}

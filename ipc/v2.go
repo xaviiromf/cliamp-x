@@ -144,6 +144,12 @@ type RuntimeSnapshot struct {
 	Normalize    string      `json:"normalize,omitempty"`
 	Crossfade    int         `json:"crossfade,omitempty"`
 	EQAuto       bool        `json:"eq_auto,omitempty"`
+	// The YouTube audio quality on each network, the network the app last
+	// reported, and the Premium quality switch.
+	QualityWifi    string `json:"quality_wifi,omitempty"`
+	QualityMobile  string `json:"quality_mobile,omitempty"`
+	Network        string `json:"network,omitempty"`
+	PremiumQuality bool   `json:"premium_quality,omitempty"`
 }
 
 // NoticeInfo is the status line text and its kind: activity, success,

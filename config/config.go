@@ -197,6 +197,15 @@ type YouTubeMusicConfig struct {
 	Region         string // gl of the YouTube Music pages, or "" for $LANG
 	AutoRadio      *bool  // nil = default (false): continue with related songs when the queue ends
 	ReportHistory  bool   // add played songs to the YouTube Music history
+	QualityWifi    string // audio quality on Wi-Fi: "alta", "normal", "ahorro", or "" for alta
+	QualityMobile  string // audio quality on mobile data: "alta", "normal", "ahorro", or "" for normal
+	PremiumQuality bool   // Android: run yt-dlp with the cookies first, for the Premium formats
+}
+
+// ValidQuality reports whether q names an audio quality: alta, normal or
+// ahorro.
+func ValidQuality(q string) bool {
+	return q == "alta" || q == "normal" || q == "ahorro"
 }
 
 // IsSet reports whether the YouTube Music provider is enabled.
@@ -233,6 +242,20 @@ func (y *YouTubeMusicConfig) set(key, val string) {
 	case "report_history":
 		if v, ok := parseBool(val); ok {
 			y.ReportHistory = v
+		}
+	case "quality_wifi", "quality_mobile":
+		q := strings.ToLower(strings.TrimSpace(parseString(val)))
+		if !ValidQuality(q) {
+			return
+		}
+		if key == "quality_wifi" {
+			y.QualityWifi = q
+		} else {
+			y.QualityMobile = q
+		}
+	case "premium_quality":
+		if v, ok := parseBool(val); ok {
+			y.PremiumQuality = v
 		}
 	}
 }

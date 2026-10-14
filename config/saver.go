@@ -31,6 +31,11 @@ func (SaveFunc) SaveSectionBool(section, key string, value bool) error {
 	return SaveSection(section, []KeyValue{{key, strconv.FormatBool(value)}}, nil)
 }
 
+// SaveSectionString writes key = value, quoted, in the named [section].
+func (SaveFunc) SaveSectionString(section, key, value string) error {
+	return SaveSection(section, []KeyValue{{key, QuoteString(value)}}, nil)
+}
+
 func (SaveFunc) SaveFloats(key string, values []float64) error {
 	return SaveFloats(key, values)
 }

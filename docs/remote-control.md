@@ -111,6 +111,9 @@ false, zero or empty.
 | `normalize` | The volume normalization: `off`, `track` or `album` |
 | `crossfade` | The crossfade between songs of different albums, in seconds |
 | `eq_auto` | The EQ preset follows the genre of each song |
+| `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
+| `network` | The network that the app last reported: `wifi` or `mobile` |
+| `premium_quality` | yt-dlp runs with the sign-in from the first try (Android) |
 
 `theme` holds the colors on screen. With the cover theme, they are the
 colors of the cover it shows, or of the cover it blends to, under the name
@@ -361,9 +364,9 @@ A `track` with no title fails with `invalid_params`.
 
 ### Settings
 
-`settings.set` sets one setting with `name` and a whole-number `value`, and
-saves it in `config.toml`, as its key does. The snapshot then reports the
-new state.
+`settings.set` sets one setting with `name` and a whole-number `value`, or
+with `text` for the names that take text, and saves it in `config.toml`, as
+its key does. The snapshot then reports the new state.
 
 | `name` | `value` |
 | --- | --- |
@@ -373,12 +376,21 @@ new state.
 | `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
 | `mono` | `0` off or `1` on |
 
+| `name` | `text` |
+| --- | --- |
+| `quality_wifi`, `quality_mobile` | `alta` (the best format), `normal` (up to 128 kbps) or `ahorro` (up to 64 kbps). Saved in `[ytmusic]` |
+| `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
+| `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
+
+A quality change applies to the songs that start after it.
+
 The result is `{"ok":true}`. Any other name or value fails with
 `invalid_params` and changes nothing. A failed save fails the job with
 `internal_error`.
 
 ```sh
 cliamp-x remote call settings.set --params '{"name":"crossfade","value":4}' --wait
+cliamp-x remote call settings.set --params '{"name":"network","text":"mobile"}' --wait
 ```
 
 ### Downloads and statistics

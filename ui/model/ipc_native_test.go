@@ -990,12 +990,19 @@ func TestNativeSettingsSet(t *testing.T) {
 		saved   map[string]string
 		wantErr string
 	}{
-		{name: "auto radio", request: ipc.Request{Name: "auto_radio", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.autoRadio }},
+		{name: "auto radio", request: ipc.Request{Name: "auto_radio", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.autoRadio }, saved: map[string]string{"ytmusic.auto_radio": "true"}},
 		{name: "normalize album", request: ipc.Request{Name: "normalize", Value: 2}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeAlbum }, saved: map[string]string{"normalize": `"album"`}},
 		{name: "normalize off", request: ipc.Request{Name: "normalize"}, check: func(_ *Model, e *normalizingEngine) bool { return e.mode == player.NormalizeOff }, saved: map[string]string{"normalize": `"off"`}},
 		{name: "crossfade", request: ipc.Request{Name: "crossfade", Value: 4}, check: func(m *Model, _ *normalizingEngine) bool { return m.crossfade == 4*time.Second }, saved: map[string]string{"crossfade": "4"}},
 		{name: "auto EQ", request: ipc.Request{Name: "eq_auto", Value: 1}, check: func(m *Model, _ *normalizingEngine) bool { return m.eqAuto }, saved: map[string]string{"eq_auto": "true"}},
 		{name: "mono", request: ipc.Request{Name: "mono", Value: 1}, check: func(_ *Model, e *normalizingEngine) bool { return e.mono }, saved: map[string]string{"mono": "true"}},
+		{name: "quality on wifi", request: ipc.Request{Name: "quality_wifi", Text: " Ahorro "}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.wifi == "ahorro" }, saved: map[string]string{"ytmusic.quality_wifi": `"ahorro"`}},
+		{name: "quality on mobile", request: ipc.Request{Name: "quality_mobile", Text: "alta"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.mobile == "alta" }, saved: map[string]string{"ytmusic.quality_mobile": `"alta"`}},
+		{name: "network is not saved", request: ipc.Request{Name: "network", Text: "mobile"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.network == "mobile" }},
+		{name: "premium quality", request: ipc.Request{Name: "premium_quality", Text: "on"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.premium }, saved: map[string]string{"ytmusic.premium_quality": "true"}},
+		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "premium as a number", request: ipc.Request{Name: "premium_quality", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown name", request: ipc.Request{Name: "volume", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "crossfade too long", request: ipc.Request{Name: "crossfade", Value: 13}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "half a second", request: ipc.Request{Name: "crossfade", Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},

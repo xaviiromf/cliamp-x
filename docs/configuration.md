@@ -459,7 +459,18 @@ region = "CL"
 auto_radio = false
 # Add the songs you play to your YouTube Music history. Off by default.
 report_history = false
+# Audio quality of YouTube songs: "alta" (the best format), "normal" (up to
+# 128 kbps) or "ahorro" (up to 64 kbps). quality_mobile applies while the
+# Android app reports mobile data, quality_wifi everywhere else.
+quality_wifi = "alta"
+quality_mobile = "normal"
+# Android only: run yt-dlp with the sign-in from the first try, so a Premium
+# account gets its 256 kbps formats. Songs then start a few seconds slower.
+premium_quality = false
 ```
+
+A quality applies to the songs that start after the change. A song with no
+format under the cap plays its best format.
 
 See [YouTube Music](youtube-music.md) for the sign-in and the menus.
 

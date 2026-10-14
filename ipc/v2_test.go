@@ -112,7 +112,7 @@ func TestNativeOperationParameters(t *testing.T) {
 		"taste.list":       nil,
 		"radio.start":      {"provider", "playlist", "name", "track"},
 		"discover.remixes": {"track"},
-		"settings.set":     {"name", "value"},
+		"settings.set":     {"name", "value", "text"},
 		"download":         {"provider", "playlist", "name", "track"},
 		"download.status":  nil,
 		"download.cancel":  nil,
@@ -133,6 +133,7 @@ func TestRuntimeSnapshotNativeFields(t *testing.T) {
 		Buffering: true, Seeking: true, Error: "e", ErrorKind: "network", ErrorPath: "/a",
 		Notice: &NoticeInfo{Text: "Saved", Kind: "success"}, SleepMinutes: -1, SleepAt: 7,
 		AutoRadio: true, Normalize: "track", Crossfade: 3, EQAuto: true,
+		QualityWifi: "alta", QualityMobile: "ahorro", Network: "mobile", PremiumQuality: true,
 	}
 	data, err := json.Marshal(snapshot)
 	if err != nil {
@@ -142,7 +143,8 @@ func TestRuntimeSnapshotNativeFields(t *testing.T) {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"buffering", "seeking", "error", "error_kind", "error_path", "notice", "sleep_minutes", "sleep_at", "auto_radio", "normalize", "crossfade", "eq_auto"} {
+	for _, name := range []string{"buffering", "seeking", "error", "error_kind", "error_path", "notice", "sleep_minutes", "sleep_at", "auto_radio", "normalize", "crossfade", "eq_auto",
+		"quality_wifi", "quality_mobile", "network", "premium_quality"} {
 		if _, ok := fields[name]; !ok {
 			t.Errorf("snapshot JSON %s has no %s", data, name)
 		}

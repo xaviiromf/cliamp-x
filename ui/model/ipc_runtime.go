@@ -76,6 +76,7 @@ type ipcRuntimeFingerprint struct {
 	normalize    string
 	crossfade    time.Duration
 	eqAuto       bool
+	ytQuality    ytQuality
 	themeBG      string
 	themeAccent  string
 }
@@ -665,16 +666,20 @@ var settingMax = map[string]float64{"auto_radio": 1, "normalize": 2, "crossfade"
 
 // handleV2Setting changes one setting and saves it, as its key does. A
 // switch takes 0 or 1, normalize 0 off, 1 track or 2 album, and crossfade
-// whole seconds from 0 to 12.
+// whole seconds from 0 to 12. The names that take text read it from text.
 func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
 	v := request.Value
-	limit, ok := settingMax[request.Name]
-	if !ok || v != math.Trunc(v) || v < 0 || v > limit {
+	limit, numeric := settingMax[request.Name]
+	ok := numeric && v == math.Trunc(v) && v >= 0 && v <= limit
+	var err error
+	if !numeric {
+		ok, err = m.setQualitySetting(request.Name, strings.TrimSpace(request.Text))
+	}
+	if !ok {
 		m.failV2Job(jobs, jobID, v2InvalidParamsError())
 		return nil
 	}
 	on := v == 1
-	var err error
 	switch request.Name {
 	case "auto_radio":
 		err = m.setAutoRadio(on)
@@ -944,6 +949,8 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 	snapshot.Normalize = m.normalizeName()
 	snapshot.Crossfade = int(m.crossfade / time.Second)
 	snapshot.EQAuto = m.eqAuto
+	snapshot.QualityWifi, snapshot.QualityMobile = m.ytQuality.wifi, m.ytQuality.mobile
+	snapshot.Network, snapshot.PremiumQuality = m.ytQuality.network, m.ytQuality.premium
 	return snapshot
 }
 
@@ -1055,6 +1062,7 @@ func (m *Model) runtimeFingerprint() ipcRuntimeFingerprint {
 	fingerprint.normalize = m.normalizeName()
 	fingerprint.crossfade = m.crossfade
 	fingerprint.eqAuto = m.eqAuto
+	fingerprint.ytQuality = m.ytQuality
 	palette := m.themePalette()
 	fingerprint.themeBG, fingerprint.themeAccent = palette.BG, palette.Accent
 	return fingerprint

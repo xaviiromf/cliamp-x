@@ -339,6 +339,7 @@ type Model struct {
 	vis         *ui.Visualizer
 	// autoRadio keeps playing related songs when the queue runs out.
 	autoRadio     bool
+	ytQuality     ytQuality // the YouTube audio quality per network
 	seekStepLarge time.Duration
 	pausedAt      time.Time
 

@@ -30,6 +30,7 @@ type Request struct {
 	Topics   []string    `json:"topics,omitempty"`
 	Play     bool        `json:"play,omitempty"`
 	Kind     string      `json:"kind,omitempty"` // what taste.rate rates: song, album, artist or genre
+	Text     string      `json:"text,omitempty"` // the value of a settings.set name that takes text
 }
 
 // Response is the operation-specific data embedded in a successful V2 job.

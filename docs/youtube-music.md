@@ -228,7 +228,15 @@ language = "es"                 # idioma de las páginas (por defecto, desde $LA
 region = "CL"                   # país de las páginas (por defecto, desde $LANG)
 auto_radio = false              # seguir con canciones parecidas al final de la cola
 report_history = false          # agregar lo que escuchas a tu historial
+quality_wifi = "alta"           # calidad con Wi-Fi: alta, normal o ahorro
+quality_mobile = "normal"       # calidad con datos móviles (Android)
+premium_quality = false         # Android: formatos Premium de 256 kbps
 ```
+
+`alta` elige el mejor formato, `normal` hasta 128 kbps y `ahorro` hasta 64
+kbps. La app de Android avisa si estás con Wi-Fi o con datos móviles y usa
+`quality_mobile` con datos; en el escritorio vale `quality_wifi`. El cambio
+se aplica desde la canción siguiente.
 
 Pon `enabled = false` para desactivar el proveedor. Consulta
 [configuration.md](configuration.md#youtube-music) para el resto de opciones.
@@ -249,7 +257,9 @@ Pon `enabled = false` para desactivar el proveedor. Consulta
   yt-dlp resuelve primero cada canción de YouTube sin las cookies (unos 4 s).
   Solo si ese intento falla, o no da audio en 12 s, la pide con la sesión: así
   siguen sonando las canciones con restricción de edad, solo para miembros o
-  solo Premium. Con Premium, el audio puede llegar en la calidad normal. La
-  biblioteca, los me gusta y el inicio siguen usando la sesión.
+  solo Premium. Con Premium, el audio puede llegar en la calidad normal:
+  activa `premium_quality` (Calidad Premium en la app) para pedir cada canción
+  con la sesión y recibir los formatos de 256 kbps, a cambio de un inicio más
+  lento. La biblioteca, los me gusta y el inicio siguen usando la sesión.
 - **Errores**: revisa `~/.config/cliamp-x/cliamp.log`, o arranca con
   `cliamp-x --log-level debug`.

@@ -198,6 +198,14 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # Add the songs you play to your YouTube Music history, which improves
 # your recommendations. Off by default.
 # report_history = false
+# Audio quality of YouTube songs: "alta" (the best format), "normal" (up to
+# 128 kbps) or "ahorro" (up to 64 kbps, saves data). quality_mobile applies
+# while the Android app reports mobile data; quality_wifi everywhere else.
+# quality_wifi = "alta"
+# quality_mobile = "normal"
+# Android only: start yt-dlp with your sign-in, so a YouTube Music Premium
+# account gets its higher quality formats (256 kbps). Songs start slower.
+# premium_quality = false
 
 # SponsorBlock skips the parts of YouTube videos that the community marked:
 # intros, outros, sponsor reads, self-promotion and the non-music parts of

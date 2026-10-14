@@ -136,6 +136,7 @@ func TestYTDLCookielessFirst(t *testing.T) {
 	tests := []struct {
 		name     string
 		android  bool
+		premium  bool
 		signedIn bool
 		mode     string
 		url      string
@@ -150,6 +151,7 @@ func TestYTDLCookielessFirst(t *testing.T) {
 		{name: "android falls back on a hung run", android: true, signedIn: true, mode: "hang", url: music, want: []bool{false, true}},
 		{name: "android signed out runs once", android: true, mode: "ok", url: music, want: []bool{false}},
 		{name: "android other host keeps its cookies", android: true, signedIn: true, mode: "ok", url: cloud, want: []bool{true}},
+		{name: "android premium quality keeps the cookies", android: true, premium: true, signedIn: true, mode: "ok", url: music, want: []bool{true}},
 	}
 	for _, tt := range tests {
 		for _, r := range runs {
@@ -158,6 +160,8 @@ func TestYTDLCookielessFirst(t *testing.T) {
 				first, timeout := ytdlCookielessFirst, ytdlCookielessTimeout
 				ytdlCookielessFirst, ytdlCookielessTimeout = tt.android, 300*time.Millisecond
 				t.Cleanup(func() { ytdlCookielessFirst, ytdlCookielessTimeout = first, timeout })
+				SetYTDLPremium(tt.premium)
+				t.Cleanup(func() { SetYTDLPremium(false) })
 				if tt.signedIn {
 					for _, host := range []string{"youtube.com", "youtu.be", "music.youtube.com", "soundcloud.com"} {
 						ytdlcookies.SetForHost(host, ytdlcookies.FilePrefix+"/cfg/ytmusic_cookies.txt")
@@ -203,5 +207,24 @@ func TestYTDLOutputNoFallbackAfterTheCallerGivesUp(t *testing.T) {
 	}
 	if got := readLines(t, calls); len(got) != 1 || strings.Contains(got[0], "--cookies") {
 		t.Fatalf("yt-dlp runs = %q, want only the cookieless one", got)
+	}
+}
+
+func TestYTDLFormatSpec(t *testing.T) {
+	tests := []struct {
+		kbps int
+		want string
+	}{
+		{0, ytdlFormat},
+		{-5, ytdlFormat},
+		{64, "bestaudio[abr<=?64][protocol=https]/bestaudio[abr<=?64][protocol=http]/" + ytdlFormat},
+		{128, "bestaudio[abr<=?128][protocol=https]/bestaudio[abr<=?128][protocol=http]/" + ytdlFormat},
+	}
+	t.Cleanup(func() { SetYTDLQuality(0) })
+	for _, tt := range tests {
+		SetYTDLQuality(tt.kbps)
+		if got := ytdlFormatSpec(); got != tt.want {
+			t.Errorf("SetYTDLQuality(%d): ytdlFormatSpec() = %q, want %q", tt.kbps, got, tt.want)
+		}
 	}
 }
