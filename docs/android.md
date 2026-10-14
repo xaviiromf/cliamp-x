@@ -45,6 +45,25 @@ visualizer (every mode of the terminal, drawn from the core's own frames), the E
 timer, speed, normalization, crossfade, auto radio, the music folder, the
 battery setting, updates, the yt-dlp update and Modo terminal.
 
+**Ajustes → Apariencia** also sets the look of the app itself:
+
+- **Fuente**: JetBrains Mono Nerd Font (default) and Adwaita Mono are built
+  in. 18 more free monospace fonts download on a tap (Fira Code, Hack,
+  Cascadia Code, Source Code Pro, IBM Plex Mono, Ubuntu Mono, Victor Mono,
+  Space Mono, Monaspace Neon, Commit Mono, Geist Mono, Departure Mono, VT323,
+  Press Start 2P, Terminus, Inconsolata, mononoki, Fantasque Sans Mono). Each
+  comes from its official release or the Google Fonts repository and is
+  checked against a pinned SHA-256 before use. The font applies to the whole
+  interface; the top of the picker previews it. Iosevka is not offered: it
+  ships only as archives of 23 MB or more (99 MB for the plain family), over
+  the 20 MB per-font download cap.
+- **Tamaño del texto**: Pequeño, Normal, Grande or Muy grande, on top of the
+  system font size.
+- **Densidad de las listas**: Compacta, Normal or Amplia row heights (never
+  under 48 dp).
+- **Esquinas**: Cuadradas (the cliamp-x look) or Redondeadas.
+- **Vibración al mantener pulsado**: on or off.
+
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification

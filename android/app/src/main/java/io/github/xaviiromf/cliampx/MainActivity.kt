@@ -25,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.ui.App
 import io.github.xaviiromf.cliampx.ui.CliampTheme
+import io.github.xaviiromf.cliampx.ui.Look
 import io.github.xaviiromf.cliampx.ui.Nav
 import io.github.xaviiromf.cliampx.ui.livePalette
 import com.yausername.youtubedl_android.YoutubeDL
@@ -49,6 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
         // Python is unpacked by the first start of the core.
+        Look.load(this)
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
         setContent {
             val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)

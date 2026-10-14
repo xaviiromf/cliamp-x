@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -167,7 +168,7 @@ fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val px = with(LocalDensity.current) { size.roundToPx() }
     val art = rememberArt(key, px)
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+    Box(modifier.size(size).clip(Look.corner), contentAlignment = Alignment.Center) {
         if (art != null) {
             Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
@@ -194,7 +195,7 @@ fun TrackRow(
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
     Row(
-        modifier.fillMaxWidth().heightIn(min = 64.dp).background(p.bg)
+        modifier.fillMaxWidth().heightIn(min = Look.row(64.dp)).background(p.bg)
             .combinedClickable(
                 onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
                 onClick = onClick,
@@ -248,12 +249,12 @@ fun BracketChip(label: String, on: Boolean, modifier: Modifier = Modifier, @Draw
     }
 }
 
-/** The primary action (§4.4): accent fill, onAccent bold text, square corners. */
+/** The primary action (§4.4): accent fill, onAccent bold text, square corners unless Ajustes rounds them. */
 @Composable
 fun KeyPill(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val p = LocalPalette.current
     Box(
-        modifier.height(48.dp).background(if (enabled) p.accent else p.surfaceHigh).clickable(enabled, onClick = onClick).padding(horizontal = 16.dp),
+        modifier.height(48.dp).background(if (enabled) p.accent else p.surfaceHigh, Look.corner).clickable(enabled, onClick = onClick).padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, color = if (enabled) p.onAccent else p.textSecondary, style = Type.bodyStrong) }
 }
@@ -524,7 +525,7 @@ fun Tile(item: Item, modifier: Modifier = Modifier, width: Dp = 136.dp, onClick:
 @Composable
 fun SpinnerTile(modifier: Modifier = Modifier) {
     val p = LocalPalette.current
-    Box(modifier.size(136.dp).background(p.surface), contentAlignment = Alignment.Center) {
+    Box(modifier.size(136.dp).background(p.surface, Look.corner), contentAlignment = Alignment.Center) {
         Text(spinner(), color = p.accent, style = Type.headline)
     }
 }

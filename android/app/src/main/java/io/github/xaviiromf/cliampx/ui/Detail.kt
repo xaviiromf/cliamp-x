@@ -507,7 +507,7 @@ private fun LazyListScope.numbered(rows: List<Track>, playingPath: String?, play
         val haptic = LocalHapticFeedback.current
         val playing = playingPath == t.path
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).combinedClickable(
+            Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).combinedClickable(
                 onLongClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     Nav.sheet = Sheet.Song(t)

@@ -118,6 +118,7 @@ fun App(firstRun: Boolean) {
                         is Screen.Remixes -> RemixesScreen(screen)
                         is Screen.Settings -> SettingsScreen(screen)
                         Screen.Themes -> ThemesScreen()
+                        Screen.Fonts -> FontsScreen()
                         Screen.Visualizers -> VisualizersScreen()
                         Screen.Eq -> snap?.let { EqPage(it) { Nav.pop() } }
                         Screen.Stats -> StatsScreen()

@@ -1,0 +1,212 @@
+[
+ {
+  "id": "fira_code",
+  "name": "Fira Code",
+  "license": "FiraCode-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/firacode/FiraCode%5Bwght%5D.ttf",
+   "sha256": "9335b082b3c7850d98a64b584f3417f65355f3471278bb5eeb8c6c0e8657aeeb"
+  },
+  "variable": true
+ },
+ {
+  "id": "hack",
+  "name": "Hack",
+  "license": "Hack-MIT.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/source-foundry/Hack/v3.003/build/ttf/Hack-Regular.ttf",
+   "sha256": "15f55cc0c85a2988d2b4b3a8cdb5d77fdfbaf319e1bb5309d725db9818fb7125"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/source-foundry/Hack/v3.003/build/ttf/Hack-Bold.ttf",
+   "sha256": "5bbf531eff7f8a0c2559c9a0656718e2828a012a9b1f60b5f54006d59a4de8d4"
+  }
+ },
+ {
+  "id": "cascadia_code",
+  "name": "Cascadia Code",
+  "license": "CascadiaCode-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/cascadiacode/CascadiaCode%5Bwght%5D.ttf",
+   "sha256": "30f2e14a5c389b346b1fce110c4ddcf0dc5ce8265faf5eca2ab7323f49dba590"
+  },
+  "variable": true
+ },
+ {
+  "id": "source_code_pro",
+  "name": "Source Code Pro",
+  "license": "SourceCodePro-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/sourcecodepro/SourceCodePro%5Bwght%5D.ttf",
+   "sha256": "b400fc584e10aff25d0e775ce181b4fc1c5ea1b5dc37b81aeb2084375b945790"
+  },
+  "variable": true
+ },
+ {
+  "id": "ibm_plex_mono",
+  "name": "IBM Plex Mono",
+  "license": "IBMPlexMono-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/ibmplexmono/IBMPlexMono-Regular.ttf",
+   "sha256": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/ibmplexmono/IBMPlexMono-Bold.ttf",
+   "sha256": "ac27abd6450a64dd94467580a02fe6235156d5b92f2926ebbc8e7489df64e0be"
+  }
+ },
+ {
+  "id": "ubuntu_mono",
+  "name": "Ubuntu Mono",
+  "license": "UbuntuMono-UFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ufl/ubuntumono/UbuntuMono-Regular.ttf",
+   "sha256": "b35dd9d2131d5d83a9b87fe9ad22c6288fa3d17688d43302c14da29812417d63"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ufl/ubuntumono/UbuntuMono-Bold.ttf",
+   "sha256": "11f15c3a6bbd998a8695fdefb3475931c3789aa035d7546f2efe78e83b352f6b"
+  }
+ },
+ {
+  "id": "victor_mono",
+  "name": "Victor Mono",
+  "license": "VictorMono-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/victormono/VictorMono%5Bwght%5D.ttf",
+   "sha256": "6fab3abe37b456f56d180987e04a3a0c326bace2cb825bc638b6be1eb03edf8f"
+  },
+  "variable": true
+ },
+ {
+  "id": "space_mono",
+  "name": "Space Mono",
+  "license": "SpaceMono-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/spacemono/SpaceMono-Regular.ttf",
+   "sha256": "95837e182baeeada83368f7748db28357f0a1b75c6b84ff7065b5edf933c8e18"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/spacemono/SpaceMono-Bold.ttf",
+   "sha256": "405e73d41afb7e5906efce206a326af5c956f38e255f35421c260e861e599c59"
+  }
+ },
+ {
+  "id": "monaspace_neon",
+  "name": "Monaspace Neon",
+  "license": "MonaspaceNeon-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/githubnext/monaspace/v1.400/fonts/Static%20Fonts/Monaspace%20Neon/MonaspaceNeon-Regular.otf",
+   "sha256": "0daf2cd6cbd780b1a9426cb25c17e80f22844051f988a5133ad54b2751b0b8af"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/githubnext/monaspace/v1.400/fonts/Static%20Fonts/Monaspace%20Neon/MonaspaceNeon-Bold.otf",
+   "sha256": "9ff6e131e139c73fe67d1cc045a8a536078fa56cd2c69ee33f0475238a8a9609"
+  }
+ },
+ {
+  "id": "commit_mono",
+  "name": "Commit Mono",
+  "license": "CommitMono-OFL.txt",
+  "regular": {
+   "url": "https://github.com/eigilnikolajsen/commit-mono/releases/download/v1.143/CommitMono-1.143.zip",
+   "sha256": "f7d1f26a7c7554800a996f76f5d706bf0648b936ca2a66b5bc4d46e3a2c49ed0",
+   "entry": "CommitMono-1.143/CommitMono-400-Regular.otf"
+  },
+  "bold": {
+   "url": "https://github.com/eigilnikolajsen/commit-mono/releases/download/v1.143/CommitMono-1.143.zip",
+   "sha256": "f7d1f26a7c7554800a996f76f5d706bf0648b936ca2a66b5bc4d46e3a2c49ed0",
+   "entry": "CommitMono-1.143/CommitMono-700-Regular.otf"
+  }
+ },
+ {
+  "id": "geist_mono",
+  "name": "Geist Mono",
+  "license": "GeistMono-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/geistmono/GeistMono%5Bwght%5D.ttf",
+   "sha256": "d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196"
+  },
+  "variable": true
+ },
+ {
+  "id": "departure_mono",
+  "name": "Departure Mono",
+  "license": "DepartureMono-MIT.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/rektdeckard/departure-mono/v1.500/public/assets/DepartureMono-Regular.otf",
+   "sha256": "4d53f663155cf8bf7ffc8e688776e719625f7bbb80a8d90073438b249261a2e0"
+  }
+ },
+ {
+  "id": "vt323",
+  "name": "VT323",
+  "license": "VT323-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/vt323/VT323-Regular.ttf",
+   "sha256": "cf4de751ada78ceac033dbe16a687742939995b77bc2a052ae17a4957958594d"
+  }
+ },
+ {
+  "id": "press_start_2p",
+  "name": "Press Start 2P",
+  "license": "PressStart2P-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/pressstart2p/PressStart2P-Regular.ttf",
+   "sha256": "034c77f1f05ec89421e4a63f0e3a4ca1ecf852cc6d2bf611f126f275728e017d"
+  }
+ },
+ {
+  "id": "terminus",
+  "name": "Terminus",
+  "license": "Terminus-OFL.txt",
+  "regular": {
+   "url": "https://files.ax86.net/terminus-ttf/files/4.49.3/terminus-ttf-4.49.3.zip",
+   "sha256": "0ead921d98d99a4590ffe6cd66dc037fc0a2ceea1c735d866ba73fe058257577",
+   "entry": "terminus-ttf-4.49.3/TerminusTTF-4.49.3.ttf"
+  },
+  "bold": {
+   "url": "https://files.ax86.net/terminus-ttf/files/4.49.3/terminus-ttf-4.49.3.zip",
+   "sha256": "0ead921d98d99a4590ffe6cd66dc037fc0a2ceea1c735d866ba73fe058257577",
+   "entry": "terminus-ttf-4.49.3/TerminusTTF-Bold-4.49.3.ttf"
+  }
+ },
+ {
+  "id": "inconsolata",
+  "name": "Inconsolata",
+  "license": "Inconsolata-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/google/fonts/e9678a5385322c63730122ba464765baad83cfd8/ofl/inconsolata/Inconsolata%5Bwdth,wght%5D.ttf",
+   "sha256": "23ded25b447074d00659392bf9b1123d89df55cb07b0ad9bfef3366d199b5fcb"
+  },
+  "variable": true
+ },
+ {
+  "id": "mononoki",
+  "name": "mononoki",
+  "license": "Mononoki-OFL.txt",
+  "regular": {
+   "url": "https://raw.githubusercontent.com/madmalik/mononoki/1.6/export/mononoki-Regular.ttf",
+   "sha256": "ecefad2b6deec9ba448ba4635c4a596091b515b5b6e67e67bc0bec0b487868bd"
+  },
+  "bold": {
+   "url": "https://raw.githubusercontent.com/madmalik/mononoki/1.6/export/mononoki-Bold.ttf",
+   "sha256": "cd9f39b5697f9487f1ad2bc976931d55996c56eb6a0984a973875511d99a1ff5"
+  }
+ },
+ {
+  "id": "fantasque_sans_mono",
+  "name": "Fantasque Sans Mono",
+  "license": "FantasqueSansMono-OFL.txt",
+  "regular": {
+   "url": "https://github.com/belluzj/fantasque-sans/releases/download/v1.8.0/FantasqueSansMono-Normal.zip",
+   "sha256": "84be689e231ff773ed9d352e83dccd8151d9e445f1cb0b88cb0e9330fc4d9cfc",
+   "entry": "TTF/FantasqueSansMono-Regular.ttf"
+  },
+  "bold": {
+   "url": "https://github.com/belluzj/fantasque-sans/releases/download/v1.8.0/FantasqueSansMono-Normal.zip",
+   "sha256": "84be689e231ff773ed9d352e83dccd8151d9e445f1cb0b88cb0e9330fc4d9cfc",
+   "entry": "TTF/FantasqueSansMono-Bold.ttf"
+  }
+ }
+]

@@ -244,7 +244,7 @@ private fun ErrorCard(s: Snapshot) {
     val (text, action) = ErrorMap.card(s.errorKind)
     val next = stringResource(R.string.next)
     Column(
-        Modifier.fillMaxSize().border(1.dp, p.divider).padding(16.dp).testTag("error_card"),
+        Modifier.fillMaxSize().border(1.dp, p.divider, Look.corner).padding(16.dp).testTag("error_card"),
         verticalArrangement = Arrangement.Center,
     ) {
         Text("ERR: " + stringResource(R.string.err_play), color = p.error, style = Type.body)
