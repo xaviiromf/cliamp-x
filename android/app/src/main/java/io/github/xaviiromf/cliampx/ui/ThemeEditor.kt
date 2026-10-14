@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
@@ -65,7 +66,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
-import java.util.Locale
 
 /** The seven keys of a theme file (theme/theme.go), in CliampPalette order. */
 val THEME_KEYS = listOf("bg", "accent", "bright_fg", "fg", "green", "yellow", "red")
@@ -256,7 +256,7 @@ fun ThemeEditorScreen() {
                     if (key != 0) {
                         val ratio = contrast(colors[key], colors[0])
                         Text(
-                            stringResource(R.string.editor_contrast, String.format(Locale.getDefault(), "%.1f", ratio)),
+                            stringResource(R.string.editor_contrast, String.format(LocalConfiguration.current.locales[0], "%.1f", ratio)),
                             color = if (ratio < 4.5f) p.error else p.textSecondary, style = Type.label,
                         )
                     }

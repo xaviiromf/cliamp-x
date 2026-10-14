@@ -364,8 +364,8 @@
     <string name="import_file">Importar</string>
     <string name="export_done">Personalización exportada</string>
     <string name="export_failed">No se pudo exportar: %1$s</string>
-    <string name="import_done">Personalización importada: %1$d skins, %2$d temas</string>
-    <string name="import_failed">No se pudo importar: %1$s</string>
+    <string name="import_done">Personalización importada (skins: %1$d, temas: %2$d)</string>
+    <string name="skins_import_failed">No se pudo importar: %1$s</string>
     <string name="theme_editor">Editor de temas</string>
     <string name="theme_dynamic">Dinámico</string>
     <string name="theme_from_cover">Colores de la portada</string>

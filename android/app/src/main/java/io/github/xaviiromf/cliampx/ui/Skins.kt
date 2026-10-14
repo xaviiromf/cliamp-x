@@ -269,7 +269,7 @@ class Personalization(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    app.getString(R.string.import_failed, e.message.orEmpty())
+                    app.getString(R.string.skins_import_failed, e.message.orEmpty())
                 }
                 Toast.makeText(app, msg, Toast.LENGTH_LONG).show()
             }
