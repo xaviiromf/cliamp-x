@@ -39,4 +39,17 @@
     <string name="lastfm_help">Crea una cuenta de API en last.fm/api, pon su clave y su secreto y pulsa Conectar.</string>
     <string name="lastfm_finish_help">Autoriza cliamp-x en el navegador y vuelve aquí para pulsar Ya lo autoricé.</string>
     <string name="save_short">Guardar</string>
+    <string name="share">Compartir</string>
+    <string name="resume_on_connect">Reanudar al conectar auriculares</string>
+    <string name="resume_on_connect_help">Al conectar auriculares con cable, USB o Bluetooth, sigue la canción en pausa.</string>
+    <string name="eq_route">Salida: %1$s. El preset que elijas se recuerda para esta salida.</string>
+    <string name="route_speaker">Altavoz</string>
+    <string name="route_wired">Auriculares con cable</string>
+    <string name="route_usb">USB</string>
+    <string name="route_bt">Bluetooth · %1$s</string>
+    <string name="widget_label">cliamp-x mini</string>
+    <string name="widget_description">La canción que suena, con anterior, pausa y siguiente.</string>
+    <string name="widget_idle">Toca ▶ para reanudar</string>
+    <string name="shortcut_resume">Reanudar</string>
+    <string name="shortcut_liked">Me gusta</string>
 </resources>

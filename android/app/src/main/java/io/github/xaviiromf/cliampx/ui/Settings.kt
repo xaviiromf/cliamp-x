@@ -71,6 +71,7 @@ import io.github.xaviiromf.cliampx.MainActivity
 import io.github.xaviiromf.cliampx.Offline
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
+import io.github.xaviiromf.cliampx.Routes
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Updates
@@ -131,6 +132,7 @@ fun SettingsScreen(screen: Screen.Settings) {
     val ytdlp by Ytdlp.status.collectAsStateWithLifecycle()
     val prefs = remember { Updates.prefs(context) }
     var nightly by remember { mutableStateOf(prefs.getBoolean(Updates.NIGHTLY, false)) }
+    var resumeOnConnect by remember { mutableStateOf(Routes.prefs(context).getBoolean(Routes.RESUME, false)) }
     var optimized by remember { mutableStateOf(false) }
     var music by remember { mutableStateOf(true) }
     val update = remember { UpdateFlow() }
@@ -193,6 +195,11 @@ fun SettingsScreen(screen: Screen.Settings) {
                 Column {
                     SectionRule(stringResource(R.string.set_playback))
                     if ("eq" in ops) SettingRow(stringResource(R.string.eq), eqLabel(s), "set_eq") { Nav.open(Screen.Eq) }
+                    Toggle(stringResource(R.string.resume_on_connect), resumeOnConnect, "set_resume_connect") {
+                        resumeOnConnect = it == 1
+                        Routes.prefs(context).edit { putBoolean(Routes.RESUME, resumeOnConnect) }
+                    }
+                    Help(stringResource(R.string.resume_on_connect_help))
                     SettingRow(stringResource(R.string.speed), speedLabel(s?.speed ?: 1.0), "set_speed") { Nav.sheet = Sheet.Speed }
                     SettingRow(stringResource(R.string.sleep), sleepLabel(s), "set_sleep") { Nav.sheet = Sheet.Sleep }
                     if (settable) {

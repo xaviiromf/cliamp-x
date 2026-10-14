@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
+import io.github.xaviiromf.cliampx.Routes
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.eqDrag
 import io.github.xaviiromf.cliampx.eqGain
@@ -157,6 +158,11 @@ fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
             ) { Remote.fire("settings.set", JSONObject().put("name", "eq_auto").put("value", if (s.eqAuto) 0 else 1)) }
         }
         SectionRule(stringResource(R.string.eq_presets))
+        val route by Routes.current.collectAsStateWithLifecycle()
+        Text(
+            stringResource(R.string.eq_route, routeLabel(route)), Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("eq_route"),
+            color = p.textSecondary, style = Type.label,
+        )
         LoadState(presets, retryPresets)
         FlowRow(Modifier.padding(horizontal = 12.dp)) {
             for (name in (presets as? Load.Done)?.value.orEmpty()) {
@@ -169,6 +175,15 @@ fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
             }
         }
     }
+}
+
+/** An output's name: Altavoz, Auriculares con cable, USB or Bluetooth · its device. */
+@Composable
+private fun routeLabel(route: String) = when {
+    route.startsWith("bt:") -> stringResource(R.string.route_bt, route.removePrefix("bt:"))
+    route == "wired" -> stringResource(R.string.route_wired)
+    route == "usb" -> stringResource(R.string.route_usb)
+    else -> stringResource(R.string.route_speaker)
 }
 
 /** A row of ten labels under the columns. */

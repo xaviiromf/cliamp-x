@@ -1,5 +1,6 @@
 package io.github.xaviiromf.cliampx
 
+import android.media.AudioDeviceInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,5 +60,62 @@ class IntegrationsTest {
         )) {
             assertEquals(c.toString(), c.due, Offline.cacheDue(c.on, c.wifiOnly, c.net, c.last, c.now))
         }
+    }
+
+    @Test
+    fun routePick() {
+        val bt = AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+        val wired = AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+        val speaker = AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        for ((outputs, want) in listOf(
+            emptyList<Pair<Int, String>>() to "speaker",
+            listOf(speaker to "SM-A556E") to "speaker",
+            listOf(speaker to "", wired to "") to "wired",
+            listOf(speaker to "", wired to "", bt to " Galaxy Buds2 ") to "bt:Galaxy Buds2",
+            listOf(speaker to "", AudioDeviceInfo.TYPE_USB_HEADSET to "") to "usb",
+            listOf(AudioDeviceInfo.TYPE_BLUETOOTH_SCO to "Buds", speaker to "") to "speaker", // calls only
+        )) {
+            assertEquals(outputs.toString(), want, Routes.pick(outputs))
+        }
+        assertTrue(Routes.headphones(bt))
+        assertFalse(Routes.headphones(speaker))
+    }
+
+    @Test
+    fun eqStep() {
+        data class Case(val route: String, val synced: String?, val preset: String, val auto: Boolean, val saved: String?, val want: Routes.EqStep)
+        for (c in listOf(
+            Case("bt:Buds", "speaker", "Flat", false, "Bass", Routes.EqStep(apply = "Bass")), // new output with its own preset
+            Case("bt:Buds", "speaker", "Flat", false, null, Routes.EqStep()), // new output, nothing saved: keep
+            Case("bt:Buds", "speaker", "Bass", false, "Bass", Routes.EqStep()), // already on it
+            Case("bt:Buds", null, "Flat", true, "Bass", Routes.EqStep()), // the EQ by genre picks
+            Case("speaker", "speaker", "Rock", false, "Flat", Routes.EqStep(save = true)), // the user picked one
+            Case("speaker", "speaker", "Rock", false, "Rock", Routes.EqStep()),
+            Case("speaker", "speaker", "Custom", false, "Flat", Routes.EqStep()),
+            Case("speaker", "speaker", "Rock", true, null, Routes.EqStep()),
+        )) {
+            assertEquals(c.toString(), c.want, Routes.eqStep(c.route, c.synced, c.preset, c.auto, c.saved))
+        }
+    }
+
+    @Test
+    fun shareLinks() {
+        fun track(path: String) = Track("{}", path, "t", "a", "", "", 0, emptyMap())
+        for ((path, want) in listOf(
+            "https://music.youtube.com/watch?v=dQw4w9WgXcQ" to "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1" to "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+            "/storage/emulated/0/Music/a.mp3" to null,
+            "https://example.com/watch?v=dQw4w9WgXcQ" to null,
+            "https://music.youtube.com/watch?v=short" to null,
+        )) {
+            assertEquals(path, want, shareUrl(track(path)))
+        }
+    }
+
+    @Test
+    fun autoParent() {
+        assertEquals("home/2", Auto.parent("home/2/5"))
+        assertEquals("fav", Auto.parent("fav/3"))
+        assertEquals(Auto.ROOT, Auto.parent("home"))
     }
 }

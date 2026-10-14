@@ -104,6 +104,31 @@ and on the lock screen. If One UI or another system stops it after a while,
 open **Ajustes → Batería** and let cliamp-x run unrestricted (on Samsung: add
 it to "Apps que nunca se suspenden").
 
+**Reanudar al conectar auriculares** (Ajustes → Reproducción, off by default)
+plays the paused song again when wired, USB or Bluetooth headphones connect.
+The equalizer remembers the preset you pick for each output (the speaker,
+wired headphones, USB, and each Bluetooth device by name) and switches to it
+when that output connects; the EQ screen names the current output. The
+automatic EQ by genre and a Personalizado curve are not remembered.
+
+## Phone and car integrations
+
+- **Widget:** a 4×1 mini player for the home screen with the cover, the song
+  and its artist, and previous, play or pause and next, in the theme's
+  colors. Tap the song to open the player. With cliamp-x closed, play starts
+  it and resumes the last queue.
+- **Quick Settings tile:** play or pause, lit while a song plays. Add it from
+  the edit view of the Quick Settings panel.
+- **Launcher shortcuts:** long-press the icon for **Reanudar**, **Buscar** and
+  **Me gusta**.
+- **Compartir:** in a YouTube Music song's menu and in the player's ⋯ menu,
+  shares the song's music.youtube.com link.
+- **Android Auto:** cliamp-x shows as a media app with Inicio (one folder per
+  shelf), Biblioteca (your lists), Canciones que te gustan and Escuchado
+  recientemente. Voice search ("Ok Google, pon … en cliamp-x") plays the songs
+  it finds. Only Android Auto, the Google app and the system media controls
+  may browse your library.
+
 ## Updates
 
 **Ajustes → Buscar actualizaciones** checks the GitHub releases (channel

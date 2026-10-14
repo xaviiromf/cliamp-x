@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcuts: MainActivity reads the action (MainActivity.shortcut). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:icon="@drawable/ic_shortcut_resume"
+        android:shortcutId="resume"
+        android:shortcutShortLabel="@string/shortcut_resume">
+        <intent
+            android:action="io.github.xaviiromf.cliampx.RESUME"
+            android:targetClass="io.github.xaviiromf.cliampx.MainActivity"
+            android:targetPackage="io.github.xaviiromf.cliampx" />
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutShortLabel="@string/tab_search">
+        <intent
+            android:action="io.github.xaviiromf.cliampx.SEARCH"
+            android:targetClass="io.github.xaviiromf.cliampx.MainActivity"
+            android:targetPackage="io.github.xaviiromf.cliampx" />
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_shortcut_liked"
+        android:shortcutId="liked"
+        android:shortcutShortLabel="@string/shortcut_liked">
+        <intent
+            android:action="io.github.xaviiromf.cliampx.LIKED"
+            android:targetClass="io.github.xaviiromf.cliampx.MainActivity"
+            android:targetPackage="io.github.xaviiromf.cliampx" />
+    </shortcut>
+</shortcuts>

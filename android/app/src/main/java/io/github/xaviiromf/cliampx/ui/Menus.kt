@@ -70,6 +70,7 @@ import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Track
+import io.github.xaviiromf.cliampx.shareUrl
 import io.github.xaviiromf.cliampx.speedLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -230,6 +231,7 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
             close()
         }
     }
+    ShareRow(track, close)
     if ("taste.rate" in ops) RateRows(Item(Kind.SONG, track.path, track.name, track.artist, track.art, track), close)
     if (sheet.list != null && "playlist.remove" in ops) {
         MenuRow("✗", stringResource(R.string.remove_from_list), "menu_remove_list", LocalPalette.current.error) {
@@ -485,12 +487,27 @@ private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     s?.track?.let {
         SongHeader(it)
         LikeRow(it, close)
+        ShareRow(it, close)
     }
     MenuRow("×", stringResource(R.string.speed_more), "menu_speed") { Nav.sheet = Sheet.Speed }
     MenuRow("", stringResource(R.string.sleep_more), "menu_sleep", icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }
     MenuRow("", stringResource(R.string.terminal), "menu_terminal", icon = R.drawable.ic_terminal) {
         close()
         context.startActivity(Intent(context, TerminalActivity::class.java))
+    }
+}
+
+/** Compartir: a YouTube Music song's link to the share sheet; nothing for a local file or a stream. */
+@Composable
+private fun ShareRow(track: Track, close: () -> Unit) {
+    val context = LocalContext.current
+    val url = shareUrl(track) ?: return
+    val title = stringResource(R.string.share)
+    MenuRow("↗", title, "menu_share") {
+        val text = listOf(track.name, track.artist).filter { it.isNotEmpty() }.joinToString(" · ") + "\n" + url
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text).putExtra(Intent.EXTRA_TITLE, track.name)
+        context.startActivity(Intent.createChooser(send, title))
+        close()
     }
 }
 
