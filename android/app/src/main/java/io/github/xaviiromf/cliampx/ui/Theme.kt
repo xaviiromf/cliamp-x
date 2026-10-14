@@ -45,7 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.ThemeInfo
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.map as mapFlow // aliased: lint takes the List.map calls above for Flow.map
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Typography
@@ -210,7 +210,7 @@ fun SheetBars() {
 /** The core's live theme, glassy over a background: every window of the app draws in it. */
 @Composable
 fun LiveTheme(content: @Composable () -> Unit) {
-    val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
+    val theme by remember { Remote.state.mapFlow { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
     // A background shows through the bars and cards.
     val palette = livePalette(theme).let { if (Looks.background == Background.Solid) it else it.copy(glass = 0.6f) }
     CliampTheme(palette, content)

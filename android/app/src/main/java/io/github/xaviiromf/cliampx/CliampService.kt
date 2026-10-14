@@ -33,6 +33,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.media.AudioAttributesCompat
 import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
@@ -313,7 +314,7 @@ class CliampService : Service(), TerminalSessionClient {
         if (art != null || artUrl.isNotEmpty() || snap?.track == null) return art
         val colors = themeColors()
         themeArt?.takeIf { it.first == colors }?.let { return it.second }
-        val bitmap = Bitmap.createBitmap(THEME_ART_PX, THEME_ART_PX, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(THEME_ART_PX, THEME_ART_PX)
         val canvas = android.graphics.Canvas(bitmap)
         canvas.drawColor(colors.first)
         ContextCompat.getDrawable(this, R.drawable.ic_glyph)?.mutate()?.apply {
