@@ -527,7 +527,8 @@ fun ThemesScreen() {
                 }
             }
             if (load !is Load.Done) item(key = "state") { LoadState(load, retry) }
-            itemsIndexed((load as? Load.Done)?.value.orEmpty(), key = { _, t -> t.name }) { _, t ->
+            // Prefixed so a user theme named "dynamic" or "state" cannot reuse a fixed item key (duplicate keys crash).
+            itemsIndexed((load as? Load.Done)?.value.orEmpty(), key = { _, t -> "t:" + t.name }) { _, t ->
                 val on = t.name == current
                 // The active theme shows the colors on screen: for cover, the ones of this song's cover.
                 val colors = paletteOf(if (on) s?.theme ?: t else t).let { listOf(it.bg, it.accent, it.brightFg, it.fg, it.green, it.yellow, it.red) }
