@@ -150,6 +150,11 @@ type RuntimeSnapshot struct {
 	QualityMobile  string `json:"quality_mobile,omitempty"`
 	Network        string `json:"network,omitempty"`
 	PremiumQuality bool   `json:"premium_quality,omitempty"`
+	// The source of the playing track: its codec, bitrate in kbps and
+	// sample rate in Hz, each left out while unknown.
+	AudioCodec string `json:"audio_codec,omitempty"`
+	AudioKbps  int    `json:"audio_kbps,omitempty"`
+	AudioRate  int    `json:"audio_rate,omitempty"`
 }
 
 // NoticeInfo is the status line text and its kind: activity, success,

@@ -77,6 +77,7 @@ type ipcRuntimeFingerprint struct {
 	crossfade    time.Duration
 	eqAuto       bool
 	ytQuality    ytQuality
+	audio        player.AudioFormat
 	themeBG      string
 	themeAccent  string
 }
@@ -906,6 +907,8 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 			info.StreamTitle = m.streamTitle
 		}
 		snapshot.Track = &info
+		audio := m.playingAudioFormat()
+		snapshot.AudioCodec, snapshot.AudioKbps, snapshot.AudioRate = audio.Codec, audio.Kbps, audio.Rate
 	}
 	snapshot.PlaybackDetached = m.playbackDetached
 	position, duration := m.playbackClock()
@@ -1063,6 +1066,7 @@ func (m *Model) runtimeFingerprint() ipcRuntimeFingerprint {
 	fingerprint.crossfade = m.crossfade
 	fingerprint.eqAuto = m.eqAuto
 	fingerprint.ytQuality = m.ytQuality
+	fingerprint.audio = m.playingAudioFormat()
 	palette := m.themePalette()
 	fingerprint.themeBG, fingerprint.themeAccent = palette.BG, palette.Accent
 	return fingerprint

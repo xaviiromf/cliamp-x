@@ -2,6 +2,11 @@ package player
 
 import (
 	"context"
+	"math"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -95,4 +100,80 @@ func (p *Player) pollStreamMetadata(ctx context.Context, fetch func(context.Cont
 		case <-ticker.C:
 		}
 	}
+}
+
+// AudioFormat describes the source of the playing track: its codec, its
+// bitrate in kbps and its sample rate in Hz. A zero field is unknown.
+type AudioFormat struct {
+	Codec string
+	Kbps  int
+	Rate  int
+}
+
+// AudioFormat returns the format of the playing track's source.
+func (p *Player) AudioFormat() AudioFormat {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.current == nil {
+		return AudioFormat{}
+	}
+	return p.current.audio
+}
+
+// ytdlFormatTemplate is the --print-to-file template that records the format
+// yt-dlp picked. parseYTDLFormat reads it.
+const ytdlFormatTemplate = "before_dl:%(acodec)s %(abr)s %(asr)s"
+
+// parseYTDLFormat reads a line of ytdlFormatTemplate, such as
+// "opus 129.5 48000". yt-dlp prints NA or none for a field it does not know.
+func parseYTDLFormat(line string) AudioFormat {
+	var f AudioFormat
+	fields := strings.Fields(line)
+	if len(fields) != 3 {
+		return f
+	}
+	if c := strings.ToLower(fields[0]); c != "na" && c != "none" {
+		// mp4a.40.2 is AAC-LC, mp4a.40.5 HE-AAC.
+		if strings.HasPrefix(c, "mp4a") {
+			c = "aac"
+		}
+		f.Codec = c
+	}
+	if v, err := strconv.ParseFloat(fields[1], 64); err == nil && v > 0 {
+		f.Kbps = int(math.Round(v))
+	}
+	if v, err := strconv.Atoi(fields[2]); err == nil && v > 0 {
+		f.Rate = v
+	}
+	return f
+}
+
+// localCodecs names the codec of each local file extension that is not
+// itself the codec's name.
+var localCodecs = map[string]string{
+	".m4a": "aac", ".m4b": "aac", ".mp4": "aac", ".aacp": "aac",
+	".ogg": "vorbis", ".oga": "vorbis", ".webm": "opus", ".wav": "pcm",
+}
+
+// localAudioFormat describes the local file at path that tp plays: the codec
+// from its extension, its mean bitrate from its size, and the sample rate of
+// a native decoder. ffmpeg decodes to the output rate, so its source rate
+// stays unknown.
+func localAudioFormat(path string, tp *trackPipeline) AudioFormat {
+	ext := strings.ToLower(filepath.Ext(path))
+	f := AudioFormat{Codec: strings.TrimPrefix(ext, ".")}
+	if c, ok := localCodecs[ext]; ok {
+		f.Codec = c
+	}
+	if _, ff := tp.decoder.(*localFFmpegStreamer); !ff {
+		f.Rate = int(tp.format.SampleRate)
+	}
+	dur := tp.knownDuration
+	if n := tp.decoder.Len(); dur <= 0 && n > 0 && tp.format.SampleRate > 0 {
+		dur = tp.format.SampleRate.D(n)
+	}
+	if info, err := os.Stat(path); err == nil && dur >= time.Second {
+		f.Kbps = int(math.Round(float64(info.Size()) * 8 / dur.Seconds() / 1000))
+	}
+	return f
 }

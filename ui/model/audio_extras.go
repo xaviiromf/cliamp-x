@@ -18,6 +18,20 @@ type crossfader interface {
 	SetCrossfade(d time.Duration)
 }
 
+// audioFormatter reports the codec, bitrate and rate of the playing source.
+type audioFormatter interface {
+	AudioFormat() player.AudioFormat
+}
+
+// playingAudioFormat is the format of the playing source, or zero when the
+// engine does not know it.
+func (m *Model) playingAudioFormat() player.AudioFormat {
+	if f, ok := m.player.(audioFormatter); ok {
+		return f.AudioFormat()
+	}
+	return player.AudioFormat{}
+}
+
 type offsetPreloader interface {
 	PreloadAtForGeneration(path string, knownDuration, offset time.Duration, generation uint64) error
 }

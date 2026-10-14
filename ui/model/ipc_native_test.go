@@ -37,8 +37,11 @@ import (
 // player.
 type normalizingEngine struct {
 	playbackFakeEngine
-	mode player.NormalizeMode
+	mode  player.NormalizeMode
+	audio player.AudioFormat
 }
+
+func (e *normalizingEngine) AudioFormat() player.AudioFormat { return e.audio }
 
 func (e *normalizingEngine) SetNormalize(mode player.NormalizeMode, _ float64) { e.mode = mode }
 func (e *normalizingEngine) Normalize() (player.NormalizeMode, float64)        { return e.mode, 0 }
@@ -118,6 +121,20 @@ func TestNativeSnapshotFields(t *testing.T) {
 		{name: "normalize", set: func(_ *Model, e *normalizingEngine) { e.mode = player.NormalizeAlbum }, want: map[string]any{"normalize": "album"}},
 		{name: "crossfade", set: func(m *Model, _ *normalizingEngine) { m.crossfade = 4 * time.Second }, want: map[string]any{"crossfade": 4.0}},
 		{name: "auto EQ", set: func(m *Model, _ *normalizingEngine) { m.eqAuto = true }, want: map[string]any{"eq_auto": true}},
+		{
+			name: "audio format",
+			set: func(_ *Model, e *normalizingEngine) {
+				e.audio = player.AudioFormat{Codec: "opus", Kbps: 130, Rate: 48000}
+			},
+			want: map[string]any{"audio_codec": "opus", "audio_kbps": 130.0, "audio_rate": 48000.0},
+		},
+		{
+			name: "quality",
+			set: func(m *Model, _ *normalizingEngine) {
+				m.ytQuality = ytQuality{wifi: "normal", mobile: "ahorro", network: "mobile", premium: true}
+			},
+			want: map[string]any{"quality_wifi": "normal", "quality_mobile": "ahorro", "network": "mobile", "premium_quality": true},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeOff}

@@ -114,6 +114,7 @@ false, zero or empty.
 | `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
 | `network` | The network that the app last reported: `wifi` or `mobile` |
 | `premium_quality` | yt-dlp runs with the sign-in from the first try (Android) |
+| `audio_codec`, `audio_kbps`, `audio_rate` | The source of the playing track: its codec (such as `opus`, `aac`, `mp3` or `flac`), its bitrate in kbps and its sample rate in Hz. A YouTube song reports the format that yt-dlp picked. A local file reports its codec from the extension and its mean bitrate; its rate only when cliamp-x decodes it without ffmpeg. Each one is left out while unknown |
 
 `theme` holds the colors on screen. With the cover theme, they are the
 colors of the cover it shows, or of the cover it blends to, under the name

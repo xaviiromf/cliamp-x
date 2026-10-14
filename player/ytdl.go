@@ -165,6 +165,7 @@ type ytdlPipeStreamer struct {
 	ffmpegErr  <-chan error  // ffmpeg exit error from monitoring goroutine
 	ytdlDone   <-chan struct{}
 	ffmpegDone <-chan struct{}
+	formatPath string // where yt-dlp prints the format it picked, or ""
 	pcmBuf     []byte
 	f32        bool // true = f32le, false = s16le
 	closeOnce  sync.Once
@@ -251,6 +252,9 @@ func (y *ytdlPipeStreamer) Close() error {
 		}
 		y.pipe.Close()
 		y.relay.Close()
+		if y.formatPath != "" {
+			_ = os.Remove(y.formatPath)
+		}
 		// The monitor goroutines own Wait. Killing both children and waiting
 		// for their done signals guarantees Close does not leave zombies.
 		if y.ytdlDone != nil {
@@ -261,6 +265,19 @@ func (y *ytdlPipeStreamer) Close() error {
 		}
 	})
 	return nil
+}
+
+// pickedFormat reads the format that yt-dlp printed before its download,
+// which the first audio byte follows. It is zero when yt-dlp printed none.
+func (y *ytdlPipeStreamer) pickedFormat() AudioFormat {
+	if y.formatPath == "" {
+		return AudioFormat{}
+	}
+	data, err := os.ReadFile(y.formatPath)
+	if err != nil {
+		return AudioFormat{}
+	}
+	return parseYTDLFormat(string(data))
 }
 
 // monitorExit waits for cmd to exit and reports the result on a buffered
@@ -350,6 +367,19 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		"--socket-timeout", "15",
 		"-o", "-",
 	}
+	// yt-dlp names the format it picked in a file, for the now-playing
+	// format line; stdout carries the audio.
+	formatPath := ""
+	removeFormat := func() {
+		if formatPath != "" {
+			_ = os.Remove(formatPath)
+		}
+	}
+	if f, err := os.CreateTemp("", "cliamp-x-format-*"); err == nil {
+		formatPath = f.Name()
+		f.Close()
+		ytdlArgs = append(ytdlArgs, "--print-to-file", ytdlFormatTemplate, formatPath)
+	}
 	if cookies {
 		ytdlArgs = appendYTDLCookieArgs(ytdlArgs, pageURL)
 	}
@@ -366,6 +396,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		pr.Close()
 		pw.Close()
 		closeRelayPipes()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("yt-dlp start: %w", err)
 	}
 
@@ -393,6 +424,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("os.Pipe: %w", err)
 	}
 	ffmpegCmd.Stdout = pcmW
@@ -404,6 +436,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		closeRelayPipes()
 		ytdlCmd.Process.Kill()
 		ytdlCmd.Wait()
+		removeFormat()
 		return nil, beep.Format{}, fmt.Errorf("ffmpeg start: %w", err)
 	}
 
@@ -439,6 +472,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 		ffmpegErr:  ffmpegErrCh,
 		ytdlDone:   ytdlDone,
 		ffmpegDone: ffmpegDone,
+		formatPath: formatPath,
 		pipeReport: pipeReport{state: newPipeStreamState(0)},
 		f32:        bitDepth == 32,
 	}, format, nil
@@ -496,6 +530,7 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			path:         pageURL,
 			ytdlSeek:     true,
 			streamOffset: time.Duration(startSec) * time.Second,
+			audio:        decoder.pickedFormat(),
 		}, true), nil
 	}
 }

@@ -644,3 +644,17 @@ func TestBuildSourcePlaysLocalCopy(t *testing.T) {
 		t.Fatalf("pipeline = ytdl %v path %q seekable %v; want the seekable local file under the page's identity", tp.ytdlSeek, tp.path, tp.seekable)
 	}
 }
+
+// A local file reports its codec from the extension, its mean bitrate from
+// its size and, through a native decoder, its sample rate.
+func TestLocalAudioFormat(t *testing.T) {
+	p := &Player{sr: beep.SampleRate(48000), bitDepth: 16, resampleQuality: 1}
+	tp, err := p.buildSource(filepath.Join("testdata", "cliamp_whips_terminal_ass.mp3"), 0, 0, false)
+	if err != nil {
+		t.Fatalf("buildSource() error = %v", err)
+	}
+	defer tp.close()
+	if got := tp.audio; got.Codec != "mp3" || got.Rate != 44100 || got.Kbps < 165 || got.Kbps > 185 {
+		t.Errorf("audio = %+v, want mp3 at 44100 Hz and about 175 kbps, as ffprobe reads it", got)
+	}
+}
