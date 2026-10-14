@@ -674,6 +674,9 @@ object Remote {
 
     fun invalidate() = synchronized(cache) { cache.clear() }
 
+    /** Drops the value cached under key, so its next read loads it again. */
+    fun forget(key: String) = synchronized(cache) { cache.remove(key) }
+
     /** Clears the cache and makes the screens on show load again. */
     fun reload() {
         invalidate()

@@ -126,6 +126,9 @@ fun SheetHost(s: Snapshot?) {
                     Sheet.Sleep -> SleepSheet(s, close)
                     Sheet.Normalize -> NormalizeSheet(s, close)
                     Sheet.Crossfade -> CrossfadeSheet(s, close)
+                    is Sheet.SkinName -> SkinNameSheet(sheet, close)
+                    is Sheet.SkinActions -> SkinActionsSheet(sheet, close)
+                    is Sheet.ThemeName -> ThemeNameSheet(sheet, close)
                     Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
                 }
             }
@@ -135,7 +138,7 @@ fun SheetHost(s: Snapshot?) {
 
 /** An action row, 56 dp or taller as the label wraps: a one-cell glyph (text or vector) and the label. */
 @Composable
-private fun MenuRow(glyph: String, label: String, tag: String, glyphColor: Color = LocalPalette.current.accent, @DrawableRes icon: Int? = null, onClick: () -> Unit) {
+internal fun MenuRow(glyph: String, label: String, tag: String, glyphColor: Color = LocalPalette.current.accent, @DrawableRes icon: Int? = null, onClick: () -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
@@ -412,13 +415,15 @@ private fun Rename(item: Item, close: () -> Unit) {
  * the field, since the sheet covers the status line (§2.10).
  */
 @Composable
-private fun NameSheet(
+internal fun NameSheet(
     title: String,
     initial: String,
     confirm: String,
     close: () -> Unit,
     taken: List<String>?,
     target: @Composable () -> Unit = {},
+    /** Whether confirming initial unchanged is allowed, as saving a theme over itself. */
+    allowSame: Boolean = false,
     done: (name: String, failed: (String) -> Unit) -> Unit,
 ) {
     val p = LocalPalette.current
@@ -427,7 +432,7 @@ private fun NameSheet(
     var error by remember(taken == null) { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    val ok = name.text.isNotBlank() && name.text.trim() != initial
+    val ok = name.text.isNotBlank() && (allowSame || name.text.trim() != initial)
     val submit = {
         if (ok) {
             val n = name.text.trim()
@@ -541,7 +546,7 @@ private fun QueueMore() {
 
 /** A confirmation (§3.12): the question, the action in the error color, and Cancelar. */
 @Composable
-private fun Confirm(question: String, action: String, close: () -> Unit, run: () -> Unit) {
+internal fun Confirm(question: String, action: String, close: () -> Unit, run: () -> Unit) {
     val p = LocalPalette.current
     Text(question, Modifier.padding(16.dp), color = p.textPrimary, style = Type.body)
     Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

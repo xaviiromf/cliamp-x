@@ -29,6 +29,7 @@ import io.github.xaviiromf.cliampx.ui.CliampTheme
 import io.github.xaviiromf.cliampx.ui.Look
 import io.github.xaviiromf.cliampx.ui.Looks
 import io.github.xaviiromf.cliampx.ui.Nav
+import io.github.xaviiromf.cliampx.ui.Skins
 import io.github.xaviiromf.cliampx.ui.livePalette
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
         Look.load(this)
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
         Looks.load(this)
+        Skins.load(this)
         setContent {
             val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
             // A background shows through the bars and cards.

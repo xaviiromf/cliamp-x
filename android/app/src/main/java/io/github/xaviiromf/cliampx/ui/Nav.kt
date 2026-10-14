@@ -42,6 +42,8 @@ sealed interface Screen {
     /** Ajustes; install checks for an app update and installs it (the Inicio banner's [ Instalar ]). */
     data class Settings(val install: Boolean = false) : Screen
     data object Themes : Screen
+    data object ThemeEditor : Screen
+    data object Skins : Screen
     data object Fonts : Screen
     data object Visualizers : Screen
     data object Backgrounds : Screen
@@ -101,6 +103,13 @@ sealed interface Sheet {
     data object Normalize : Sheet
     data object Crossfade : Sheet
     data object ClearQueue : Sheet
+
+    /** Guardar el actual como skin… (old null), or Renombrar… the user skin old. */
+    data class SkinName(val old: String?) : Sheet
+    data class SkinActions(val name: String) : Sheet
+
+    /** The theme editor's Guardar como…: its seven colors, and the name it offers. */
+    data class ThemeName(val colors: List<String>, val initial: String) : Sheet
 }
 
 /**

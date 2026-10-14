@@ -80,6 +80,31 @@ screen, about half a CPU core on a Galaxy A55 while the app is in view. **Animac
 Lenta, Normal or Sin animación for the screen, player page, artwork and
 cover-palette transitions; Sin animación also holds the background still.
 
+**Skins** bundle a theme, a font, a background with its two intensities and a
+visualizer mode, applied with one tap: CRT ámbar, Synthwave, Matrix, Game
+Boy, Winamp clásico, Nord sereno, Papel claro and Vaporwave are built in.
+**Guardar el actual como skin…** keeps the look on screen as a skin of yours;
+its ⋮ renames or deletes it. A skin with a font not downloaded yet downloads
+the font and uses it when it is here. **Exportar** writes all the
+personalization (the look on screen, your skins and themes, text size,
+density, corners, vibration and animations) to one JSON file through the
+system file picker; **Importar** reads it back (1 MB at most; an entry that
+is not valid is left out).
+
+**Tema** also has:
+
+- **Editor de temas**: the seven colors of the theme on screen (bg, accent,
+  bright_fg, fg, green, yellow, red) with a hue, saturation and brightness
+  picker, a hex field, the contrast of each color with the background, and a
+  live preview. **Guardar como…** writes `<name>.toml` to the core's themes
+  directory, the same format as `~/.config/cliamp-x/themes/` on the desktop,
+  and uses it.
+- **Colores de la portada**: the core's cover theme, from the artwork of the
+  song playing.
+- **Colores del fondo de pantalla**: a dark theme made from the system
+  wallpaper's colors, saved as the `wallpaper` theme;
+  every text color keeps 4.5:1 contrast with its background.
+
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification

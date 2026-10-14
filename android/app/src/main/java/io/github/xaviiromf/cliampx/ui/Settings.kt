@@ -84,7 +84,7 @@ import org.json.JSONObject
 import java.io.File
 
 /** The name the core gives its terminal-colors theme, which Android draws as winamp (§4.1). */
-private const val DEFAULT_THEME = "Default - Terminal colors"
+internal const val DEFAULT_THEME = "Default - Terminal colors"
 
 /** The label of each built-in visualizer mode (§0); a Lua mode shows its name only. */
 private val VIS_LABELS = mapOf(
@@ -167,6 +167,9 @@ fun SettingsScreen(screen: Screen.Settings) {
             item(key = "look") {
                 Column {
                     SectionRule(stringResource(R.string.set_look))
+                    SettingRow(stringResource(R.string.skins), Skins.BUILT_IN.find { Skins.isOn(it, s) }?.let { stringResource(it.label) } ?: Skins.user.find { Skins.isOn(it, s) }?.name.orEmpty(), "set_skins") {
+                        Nav.open(Screen.Skins)
+                    }
                     if ("theme" in ops) SettingRow(stringResource(R.string.theme), themeLabel(s?.theme?.name.orEmpty()), "set_theme") { Nav.open(Screen.Themes) }
                     if ("vis" in ops) SettingRow(stringResource(R.string.visualizer), s?.visualizer.orEmpty(), "set_vis") { Nav.open(Screen.Visualizers) }
                     SettingRow(stringResource(R.string.font), Fonts.name(context, Look.font), "set_font") { Nav.open(Screen.Fonts) }
@@ -367,7 +370,7 @@ private fun Choice(label: String, options: List<Int>, selected: Int, tag: String
 
 /** A dim explanation under a setting. */
 @Composable
-private fun Help(text: String) {
+internal fun Help(text: String) {
     Text(text, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), color = LocalPalette.current.textSecondary, style = Type.label)
 }
 
@@ -507,14 +510,25 @@ private fun UpdateStatus(update: UpdateFlow, scope: kotlinx.coroutines.Coroutine
 @Composable
 fun ThemesScreen() {
     val p = LocalPalette.current
+    val context = LocalContext.current
     val s by Remote.state.collectAsStateWithLifecycle()
     val (load, retry) = rememberLoad("themes") { Remote.themes() }
     val current = s?.theme?.name.orEmpty().ifEmpty { DEFAULT_THEME }
     Column(Modifier.fillMaxSize()) {
         TopBar(stringResource(R.string.theme))
         LazyColumn(Modifier.fillMaxSize()) {
+            item(key = "dynamic") {
+                Column {
+                    SettingRow(stringResource(R.string.theme_editor), "", "theme_edit") { Nav.open(Screen.ThemeEditor) }
+                    SectionRule(stringResource(R.string.theme_dynamic))
+                    SettingRow(stringResource(R.string.theme_from_cover), "", "theme_dyn_cover") { Remote.fire("theme", JSONObject().put("name", "cover")) }
+                    SettingRow(stringResource(R.string.theme_from_wallpaper), "", "theme_dyn_wallpaper") { useWallpaperTheme(context) }
+                    SectionRule(stringResource(R.string.themes_all))
+                }
+            }
             if (load !is Load.Done) item(key = "state") { LoadState(load, retry) }
-            itemsIndexed((load as? Load.Done)?.value.orEmpty(), key = { _, t -> t.name }) { _, t ->
+            // Prefixed so a user theme named "dynamic" or "state" cannot reuse a fixed item key (duplicate keys crash).
+            itemsIndexed((load as? Load.Done)?.value.orEmpty(), key = { _, t -> "t:" + t.name }) { _, t ->
                 val on = t.name == current
                 // The active theme shows the colors on screen: for cover, the ones of this song's cover.
                 val colors = paletteOf(if (on) s?.theme ?: t else t).let { listOf(it.bg, it.accent, it.brightFg, it.fg, it.green, it.yellow, it.red) }
@@ -528,6 +542,7 @@ fun ThemesScreen() {
                         when (t.name) {
                             DEFAULT_THEME -> stringResource(R.string.theme_default)
                             "cover" -> stringResource(R.string.theme_cover)
+                            "wallpaper" -> stringResource(R.string.theme_wallpaper)
                             else -> t.name
                         },
                         Modifier.weight(1f), color = if (on) p.accent else p.textPrimary, style = Type.body.bold(on), maxLines = 1, overflow = TextOverflow.Ellipsis,
