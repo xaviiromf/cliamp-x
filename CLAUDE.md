@@ -52,7 +52,8 @@ Each directory below is a Go package:
 | `internal/sponsorblock/` | SponsorBlock segment lookups (hash-prefix privacy mode) |
 | `internal/loudstore/` | Remembered loudness per track for normalization, with ReplayGain tags for local files |
 | `internal/offline/` | Offline downloads (yt-dlp + ffmpeg tags and cover) and the manifest that lets the player play a downloaded copy |
-| `internal/stats/` | The play log and its summary for the statistics screen |
+| `internal/stats/` | The play log, its summary for the statistics screen, and `Wrapped`, the calendar year for `stats wrapped` |
+| `internal/scrobble/` | ListenBrainz and Last.fm now-playing and scrobbles, with the Last.fm sign-in and a queue file of the scrobbles that failed on a network error. `ui/model/scrobble.go` feeds it from the playback reports |
 | `internal/desktopnotify/` | Now-playing desktop notifications over D-Bus with Next and Like actions |
 | `favorites/`, `history/` | The ♥ favorites and Recently Played stores in the config directory. `buildProviders` makes one of each and shares them with the local provider and the Model |
 | `resolve/` | Turns the user arguments into tracks: files, directories, globs, URLs, M3U, PLS, feeds and yt-dlp playlists |

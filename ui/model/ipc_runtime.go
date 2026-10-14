@@ -78,6 +78,8 @@ type ipcRuntimeFingerprint struct {
 	eqAuto       bool
 	ytQuality    ytQuality
 	audio        player.AudioFormat
+	scrobbleLB   bool
+	scrobbleLfm  bool
 	themeBG      string
 	themeAccent  string
 }
@@ -112,6 +114,9 @@ type ipcV2ResponseMsg struct {
 	JobID     string
 	Operation string
 	Response  ipc.Response
+	// lastfmSession is the session key of a Last.fm sign-in, which stays
+	// out of the job result.
+	lastfmSession string
 }
 
 func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
@@ -245,6 +250,8 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return nil
 	case "settings.set":
 		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
+	case "lastfm.auth":
+		return m.handleV2LastfmAuth(ctx, msg.Jobs, msg.JobID, request)
 	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
 		return m.handleV2Download(msg.Jobs, msg.JobID, request)
 	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
@@ -676,6 +683,9 @@ func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Re
 	if !numeric {
 		ok, err = m.setQualitySetting(request.Name, strings.TrimSpace(request.Text))
 	}
+	if !numeric && !ok {
+		ok, err = m.setScrobbleSetting(request.Name, strings.TrimSpace(request.Text))
+	}
 	if !ok {
 		m.failV2Job(jobs, jobID, v2InvalidParamsError())
 		return nil
@@ -850,6 +860,11 @@ func waitV2ResponseCmd(ctx context.Context, jobs *ipc.JobStore, jobID string, re
 
 // handleV2Response finishes a V2 job with the response of its async work.
 func (m *Model) handleV2Response(msg ipcV2ResponseMsg) {
+	if msg.Response.OK && msg.lastfmSession != "" {
+		if _, err := m.setScrobbleSetting("lastfm_session_key", msg.lastfmSession); err != nil {
+			msg.Response = ipc.Response{Error: err.Error()}
+		}
+	}
 	if msg.Response.OK {
 		if msg.Operation == "device" {
 			m.applyV2DeviceResponse(msg.Response)
@@ -990,6 +1005,7 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 	snapshot.EQAuto = m.eqAuto
 	snapshot.QualityWifi, snapshot.QualityMobile = m.ytQuality.wifi, m.ytQuality.mobile
 	snapshot.Network, snapshot.PremiumQuality = m.ytQuality.network, m.ytQuality.premium
+	snapshot.ScrobbleListenBrainz, snapshot.ScrobbleLastfm = m.scrobbleServices()
 	return snapshot
 }
 
@@ -1103,6 +1119,7 @@ func (m *Model) runtimeFingerprint() ipcRuntimeFingerprint {
 	fingerprint.eqAuto = m.eqAuto
 	fingerprint.ytQuality = m.ytQuality
 	fingerprint.audio = m.playingAudioFormat()
+	fingerprint.scrobbleLB, fingerprint.scrobbleLfm = m.scrobbleServices()
 	palette := m.themePalette()
 	fingerprint.themeBG, fingerprint.themeAccent = palette.BG, palette.Accent
 	return fingerprint

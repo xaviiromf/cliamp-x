@@ -216,5 +216,19 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # interaction, preview, filler.
 # categories = ["music_offtopic", "intro", "outro", "sponsor", "selfpromo"]
 
+# Scrobbling: cliamp-x reports the song that starts and the song you listened
+# to (past half its length, longer than 30 s) to ListenBrainz and Last.fm.
+# A scrobble that fails without a connection waits and goes out later.
+# ListenBrainz: the user token from https://listenbrainz.org/settings/.
+# Last.fm: the API key and shared secret of an API account that you create
+# at https://www.last.fm/api/account/create; the app or
+# "cliamp-x remote call lastfm.auth" signs in and saves the session key.
+# A value of "$NAME" reads the environment variable NAME.
+# [scrobble]
+# listenbrainz_token = "${LISTENBRAINZ_TOKEN}"
+# lastfm_api_key = ""
+# lastfm_api_secret = ""
+# lastfm_session_key = ""
+
 [downloads]
 directory = ""

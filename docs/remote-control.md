@@ -114,6 +114,7 @@ false, zero or empty.
 | `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
 | `network` | The network that the app last reported: `wifi` or `mobile` |
 | `premium_quality` | yt-dlp runs with the sign-in from the first try (Android) |
+| `scrobble_listenbrainz`, `scrobble_lastfm` | The scrobbling service has its credentials and takes reports. For Last.fm that needs the session key of the sign-in |
 | `audio_codec`, `audio_kbps`, `audio_rate` | The source of the playing track: its codec (such as `opus`, `aac`, `mp3` or `flac`), its bitrate in kbps and its sample rate in Hz. A YouTube song reports the format that yt-dlp picked. A local file reports its codec from the extension and its mean bitrate; its rate only when cliamp-x decodes it without ffmpeg. Each one is left out while unknown |
 
 `theme` holds the colors on screen. With the cover theme, they are the
@@ -153,7 +154,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
-| Settings | `settings.set` |
+| Settings | `settings.set`, `lastfm.auth` |
 | Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `download.auto`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
@@ -382,8 +383,23 @@ its key does. The snapshot then reports the new state.
 | `quality_wifi`, `quality_mobile` | `alta` (the best format), `normal` (up to 128 kbps) or `ahorro` (up to 64 kbps). Saved in `[ytmusic]` |
 | `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
 | `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
+| `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails |
 
 A quality change applies to the songs that start after it.
+
+`lastfm.auth` signs in to Last.fm once `lastfm_api_key` and
+`lastfm_api_secret` are set. With the `name` `start`, the result holds the
+`url` where the user allows cliamp-x and the `token` of the sign-in. After
+the user allows it, the `name` `finish` with that token in `text` gets the
+session key and saves it as `lastfm_session_key`; the key stays out of the
+result. A token the user has not allowed yet fails with `internal_error`
+and the Last.fm error in `detail`, such as `error 14`. Without the key and
+secret, another `name`, or `finish` with no token, the job fails with
+`invalid_params`. See [Scrobbling](configuration.md#scrobbling).
+
+```json
+{"ok":true,"url":"https://www.last.fm/api/auth/?api_key=…&token=…","token":"…"}
+```
 
 The result is `{"ok":true}`. Any other name or value fails with
 `invalid_params` and changes nothing. A failed save fails the job with

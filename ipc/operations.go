@@ -196,6 +196,7 @@ func DefaultOperationRegistry() *OperationRegistry {
 		{Name: "download.cancel", Description: "stop the running download and empty the queue", Async: true},
 		{Name: "download.retry", Description: "queue the failed downloads again", Async: true},
 		{Name: "download.auto", Description: "download the liked and recently played songs, at most limit songs and value MB", Async: true, Parameters: []string{"limit", "value"}},
+		{Name: "lastfm.auth", Description: "sign in to Last.fm: start gives the page to allow cliamp-x and a token, finish with that token in text saves the session", Async: true, Parameters: []string{"name", "text"}},
 		{Name: "stats", Description: "summarize listening for the period week, month, year or all, or with wrapped the calendar year in value", Async: true, Parameters: []string{"name", "value"}},
 		{Name: "plugin.call", Description: "invoke a plugin command", Async: true, Parameters: []string{"name", "sub", "args"}},
 		{Name: "plugin.commands", Description: "list plugin commands"},

@@ -75,6 +75,8 @@ type Response struct {
 	Ratings    []RatingInfo   `json:"ratings,omitempty"`
 	Downloads  *DownloadsInfo `json:"downloads,omitempty"`
 	Stats      *StatsInfo     `json:"stats,omitempty"`
+	URL        string         `json:"url,omitempty"`   // the page that lastfm.auth start opens
+	Token      string         `json:"token,omitempty"` // the token that lastfm.auth finish takes
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.

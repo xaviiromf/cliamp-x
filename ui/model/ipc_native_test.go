@@ -22,6 +22,7 @@ import (
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/internal/playback"
+	"github.com/xaviiromf/cliamp-x/internal/scrobble"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/player"
@@ -1019,6 +1020,8 @@ func TestNativeSettingsSet(t *testing.T) {
 		{name: "quality on mobile", request: ipc.Request{Name: "quality_mobile", Text: "alta"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.mobile == "alta" }, saved: map[string]string{"ytmusic.quality_mobile": `"alta"`}},
 		{name: "network is not saved", request: ipc.Request{Name: "network", Text: "mobile"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.network == "mobile" }},
 		{name: "premium quality", request: ipc.Request{Name: "premium_quality", Text: "on"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.premium }, saved: map[string]string{"ytmusic.premium_quality": "true"}},
+		{name: "listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: " tok "}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "tok" }, saved: map[string]string{"scrobble.listenbrainz_token": `"tok"`}},
+		{name: "token with a line break", request: ipc.Request{Name: "lastfm_api_key", Text: "a\nb"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "premium as a number", request: ipc.Request{Name: "premium_quality", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
@@ -1031,7 +1034,7 @@ func TestNativeSettingsSet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeTrack}
 			saver := &recordingSaver{}
-			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver}
+			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver, scrobbler: scrobble.New(scrobble.Config{}, filepath.Join(t.TempDir(), "queue.json"))}
 			response := runV2(t, m, "settings.set", tc.request)
 			if tc.wantErr != "" {
 				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {

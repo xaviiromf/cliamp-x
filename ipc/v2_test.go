@@ -119,6 +119,7 @@ func TestNativeOperationParameters(t *testing.T) {
 		"download.retry":   nil,
 		"download.auto":    {"limit", "value"},
 		"stats":            {"name", "value"},
+		"lastfm.auth":      {"name", "text"},
 	} {
 		operation, ok := registry.Lookup(name)
 		if !ok || !operation.Async || !slices.Equal(operation.Parameters, want) {
@@ -135,7 +136,7 @@ func TestRuntimeSnapshotNativeFields(t *testing.T) {
 		Notice: &NoticeInfo{Text: "Saved", Kind: "success"}, SleepMinutes: -1, SleepAt: 7,
 		AutoRadio: true, Normalize: "track", Crossfade: 3, EQAuto: true,
 		QualityWifi: "alta", QualityMobile: "ahorro", Network: "mobile", PremiumQuality: true,
-		AudioCodec: "opus", AudioKbps: 130, AudioRate: 48000,
+		AudioCodec: "opus", AudioKbps: 130, AudioRate: 48000, ScrobbleListenBrainz: true, ScrobbleLastfm: true,
 	}
 	data, err := json.Marshal(snapshot)
 	if err != nil {
@@ -146,7 +147,7 @@ func TestRuntimeSnapshotNativeFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"buffering", "seeking", "error", "error_kind", "error_path", "notice", "sleep_minutes", "sleep_at", "auto_radio", "normalize", "crossfade", "eq_auto",
-		"quality_wifi", "quality_mobile", "network", "premium_quality", "audio_codec", "audio_kbps", "audio_rate"} {
+		"quality_wifi", "quality_mobile", "network", "premium_quality", "audio_codec", "audio_kbps", "audio_rate", "scrobble_listenbrainz", "scrobble_lastfm"} {
 		if _, ok := fields[name]; !ok {
 			t.Errorf("snapshot JSON %s has no %s", data, name)
 		}

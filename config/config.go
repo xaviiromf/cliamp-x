@@ -260,6 +260,29 @@ func (y *YouTubeMusicConfig) set(key, val string) {
 	}
 }
 
+// ScrobbleConfig holds the [scrobble] credentials. A service with a key
+// left empty is off.
+type ScrobbleConfig struct {
+	ListenBrainzToken string // the user token of ListenBrainz
+	LastfmAPIKey      string // the API key of the user's Last.fm API account
+	LastfmAPISecret   string // its shared secret
+	LastfmSessionKey  string // the session key from the Last.fm sign-in
+}
+
+// set applies one key of the [scrobble] section.
+func (s *ScrobbleConfig) set(key, val string) {
+	switch key {
+	case "listenbrainz_token":
+		s.ListenBrainzToken = strings.TrimSpace(parseString(val))
+	case "lastfm_api_key":
+		s.LastfmAPIKey = strings.TrimSpace(parseString(val))
+	case "lastfm_api_secret":
+		s.LastfmAPISecret = strings.TrimSpace(parseString(val))
+	case "lastfm_session_key":
+		s.LastfmSessionKey = strings.TrimSpace(parseString(val))
+	}
+}
+
 // DownloadsConfig selects the directory for saved audio. Empty uses ~/Music/cliamp-x.
 type DownloadsConfig struct {
 	Directory string
@@ -317,6 +340,7 @@ type Config struct {
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	SponsorBlock     SponsorBlockConfig           // skipping of marked YouTube segments
+	Scrobble         ScrobbleConfig               // ListenBrainz and Last.fm scrobbling
 	Normalize        string                       // loudness normalization: "track", "album" or "off" (default "track")
 	NormalizeTarget  float64                      // normalization target in LUFS, or 0 for the default (-14)
 	Crossfade        int                          // seconds a track overlaps the next, 0-12 (default 0)
@@ -407,6 +431,8 @@ func Load() (Config, error) {
 			cfg.YouTubeMusic.set(key, val)
 		case "sponsorblock":
 			cfg.SponsorBlock.set(key, val)
+		case "scrobble":
+			cfg.Scrobble.set(key, val)
 		default:
 			// Keys of a plugin section go to the plugin, and keys of a
 			// [providers.<key>] section to that provider. Any other section,

@@ -584,6 +584,40 @@ switch between the last week, month, year and all time. A song counts once it
 played for 30 seconds, or half of it when it is shorter. The log is
 `~/.local/share/cliamp-x/plays.jsonl` and stays on this computer.
 
+## Scrobbling
+
+cliamp-x reports to ListenBrainz and Last.fm the song that starts (now
+playing) and each song you listened to: one longer than 30 seconds that
+played past half its length. Radio streams and songs with no artist or
+title are not reported. A scrobble that fails on a network or server error
+waits in `~/.local/share/cliamp-x/scrobble_queue.json` (at most 1000) and
+goes out with the next report; one that a service refuses, as with a wrong
+token, is dropped and logged.
+
+```toml
+[scrobble]
+# The user token from https://listenbrainz.org/settings/.
+listenbrainz_token = "${LISTENBRAINZ_TOKEN}"
+# The API key and shared secret of a Last.fm API account that you create at
+# https://www.last.fm/api/account/create, and the session key of the sign-in.
+lastfm_api_key = ""
+lastfm_api_secret = ""
+lastfm_session_key = ""
+```
+
+A service with an empty key is off. To get the Last.fm session key, set the
+API key and secret, then run the sign-in through the running player:
+
+```sh
+cliamp-x remote call lastfm.auth --params '{"name":"start"}' --wait
+# open the url of the result, allow cliamp-x, then:
+cliamp-x remote call lastfm.auth --params '{"name":"finish","text":"TOKEN"}' --wait
+```
+
+The player saves the session key in `[scrobble]`. The Android app runs the
+same steps from Ajustes. Turn off a scrobbling plugin such as cliamp-lastfm,
+or each song counts twice.
+
 ## Proxy
 
 cliamp-x reads the proxy variables `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and

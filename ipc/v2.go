@@ -155,6 +155,9 @@ type RuntimeSnapshot struct {
 	AudioCodec string `json:"audio_codec,omitempty"`
 	AudioKbps  int    `json:"audio_kbps,omitempty"`
 	AudioRate  int    `json:"audio_rate,omitempty"`
+	// The scrobbling services that take reports.
+	ScrobbleListenBrainz bool `json:"scrobble_listenbrainz,omitempty"`
+	ScrobbleLastfm       bool `json:"scrobble_lastfm,omitempty"`
 }
 
 // NoticeInfo is the status line text and its kind: activity, success,
