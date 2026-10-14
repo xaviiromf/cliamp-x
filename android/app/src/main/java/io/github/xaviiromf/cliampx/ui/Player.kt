@@ -3,10 +3,6 @@ package io.github.xaviiromf.cliampx.ui
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -101,13 +97,15 @@ fun PlayerSheet(s: Snapshot) {
     val p = LocalPalette.current
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val close: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false } }
+    val close: () -> Unit = {
+        if (Looks.motion == MotionSpeed.Off) Nav.player = false else scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false }
+    }
     ModalBottomSheet(
         onDismissRequest = { Nav.player = false },
         sheetState = state,
         sheetGesturesEnabled = Nav.page == PlayerPage.Player,
         shape = RectangleShape,
-        containerColor = p.bg,
+        containerColor = Color.Transparent,
         contentColor = p.textPrimary,
         tonalElevation = 0.dp,
         scrimColor = SCRIM,
@@ -116,19 +114,22 @@ fun PlayerSheet(s: Snapshot) {
     ) {
         SheetBars()
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
-        Column(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                .semantics { testTagsAsResourceId = true }.testTag("player"),
-        ) {
-            AnimatedContent(Nav.page, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "page") { page ->
-                when (page) {
-                    PlayerPage.Player -> PlayerPage(s, close)
-                    PlayerPage.Queue -> QueuePage(s)
-                    PlayerPage.Eq -> EqPage(s)
+        Box(Modifier.fillMaxSize()) {
+            Backdrop(Looks.playerLevel, Modifier.matchParentSize())
+            Column(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                    .semantics { testTagsAsResourceId = true }.testTag("player"),
+            ) {
+                AnimatedContent(Nav.page, Modifier.weight(1f), transitionSpec = { Motion.screen(250) }, label = "page") { page ->
+                    when (page) {
+                        PlayerPage.Player -> PlayerPage(s, close)
+                        PlayerPage.Queue -> QueuePage(s)
+                        PlayerPage.Eq -> EqPage(s)
+                    }
                 }
+                // The shell's status line sits behind the sheet: the sheet's actions report here.
+                StatusLine(s, WindowInsets(0))
             }
-            // The shell's status line sits behind the sheet: the sheet's actions report here.
-            StatusLine(s, WindowInsets(0))
         }
     }
 }
@@ -229,7 +230,7 @@ private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> 
             .testTag("art"),
     ) {
         when (view) {
-            ArtView.Cover -> ArtBox(track.art, side)
+            ArtView.Cover -> ArtBox(track.art, side, fade = true)
             ArtView.Visualizer -> Visualizer(s, Modifier.fillMaxSize())
             ArtView.Lyrics -> LyricsView(s, side)
         }

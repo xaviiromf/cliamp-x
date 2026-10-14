@@ -275,16 +275,11 @@ fun PlaylistScreen(s: Screen.Playlist) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeRemove(remove: () -> Unit, content: @Composable () -> Unit) {
-    val p = LocalPalette.current
     // Not saveable: a reloaded list reuses keys, and a restored "dismissed" state would remove the row that takes the key.
     val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold = { it * 0.4f }) }
     SwipeToDismissBox(
         state,
-        backgroundContent = {
-            Box(Modifier.fillMaxSize().background(p.surface).padding(end = 16.dp), contentAlignment = Alignment.CenterEnd) {
-                Text("✗ " + stringResource(R.string.remove_from_list), color = p.error, style = Type.body)
-            }
-        },
+        backgroundContent = { SwipeBehind(state, stringResource(R.string.remove_from_list)) },
         enableDismissFromStartToEnd = false,
         onDismiss = { if (it == SwipeToDismissBoxValue.EndToStart) remove() },
     ) { content() }

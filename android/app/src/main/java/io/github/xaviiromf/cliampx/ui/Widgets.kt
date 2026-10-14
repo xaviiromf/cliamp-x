@@ -3,10 +3,15 @@ package io.github.xaviiromf.cliampx.ui
 import android.os.SystemClock
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -163,11 +168,21 @@ fun IconBtn(
 
 /** A track's art at size, or the `░` placeholder with a note while it loads or when there is none. */
 @Composable
-fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier) {
-    val p = LocalPalette.current
+fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier, fade: Boolean = false) {
     val px = with(LocalDensity.current) { size.roundToPx() }
     val art = rememberArt(key, px)
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+    // fade cross-fades the next song's art in (player, mini-player); list rows swap at once, which costs less.
+    if (fade) {
+        Crossfade(art, modifier.size(size), Motion.spec(400), label = "art") { ArtFace(it, size) }
+    } else {
+        Box(modifier.size(size)) { ArtFace(art, size) }
+    }
+}
+
+@Composable
+private fun ArtFace(art: ImageBitmap?, size: Dp) {
+    val p = LocalPalette.current
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (art != null) {
             Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
@@ -194,7 +209,8 @@ fun TrackRow(
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
     Row(
-        modifier.fillMaxWidth().heightIn(min = 64.dp).background(p.bg)
+        // No fill: the app's background shows through (Backgrounds.kt).
+        modifier.fillMaxWidth().heightIn(min = 64.dp)
             .combinedClickable(
                 onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
                 onClick = onClick,
@@ -346,9 +362,28 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
 }
 
 /**
+ * What a swipe to the start uncovers (§2.4): label on the surface, drawn
+ * only in the width the row has left, since the rows have no fill.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeBehind(state: SwipeToDismissBoxState, label: String) {
+    val p = LocalPalette.current
+    if (state.dismissDirection != SwipeToDismissBoxValue.EndToStart) return
+    Box(
+        Modifier.fillMaxSize().drawWithContent {
+            clipRect(left = size.width + state.requireOffset()) { this@drawWithContent.drawContent() }
+        }.background(p.surface).padding(end = 16.dp),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        Text("✗ $label", color = p.error, style = Type.body)
+    }
+}
+
+/**
  * A horizontal swipe that skips (§2.2, §7.5): past 30 % of the width, or a
  * fling over 1000 dp/s, left plays the next song and right the one before.
- * The content follows the finger and springs back.
+ * The content follows the finger and eases back.
  */
 fun Modifier.skipSwipe(): Modifier = composed {
     val offset = remember { Animatable(0f) }
@@ -357,7 +392,7 @@ fun Modifier.skipSwipe(): Modifier = composed {
     pointerInput(Unit) {
         val tracker = VelocityTracker()
         var dragX = 0f // the decision reads this, not the offset that animates behind it
-        val back = { scope.launch { offset.animateTo(0f, spring(stiffness = 600f)) } }
+        val back = { scope.launch { offset.animateTo(0f, Motion.spec(250)) } }
         detectHorizontalDragGestures(
             onDragStart = {
                 tracker.resetTracking()

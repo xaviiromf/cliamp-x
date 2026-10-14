@@ -5,10 +5,6 @@ import android.content.Intent
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -102,34 +98,39 @@ fun App(firstRun: Boolean) {
     }
     // The bars' backgrounds run to the screen edges; their content keeps clear of a side nav bar and the cutout.
     val sides = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
-    Column(Modifier.fillMaxSize().background(p.bg).imePadding()) {
-        Column(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-            AnimatedContent(Nav.top, Modifier.weight(1f), transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "screen") { entry ->
-                holder.SaveableStateProvider(entry.key) {
-                    when (val screen = entry.screen) {
-                        Screen.Home -> HomeScreen()
-                        Screen.Search -> SearchScreen()
-                        Screen.Library -> LibraryScreen()
-                        is Screen.Album -> AlbumScreen(screen)
-                        is Screen.Artist -> ArtistScreen(screen)
-                        is Screen.Playlist -> PlaylistScreen(screen)
-                        is Screen.Genre -> GenreScreen(screen)
-                        is Screen.ParaTi -> ParaTiScreen(screen)
-                        is Screen.Remixes -> RemixesScreen(screen)
-                        is Screen.Settings -> SettingsScreen(screen)
-                        Screen.Themes -> ThemesScreen()
-                        Screen.Visualizers -> VisualizersScreen()
-                        Screen.Eq -> snap?.let { EqPage(it) { Nav.pop() } }
-                        Screen.Stats -> StatsScreen()
-                        Screen.Ratings -> RatingsScreen()
+    Box(Modifier.fillMaxSize()) {
+        // Paused under the opaque player sheet, which draws its own.
+        Backdrop(Looks.listLevel, Modifier.matchParentSize(), paused = Nav.player)
+        Column(Modifier.fillMaxSize().imePadding()) {
+            Column(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+                AnimatedContent(Nav.top, Modifier.weight(1f), transitionSpec = { Motion.screen() }, label = "screen") { entry ->
+                    holder.SaveableStateProvider(entry.key) {
+                        when (val screen = entry.screen) {
+                            Screen.Home -> HomeScreen()
+                            Screen.Search -> SearchScreen()
+                            Screen.Library -> LibraryScreen()
+                            is Screen.Album -> AlbumScreen(screen)
+                            is Screen.Artist -> ArtistScreen(screen)
+                            is Screen.Playlist -> PlaylistScreen(screen)
+                            is Screen.Genre -> GenreScreen(screen)
+                            is Screen.ParaTi -> ParaTiScreen(screen)
+                            is Screen.Remixes -> RemixesScreen(screen)
+                            is Screen.Settings -> SettingsScreen(screen)
+                            Screen.Themes -> ThemesScreen()
+                            Screen.Visualizers -> VisualizersScreen()
+                            Screen.Backgrounds -> BackgroundsScreen()
+                            Screen.Eq -> snap?.let { EqPage(it) { Nav.pop() } }
+                            Screen.Stats -> StatsScreen()
+                            Screen.Ratings -> RatingsScreen()
+                        }
                     }
                 }
+                if (stopped) CoreStopped()
             }
-            if (stopped) CoreStopped()
+            StatusLine(snap, sides)
+            MiniPlayer(snap, sides)
+            TabBar(sides)
         }
-        StatusLine(snap, sides)
-        MiniPlayer(snap, sides)
-        TabBar(sides)
     }
     // A sheet takes the focus from the search field, so closing it never brings the keyboard back (§1.2).
     val focus = LocalFocusManager.current
@@ -251,7 +252,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
             .clickable { open() },
     ) {
         Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).skipSwipe().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            ArtBox(track.art, 48.dp)
+            ArtBox(track.art, 48.dp, fade = true)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(

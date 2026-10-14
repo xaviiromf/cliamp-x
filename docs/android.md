@@ -45,6 +45,18 @@ visualizer (34 native modes; the rest are in Modo terminal), the EQ, sleep
 timer, speed, normalization, crossfade, auto radio, the music folder, the
 battery setting, updates, the yt-dlp update and Modo terminal.
 
+**Fondo** draws an animated background behind the whole app, the player and
+the sheets included, in the colors of the current theme: Sólido (the
+default, no animation), CRT, Ondas, Cyberpunk, Retro, Glitch, Matrix,
+Estrellas, Plasma, Aurora, VHS, Tramado, Tron, Bokeh, Circuito, Topográfico
+and Grano. Two sliders set how much of it shows in the lists and in the
+player (0 to 100 %); the theme's background color stays over it so text
+keeps its contrast. It moves at 30 fps only while the app is on screen,
+slower with the system's reduced motion, and needs Android 13 or newer
+(older versions draw a still gradient of the theme). **Animaciones** picks
+Lenta, Normal or Sin animación for the screen, player page, artwork and
+cover-palette transitions; Sin animación also holds the background still.
+
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification

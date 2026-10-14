@@ -220,11 +220,7 @@ private fun LazyListScope.rows(
         val dragged = rows.dragging == r.key
         SwipeToDismissBox(
             dismiss,
-            backgroundContent = {
-                Box(Modifier.fillMaxSize().background(p.surface).padding(end = 16.dp), contentAlignment = Alignment.CenterEnd) {
-                    Text("✗ " + stringResource(R.string.remove_from_queue), color = p.error, style = Type.body)
-                }
-            },
+            backgroundContent = { SwipeBehind(dismiss, stringResource(R.string.remove_from_queue)) },
             modifier = Modifier.zIndex(if (dragged) 1f else 0f).graphicsLayer { translationY = if (dragged) rows.offset else 0f },
             enableDismissFromStartToEnd = false,
             gesturesEnabled = rows.dragging == null,
@@ -237,7 +233,8 @@ private fun LazyListScope.rows(
             },
         ) {
             TrackRow(
-                r.track, playing = false, Modifier.testTag(tag(i)),
+                // The dragged row covers the ones it passes.
+                r.track, playing = false, Modifier.then(if (dragged) Modifier.background(p.bg) else Modifier).testTag(tag(i)),
                 marker = if (prefix == "n") "Q${i + 1}" else "",
                 onLongClick = { Nav.sheet = sheet(i, r) },
                 trailing = if (!handle) null else {

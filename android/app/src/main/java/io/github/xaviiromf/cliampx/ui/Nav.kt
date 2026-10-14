@@ -43,6 +43,7 @@ sealed interface Screen {
     data class Settings(val install: Boolean = false) : Screen
     data object Themes : Screen
     data object Visualizers : Screen
+    data object Backgrounds : Screen
 
     /** The equalizer, pushed from Ajustes. */
     data object Eq : Screen
