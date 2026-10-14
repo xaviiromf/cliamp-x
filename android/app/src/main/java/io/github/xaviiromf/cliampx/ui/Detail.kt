@@ -106,6 +106,7 @@ fun AlbumScreen(s: Screen.Album) {
             }
             item(key = "rule") { SectionRule(stringResource(R.string.songs)) }
             if (tracks !is Load.Done) item(key = "state") { LoadState(tracks, retry) }
+            if (tracks is Load.Done && rows.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.no_songs)) }
             numbered(rows, snap?.track?.path) { i -> Remote.loadAlbum(s.id, i, rows[i]) }
         }
     }
@@ -154,6 +155,7 @@ fun ArtistScreen(s: Screen.Artist) {
             }
             item(key = "popular") { SectionRule(stringResource(R.string.popular)) }
             if (top !is Load.Done) item(key = "top_state") { LoadState(top, retryTop) }
+            if (top is Load.Done && songs.isEmpty()) item(key = "top_empty") { EmptyState(stringResource(R.string.no_songs)) }
             itemsIndexed(songs, key = { i, t -> "p:$i:${t.path}" }) { i, t ->
                 TrackRow(
                     t, snap?.track?.path == t.path, Modifier.testTag("row_$i"), marker = "${i + 1}",
@@ -347,6 +349,7 @@ fun GenreScreen(s: Screen.Genre) {
             }
             item(key = "rule") { SectionRule(stringResource(R.string.songs)) }
             if (tracks !is Load.Done) item(key = "state") { LoadState(tracks, retry) }
+            if (tracks is Load.Done && rows.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.no_songs)) }
             itemsIndexed(rows, key = { i, t -> "$current:$i:${t.path}" }) { i, t ->
                 TrackRow(
                     t, snap?.track?.path == t.path, Modifier.testTag("row_$i"),

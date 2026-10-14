@@ -3,7 +3,6 @@ package io.github.xaviiromf.cliampx.ui
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -236,8 +235,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
         else -> track.artist to p.textSecondary
     }
     val playing = snap?.playing == true && pending == null
-    val context = LocalContext.current
-    val marquee = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
+    val marquee = !reducedMotion()
     val density = LocalDensity.current
     var lift by remember { mutableFloatStateOf(0f) }
     val open = { if (snap?.track != null) Nav.openPlayer() }

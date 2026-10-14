@@ -26,7 +26,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.ui.App
 import io.github.xaviiromf.cliampx.ui.CliampTheme
 import io.github.xaviiromf.cliampx.ui.Nav
-import io.github.xaviiromf.cliampx.ui.paletteOf
+import io.github.xaviiromf.cliampx.ui.livePalette
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
         setContent {
             val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
-            CliampTheme(paletteOf(theme)) {
+            CliampTheme(livePalette(theme)) {
                 Box(Modifier.semantics { testTagsAsResourceId = true }) { App(firstRun) }
             }
         }

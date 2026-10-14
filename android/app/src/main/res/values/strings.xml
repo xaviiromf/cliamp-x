@@ -183,6 +183,7 @@
     <string name="ratings">Tus valoraciones</string>
     <string name="stats">Estadísticas</string>
     <string name="no_lists">No tienes listas locales.</string>
+    <string name="no_yt_lists">No tienes listas en YouTube Music.</string>
     <string name="downloads_off">Las descargas no están disponibles.</string>
     <string name="downloading">Descargando</string>
     <string name="downloads_queued">En espera (%1$d)</string>

@@ -7,7 +7,11 @@ stays as **Modo terminal**. The design is in `PLAN.md`; the native UI follows
 M2: the player, the queue, the equalizer and the visualizer; M3: Inicio,
 Buscar's genres and tiles, the album, artist, playlist, genre, Para ti and
 remix pages, and the action sheets; M4: Biblioteca, local lists, Descargas,
-Tus valoraciones and Estadísticas; M5: Ajustes).
+Tus valoraciones and Estadísticas; M5: Ajustes; M6: the cover theme's color
+blend, reduced motion, the loading, empty and error states, and the
+performance pass). The native UI is portrait only; Modo terminal turns with
+the phone. The user deferred the landscape player, the ClassicPeak and Mirror
+renderers (every band mode draws as Bars) and the TalkBack labels.
 
 The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 
@@ -20,16 +24,29 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 | `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
 | `MainActivity.kt` | The native UI (Compose), the first-start permissions, deep links and shared URLs |
 | `TerminalActivity.kt` | Modo terminal: the terminal view, the extra keys, back, pinch zoom |
-| `ui/` | `Theme.kt` (theme colors, JetBrains Mono, square shapes, press fill), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size, one fetch per image at a time), `Nav.kt` (tabs and their screen stacks, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar, the screen host), `Home.kt` (Inicio: carousels, the sign-in and battery cards, pull to refresh), `Search.kt` (recent queries, genre grids, results as tiles and rows), `Detail.kt` (album, artist, playlist, genre, Para ti, remixes), `Library.kt` (Biblioteca: the pinned rows, the lists, albums and artists, Descargas), `Stats.kt` (Estadísticas, Tus valoraciones), `Settings.kt` (Ajustes, the Tema and Visualizador pickers, the normalization and crossfade sheets, app and yt-dlp updates), `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (Bars on a Canvas from `spectrum.get`), `Menus.kt` (song and item actions, add to a list, new list, rename, the confirmations, speed, sleep timer) |
+| `ui/` | `Theme.kt` (theme colors and the cover theme's 600 ms blend, JetBrains Mono, square shapes, press fill, reduced motion), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size, one fetch per image at a time), `Nav.kt` (tabs and their screen stacks, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar, the screen host), `Home.kt` (Inicio: carousels, the sign-in and battery cards, pull to refresh), `Search.kt` (recent queries, genre grids, results as tiles and rows), `Detail.kt` (album, artist, playlist, genre, Para ti, remixes), `Library.kt` (Biblioteca: the pinned rows, the lists, albums and artists, Descargas), `Stats.kt` (Estadísticas, Tus valoraciones), `Settings.kt` (Ajustes, the Tema and Visualizador pickers, the normalization and crossfade sheets, app and yt-dlp updates), `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (Bars on a Canvas from `spectrum.get`), `Menus.kt` (song and item actions, add to a list, new list, rename, the confirmations, speed, sleep timer) |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
 | `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
 | `LoginActivity.kt` | YouTube Music sign-in in a WebView, saved as `ytmusic_cookies.txt`; the cookies.txt import and the sign-out |
 
 `scripts/ui-smoke.sh` drives the UI over adb by its test tags and saves a
-screenshot per step (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`,
-then `s5 s8 s14 s15 s16` for the player while a song plays, and
-`s2 s9 s10 s11 s18 s19l s20 s23` for browsing, `s12 s24 s25 s26` for
-Biblioteca and `s13` for the themes).
+screenshot per step: the scenarios of `UI-SPEC.md` §9.3, by number
+(`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`, then
+`s5 s6 s7 s8 s14 s15 s16 s17 s19 s21 s22 s13` while a song plays,
+`s2 s9 s10 s11 s18 s20 s23` for browsing and `s12 s24 s25 s26` for
+Biblioteca; `s1` and `s1b` clear the app data). A failed check prints
+`FAIL` and the run goes on; a missing element ends it. The script's header
+lists what each scenario needs.
+
+`scripts/ui-smoke.sh OUT perf` runs the §9.4 pass: frame times over Inicio, a
+carousel, a 200-song list and the player, then the CPU of the app and the
+core on Inicio, in the player and with the screen off, and the memory. Run it
+on a release build while a song plays, with 200 songs or more in Música
+local (or `PERF_LIST=lib_liked` for the liked songs). Without a keystore, sign `app-release-unsigned.apk` with the debug key
+(`apksigner sign --ks <debug.keystore> --ks-pass pass:android`), which also
+updates a debug install in place. The x86_64 emulator draws with SwiftShader,
+on the CPU, so its janky frames measure that renderer more than the app:
+judge the frames on a phone.
 
 ## Toolchain
 

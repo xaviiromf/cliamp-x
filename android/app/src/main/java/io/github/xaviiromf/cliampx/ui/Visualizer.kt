@@ -35,7 +35,8 @@ import kotlin.math.min
 /**
  * The Bars renderer (UI-SPEC §0, §5.4): the core's spectrum.get bands,
  * resampled to one bar per 12 dp, in the block spectrum's green, yellow and
- * red. Every band mode draws as Bars until M6 adds ClassicPeak and Mirror.
+ * red. Every band mode draws as Bars: the user deferred ClassicPeak and
+ * Mirror (UI-SPEC §10).
  * Frames come only while this is composed, the screen started and the song
  * playing; then the bars fall to 0 in 300 ms and drawing stops.
  */

@@ -335,9 +335,9 @@ private fun AddTo(sheet: Sheet.AddTo) {
     SectionRule(stringResource(R.string.add_to_list))
     MenuRow("+", stringResource(R.string.new_list_more), "menu_new_list") { Nav.sheet = Sheet.NewList(sheet.tracks, sheet.item) }
     @Composable
-    fun lists(title: String, load: Load<List<Item>>, tag: String) {
+    fun lists(title: String, load: Load<List<Item>>, retry: () -> Unit, tag: String) {
         val rows = (load as? Load.Done)?.value.orEmpty()
-        if (load is Load.Loading) Loading()
+        LoadState(load, retry)
         if (rows.isEmpty()) return
         SectionRule(title)
         rows.forEachIndexed { i, row ->
@@ -355,11 +355,11 @@ private fun AddTo(sheet: Sheet.AddTo) {
         }
     }
     if (signedIn == true) {
-        val (yt, _) = rememberLoad("playlists:ytmusic") { Remote.playlists("ytmusic") }
-        lists(stringResource(R.string.youtube_music), (yt as? Load.Done)?.let { Load.Done(it.value.filter(Item::writable)) } ?: yt, "list_yt")
+        val (yt, retryYt) = rememberLoad("playlists:ytmusic") { Remote.playlists("ytmusic") }
+        lists(stringResource(R.string.youtube_music), (yt as? Load.Done)?.let { Load.Done(it.value.filter(Item::writable)) } ?: yt, retryYt, "list_yt")
     }
-    val (local, _) = rememberLoad("playlists:local") { Remote.playlists("local") }
-    lists(stringResource(R.string.local), (local as? Load.Done)?.let { Load.Done(it.value.filter { row -> row.id !in Library.VIRTUAL }) } ?: local, "list_local")
+    val (local, retryLocal) = rememberLoad("playlists:local") { Remote.playlists("local") }
+    lists(stringResource(R.string.local), (local as? Load.Done)?.let { Load.Done(it.value.filter { row -> row.id !in Library.VIRTUAL }) } ?: local, retryLocal, "list_local")
 }
 
 /** Nueva lista (§3.12): the name, the target, Crear and Cancelar. */

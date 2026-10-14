@@ -158,6 +158,8 @@ class CliampService : Service(), TerminalSessionClient {
             val shown = terminal
             // The pty and the process start with the first size, which the view gives.
             if (shown != null) shown.attach(s) else s.updateSize(80, 24, 1, 1)
+            // A state that came while no core ran was not published, and the new core's same state is no change: show it now.
+            publish()
             // The bundled yt-dlp is too old for YouTube: replace it before the first play (§7.8).
             val app = applicationContext
             Remote.scope.launch { Ytdlp.update(app, force = Ytdlp.tag(app) == null) }

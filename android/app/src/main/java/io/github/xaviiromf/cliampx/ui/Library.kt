@@ -163,13 +163,13 @@ private fun LazyListScope.lists(yt: Load<List<Item>>, retry: () -> Unit) {
             when {
                 signedIn == false -> SignInCard(dismissible = false)
                 yt is Load.Failed -> ErrorState(yt.message, retry)
-                else -> {
-                    val own = Library.own((yt as? Load.Done)?.value.orEmpty())
-                    if (own.isNotEmpty()) {
-                        SectionRule(stringResource(R.string.youtube_music))
-                        own.forEachIndexed { i, row -> ItemRow(row, "list_yt_$i", row.count) }
-                    }
+                yt is Load.Done -> {
+                    val own = Library.own(yt.value)
+                    if (own.isNotEmpty() || signedIn == true) SectionRule(stringResource(R.string.youtube_music))
+                    if (own.isEmpty() && signedIn == true) EmptyState(stringResource(R.string.no_yt_lists))
+                    own.forEachIndexed { i, row -> ItemRow(row, "list_yt_$i", row.count) }
                 }
+                else -> Loading()
             }
         }
     }

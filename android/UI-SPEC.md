@@ -1935,6 +1935,8 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 
 **Integration rule:** the UI hides every element whose operation is not yet in `capabilities`. There are no other fallbacks.
 
+**Deferred by the user (M6):** the landscape player (§3.10), the ClassicPeak and Mirror renderers (every band mode draws as Bars) and the TalkBack labels (§9.5 item 18). MainActivity is locked to portrait, and Modo terminal still turns; S19 checks both.
+
 ---
 
 ## 11. Open risks
@@ -1943,6 +1945,7 @@ See `open_risks`. The top three:
 1. The yt-dlp download path: GitHub redirects, rate limits and the SUMS file, plus Python compatibility of new yt-dlp releases.
 2. The error-kind classification of the real failure text.
 3. Compose smoothness on the A55 with a 30 fps visualizer.
+4. The items the user deferred in §10 stay open: landscape, ClassicPeak and Mirror, TalkBack.
 
 **Not covered:** nothing here was built or run.
 - The JBM glyph coverage was checked against the installed JetBrainsMono **Nerd Font**, a superset; `GlyphTest` confirms it against the static TTF.

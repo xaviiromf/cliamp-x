@@ -202,6 +202,7 @@ fun QueuePage(s: Snapshot) {
                 },
                 sheet = { _, r -> Sheet.Song(r.track, index = r.track.index, revision = up.revision) },
             )
+            if (!loaded) item(key = "loading") { Loading() }
             if (loaded && next.list.isEmpty() && up.list.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.queue_empty)) }
         }
     }

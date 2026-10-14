@@ -1,7 +1,6 @@
 package io.github.xaviiromf.cliampx.ui
 
 import android.content.Intent
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -181,7 +180,7 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
 /**
  * The art side and whether the visualizer strip shows (§3.9): the rows
  * around the art take about 420 dp and the art gets the rest, square; under
- * 240 dp the strip's 72 dp go to the art. Never below 0, as in landscape.
+ * 240 dp the strip's 72 dp go to the art. Never below 0, as in a short split-screen window.
  */
 fun playerArt(width: Dp, height: Dp): Pair<Dp, Boolean> {
     val art = minOf(width - 48.dp, height - 420.dp)
@@ -329,8 +328,7 @@ private fun LyricsView(s: Snapshot, side: Dp) {
 private fun TitleBlock(s: Snapshot) {
     val p = LocalPalette.current
     val track = s.track ?: return
-    val context = LocalContext.current
-    val marquee = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
+    val marquee = !reducedMotion()
     val moving = s.playing && marquee
     val liked by Remote.liked.collectAsStateWithLifecycle()
     Row(verticalAlignment = Alignment.CenterVertically) {

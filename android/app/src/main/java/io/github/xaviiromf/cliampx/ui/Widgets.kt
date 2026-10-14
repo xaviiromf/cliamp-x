@@ -107,13 +107,16 @@ object Glyphs {
     const val SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 }
 
-/** The braille spinner frame, one every 100 ms. */
+/** The braille spinner frame, one every 100 ms while the screen is started (§1.5). */
 @Composable
 fun spinner(): String {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val frame by produceState(0) {
-        while (true) {
-            delay(100)
-            value = (value + 1) % Glyphs.SPINNER.length
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(100)
+                value = (value + 1) % Glyphs.SPINNER.length
+            }
         }
     }
     return Glyphs.SPINNER[frame].toString()

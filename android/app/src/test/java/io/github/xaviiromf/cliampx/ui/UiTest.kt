@@ -97,6 +97,6 @@ class PlayerArtTest {
             assertTrue("$w × $h: $art", art <= w)
             if (strip) assertTrue(art >= 240.dp)
         }
-        assertEquals(63.dp to false, playerArt(891.dp, 411.dp)) // landscape: 411 − 420 + 72
+        assertEquals(63.dp to false, playerArt(891.dp, 411.dp)) // a wide, short split-screen window: 411 − 420 + 72
     }
 }

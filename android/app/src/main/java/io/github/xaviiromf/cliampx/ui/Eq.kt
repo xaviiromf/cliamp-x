@@ -22,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -69,16 +68,7 @@ private val FREQS = listOf("70", "180", "320", "600", "1k", "3k", "6k", "12k", "
 fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
     val p = LocalPalette.current
     val ops by Remote.ops.collectAsStateWithLifecycle()
-    var presets by remember { mutableStateOf(emptyList<String>()) }
-    LaunchedEffect(Unit) {
-        try {
-            presets = Remote.eqPresets()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Remote.showError(e)
-        }
-    }
+    val (presets, retryPresets) = rememberLoad("eq:list") { Remote.eqPresets() }
     // The gains the finger set that the snapshot does not show yet, by band.
     val local = remember { mutableStateMapOf<Int, Int>() }
     var selected by remember { mutableIntStateOf(-1) }
@@ -167,8 +157,9 @@ fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
             ) { Remote.fire("settings.set", JSONObject().put("name", "eq_auto").put("value", if (s.eqAuto) 0 else 1)) }
         }
         SectionRule(stringResource(R.string.eq_presets))
+        LoadState(presets, retryPresets)
         FlowRow(Modifier.padding(horizontal = 12.dp)) {
-            for (name in presets) {
+            for (name in (presets as? Load.Done)?.value.orEmpty()) {
                 val on = name.equals(s.eqPreset, ignoreCase = true)
                 val label = if (name == "Custom") stringResource(R.string.eq_custom) else name
                 BracketChip(if (on) "●$label" else label, on, Modifier.testTag("eq_preset_$name")) {

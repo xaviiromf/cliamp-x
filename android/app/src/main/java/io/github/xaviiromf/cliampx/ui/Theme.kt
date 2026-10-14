@@ -1,6 +1,9 @@
 package io.github.xaviiromf.cliampx.ui
 
 import android.app.Activity
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
@@ -15,8 +18,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.luminance
@@ -75,6 +84,37 @@ fun paletteOf(t: ThemeInfo?): CliampPalette {
     t ?: return Winamp
     val c = listOf(t.bg, t.accent, t.brightFg, t.fg, t.green, t.yellow, t.red).map { hexColor(it) ?: return Winamp }
     return CliampPalette(c[0], c[1], c[2], c[3], c[4], c[5], c[6])
+}
+
+/**
+ * The palette of the core's theme (§4.6). Under the cover theme each new
+ * cover's colors blend in over 600 ms, as the desktop's coverFadeTime does;
+ * picking a theme is instant (§4.5).
+ */
+@Composable
+fun livePalette(t: ThemeInfo?): CliampPalette {
+    val target = paletteOf(t)
+    // A new theme name starts its colors at their target: only a cover's next colors blend.
+    return key(t?.name) {
+        val c = listOf(target.bg, target.accent, target.brightFg, target.fg, target.green, target.yellow, target.red)
+            .map { animateColorAsState(it, tween(600, easing = LinearEasing), label = "theme").value }
+        CliampPalette(c[0], c[1], c[2], c[3], c[4], c[5], c[6])
+    }
+}
+
+/**
+ * Whether the system turned animations off (ANIMATOR_DURATION_SCALE 0,
+ * §4.5). Compose already applies that scale to the crossfades and the
+ * theme blend, which then end at once; the marquee ignores it, so it asks here.
+ */
+@Composable
+fun reducedMotion(): Boolean {
+    var reduced by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val scale = coroutineContext[MotionDurationScale] ?: return@LaunchedEffect
+        snapshotFlow { scale.scaleFactor == 0f }.collect { reduced = it }
+    }
+    return reduced
 }
 
 val LocalPalette = staticCompositionLocalOf { Winamp }
