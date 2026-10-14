@@ -50,10 +50,14 @@ the sheets included, in the colors of the current theme: Sólido (the
 default, no animation), CRT, Ondas, Cyberpunk, Retro, Glitch, Matrix,
 Estrellas, Plasma, Aurora, VHS, Tramado, Tron, Bokeh, Circuito, Topográfico
 and Grano. Two sliders set how much of it shows in the lists and in the
-player (0 to 100 %); the theme's background color stays over it so text
-keeps its contrast. It moves at 30 fps only while the app is on screen,
-slower with the system's reduced motion, and needs Android 13 or newer
-(older versions draw a still gradient of the theme). **Animaciones** picks
+player (0 to 100); the theme's background color stays over it, darker (or
+lighter on a light theme) as the slider rises, so text keeps its contrast
+(4.5:1, or the theme's own when lower) wherever the background is brightest.
+Themes with little contrast to spare show it faintly. It moves at 20 fps
+only while the app is on screen, slower with the system's reduced motion,
+and needs Android 13 or newer (older versions draw a still gradient of the
+theme). A moving background costs battery: each step redraws the whole
+screen, about half a CPU core on a Galaxy A55 while the app is in view. **Animaciones** picks
 Lenta, Normal or Sin animación for the screen, player page, artwork and
 cover-palette transitions; Sin animación also holds the background still.
 

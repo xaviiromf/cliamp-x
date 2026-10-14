@@ -796,7 +796,7 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 | `cover` theme, each new cover palette | the 7 colors animate over 400 ms, FastOutSlowIn |
 | Artwork of the player and mini-player | the next song's art cross-fades in over 400 ms; list rows swap at once |
 | Ajustes → Animaciones | Lenta stretches every duration above 1.6 times, Sin animación snaps them, closes sheets without the slide and holds the background still |
-| Background (Ajustes → Fondo) | an AGSL shader at half resolution behind the whole app, stepped at 30 fps while the activity is started, at a quarter speed under reduced motion; paused under the player sheet, which draws its own |
+| Background (Ajustes → Fondo) | an AGSL shader at half resolution behind the whole app, stepped at 20 fps (each step redraws the whole window) while the activity is started, at a quarter speed under reduced motion; paused under the player sheet, which draws its own. A scrim of bg covers it (`scrimOf`): level 100 shows the most that keeps `fg` and `brightFg` at min(4.5:1, their contrast on bg) even over a white (light theme: black) pixel, with the scrim leaned to black (white); lower levels show less and lean only as far as needed |
 | Spinner | a braille frame every 100 ms |
 | Visualizer | spectrum frames arrive at 30 fps; the levels, peaks and particles step at the display rate (up to 120 fps) on one Canvas with no allocation per frame. On pause or stop the levels fade to 0 in 300 ms, then drawing stops |
 | Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then steps once per spectrum frame with no easing, and the modes that move on their own (particles, scrolling, spinning) draw as Bars |

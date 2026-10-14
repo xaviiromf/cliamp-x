@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.CacheDrawScope
 import androidx.compose.ui.draw.DrawResult
@@ -44,6 +43,7 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -54,6 +54,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.R
+import kotlinx.coroutines.delay
 
 /** The backgrounds drawn behind the whole app (Ajustes → Fondo). Solid is the theme's bg alone. */
 enum class Background(@StringRes val label: Int) {
@@ -118,8 +119,44 @@ object Looks {
 /** The entry named name, or fallback for a missing or unknown name. */
 inline fun <reified E : Enum<E>> enumOr(name: String?, fallback: E): E = enumValues<E>().firstOrNull { it.name == name } ?: fallback
 
-/** How much of the background shows through the bg scrim at level 0..100: at most 70 %, so text keeps its contrast. */
-fun backdropShown(b: Background, level: Int): Float = if (b == Background.Solid) 0f else level.coerceIn(0, 100) * 0.007f
+/** The scrim drawn over a background: its color, and how much (0..1) of the background shows through it. */
+data class Scrim(val color: Color, val shown: Float)
+
+/**
+ * The scrim of b at level 0..100 under palette p. Level 100 shows the most
+ * of the background that keeps fg and brightFg at their contrast on bg (at
+ * most 4.5:1) even where a shader draws white (black under a light theme),
+ * with the scrim leaned fully to black (white); a lower level shows less
+ * and leans the scrim off bg only as far as that contrast needs.
+ */
+fun scrimOf(b: Background, level: Int, p: CliampPalette): Scrim {
+    if (b == Background.Solid || level <= 0) return Scrim(p.bg, 0f)
+    val darkTheme = p.fg.luminance() > p.bg.luminance()
+    val lean = if (darkTheme) Color.Black else Color.White
+    val worst = if (darkTheme) Color.White else Color.Black
+    val texts = listOf(p.fg, p.brightFg).map { it to minOf(4.5f, contrast(it, p.bg)) }
+    fun fits(shown: Float, leaned: Float): Boolean {
+        val under = mixSrgb(mixSrgb(p.bg, lean, leaned), worst, shown)
+        return texts.all { (t, want) -> contrast(t, under) >= want - 1e-4f }
+    }
+    // Both searches are monotonic: more shown only nears the worst color, more leaned only leaves it.
+    var lo = 0f
+    var hi = 1f
+    repeat(16) { val m = (lo + hi) / 2; if (fits(m, 1f)) lo = m else hi = m }
+    val shown = lo * level.coerceAtMost(100) / 100f
+    if (fits(shown, 0f)) return Scrim(p.bg, shown)
+    lo = 0f
+    hi = 1f
+    repeat(16) { val m = (lo + hi) / 2; if (fits(shown, m)) hi = m else lo = m }
+    return Scrim(mixSrgb(p.bg, lean, hi), shown)
+}
+
+/** The WCAG contrast ratio of a and b, 1..21. */
+fun contrast(a: Color, b: Color): Float {
+    val x = a.luminance()
+    val y = b.luminance()
+    return (maxOf(x, y) + 0.05f) / (minOf(x, y) + 0.05f)
+}
 
 /** Eased motion (FastOutSlowIn) scaled by Ajustes → Animaciones. */
 object Motion {
@@ -151,7 +188,7 @@ private fun clock(rate: Float): Float =
     if (rate == 0f) 30f else ((SystemClock.uptimeMillis() / 1000.0 * rate) % 3600.0).toFloat()
 
 /**
- * The time a background draws at: it steps at 30 fps while the screen is
+ * The time a background draws at: it steps at 20 fps while the screen is
  * started (never with the app hidden or the screen off), slower with the
  * system's reduced motion, and holds still when paused or motion is off.
  */
@@ -165,14 +202,10 @@ private fun backdropTime(b: Background, paused: Boolean): FloatState {
         t.floatValue = clock(rate)
         if (b == Background.Solid || paused || rate == 0f) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            var last = 0L
+            // A plain write each step, no withFrameNanos: a frame request ran the Recomposer at every step.
             while (true) {
-                withFrameNanos { now ->
-                    if (now - last >= 30_000_000L) {
-                        last = now
-                        t.floatValue = clock(rate)
-                    }
-                }
+                t.floatValue = clock(rate)
+                delay(STEP_MS)
             }
         }
     }
@@ -180,7 +213,7 @@ private fun backdropTime(b: Background, paused: Boolean): FloatState {
 }
 
 /**
- * The background at level (0..100) with the theme's bg over it as a scrim,
+ * The background at level (0..100) under its scrim (scrimOf),
  * filling modifier. It draws in its own layer, so a frame redraws only it.
  * paused holds it still while something opaque covers it.
  */
@@ -188,7 +221,7 @@ private fun backdropTime(b: Background, paused: Boolean): FloatState {
 fun Backdrop(level: Int, modifier: Modifier = Modifier, paused: Boolean = false) {
     val p = LocalPalette.current
     val b = Looks.background
-    val shown = backdropShown(b, level)
+    val scrim = remember(b, level, p) { scrimOf(b, level, p) }
     val shader = remember(b) { shaderOf(b) }
     val time = backdropTime(b, paused)
     val window = LocalWindowInfo.current.containerSize
@@ -202,18 +235,18 @@ fun Backdrop(level: Int, modifier: Modifier = Modifier, paused: Boolean = false)
                 transformOrigin = TransformOrigin(0f, 0f)
                 compositingStrategy = CompositingStrategy.Offscreen
             }.drawWithCache {
-                val scrim = p.bg.copy(alpha = 1f - shown)
+                val cover = scrim.color.copy(alpha = 1f - scrim.shown)
                 when {
-                    shown == 0f -> onDrawBehind { drawRect(p.bg) }
+                    scrim.shown == 0f -> onDrawBehind { drawRect(p.bg) }
                     shader == null || Build.VERSION.SDK_INT < 33 -> {
                         // Below Android 13: the palette as a still gradient.
                         val brush = Brush.verticalGradient(listOf(lerp(p.bg, p.accent, 0.35f), p.bg, lerp(p.bg, p.green, 0.25f)))
                         onDrawBehind {
                             drawRect(brush)
-                            drawRect(scrim)
+                            drawRect(cover)
                         }
                     }
-                    else -> drawShader(shader, p, scrim, window) { origin to time.floatValue }
+                    else -> drawShader(shader, p, cover, window) { origin to time.floatValue }
                 }
             },
         )
@@ -242,3 +275,6 @@ private fun CacheDrawScope.drawShader(shader: RuntimeShader, p: CliampPalette, s
 }
 
 private const val LOW_RES = 2f
+
+/** The background's step: 20 fps. Each step redraws the whole window, which costs the same CPU at any shader size. */
+private const val STEP_MS = 50L

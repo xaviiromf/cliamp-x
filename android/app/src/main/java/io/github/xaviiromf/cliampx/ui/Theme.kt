@@ -60,14 +60,14 @@ data class CliampPalette(
     val favorite get() = red
     val error get() = red
     val warning get() = yellow
-    val surface get() = mix(bg, brightFg, 0.05f).copy(alpha = glass)
-    val surfaceHigh get() = mix(bg, brightFg, 0.09f).copy(alpha = glass)
+    val surface get() = mixSrgb(bg, brightFg, 0.05f).copy(alpha = glass)
+    val surfaceHigh get() = mixSrgb(bg, brightFg, 0.09f).copy(alpha = glass)
     val pressed get() = accent.copy(alpha = 0.12f)
     val divider get() = fg.copy(alpha = 0.35f)
 }
 
 /** a blended toward b by f in sRGB; Compose's lerp blends in Oklab, which leaves 5 % of white over black still black. */
-private fun mix(a: Color, b: Color, f: Float) =
+internal fun mixSrgb(a: Color, b: Color, f: Float) =
     Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f)
 
 /** The built-in winamp theme: Default (terminal colors) and any incomplete theme draw with it. */
