@@ -279,6 +279,9 @@ func TestServerCanonicalizesReadMethods(t *testing.T) {
 		{method: "spectrum.get", want: "spectrum.get|"},
 		{method: " spectrum.get ", want: "spectrum.get|"},
 		{method: "Spectrum.Get", want: "spectrum.get|"},
+		{method: "vis.frame", want: "vis.frame|"},
+		{method: "VIS.FRAME", want: "vis.frame|"},
+		{method: "vis.frame", operation: "vis", wantErr: V2ErrorCodeInvalidRequest},
 		{method: "STATE.GET", operation: "play", wantErr: V2ErrorCodeInvalidRequest},
 	} {
 		t.Run(tc.method+" "+tc.operation, func(t *testing.T) {

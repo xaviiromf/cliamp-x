@@ -42,6 +42,7 @@ Use these methods:
 | `capabilities` | List available operation names and parameter hints |
 | `state.get` | Read the runtime snapshot |
 | `spectrum.get` | Read current visualizer bands |
+| `vis.frame` | Read one visualizer frame as text rows with ANSI colors |
 | `operation.submit` | Start a runtime or library operation |
 | `job.get` | Read an operation job by `job_id` |
 | `job.cancel` | Request cancellation of an active job |
@@ -444,6 +445,28 @@ Use `--fps` to set a rate from 1 through 60. GUI clients can request one current
 frame with `spectrum.get`. While `ui.render` is `off`, and in headless mode,
 each `spectrum.get` analyzes the audio that plays at that moment, so a
 client that polls at its own frame rate gets live bands.
+
+## Visualizer Frames
+
+`vis.frame` draws the active visualizer on a grid of `cols` by `rows` cells
+and returns the frame the terminal would show, so a GUI client can draw every
+mode exactly as the TUI does. It is a read method like `spectrum.get`: no job,
+one answer per request, and it works in headless mode and while `ui.render` is
+`off`, when each request analyzes the audio that plays at that moment.
+
+```json
+{"version":2,"id":"f","method":"vis.frame","params":{"cols":48,"rows":12}}
+```
+
+The result holds `visualizer`, the mode name, and `lines`, one string per row,
+each `cols` cells wide. The rows carry ANSI SGR colors: `38;5;N` and `48;5;N`
+for the 16 terminal colors of the Default theme and the 256-color palette,
+`38;2;R;G;B` and `48;2;R;G;B` for the truecolor themes, and `\x1b[m` to reset.
+The mode `None` returns no `lines`. `cols` and `rows` must be at least 1; the
+grid stops at 640 by 360. While nothing draws the screen, the grid stays the
+visualizer's size, so a client that polls at its own frame rate keeps the
+animation of the stateful modes. A missing or invalid grid fails with
+`invalid_params`.
 
 ## CLI V2 Client
 

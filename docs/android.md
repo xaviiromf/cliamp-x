@@ -41,7 +41,7 @@ The main interface is portrait only. Modo terminal rotates.
 ## Settings
 
 **Ajustes** holds the theme (all cliamp-x themes, with a live preview), the
-visualizer (34 native modes; the rest are in Modo terminal), the EQ, sleep
+visualizer (every mode of the terminal, drawn from the core's own frames), the EQ, sleep
 timer, speed, normalization, crossfade, auto radio, the music folder, the
 battery setting, updates, the yt-dlp update and Modo terminal.
 

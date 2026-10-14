@@ -30,6 +30,8 @@ type Request struct {
 	Topics   []string    `json:"topics,omitempty"`
 	Play     bool        `json:"play,omitempty"`
 	Kind     string      `json:"kind,omitempty"` // what taste.rate rates: song, album, artist or genre
+	Cols     int         `json:"cols,omitempty"` // the vis.frame grid
+	Rows     int         `json:"rows,omitempty"`
 }
 
 // Response is the operation-specific data embedded in a successful V2 job.
@@ -74,6 +76,7 @@ type Response struct {
 	Ratings    []RatingInfo   `json:"ratings,omitempty"`
 	Downloads  *DownloadsInfo `json:"downloads,omitempty"`
 	Stats      *StatsInfo     `json:"stats,omitempty"`
+	Lines      []string       `json:"lines,omitempty"` // a vis.frame frame, one row each, with ANSI SGR colors
 }
 
 // ThemeInfo carries the active theme name and its resolved hex colors.

@@ -511,8 +511,8 @@ func v2Operations(headless, plugins bool) *ipc.OperationRegistry {
 	return operations
 }
 
-// v2ReplyTimeout bounds the wait for the Model to answer state.get and
-// spectrum.get.
+// v2ReplyTimeout bounds the wait for the Model to answer state.get,
+// spectrum.get and vis.frame.
 var v2ReplyTimeout = 3 * time.Second
 
 // newV2Dispatcher answers the V2 requests of the TUI and of headless mode.
@@ -523,7 +523,7 @@ var v2ReplyTimeout = 3 * time.Second
 func newV2Dispatcher(send func(tea.Msg), jobs *ipc.JobStore, plugins *luaplugin.Manager) ipc.V2Dispatcher {
 	return ipc.V2DispatcherFunc(func(ctx context.Context, request ipc.V2Request) (ipc.V2Result, *ipc.V2Error) {
 		switch request.Method {
-		case "state.get", "spectrum.get":
+		case "state.get", "spectrum.get", "vis.frame":
 			reply := make(chan model.V2RequestResult, 1)
 			send(model.V2RequestMsg{Request: request, Reply: reply})
 			select {

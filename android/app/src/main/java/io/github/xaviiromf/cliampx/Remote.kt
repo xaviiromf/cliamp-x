@@ -633,16 +633,19 @@ object Remote {
     }
 
     /**
-     * spectrum.get frames every 33 ms over one connection while collected
-     * (§5.4), reconnecting after 500 ms on an error.
+     * The core's visualizer frames on a cols x rows grid, one every periodMs
+     * at most, over one connection while collected (§5.4); one request at a
+     * time, so a slow core drops frames instead of queueing them. Reconnects
+     * after 500 ms on an error.
      */
-    fun spectrum(): Flow<FloatArray> = flow {
+    fun visFrames(cols: Int, rows: Int, periodMs: Long): Flow<VisFrame> = flow {
         while (true) {
             try {
-                SpectrumStream(Core.socket(app)).use { stream ->
+                FrameStream(Core.socket(app)).use { stream ->
                     while (true) {
-                        emit(stream.next())
-                        delay(33)
+                        val start = SystemClock.elapsedRealtime()
+                        emit(stream.next(cols, rows))
+                        delay(periodMs - (SystemClock.elapsedRealtime() - start))
                     }
                 }
             } catch (e: IOException) {
@@ -651,7 +654,12 @@ object Remote {
                 delay(500)
             }
         }
-    }.flowOn(Dispatchers.IO)
+    }.conflate().flowOn(Dispatchers.IO)
+
+    /** The strip's tap (§2.3): the next mode of `vis list`, None left out. */
+    fun nextVisualizer(current: String) {
+        scope.launch { report { call("vis", JSONObject().put("name", io.github.xaviiromf.cliampx.nextVisualizer(current, visualizers()))) } }
+    }
 
     /** The value cached under key however old, so a screen that comes back shows it at once (§7.3). */
     @Suppress("UNCHECKED_CAST")

@@ -575,6 +575,8 @@ type Model struct {
 	lowPower        bool // lower UI/render cadences in low-power mode
 	headless        bool // no screen: cliamp --daemon runs without a renderer
 	renderPaused    bool // ui.render off: no one sees the screen, so draw nothing
+	visFrameCols    int  // the vis.frame client's grid, kept while the screen draws nothing
+	visFrameRows    int
 	visualizer60FPS bool // render a visible visualizer at the animation cadence
 	blurred         bool // the terminal reported that it lost the focus
 	sleep           sleepTimer

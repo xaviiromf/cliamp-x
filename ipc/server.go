@@ -380,7 +380,7 @@ func (s *Server) dispatchV2(req V2Request) V2Response {
 	operations := s.operations
 	s.v2Mu.RUnlock()
 	operation := strings.TrimSpace(req.Operation)
-	if operation == "" && (method == "state.get" || method == "spectrum.get") {
+	if operation == "" && (method == "state.get" || method == "spectrum.get" || method == "vis.frame") {
 		// The owner matches the canonical read method exactly.
 		req.Method = method
 		return s.dispatchV2ToOwner(response, req)
@@ -402,7 +402,7 @@ func (s *Server) dispatchV2(req V2Request) V2Response {
 		return s.v2GetJob(response, req.JobID)
 	case "job.cancel":
 		return s.v2CancelJob(response, req.JobID)
-	case "state.get", "spectrum.get":
+	case "state.get", "spectrum.get", "vis.frame":
 		// A read method with an operation. The branch above serves the rest.
 		response.Error = invalidV2Request()
 		return response

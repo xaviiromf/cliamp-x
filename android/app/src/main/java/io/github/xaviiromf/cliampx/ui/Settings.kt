@@ -60,7 +60,6 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.MainActivity
-import io.github.xaviiromf.cliampx.NATIVE_VIS
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
@@ -80,7 +79,7 @@ import java.io.File
 /** The name the core gives its terminal-colors theme, which Android draws as winamp (§4.1). */
 private const val DEFAULT_THEME = "Default - Terminal colors"
 
-/** The label of each native visualizer of NATIVE_VIS (§0); any other mode draws as Bars, its own drawing only in Modo terminal. */
+/** The label of each built-in visualizer mode (§0); a Lua mode shows its name only. */
 private val VIS_LABELS = mapOf(
     "Bars" to R.string.vis_bars, "ClassicPeak" to R.string.vis_classic_peak, "ClassicLED" to R.string.vis_classic_led,
     "Bricks" to R.string.vis_bricks, "Columns" to R.string.vis_columns, "BarsDot" to R.string.vis_bars_dot,
@@ -93,7 +92,11 @@ private val VIS_LABELS = mapOf(
     "Flame" to R.string.vis_flame, "Rain" to R.string.vis_rain, "Matrix" to R.string.vis_matrix,
     "Scatter" to R.string.vis_scatter, "Geyser" to R.string.vis_geyser, "Firework" to R.string.vis_firework,
     "Bubbles" to R.string.vis_bubbles, "Sakura" to R.string.vis_sakura, "Firefly" to R.string.vis_firefly,
-    "Starfield" to R.string.vis_starfield, "None" to R.string.vis_none,
+    "Starfield" to R.string.vis_starfield, "Wave" to R.string.vis_wave, "Scope" to R.string.vis_scope,
+    "Heartbeat" to R.string.vis_heartbeat, "Binary" to R.string.vis_binary, "Sand" to R.string.vis_sand,
+    "Stereo" to R.string.vis_stereo, "Omarchy" to R.string.vis_omarchy, "RedSector" to R.string.vis_red_sector,
+    "YinYang" to R.string.vis_yin_yang, "CoverPulse" to R.string.vis_cover_pulse, "CoverBars" to R.string.vis_cover_bars,
+    "CoverShatter" to R.string.vis_cover_shatter, "None" to R.string.vis_none,
 )
 
 @SuppressLint("BatteryLife") // a music player that One UI must not suspend; no Play Store
@@ -473,13 +476,12 @@ fun ThemesScreen() {
 }
 
 /**
- * Visualizador (§3.14): a live 120 dp preview while music plays, the
- * native modes, and the way to the rest in Modo terminal.
+ * Visualizador (§3.14): a live 120 dp preview while music plays and every
+ * mode of `vis list`, the core's order, None last.
  */
 @Composable
 fun VisualizersScreen() {
     val p = LocalPalette.current
-    val context = LocalContext.current
     val s by Remote.state.collectAsStateWithLifecycle()
     val (all, _) = rememberLoad("vis:list") { Remote.visualizers() }
     Column(Modifier.fillMaxSize()) {
@@ -488,10 +490,8 @@ fun VisualizersScreen() {
             s?.takeIf { it.playing }?.let { snap ->
                 item(key = "preview") { Visualizer(snap, Modifier.fillMaxWidth().height(120.dp).padding(horizontal = 16.dp, vertical = 8.dp).testTag("vis_preview")) }
             }
-            // Only the native modes this core has, so a row never sends a mode it lacks.
-            val names = (all as? Load.Done)?.value?.let { have -> NATIVE_VIS.filter { it in have } } ?: NATIVE_VIS
-            itemsIndexed(names, key = { _, v -> v }) { _, name ->
-                val label = VIS_LABELS.getValue(name)
+            val names = (all as? Load.Done)?.value.orEmpty().sortedBy { it == "None" }
+            itemsIndexed(names, key = { i, v -> "$i:$v" }) { _, name ->
                 val on = s?.visualizer == name
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { Remote.fire("vis", JSONObject().put("name", name)) }
@@ -500,14 +500,8 @@ fun VisualizersScreen() {
                 ) {
                     Text(if (on) "● " else "  ", color = p.accent, style = Type.body)
                     Text(name, Modifier.weight(1f), color = if (on) p.accent else p.textPrimary, style = Type.body.bold(on))
-                    Text(stringResource(label), Modifier.weight(1f), color = p.textSecondary, style = Type.label)
+                    Text(VIS_LABELS[name]?.let { stringResource(it) }.orEmpty(), Modifier.weight(1f), color = p.textSecondary, style = Type.label)
                 }
-            }
-            item(key = "more") {
-                val n = (all as? Load.Done)?.value?.count { it !in NATIVE_VIS }
-                SettingRow(
-                    if (n != null) stringResource(R.string.vis_more_count, n) else stringResource(R.string.vis_more), "", "vis_terminal",
-                ) { context.startActivity(Intent(context, TerminalActivity::class.java)) }
             }
         }
     }

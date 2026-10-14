@@ -122,6 +122,16 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		response := m.v2BandsResponse()
 		m.replyV2(msg.Reply, ipc.V2Result{Result: marshalV2Result(response)}, nil)
 		return nil
+	case "vis.frame":
+		var request ipc.Request
+		if len(msg.Request.Params) > 0 && json.Unmarshal(msg.Request.Params, &request) != nil ||
+			request.Cols < 1 || request.Rows < 1 {
+			m.replyV2(msg.Reply, ipc.V2Result{}, v2InvalidParamsError())
+			return nil
+		}
+		response := m.v2FrameResponse(request.Cols, request.Rows)
+		m.replyV2(msg.Reply, ipc.V2Result{Result: marshalV2Result(response)}, nil)
+		return nil
 	}
 
 	if msg.Jobs == nil || msg.JobID == "" {
@@ -1072,6 +1082,32 @@ func (m *Model) v2BandsResponse() ipc.Response {
 	if m.vis != nil {
 		response.Visualizer = m.vis.ModeName()
 		response.Bands = append([]float64(nil), m.vis.SmoothedBands()...)
+	}
+	return response
+}
+
+// The largest vis.frame grid: a 4K screen in a 6 px font.
+const maxVisFrameCols, maxVisFrameRows = 640, 360
+
+// v2FrameResponse draws the visualizer on a cols x rows grid and returns
+// its rows with their ANSI SGR colors, so a client draws the frames of the
+// terminal itself. While nothing else draws, it ticks the visualizer first,
+// as v2BandsResponse does.
+func (m *Model) v2FrameResponse(cols, rows int) ipc.Response {
+	response := ipc.Response{OK: true}
+	if m.vis == nil {
+		return response
+	}
+	m.visFrameCols, m.visFrameRows = min(cols, maxVisFrameCols), min(rows, maxVisFrameRows)
+	m.vis.Cols, m.vis.Rows = m.visFrameCols, m.visFrameRows
+	if m.headless {
+		m.tickVisualizer(time.Now())
+	} else if m.renderPaused {
+		m.tickVisualizerForClient(time.Now())
+	}
+	response.Visualizer = m.vis.ModeName()
+	if frame := m.vis.Render(); frame != "" {
+		response.Lines = strings.Split(frame, "\n")
 	}
 	return response
 }
