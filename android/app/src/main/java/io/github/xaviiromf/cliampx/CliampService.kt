@@ -96,6 +96,8 @@ class CliampService : Service(), TerminalSessionClient {
     private var hasFocus = false
     private var resumeOnFocus = false
     private var artUrl = ""
+    // A cover that fails to load leaves art null; the theme art then stands in for it.
+    private var artLoading = false
     private var art: Bitmap? = null
     private var snap: Snapshot? = null
 
@@ -297,10 +299,12 @@ class CliampService : Service(), TerminalSessionClient {
         if (url != artUrl) {
             artUrl = url
             art = null
-            if (url.isNotEmpty()) scope.launch {
+            artLoading = url.isNotEmpty()
+            if (artLoading) scope.launch {
                 val bitmap = Art.software(url, 512)
                 if (url == artUrl) {
                     art = bitmap
+                    artLoading = false
                     publish()
                 }
             }
@@ -393,7 +397,7 @@ class CliampService : Service(), TerminalSessionClient {
      */
     private fun shownArt(): Bitmap? {
         val cover = art
-        if (snap?.track == null || (cover == null && artUrl.isNotEmpty())) return null // nothing, or the cover is loading
+        if (snap?.track == null || artLoading) return null // nothing, or the cover is loading
         val colors = themeColors()
         themeArt?.takeIf { it.first === cover && it.second == colors }?.let { return it.third }
         val bitmap = createBitmap(THEME_ART_PX, THEME_ART_PX)
