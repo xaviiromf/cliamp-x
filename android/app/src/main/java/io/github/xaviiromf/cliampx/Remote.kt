@@ -3,6 +3,7 @@ package io.github.xaviiromf.cliampx
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.util.Log
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -97,6 +100,11 @@ object Remote {
     private val _hidden = MutableStateFlow<Set<String>>(emptySet())
     val hidden: StateFlow<Set<String>> = _hidden.asStateFlow()
 
+    /** The network the core plays for, wifi or mobile (Offline.networkKind), null while unknown. */
+    private val _network = MutableStateFlow<String?>(null)
+    val network: StateFlow<String?> = _network.asStateFlow()
+    private var netWatch: ConnectivityManager.NetworkCallback? = null
+
     /** Moves on each reconnect and pull to refresh: the screens on show load again. */
     private val _reloads = MutableStateFlow(0)
     val reloads: StateFlow<Int> = _reloads.asStateFlow()
@@ -128,8 +136,10 @@ object Remote {
         ipc = Ipc(Core.socket(app))
         quitting.value = false
         stopped.value = false
+        watchNetwork()
         loop = scope.launch {
             launch { render.run() }
+            launch { reportNetwork() }
             subscribe()
         }
     }
@@ -137,6 +147,8 @@ object Remote {
     fun stop() {
         loop?.cancel()
         loop = null
+        netWatch?.let { runCatching { app.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) } }
+        netWatch = null
         _connected.value = false
         // No core plays now: the last song shows stopped, so the tickers and the marquee stop.
         val now = SystemClock.elapsedRealtime()
@@ -148,6 +160,79 @@ object Remote {
     /** Modo terminal is on screen: the core draws only then. */
     fun terminalVisible(on: Boolean) {
         render.terminal.value = on
+    }
+
+    private fun watchNetwork() {
+        if (netWatch != null) return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                _network.value = Offline.networkKind(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED))
+            }
+        }
+        // A phone without the permission or a callback slot plays on the core's last network (wifi at start).
+        if (runCatching { app.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(cb) }.isSuccess) netWatch = cb
+    }
+
+    /**
+     * Tells the core the network at every (re)connect and change, so mobile
+     * data plays with quality_mobile (settings.set network, not saved by the
+     * core), then fills the automatic cache when it is due.
+     */
+    private suspend fun reportNetwork() {
+        combine(_network, _connected) { n, up -> n.takeIf { up } }.distinctUntilChanged().filterNotNull().collect { n ->
+            try {
+                call("settings.set", JSONObject().put("name", "network").put("text", n))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "network: $e") // an older core without the setting
+            }
+            fillCache(force = false)
+        }
+    }
+
+    /**
+     * Fills the offline cache with download.auto (♥ favorites, then recently
+     * played) within the limits of Ajustes, when it is due or with force (the
+     * Llenar ahora button, which reports how many songs it queued).
+     */
+    suspend fun fillCache(force: Boolean) {
+        val p = Offline.prefs(app)
+        val now = System.currentTimeMillis()
+        val on = force || p.getBoolean(Offline.CACHE, false)
+        if (!Offline.cacheDue(on, p.getBoolean(Offline.CACHE_WIFI_ONLY, true), _network.value, if (force) 0 else Offline.lastFilled(p), now)) {
+            if (force) _errors.tryEmit(app.getString(R.string.wifi_only_blocked))
+            return
+        }
+        val (songs, mb) = Offline.cacheParams(p)
+        try {
+            val queued = call("download.auto", JSONObject().put("limit", songs).put("value", mb)).optInt("total")
+            Offline.markFilled(p, now)
+            if (force) _info.tryEmit(app.resources.getQuantityString(R.plurals.cache_queued, queued, queued))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (force) showError(e) else Log.w(TAG, "download.auto: $e")
+        }
+    }
+
+    /** Descargar from a sheet: download, unless Descargas solo con Wi-Fi holds it on mobile data. */
+    fun download(params: JSONObject) {
+        if (!Offline.allowed(Offline.prefs(app).getBoolean(Offline.WIFI_ONLY, false), _network.value)) {
+            _errors.tryEmit(app.getString(R.string.wifi_only_blocked))
+            return
+        }
+        fire("download", params)
+    }
+
+    /** settings.set with text, for the scrobbling credentials; done runs on Main, or failed gets the error's text. */
+    fun setText(name: String, text: String, failed: (String) -> Unit = {}, done: () -> Unit = {}) {
+        scope.launch {
+            attempt(failed) {
+                call("settings.set", JSONObject().put("name", name).put("text", text))
+                withContext(Dispatchers.Main) { done() }
+            }
+        }
     }
 
     private suspend fun subscribe() = withContext(Dispatchers.IO) {

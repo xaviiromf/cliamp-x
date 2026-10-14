@@ -72,6 +72,7 @@ import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.Ytdlp
+import io.github.xaviiromf.cliampx.audioFormat
 import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.clock
 import kotlinx.coroutines.CancellationException
@@ -178,6 +179,10 @@ private fun PlayerPage(s: Snapshot, close: () -> Unit) {
                 val seekLabel = stringResource(R.string.seek)
                 SeekBar(s, seek, now, Modifier.testTag("seek").semantics { contentDescription = seekLabel })
                 TimeRow(s, seek, now)
+                val format = audioFormat(s.audioCodec, s.audioKbps, s.audioRate)
+                if (format.isNotEmpty()) {
+                    Text(format, Modifier.fillMaxWidth().testTag("audio_format"), color = p.textSecondary, style = Type.label, maxLines = 1, textAlign = TextAlign.End)
+                }
             }
             Transport(s)
             Chips(s, view) { view = it }

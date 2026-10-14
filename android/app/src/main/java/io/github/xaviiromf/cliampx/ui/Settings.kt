@@ -67,9 +67,12 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LauncherIcon
 import io.github.xaviiromf.cliampx.LoginActivity
+import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.MainActivity
+import io.github.xaviiromf.cliampx.Offline
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
+import io.github.xaviiromf.cliampx.Routes
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Updates
@@ -130,6 +133,7 @@ fun SettingsScreen(screen: Screen.Settings) {
     val ytdlp by Ytdlp.status.collectAsStateWithLifecycle()
     val prefs = remember { Updates.prefs(context) }
     var nightly by remember { mutableStateOf(prefs.getBoolean(Updates.NIGHTLY, false)) }
+    var resumeOnConnect by remember { mutableStateOf(Routes.prefs(context).getBoolean(Routes.RESUME, false)) }
     var optimized by remember { mutableStateOf(false) }
     var music by remember { mutableStateOf(true) }
     val update = remember { UpdateFlow() }
@@ -206,6 +210,11 @@ fun SettingsScreen(screen: Screen.Settings) {
                 Column {
                     SectionRule(stringResource(R.string.set_playback))
                     if ("eq" in ops) SettingRow(stringResource(R.string.eq), eqLabel(s), "set_eq") { Nav.open(Screen.Eq) }
+                    Toggle(stringResource(R.string.resume_on_connect), resumeOnConnect, "set_resume_connect") {
+                        resumeOnConnect = it == 1
+                        Routes.prefs(context).edit { putBoolean(Routes.RESUME, resumeOnConnect) }
+                    }
+                    Help(stringResource(R.string.resume_on_connect_help))
                     SettingRow(stringResource(R.string.speed), speedLabel(s?.speed ?: 1.0), "set_speed") { Nav.sheet = Sheet.Speed }
                     SettingRow(stringResource(R.string.sleep), sleepLabel(s), "set_sleep") { Nav.sheet = Sheet.Sleep }
                     if (settable) {
@@ -217,6 +226,7 @@ fun SettingsScreen(screen: Screen.Settings) {
                     }
                 }
             }
+            if (settable) item(key = "network") { NetworkSection(s) }
             item(key = "account") {
                 Column {
                     SectionRule(stringResource(R.string.set_account))
@@ -236,6 +246,7 @@ fun SettingsScreen(screen: Screen.Settings) {
                     }
                 }
             }
+            if (settable) item(key = "scrobble") { ScrobbleSection(s) }
             item(key = "local") {
                 Column {
                     SectionRule(stringResource(R.string.lib_local))
@@ -300,6 +311,145 @@ private fun openDreamSettings(context: Context) {
         context.startActivity(Intent(android.provider.Settings.ACTION_DREAM_SETTINGS))
     } catch (e: android.content.ActivityNotFoundException) {
         context.startActivity(Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS))
+    }
+}
+
+private val QUALITIES = listOf("alta" to R.string.quality_high, "normal" to R.string.quality_normal, "ahorro" to R.string.quality_saver)
+
+/**
+ * Red y descargas: the YouTube quality on Wi-Fi and on mobile data, Calidad
+ * Premium (core settings), then the app's download rules and the automatic
+ * cache of liked and recent songs (Offline).
+ */
+@Composable
+private fun NetworkSection(s: Snapshot?) {
+    val context = LocalContext.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    val network by Remote.network.collectAsStateWithLifecycle()
+    val prefs = remember { Offline.prefs(context) }
+    var wifiOnly by remember { mutableStateOf(prefs.getBoolean(Offline.WIFI_ONLY, false)) }
+    var cache by remember { mutableStateOf(prefs.getBoolean(Offline.CACHE, false)) }
+    var cacheWifi by remember { mutableStateOf(prefs.getBoolean(Offline.CACHE_WIFI_ONLY, true)) }
+    var songs by remember { mutableStateOf(prefs.getInt(Offline.CACHE_SONGS, 50)) }
+    var mb by remember { mutableStateOf(prefs.getInt(Offline.CACHE_MB, 500)) }
+    fun text(name: String, value: String) = Remote.fire("settings.set", JSONObject().put("name", name).put("text", value))
+    Column {
+        SectionRule(stringResource(R.string.set_network))
+        network?.let { Help(stringResource(if (it == "wifi") R.string.network_now_wifi else R.string.network_now_mobile)) }
+        val labels = QUALITIES.map { stringResource(it.second) }
+        TextChoice(stringResource(R.string.quality_wifi), labels, QUALITIES.indexOfFirst { it.first == s?.qualityWifi.orEmpty().ifEmpty { "alta" } }, "set_quality_wifi") {
+            text("quality_wifi", QUALITIES[it].first)
+        }
+        TextChoice(stringResource(R.string.quality_mobile), labels, QUALITIES.indexOfFirst { it.first == s?.qualityMobile.orEmpty().ifEmpty { "normal" } }, "set_quality_mobile") {
+            text("quality_mobile", QUALITIES[it].first)
+        }
+        Help(stringResource(R.string.quality_help))
+        Toggle(stringResource(R.string.premium_quality), s?.premiumQuality == true, "set_premium") { text("premium_quality", if (it == 1) "on" else "off") }
+        Help(stringResource(R.string.premium_quality_help))
+        if ("download" in ops) {
+            Toggle(stringResource(R.string.downloads_wifi_only), wifiOnly, "set_dl_wifi") {
+                wifiOnly = it == 1
+                prefs.edit { putBoolean(Offline.WIFI_ONLY, wifiOnly) }
+            }
+        }
+        if ("download.auto" in ops) {
+            Toggle(stringResource(R.string.auto_cache), cache, "set_cache") {
+                cache = it == 1
+                prefs.edit { putBoolean(Offline.CACHE, cache) }
+                if (cache) Remote.scope.launch { Remote.fillCache(force = false) }
+            }
+            Help(stringResource(R.string.auto_cache_help))
+            if (cache) {
+                Toggle(stringResource(R.string.auto_cache_wifi_only), cacheWifi, "set_cache_wifi") {
+                    cacheWifi = it == 1
+                    prefs.edit { putBoolean(Offline.CACHE_WIFI_ONLY, cacheWifi) }
+                }
+                TextChoice(stringResource(R.string.auto_cache_songs), Offline.SONGS.map { "$it" }, Offline.SONGS.indexOf(songs), "set_cache_songs") {
+                    songs = Offline.SONGS[it]
+                    prefs.edit { putInt(Offline.CACHE_SONGS, songs) }
+                }
+                TextChoice(
+                    stringResource(R.string.auto_cache_size), Offline.MB.map { if (it == 0) stringResource(R.string.no_limit) else "$it MB" },
+                    Offline.MB.indexOf(mb), "set_cache_mb",
+                ) {
+                    mb = Offline.MB[it]
+                    prefs.edit { putInt(Offline.CACHE_MB, mb) }
+                }
+                BracketButton(stringResource(R.string.auto_cache_now), Modifier.padding(horizontal = 12.dp).testTag("set_cache_now")) {
+                    Remote.scope.launch { Remote.fillCache(force = true) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Scrobbling: ListenBrainz with the user's token; Last.fm with the user's
+ * API key and secret, then the browser sign-in (lastfm.auth start, the user
+ * allows cliamp-x, then finish). Desconectar clears the credential.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScrobbleSection(s: Snapshot?) {
+    val p = LocalPalette.current
+    val context = LocalContext.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var token by rememberSaveable { mutableStateOf("") }
+    val needKeys = stringResource(R.string.lastfm_need_keys)
+    val on = stringResource(R.string.connected)
+    val off = stringResource(R.string.disconnected)
+    fun state(connected: Boolean) = if (connected) on else off
+    Column {
+        SectionRule(stringResource(R.string.set_scrobble))
+        Line("ListenBrainz · " + state(s?.scrobbleListenbrainz == true), if (s?.scrobbleListenbrainz == true) p.playing else p.textSecondary)
+        FlowRow(Modifier.padding(horizontal = 12.dp)) {
+            BracketButton(stringResource(R.string.lb_token), Modifier.testTag("set_lb_token")) {
+                Nav.sheet = Sheet.Credential("listenbrainz_token", R.string.lb_token)
+            }
+            if (s?.scrobbleListenbrainz == true) BracketButton(stringResource(R.string.disconnect), Modifier.testTag("set_lb_off"), color = p.error) { Remote.setText("listenbrainz_token", "") }
+        }
+        Help(stringResource(R.string.lb_help))
+        Line("Last.fm · " + state(s?.scrobbleLastfm == true), if (s?.scrobbleLastfm == true) p.playing else p.textSecondary)
+        FlowRow(Modifier.padding(horizontal = 12.dp)) {
+            BracketButton(stringResource(R.string.lastfm_key), Modifier.testTag("set_lastfm_key")) {
+                Nav.sheet = Sheet.Credential("lastfm_api_key", R.string.lastfm_key)
+            }
+            BracketButton(stringResource(R.string.lastfm_secret), Modifier.testTag("set_lastfm_secret")) {
+                Nav.sheet = Sheet.Credential("lastfm_api_secret", R.string.lastfm_secret)
+            }
+            if ("lastfm.auth" in ops) {
+                BracketButton(stringResource(R.string.lastfm_connect), Modifier.testTag("set_lastfm_connect")) {
+                    scope.launch {
+                        try {
+                            val r = Remote.call("lastfm.auth", JSONObject().put("name", "start"))
+                            token = r.optString("token")
+                            context.startActivity(Intent(Intent.ACTION_VIEW, r.optString("url").toUri()))
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            if (e is IpcError && e.code == "invalid_params") Toast.makeText(context, needKeys, Toast.LENGTH_LONG).show() else Remote.showError(e)
+                        }
+                    }
+                }
+            }
+            if (token.isNotEmpty()) {
+                BracketButton(stringResource(R.string.lastfm_finish), Modifier.testTag("set_lastfm_finish")) {
+                    scope.launch {
+                        try {
+                            Remote.call("lastfm.auth", JSONObject().put("name", "finish").put("text", token))
+                            token = ""
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Remote.showError(e)
+                        }
+                    }
+                }
+            }
+            if (s?.scrobbleLastfm == true) BracketButton(stringResource(R.string.disconnect), Modifier.testTag("set_lastfm_off"), color = p.error) { Remote.setText("lastfm_session_key", "") }
+        }
+        Help(stringResource(if (token.isNotEmpty()) R.string.lastfm_finish_help else R.string.lastfm_help))
     }
 }
 
@@ -380,11 +530,16 @@ private val CORNERS = listOf(R.string.corners_square, R.string.corners_rounded)
 /** A setting with a few choices as bracket chips under its label. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Choice(label: String, options: List<Int>, selected: Int, tag: String, pick: (Int) -> Unit) {
+private fun Choice(label: String, options: List<Int>, selected: Int, tag: String, pick: (Int) -> Unit) =
+    TextChoice(label, options.map { stringResource(it) }, selected, tag, pick)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TextChoice(label: String, options: List<String>, selected: Int, tag: String, pick: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Text(label, Modifier.padding(horizontal = 16.dp), color = LocalPalette.current.textPrimary, style = Type.body)
         FlowRow(Modifier.padding(horizontal = 12.dp)) {
-            options.forEachIndexed { i, option -> BracketChip(stringResource(option), i == selected, Modifier.testTag("${tag}_$i")) { pick(i) } }
+            options.forEachIndexed { i, option -> BracketChip(option, i == selected, Modifier.testTag("${tag}_$i")) { pick(i) } }
         }
     }
 }

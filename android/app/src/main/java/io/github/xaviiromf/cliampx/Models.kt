@@ -117,6 +117,14 @@ data class Snapshot(
     val visualizer: String,
     val receivedAt: Long,
     val mono: Boolean = false,
+    val qualityWifi: String = "",
+    val qualityMobile: String = "",
+    val premiumQuality: Boolean = false,
+    val scrobbleListenbrainz: Boolean = false,
+    val scrobbleLastfm: Boolean = false,
+    val audioCodec: String = "",
+    val audioKbps: Int = 0,
+    val audioRate: Int = 0,
 ) {
     val playing get() = state == "playing"
 
@@ -157,6 +165,14 @@ data class Snapshot(
             visualizer = o.optString("visualizer"),
             receivedAt = receivedAt,
             mono = o.optBoolean("mono"),
+            qualityWifi = o.optString("quality_wifi"),
+            qualityMobile = o.optString("quality_mobile"),
+            premiumQuality = o.optBoolean("premium_quality"),
+            scrobbleListenbrainz = o.optBoolean("scrobble_listenbrainz"),
+            scrobbleLastfm = o.optBoolean("scrobble_lastfm"),
+            audioCodec = o.optString("audio_codec"),
+            audioKbps = o.optInt("audio_kbps"),
+            audioRate = o.optInt("audio_rate"),
         )
     }
 }
@@ -351,6 +367,13 @@ fun recents(list: List<String>, query: String): List<String> {
     if (q.isEmpty()) return list
     return (listOf(q) + list.filterNot { it.equals(q, ignoreCase = true) }).take(10)
 }
+
+/** The playing stream's format, `OPUS · 160 kbps · 48 kHz`, each part only when the core knows it; empty when none. */
+fun audioFormat(codec: String, kbps: Int, rate: Int): String = listOfNotNull(
+    codec.uppercase().ifEmpty { null },
+    kbps.takeIf { it > 0 }?.let { "$it kbps" },
+    rate.takeIf { it > 0 }?.let { (if (it % 1000 == 0) "${it / 1000}" else "%.1f".format(java.util.Locale.ROOT, it / 1000.0)) + " kHz" },
+).joinToString(" · ")
 
 /** mm:ss, or h:mm:ss. */
 fun clock(secs: Int): String {

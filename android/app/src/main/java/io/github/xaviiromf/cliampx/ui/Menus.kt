@@ -71,6 +71,7 @@ import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.StereoActivity
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Track
+import io.github.xaviiromf.cliampx.shareUrl
 import io.github.xaviiromf.cliampx.speedLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,6 +121,9 @@ fun SheetHost(s: Snapshot?) {
                             // The list's page goes with it.
                             if ((Nav.top.screen as? Screen.Playlist)?.let { it.provider == "local" && it.id == sheet.item.id } == true) Nav.pop()
                         }
+                    }
+                    is Sheet.Credential -> NameSheet(stringResource(sheet.title), "", stringResource(R.string.save_short), close, null, hint = stringResource(sheet.title)) { text, failed ->
+                        Remote.setText(sheet.name, text, failed) { Nav.sheet = null }
                     }
                     Sheet.PlayerMore -> PlayerMore(s, close)
                     Sheet.QueueMore -> QueueMore()
@@ -227,10 +231,11 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
     }
     if ("download" in ops) {
         MenuRow("↓", stringResource(R.string.download), "menu_download") {
-            Remote.fire("download", JSONObject().put("track", track.json()))
+            Remote.download(JSONObject().put("track", track.json()))
             close()
         }
     }
+    ShareRow(track, close)
     if ("taste.rate" in ops) RateRows(Item(Kind.SONG, track.path, track.name, track.artist, track.art, track), close)
     if (sheet.list != null && "playlist.remove" in ops) {
         MenuRow("✗", stringResource(R.string.remove_from_list), "menu_remove_list", LocalPalette.current.error) {
@@ -298,7 +303,7 @@ private fun ItemActions(item: Item, close: () -> Unit) {
             if (item.kind == Kind.ALBUM && "playlist.add" in ops) MenuRow("+", stringResource(R.string.add_to_list_more), "menu_add") { Nav.sheet = Sheet.AddTo(emptyList(), item) }
             if (yt && "download" in ops) {
                 MenuRow("↓", stringResource(R.string.download), "menu_download") {
-                    run { Remote.fire("download", JSONObject().put("provider", "ytmusic").put("playlist", item.id).put("name", item.title)) }
+                    run { Remote.download(JSONObject().put("provider", "ytmusic").put("playlist", item.id).put("name", item.title)) }
                 }
             }
             if (item.kind == Kind.ALBUM && "taste.rate" in ops) RateRows(item, close)
@@ -422,6 +427,7 @@ internal fun NameSheet(
     confirm: String,
     close: () -> Unit,
     taken: List<String>?,
+    hint: String = stringResource(R.string.name),
     target: @Composable () -> Unit = {},
     /** Whether confirming initial unchanged is allowed, as saving a theme over itself. */
     allowSame: Boolean = false,
@@ -461,7 +467,7 @@ internal fun NameSheet(
                     if (name.text.isEmpty()) {
                         Text(
                             buildAnnotatedString {
-                                append(stringResource(R.string.name))
+                                append(hint)
                                 withStyle(SpanStyle(color = p.accent)) { append("_") }
                             },
                             color = p.textSecondary, style = Type.body,
@@ -487,6 +493,7 @@ private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     s?.track?.let {
         SongHeader(it)
         LikeRow(it, close)
+        ShareRow(it, close)
     }
     MenuRow("×", stringResource(R.string.speed_more), "menu_speed") { Nav.sheet = Sheet.Speed }
     MenuRow("", stringResource(R.string.sleep_more), "menu_sleep", icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }
@@ -504,6 +511,20 @@ private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     MenuRow("", stringResource(R.string.terminal), "menu_terminal", icon = R.drawable.ic_terminal) {
         close()
         context.startActivity(Intent(context, TerminalActivity::class.java))
+    }
+}
+
+/** Compartir: a YouTube Music song's link to the share sheet; nothing for a local file or a stream. */
+@Composable
+private fun ShareRow(track: Track, close: () -> Unit) {
+    val context = LocalContext.current
+    val url = shareUrl(track) ?: return
+    val title = stringResource(R.string.share)
+    MenuRow("↗", title, "menu_share") {
+        val text = listOf(track.name, track.artist).filter { it.isNotEmpty() }.joinToString(" · ") + "\n" + url
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text).putExtra(Intent.EXTRA_TITLE, track.name)
+        context.startActivity(Intent.createChooser(send, title))
+        close()
     }
 }
 

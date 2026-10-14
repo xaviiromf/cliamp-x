@@ -28,6 +28,11 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.Cliamp">
 
+        <!-- Android Auto lists the app as a media app (AutoService is its browser). -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!-- Portrait only: the user deferred the landscape player (UI-SPEC §3.10); Modo terminal rotates.
              Android 16 ignores the lock only on large screens and only from targetSdk 36. -->
         <activity
@@ -49,6 +54,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- "Ok Google, pon … en cliamp-x" on the phone. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- The launcher icons (Ajustes → Icono de la app, LauncherIcons.kt): one alias enabled at a time. -->
@@ -141,10 +154,49 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
             android:exported="false" />
 
+        <!-- Private: its start commands quit, restart and open links. The widget, the tile and the
+             notification reach it through the app's own PendingIntents. -->
         <service
             android:name=".CliampService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- The media browser for Android Auto and the system media controls (onGetRoot lets only
+             them in). It takes no start commands; it lends CliampService's session and tree. -->
+        <service
+            android:name=".AutoService"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".PlayTile"
+            android:exported="true"
+            android:icon="@drawable/ic_play"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <receiver
+            android:name=".PlayerWidget"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_player" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

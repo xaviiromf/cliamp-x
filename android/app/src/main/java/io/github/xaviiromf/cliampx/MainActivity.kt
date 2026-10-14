@@ -1,12 +1,14 @@
 package io.github.xaviiromf.cliampx
 
 import android.Manifest
+import android.app.SearchManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,8 +27,11 @@ import io.github.xaviiromf.cliampx.ui.LiveTheme
 import io.github.xaviiromf.cliampx.ui.Look
 import io.github.xaviiromf.cliampx.ui.Looks
 import io.github.xaviiromf.cliampx.ui.Nav
+import io.github.xaviiromf.cliampx.ui.Screen
 import io.github.xaviiromf.cliampx.ui.Skins
+import io.github.xaviiromf.cliampx.ui.Tab
 import com.yausername.youtubedl_android.YoutubeDL
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
@@ -57,6 +62,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) Nav.openPlayer()
+        if (savedInstanceState == null) shortcut(intent)
         // The first start asks for notifications and local music before the core reads the music folder.
         val link = if (savedInstanceState == null) linkOf(intent) else null
         val missing = permissions().filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
@@ -87,6 +93,33 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) Nav.openPlayer()
         startCore(linkOf(intent)) // also starts a core that ended with an error
+        shortcut(intent)
+    }
+
+    /** The launcher shortcuts (res/xml/shortcuts.xml) and the tile's fallback. */
+    private fun shortcut(intent: Intent) {
+        when (intent.action) {
+            ACTION_SEARCH -> Nav.select(Tab.Search)
+            ACTION_LIKED -> {
+                Nav.select(Tab.Library)
+                Nav.open(Screen.Playlist("ytmusic", "fav", getString(R.string.lib_liked)))
+            }
+            ACTION_RESUME -> ContextCompat.startForegroundService(this, Intent(this, CliampService::class.java).setAction(CliampService.ACTION_RESUME))
+            MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH -> {
+                val query = intent.getStringExtra(SearchManager.QUERY)
+                if (query.isNullOrBlank()) return shortcut(Intent(ACTION_RESUME))
+                Remote.scope.launch {
+                    Remote.connected.first { it }
+                    try {
+                        Auto.playSearch(query)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Remote.showError(e)
+                    }
+                }
+            }
+        }
     }
 
     /** At most once a day, looks for a newer release for the Inicio banner. Installing stays the user's choice. */
@@ -117,6 +150,10 @@ class MainActivity : ComponentActivity() {
 
         /** The notification opens the player sheet. */
         const val EXTRA_OPEN_PLAYER = "open_player"
+
+        const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
+        const val ACTION_SEARCH = "io.github.xaviiromf.cliampx.SEARCH"
+        const val ACTION_LIKED = "io.github.xaviiromf.cliampx.LIKED"
 
         fun permissions() = buildList {
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)

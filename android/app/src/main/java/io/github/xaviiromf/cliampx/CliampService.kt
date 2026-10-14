@@ -15,6 +15,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Binder
 import android.os.Bundle
@@ -23,6 +25,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -33,10 +36,12 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.media.AudioAttributesCompat
 import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
+import androidx.media.MediaBrowserServiceCompat
 import androidx.compose.ui.graphics.toArgb
 import io.github.xaviiromf.cliampx.ui.Art
 import io.github.xaviiromf.cliampx.ui.paletteOf
@@ -46,10 +51,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import kotlin.math.abs
 
@@ -57,7 +66,9 @@ import kotlin.math.abs
  * Owns the Go core: its terminal session, the media session and notification
  * that stand in for MPRIS, audio focus, and Remote, the IPC link of the native
  * UI. Modo terminal only binds and shows the session, so closing it never
- * signals the core.
+ * signals the core. AutoService lends its session and browse tree (Auto) to
+ * Android Auto, and it follows the audio output for the EQ per output and the
+ * resume on connect. Not exported: its start commands quit, restart and open links.
  */
 class CliampService : Service(), TerminalSessionClient {
     inner class LocalBinder : Binder() {
@@ -93,7 +104,10 @@ class CliampService : Service(), TerminalSessionClient {
     private var seekPath: String? = null
     private var seekAt = 0L
 
+    // Modo terminal binds the terminal session, AutoService the media session.
     override fun onBind(intent: Intent): IBinder = binder
+
+    val sessionToken: MediaSessionCompat.Token get() = media.sessionToken
 
     override fun onCreate() {
         super.onCreate()
@@ -119,17 +133,23 @@ class CliampService : Service(), TerminalSessionClient {
                     abs(PlaybackClock.positionAt(a, now) - PlaybackClock.positionAt(b, now)) < 2
             }.collect(::onState)
         }
+        watchOutputs()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // The widget, the tile and the shortcuts start the service in the foreground: it must show its notification.
+        if (intent?.action != ACTION_QUIT) ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        val control = intent?.action in setOf(ACTION_PREV, ACTION_TOGGLE, ACTION_NEXT, ACTION_RESUME)
+        // With no core, a control from the widget, the tile or a shortcut resumes: start the core and play what it restored.
+        if (control && session == null) return START_NOT_STICKY.also { resume() }
         when (intent?.action) {
             ACTION_PREV -> op("prev")
             ACTION_TOGGLE -> op("toggle")
+            ACTION_RESUME -> resume()
             ACTION_NEXT -> op("next")
             ACTION_QUIT -> quit()
             // The rest come from the app on screen, which may start the foreground service.
             else -> {
-                ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                 if (intent?.action == ACTION_RESTART) restart() else start()
                 intent?.getStringExtra(EXTRA_LINK)?.let(::open)
             }
@@ -138,6 +158,7 @@ class CliampService : Service(), TerminalSessionClient {
     }
 
     override fun onDestroy() {
+        audio.unregisterAudioDeviceCallback(outputs)
         setPlaying(false)
         if (hasFocus) AudioManagerCompat.abandonAudioFocusRequest(audio, focusRequest)
         media.release()
@@ -170,6 +191,60 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
+    /** Starts the core for a caller that is not on screen (Android Auto), in the foreground when Android allows it. */
+    private fun ensureCore() {
+        if (session != null || preparing) return
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, CliampService::class.java))
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "foreground start: $e") // ForegroundServiceStartNotAllowedException: run the core while bound
+            start()
+        }
+    }
+
+    /** Whether the core answers with a state within 90 s (the first start unpacks Python and ffmpeg). */
+    private suspend fun coreUp() = withTimeoutOrNull(90_000) {
+        Remote.connected.first { it }
+        Remote.state.first { it != null }
+    } != null
+
+    /** Starts the core unless it runs, then plays the queue it restored (Reanudar, the widget, the tile). */
+    private fun resume() {
+        ensureCore()
+        scope.launch {
+            if (coreUp() && Remote.state.value?.track != null && Remote.state.value?.playing != true) op("play")
+        }
+    }
+
+    /** Runs block on the core for Android Auto once it is up; a failed call leaves the car's list empty. */
+    private fun <T> withCore(fallback: T, done: (T) -> Unit, block: suspend () -> T) {
+        ensureCore()
+        scope.launch {
+            val value = try {
+                if (coreUp()) block() else fallback
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "auto: $e")
+                fallback
+            }
+            done(value)
+        }
+    }
+
+    /** AutoService's browse tree. */
+    fun browse(parentId: String, result: MediaBrowserServiceCompat.Result<MutableList<MediaBrowserCompat.MediaItem>>) {
+        result.detach()
+        if (parentId == Auto.ROOT) return result.sendResult(Auto.root(this).toMutableList()) // no core needed
+        withCore(emptyList(), { result.sendResult(it.toMutableList()) }) { Auto.children(this, parentId) }
+    }
+
+    /** AutoService's voice search. */
+    fun search(query: String, result: MediaBrowserServiceCompat.Result<MutableList<MediaBrowserCompat.MediaItem>>) {
+        result.detach()
+        withCore(emptyList(), { result.sendResult(it.toMutableList()) }) { Auto.search(query) }
+    }
+
     /** Stops the core and starts it again. */
     fun restart() = stopCore { start() }
 
@@ -193,6 +268,7 @@ class CliampService : Service(), TerminalSessionClient {
     private fun finish(closeActivity: Boolean) {
         if (closeActivity) terminal?.finishAndRemoveTask()
         setPlaying(false)
+        PlayerWidget.update(this, null, null)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -262,6 +338,7 @@ class CliampService : Service(), TerminalSessionClient {
                     PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
                         PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                         PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_STOP or
+                        PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or
                         (if (s.seekable) PlaybackStateCompat.ACTION_SEEK_TO else 0L)
                 )
                 // Android 13+ builds the media controls from the session, so Quit is a custom action there.
@@ -274,6 +351,7 @@ class CliampService : Service(), TerminalSessionClient {
                 .build()
         )
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
+        PlayerWidget.update(this, s, art)
     }
 
     private fun notification(): Notification {
@@ -361,6 +439,46 @@ class CliampService : Service(), TerminalSessionClient {
         .setOnAudioFocusChangeListener(focusListener)
         .build()
 
+    private val routePrefs by lazy { Routes.prefs(this) }
+    private var outputsListed = false
+
+    // Plugging headphones or connecting a Bluetooth device may resume (opt-in); every change may switch the EQ.
+    private val outputs = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+            followOutput()
+            // The first call lists the outputs that were already there.
+            if (!outputsListed) {
+                outputsListed = true
+                return
+            }
+            if (routePrefs.getBoolean(Routes.RESUME, false) && session != null && Remote.state.value?.state == "paused" &&
+                added.any { it.isSink && Routes.headphones(it.type) }
+            ) op("play")
+        }
+
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = followOutput()
+    }
+
+    private fun followOutput() {
+        Routes.current.value = Routes.pick(audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.type to it.productName.toString() })
+    }
+
+    /** Follows the output: the EQ preset the user picks is kept for it, and another output brings back its own. */
+    private fun watchOutputs() {
+        audio.registerAudioDeviceCallback(outputs, main)
+        var synced: String? = null
+        scope.launch {
+            combine(Routes.current, Remote.state.filterNotNull()) { route, s -> Triple(route, s.eqPreset, s.eqAuto) }
+                .distinctUntilChanged().collect { (route, preset, auto) ->
+                    val key = Routes.eqKey(route)
+                    val step = Routes.eqStep(route, synced, preset, auto, routePrefs.getString(key, null))
+                    synced = route
+                    step.apply?.let { op("eq", JSONObject().put("name", it)) }
+                    if (step.save) routePrefs.edit { putString(key, preset) }
+                }
+        }
+    }
+
     private val noisy = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = op("pause")
     }
@@ -382,7 +500,15 @@ class CliampService : Service(), TerminalSessionClient {
     }
 
     private val mediaCallback = object : MediaSessionCompat.Callback() {
-        override fun onPlay() = op("play")
+        // The system's media controls and Android Auto may play after the core ended.
+        override fun onPlay() = if (session == null) resume() else op("play")
+        override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) =
+            withCore(false, { if (!it) Log.w(TAG, "auto: no row $mediaId") }) { Auto.play(this@CliampService, mediaId) }
+        // "Ok Google, pon …": an empty query plays what was playing.
+        override fun onPlayFromSearch(query: String?, extras: Bundle?) {
+            if (query.isNullOrBlank()) return resume()
+            withCore(false, {}) { Auto.playSearch(query) }
+        }
         override fun onPause() = op("pause")
         override fun onStop() = op("stop")
         override fun onSkipToNext() = op("next")
@@ -452,6 +578,7 @@ class CliampService : Service(), TerminalSessionClient {
         const val ACTION_NEXT = "io.github.xaviiromf.cliampx.NEXT"
         const val ACTION_QUIT = "io.github.xaviiromf.cliampx.QUIT"
         const val ACTION_RESTART = "io.github.xaviiromf.cliampx.RESTART"
+        const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
 
         fun send(context: Context, action: String) {
             context.startService(Intent(context, CliampService::class.java).setAction(action))

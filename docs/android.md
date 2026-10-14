@@ -122,6 +122,23 @@ is not valid is left out).
   wallpaper's colors, saved as the `wallpaper` theme;
   every text color keeps 4.5:1 contrast with its background.
 
+**Ajustes → Red y descargas** sets the YouTube audio quality separately for
+Wi-Fi and mobile data (Alta: the best format, Normal: up to 128 kbps,
+Ahorro: up to 64 kbps). The app tells the core which network it uses; a
+metered network counts as mobile data. **Calidad Premium** asks for the
+256 kbps formats of a Premium account from the first try. **Descargas solo
+con Wi-Fi** refuses a download on mobile data. **Caché automática** downloads
+your liked songs, then the recently played ones, at most every 12 hours, up
+to a number of songs and a size (an estimate of 128 kbps per song); it can
+be held to Wi-Fi, and **Llenar ahora** fills it at once. The player shows the
+format of the playing stream under the time, such as `OPUS · 160 kbps · 48 kHz`.
+
+**Ajustes → Scrobbling** sends what you play to ListenBrainz (paste your
+token from listenbrainz.org/settings) or Last.fm (paste the key and secret
+of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
+in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
+credential. Scrobbles that fail on a network error are sent later.
+
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification
@@ -131,6 +148,31 @@ the theme's colors: they show the cover in the theme's background and accent
 If One UI or another system stops it after a while,
 open **Ajustes → Batería** and let cliamp-x run unrestricted (on Samsung: add
 it to "Apps que nunca se suspenden").
+
+**Reanudar al conectar auriculares** (Ajustes → Reproducción, off by default)
+plays the paused song again when wired, USB or Bluetooth headphones connect.
+The equalizer remembers the preset you pick for each output (the speaker,
+wired headphones, USB, and each Bluetooth device by name) and switches to it
+when that output connects; the EQ screen names the current output. The
+automatic EQ by genre and a Personalizado curve are not remembered.
+
+## Phone and car integrations
+
+- **Widget:** a 4×1 mini player for the home screen with the cover, the song
+  and its artist, and previous, play or pause and next, in the theme's
+  colors. Tap the song to open the player. With cliamp-x closed, play starts
+  it and resumes the last queue.
+- **Quick Settings tile:** play or pause, lit while a song plays. Add it from
+  the edit view of the Quick Settings panel.
+- **Launcher shortcuts:** long-press the icon for **Reanudar**, **Buscar** and
+  **Me gusta**.
+- **Compartir:** in a YouTube Music song's menu and in the player's ⋯ menu,
+  shares the song's music.youtube.com link.
+- **Android Auto:** cliamp-x shows as a media app with Inicio (one folder per
+  shelf), Biblioteca (your lists), Canciones que te gustan and Escuchado
+  recientemente. Voice search ("Ok Google, pon … en cliamp-x") plays the songs
+  it finds. Only Android Auto, the Google app and the system media controls
+  may browse your library.
 
 ## Updates
 
