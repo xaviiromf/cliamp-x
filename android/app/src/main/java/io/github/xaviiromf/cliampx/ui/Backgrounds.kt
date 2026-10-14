@@ -80,6 +80,10 @@ object Looks {
         private set
     var motion by mutableStateOf(MotionSpeed.Normal)
         private set
+
+    /** The visualizer fills the player behind the artwork. */
+    var playerVis by mutableStateOf(false)
+        private set
     private var prefs: SharedPreferences? = null
 
     fun load(context: Context) {
@@ -88,6 +92,7 @@ object Looks {
         listLevel = p.getInt(LIST_LEVEL, 40).coerceIn(0, 100)
         playerLevel = p.getInt(PLAYER_LEVEL, 70).coerceIn(0, 100)
         motion = enumOr(p.getString(MOTION, null), MotionSpeed.Normal)
+        playerVis = p.getBoolean(PLAYER_VIS, false)
     }
 
     fun putBackground(b: Background) {
@@ -110,10 +115,16 @@ object Looks {
         prefs?.edit { putString(MOTION, m.name) }
     }
 
+    fun putPlayerVis(on: Boolean) {
+        playerVis = on
+        prefs?.edit { putBoolean(PLAYER_VIS, on) }
+    }
+
     private const val BACKGROUND = "background"
     private const val LIST_LEVEL = "background_lists"
     private const val PLAYER_LEVEL = "background_player"
     private const val MOTION = "motion"
+    private const val PLAYER_VIS = "player_vis"
 }
 
 /** The entry named name, or fallback for a missing or unknown name. */

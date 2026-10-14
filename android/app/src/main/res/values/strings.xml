@@ -392,4 +392,17 @@
     <string name="preview_song">Canción sonando</string>
     <string name="preview_artist">Artista · Álbum</string>
     <string name="preview_next">Siguiente canción</string>
+    <string name="lyrics_seek">Ir a esta línea</string>
+    <string name="lyrics_full">Letras a pantalla completa</string>
+    <string name="player_vis">Visualizador de fondo en el reproductor</string>
+    <string name="stereo">Modo estéreo</string>
+    <string name="stereo_charging">Modo estéreo al cargar</string>
+    <string name="stereo_help">Con el teléfono cargando, el protector de pantalla del sistema muestra el reloj, la portada, la canción y el visualizador. Elige Modo estéreo como protector de pantalla.</string>
+    <string name="launcher_icon">Icono de la app</string>
+    <string name="launcher_icon_help">Al cambiarlo, la app se cierra (la música sigue); ábrela de nuevo con el icono nuevo.</string>
+    <string name="icon_default">Predeterminado</string>
+    <string name="icon_green">Verde</string>
+    <string name="icon_amber">Ámbar</string>
+    <string name="icon_synthwave" translatable="false">Synthwave</string>
+    <string name="icon_gameboy" translatable="false">Game Boy</string>
 </resources>

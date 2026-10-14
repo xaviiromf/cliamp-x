@@ -33,10 +33,13 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.media.AudioAttributesCompat
 import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
+import androidx.compose.ui.graphics.toArgb
 import io.github.xaviiromf.cliampx.ui.Art
+import io.github.xaviiromf.cliampx.ui.paletteOf
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.CoroutineScope
@@ -112,6 +115,7 @@ class CliampService : Service(), TerminalSessionClient {
                 val now = SystemClock.elapsedRealtime()
                 a.track?.path == b.track?.path && a.track?.title == b.track?.title && a.state == b.state &&
                     a.buffering == b.buffering && a.seeking == b.seeking && a.speed == b.speed && a.duration == b.duration && a.seekable == b.seekable &&
+                    a.theme == b.theme &&
                     abs(PlaybackClock.positionAt(a, now) - PlaybackClock.positionAt(b, now)) < 2
             }.collect(::onState)
         }
@@ -242,7 +246,7 @@ class CliampService : Service(), TerminalSessionClient {
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, s.track?.artist.orEmpty())
                 .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, s.track?.album.orEmpty())
                 .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, (s.duration * 1000).toLong())
-                .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, art)
+                .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, shownArt())
                 .build()
         )
         val state = when {
@@ -285,7 +289,10 @@ class CliampService : Service(), TerminalSessionClient {
             .setSmallIcon(R.drawable.ic_glyph)
             .setContentTitle(snap?.track?.name.orEmpty().ifEmpty { getString(R.string.app_name) })
             .setContentText(snap?.track?.artist.orEmpty())
-            .setLargeIcon(art)
+            .setLargeIcon(shownArt())
+            // The theme's colors: the accent tints the notification, and the art carries them to the media controls.
+            .setColor(themeColors().second)
+            .setColorized(true)
             .setContentIntent(open)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
@@ -295,6 +302,39 @@ class CliampService : Service(), TerminalSessionClient {
             .addAction(action(R.drawable.ic_close, R.string.quit, ACTION_QUIT))
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle().setMediaSession(media.sessionToken).setShowActionsInCompactView(0, 1, 2))
             .build()
+    }
+
+    /** The theme's bg and accent as ARGB. */
+    private fun themeColors(): Pair<Int, Int> = paletteOf(snap?.theme).let { it.bg.toArgb() to it.accent.toArgb() }
+
+    private var themeArt: Triple<Bitmap?, Pair<Int, Int>, Bitmap>? = null
+
+    /**
+     * The notification and lock screen art: the cover as a duotone from the theme's bg to its accent, or for a
+     * song with none, the logo in the accent on the bg. The system takes the media controls' colors from it.
+     */
+    private fun shownArt(): Bitmap? {
+        val cover = art
+        if (snap?.track == null || (cover == null && artUrl.isNotEmpty())) return null // nothing, or the cover is loading
+        val colors = themeColors()
+        themeArt?.takeIf { it.first === cover && it.second == colors }?.let { return it.third }
+        val bitmap = createBitmap(THEME_ART_PX, THEME_ART_PX)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(colors.first)
+        if (cover != null) {
+            val side = minOf(cover.width, cover.height)
+            val x = (cover.width - side) / 2
+            val y = (cover.height - side) / 2
+            val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+            paint.colorFilter = android.graphics.ColorMatrixColorFilter(duotone(colors.first, colors.second))
+            canvas.drawBitmap(cover, android.graphics.Rect(x, y, x + side, y + side), android.graphics.Rect(0, 0, THEME_ART_PX, THEME_ART_PX), paint)
+        } else ContextCompat.getDrawable(this, R.drawable.ic_glyph)?.mutate()?.apply {
+            setTint(colors.second)
+            setBounds(THEME_ART_PX / 4, THEME_ART_PX / 4, THEME_ART_PX * 3 / 4, THEME_ART_PX * 3 / 4)
+            draw(canvas)
+        }
+        themeArt = Triple(cover, colors, bitmap)
+        return bitmap
     }
 
     // Audio focus: a loss pauses, a transient loss pauses and resumes. Ducking is left to the system.
@@ -405,6 +445,7 @@ class CliampService : Service(), TerminalSessionClient {
         private const val CHANNEL = "playback"
         private const val NOTIFICATION_ID = 1
         private const val SEEK_HOLD_MS = 15_000L
+        private const val THEME_ART_PX = 512
         const val EXTRA_LINK = "link"
         const val ACTION_PREV = "io.github.xaviiromf.cliampx.PREV"
         const val ACTION_TOGGLE = "io.github.xaviiromf.cliampx.TOGGLE"

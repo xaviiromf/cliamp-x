@@ -12,32 +12,25 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.xaviiromf.cliampx.ui.App
-import io.github.xaviiromf.cliampx.ui.Background
-import io.github.xaviiromf.cliampx.ui.CliampTheme
+import io.github.xaviiromf.cliampx.ui.LiveTheme
 import io.github.xaviiromf.cliampx.ui.Look
 import io.github.xaviiromf.cliampx.ui.Looks
 import io.github.xaviiromf.cliampx.ui.Nav
 import io.github.xaviiromf.cliampx.ui.Skins
-import io.github.xaviiromf.cliampx.ui.livePalette
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,10 +51,7 @@ class MainActivity : ComponentActivity() {
         Looks.load(this)
         Skins.load(this)
         setContent {
-            val theme by remember { Remote.state.map { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
-            // A background shows through the bars and cards.
-            val palette = livePalette(theme).let { if (Looks.background == Background.Solid) it else it.copy(glass = 0.6f) }
-            CliampTheme(palette) {
+            LiveTheme {
                 Box(Modifier.semantics { testTagsAsResourceId = true }) { App(firstRun) }
             }
         }

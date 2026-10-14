@@ -68,6 +68,7 @@ import io.github.xaviiromf.cliampx.likes
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
+import io.github.xaviiromf.cliampx.StereoActivity
 import io.github.xaviiromf.cliampx.TerminalActivity
 import io.github.xaviiromf.cliampx.Track
 import io.github.xaviiromf.cliampx.speedLabel
@@ -479,7 +480,7 @@ internal fun NameSheet(
     }
 }
 
-/** The player's ⋮: the song's ♥, then Velocidad…, Temporizador… and Modo terminal. */
+/** The player's ⋮: the song's ♥, then Velocidad…, Temporizador…, the karaoke lyrics, the background visualizer, Modo estéreo and Modo terminal. */
 @Composable
 private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     val context = LocalContext.current
@@ -489,6 +490,17 @@ private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     }
     MenuRow("×", stringResource(R.string.speed_more), "menu_speed") { Nav.sheet = Sheet.Speed }
     MenuRow("", stringResource(R.string.sleep_more), "menu_sleep", icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }
+    MenuRow("", stringResource(R.string.lyrics_full), "menu_karaoke", icon = R.drawable.ic_note) {
+        close()
+        Nav.page = PlayerPage.Lyrics
+    }
+    MenuRow(
+        if (Looks.playerVis) "✓" else "", stringResource(R.string.player_vis), "menu_player_vis",
+    ) { Looks.putPlayerVis(!Looks.playerVis) }
+    MenuRow("◷", stringResource(R.string.stereo), "menu_stereo") {
+        close()
+        context.startActivity(Intent(context, StereoActivity::class.java))
+    }
     MenuRow("", stringResource(R.string.terminal), "menu_terminal", icon = R.drawable.ic_terminal) {
         close()
         context.startActivity(Intent(context, TerminalActivity::class.java))

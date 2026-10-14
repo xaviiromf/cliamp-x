@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -166,7 +167,14 @@ private fun Splash(firstRun: Boolean, stopped: Boolean) {
         Modifier.fillMaxSize().background(p.bg).padding(24.dp),
         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("C L I A M P - X", color = p.accent, style = Type.logo)
+        // The logo types itself letter by letter behind a block cursor; Sin animación shows it whole.
+        val typed by produceState(if (Looks.motion == MotionSpeed.Off) LOGO.length else 0) {
+            while (value < LOGO.length) {
+                delay((LOGO_STEP_MS * Looks.motion.factor).toLong())
+                value++
+            }
+        }
+        Text(splashLogo(typed), Modifier.semantics { contentDescription = LOGO }, color = p.accent, style = Type.logo)
         Spacer(Modifier.height(8.dp))
         if (stopped) {
             CoreStopped()
@@ -176,6 +184,15 @@ private fun Splash(firstRun: Boolean, stopped: Boolean) {
             if (waiting > 0) Text("◌ " + stringResource(R.string.ytdlp_preparing), color = p.textSecondary, style = Type.caption)
         }
     }
+}
+
+private const val LOGO = "C L I A M P - X"
+private const val LOGO_STEP_MS = 45L
+
+/** The splash logo with n letters typed: the rest is the cursor and blanks, so the width never moves. */
+fun splashLogo(n: Int): String {
+    val k = n.coerceIn(0, LOGO.length)
+    return if (k == LOGO.length) LOGO else (LOGO.take(k) + "█").padEnd(LOGO.length)
 }
 
 /** The core ended with an error: Reintentar starts it again. */
