@@ -100,9 +100,10 @@ cover-palette transitions; Sin animación also holds the background still.
 ## Background playback
 
 Music keeps playing with the screen off, with controls in the notification
-and on the lock screen. The notification takes the theme's accent; a song
-with no cover shows the cliamp-x logo in the theme's colors, so the lock
-screen player takes them too (a cover sets its own colors there). If One UI or another system stops it after a while,
+and on the lock screen. The notification and the lock screen player take
+the theme's colors: they show the cover in the theme's background and accent
+(the app keeps the real cover), or the cliamp-x logo for a song with none.
+If One UI or another system stops it after a while,
 open **Ajustes → Batería** and let cliamp-x run unrestricted (on Samsung: add
 it to "Apps que nunca se suspenden").
 

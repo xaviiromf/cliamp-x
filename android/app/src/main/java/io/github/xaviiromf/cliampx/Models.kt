@@ -473,6 +473,25 @@ fun seekHolds(target: Double, path: String?, releasedAt: Long, s: Snapshot, now:
     s.track?.path == path && now - releasedAt < holdMs &&
         (s.receivedAt < releasedAt || kotlin.math.abs(s.position - target) >= 2)
 
+/**
+ * The 4x5 color matrix (android.graphics.ColorMatrix order) that maps a pixel's
+ * luminance from the ARGB bg (black) to the ARGB accent (white), opaque.
+ */
+fun duotone(bg: Int, accent: Int): FloatArray {
+    val m = FloatArray(20)
+    for (c in 0..2) {
+        val shift = 16 - 8 * c
+        val from = (bg shr shift and 0xff).toFloat()
+        val span = ((accent shr shift and 0xff) - (bg shr shift and 0xff)) / 255f
+        m[c * 5] = span * 0.299f
+        m[c * 5 + 1] = span * 0.587f
+        m[c * 5 + 2] = span * 0.114f
+        m[c * 5 + 4] = from
+    }
+    m[19] = 255f
+    return m
+}
+
 /** The EQ gain of a tap at y in a column height tall: +12 dB at the top, -12 at the bottom, in 1 dB steps. */
 fun eqGain(y: Float, height: Float): Int =
     if (height <= 0) 0 else Math.round(12 - y / height * 24).coerceIn(-12, 12)

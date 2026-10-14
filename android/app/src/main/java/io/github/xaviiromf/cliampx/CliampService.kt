@@ -290,7 +290,7 @@ class CliampService : Service(), TerminalSessionClient {
             .setContentTitle(snap?.track?.name.orEmpty().ifEmpty { getString(R.string.app_name) })
             .setContentText(snap?.track?.artist.orEmpty())
             .setLargeIcon(shownArt())
-            // The theme's colors: the accent tints the notification, and a song with no cover shows the theme's art.
+            // The theme's colors: the accent tints the notification, and the art carries them to the media controls.
             .setColor(themeColors().second)
             .setColorized(true)
             .setContentIntent(open)
@@ -307,22 +307,33 @@ class CliampService : Service(), TerminalSessionClient {
     /** The theme's bg and accent as ARGB. */
     private fun themeColors(): Pair<Int, Int> = paletteOf(snap?.theme).let { it.bg.toArgb() to it.accent.toArgb() }
 
-    private var themeArt: Pair<Pair<Int, Int>, Bitmap>? = null
+    private var themeArt: Triple<Bitmap?, Pair<Int, Int>, Bitmap>? = null
 
-    /** The cover, or for a song with none, the logo in the theme's accent on its bg (the lock screen takes its colors from it). */
+    /**
+     * The notification and lock screen art: the cover as a duotone from the theme's bg to its accent, or for a
+     * song with none, the logo in the accent on the bg. The system takes the media controls' colors from it.
+     */
     private fun shownArt(): Bitmap? {
-        if (art != null || artUrl.isNotEmpty() || snap?.track == null) return art
+        val cover = art
+        if (snap?.track == null || (cover == null && artUrl.isNotEmpty())) return null // nothing, or the cover is loading
         val colors = themeColors()
-        themeArt?.takeIf { it.first == colors }?.let { return it.second }
+        themeArt?.takeIf { it.first === cover && it.second == colors }?.let { return it.third }
         val bitmap = createBitmap(THEME_ART_PX, THEME_ART_PX)
         val canvas = android.graphics.Canvas(bitmap)
         canvas.drawColor(colors.first)
-        ContextCompat.getDrawable(this, R.drawable.ic_glyph)?.mutate()?.apply {
+        if (cover != null) {
+            val side = minOf(cover.width, cover.height)
+            val x = (cover.width - side) / 2
+            val y = (cover.height - side) / 2
+            val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+            paint.colorFilter = android.graphics.ColorMatrixColorFilter(duotone(colors.first, colors.second))
+            canvas.drawBitmap(cover, android.graphics.Rect(x, y, x + side, y + side), android.graphics.Rect(0, 0, THEME_ART_PX, THEME_ART_PX), paint)
+        } else ContextCompat.getDrawable(this, R.drawable.ic_glyph)?.mutate()?.apply {
             setTint(colors.second)
             setBounds(THEME_ART_PX / 4, THEME_ART_PX / 4, THEME_ART_PX * 3 / 4, THEME_ART_PX * 3 / 4)
             draw(canvas)
         }
-        themeArt = colors to bitmap
+        themeArt = Triple(cover, colors, bitmap)
         return bitmap
     }
 

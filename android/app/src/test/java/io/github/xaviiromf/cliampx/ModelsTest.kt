@@ -502,4 +502,22 @@ class BrowseHelpersTest {
         assertFalse("the bar's 5 s hold", seekHolds(target, "a", 10_000, stale, 22_000))
         assertFalse("after 15 s", seekHolds(target, "a", 10_000, stale, 25_001, 15_000))
     }
+
+    @Test
+    fun duotoneMapsLuminanceToTheTheme() {
+        val bg = 0xff102030.toInt()
+        val accent = 0xff0000cc.toInt()
+        fun apply(m: FloatArray, argb: Int): Int {
+            val p = floatArrayOf((argb shr 16 and 0xff).toFloat(), (argb shr 8 and 0xff).toFloat(), (argb and 0xff).toFloat(), (argb ushr 24).toFloat(), 1f)
+            val out = IntArray(4) { r -> Math.round((0..3).sumOf { p[it].toDouble() * m[r * 5 + it] } + m[r * 5 + 4]).toInt().coerceIn(0, 255) }
+            return (out[3] shl 24) or (out[0] shl 16) or (out[1] shl 8) or out[2]
+        }
+        val m = duotone(bg, accent)
+        for ((pixel, want) in listOf(
+            0xff000000.toInt() to bg,
+            0xffffffff.toInt() to accent,
+            0x00ffffff to accent, // transparent pixels come out opaque
+            0xff808080.toInt() to 0xff08107e.toInt(),
+        )) assertEquals("%08x".format(pixel), "%08x".format(want), "%08x".format(apply(m, pixel)))
+    }
 }
