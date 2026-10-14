@@ -145,7 +145,7 @@ fun LibraryScreen() {
 private fun Pinned(@DrawableRes icon: Int, label: String, count: Int, tag: String, color: androidx.compose.ui.graphics.Color = LocalPalette.current.accent, open: (String) -> Unit) {
     val p = LocalPalette.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { open(label) }.padding(horizontal = 16.dp).testTag(tag),
+        Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable { open(label) }.padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(32.dp)) {
@@ -210,7 +210,7 @@ private fun ItemRow(item: Item, tag: String, count: Int = 0, favorite: Boolean =
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).combinedClickable(
+        Modifier.fillMaxWidth().heightIn(min = Look.row(64.dp)).combinedClickable(
             onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 Nav.sheet = Sheet.Of(item)

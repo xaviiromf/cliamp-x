@@ -290,7 +290,7 @@ private fun GenreTile(genre: Item, i: Int, modifier: Modifier = Modifier) {
     val bar = listOf(p.green, p.yellow, p.red, p.accent)[i % 4]
     val favorites by Remote.favorites.collectAsStateWithLifecycle()
     Row(
-        modifier.height(IntrinsicSize.Min).heightIn(min = 64.dp).background(p.surface).combinedClickable(
+        modifier.height(IntrinsicSize.Min).heightIn(min = Look.row(64.dp)).background(p.surface).combinedClickable(
             onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 Nav.sheet = Sheet.Of(genre)

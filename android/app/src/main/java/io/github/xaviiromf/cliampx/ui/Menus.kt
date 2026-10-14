@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -88,7 +89,7 @@ fun SheetHost(s: Snapshot?) {
     ModalBottomSheet(
         onDismissRequest = { Nav.sheet = null },
         sheetState = state,
-        shape = RectangleShape,
+        shape = if (Look.rounded) RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp) else RectangleShape,
         containerColor = p.surface,
         contentColor = p.textPrimary,
         tonalElevation = 0.dp,
@@ -130,7 +131,7 @@ fun SheetHost(s: Snapshot?) {
 private fun MenuRow(glyph: String, label: String, tag: String, glyphColor: Color = LocalPalette.current.accent, @DrawableRes icon: Int? = null, onClick: () -> Unit) {
     val p = LocalPalette.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
+        Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(32.dp)) {
@@ -342,7 +343,7 @@ private fun AddTo(sheet: Sheet.AddTo) {
         SectionRule(title)
         rows.forEachIndexed { i, row ->
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable {
+                Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable {
                     Remote.addTo(row.provider, row.id, sheet.tracks, sheet.item)
                     Nav.sheet = null
                 }.padding(horizontal = 16.dp).testTag("${tag}_$i"),

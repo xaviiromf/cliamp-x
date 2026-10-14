@@ -75,14 +75,16 @@ class PaletteTest {
 
 class GlyphTest {
     @Test
-    fun everyTextGlyphIsInJetBrainsMono() {
+    fun everyTextGlyphIsInTheBundledFonts() {
         // java.awt is not on the Android compile classpath, only on the test JVM.
         val awt = Class.forName("java.awt.Font")
-        val font = awt.getMethod("createFont", Int::class.javaPrimitiveType, File::class.java)
-            .invoke(null, 0, File("src/main/res/font/jetbrains_mono_regular.ttf")) // 0: TRUETYPE_FONT
         val canDisplay = awt.getMethod("canDisplay", Char::class.javaPrimitiveType)
-        val missing = Glyphs.ALL.filterNot { canDisplay.invoke(font, it) as Boolean }
-        assertTrue("missing: $missing", missing.isEmpty())
+        for (name in listOf("jetbrains_mono_nerd_regular", "jetbrains_mono_nerd_bold", "adwaita_mono_regular", "adwaita_mono_bold")) {
+            val font = awt.getMethod("createFont", Int::class.javaPrimitiveType, File::class.java)
+                .invoke(null, 0, File("src/main/res/font/$name.ttf")) // 0: TRUETYPE_FONT
+            val missing = Glyphs.ALL.filterNot { canDisplay.invoke(font, it) as Boolean }
+            assertTrue("$name misses: $missing", missing.isEmpty())
+        }
     }
 }
 

@@ -8,7 +8,6 @@ import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -17,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -32,16 +32,17 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
-import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.ThemeInfo
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
@@ -119,16 +120,14 @@ fun reducedMotion(): Boolean {
 
 val LocalPalette = staticCompositionLocalOf { Winamp }
 
-private val Mono = FontFamily(
-    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
-    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
-)
+/** The type roles of §4.2 in one font and text scale. */
+@Immutable
+class TypeRoles(private val family: FontFamily, private val scale: Float) {
+    private fun style(size: Int, line: Int, bold: Boolean = false) = TextStyle(
+        fontFamily = family, fontSize = (size * scale).sp, lineHeight = (line * scale).sp,
+        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+    )
 
-private fun style(size: Int, line: Int, bold: Boolean = false) =
-    TextStyle(fontFamily = Mono, fontSize = size.sp, lineHeight = line.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
-
-/** The type roles of §4.2. Colors are set where each one is used. */
-object Type {
     val logo = style(15, 20, bold = true)
     val display = style(22, 28, bold = true)
     val headline = style(18, 24, bold = true)
@@ -139,6 +138,26 @@ object Type {
     val labelCaps = style(12, 16, bold = true)
     val numeric = style(13, 18)
     val caption = style(11, 14)
+}
+
+/** The type roles in the font and text size of Ajustes (Look); a change recomposes every reader. Colors are set where each one is used. */
+object Type {
+    private val roles by derivedStateOf { TypeRoles(Look.family, Look.TEXT_SCALES[Look.textSize]) }
+    val logo get() = roles.logo
+    val display get() = roles.display
+    val headline get() = roles.headline
+    val body get() = roles.body
+    val bodyStrong get() = roles.bodyStrong
+    val tile get() = roles.tile
+    val label get() = roles.label
+    val labelCaps get() = roles.labelCaps
+    val numeric get() = roles.numeric
+    val caption get() = roles.caption
+}
+
+/** Haptics off in Ajustes: every LocalHapticFeedback reader goes quiet. */
+private object NoHaptics : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {}
 }
 
 /** Press feedback: an instant accent fill, no ripple (§4.5). */
@@ -184,7 +203,7 @@ fun SheetBars() {
     }
 }
 
-/** Colors, type, square shapes and press feedback from the cliamp-x theme; system bar icons follow it. */
+/** Colors, type, corners (square unless Ajustes rounds them), haptics and press feedback from the cliamp-x theme; system bar icons follow it. */
 @Composable
 fun CliampTheme(p: CliampPalette, content: @Composable () -> Unit) {
     val view = LocalView.current
@@ -198,7 +217,7 @@ fun CliampTheme(p: CliampPalette, content: @Composable () -> Unit) {
             isAppearanceLightNavigationBars = light
         }
     }
-    val square = RoundedCornerShape(0)
+    val corner = Look.corner
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = p.accent, onPrimary = p.onAccent, secondary = p.green, tertiary = p.yellow, error = p.red,
@@ -207,13 +226,14 @@ fun CliampTheme(p: CliampPalette, content: @Composable () -> Unit) {
             surfaceContainer = p.bg, surfaceContainerLow = p.bg, surfaceContainerLowest = p.bg,
             surfaceContainerHigh = p.bg, surfaceContainerHighest = p.bg, surfaceBright = p.bg, surfaceDim = p.bg,
         ),
-        shapes = Shapes(square, square, square, square, square),
+        shapes = Shapes(corner, corner, corner, corner, corner),
         typography = Typography(bodyLarge = Type.body, bodyMedium = Type.body, labelLarge = Type.label),
     ) {
         CompositionLocalProvider(
             LocalPalette provides p,
             LocalIndication provides remember(p.pressed) { PressFill(p.pressed) },
             LocalRippleConfiguration provides null,
+            LocalHapticFeedback provides if (Look.haptics) LocalHapticFeedback.current else NoHaptics,
         ) { content() }
     }
 }

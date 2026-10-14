@@ -42,6 +42,7 @@ sealed interface Screen {
     /** Ajustes; install checks for an app update and installs it (the Inicio banner's [ Instalar ]). */
     data class Settings(val install: Boolean = false) : Screen
     data object Themes : Screen
+    data object Fonts : Screen
     data object Visualizers : Screen
 
     /** The equalizer, pushed from Ajustes. */

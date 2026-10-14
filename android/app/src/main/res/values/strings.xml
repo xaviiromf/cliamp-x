@@ -287,4 +287,24 @@
     <string name="vis_none">Sin visualizador</string>
     <string name="vis_more_count">Más modos (%1$d) en Modo terminal</string>
     <string name="vis_more">Más modos en Modo terminal</string>
+    <string name="font">Fuente</string>
+    <string name="fonts_bundled">Incluidas</string>
+    <string name="fonts_download">Para descargar</string>
+    <string name="fonts_help">Se descargan una vez de su publicación oficial y se comprueban con SHA-256. Licencias libres: OFL, MIT o UFL.</string>
+    <string name="font_get">Descargar</string>
+    <string name="font_failed">No se pudo descargar la fuente: %1$s</string>
+    <string name="font_sample">El veloz murciélago hindú comía feliz cardillo y kiwi.</string>
+    <string name="text_size">Tamaño del texto</string>
+    <string name="text_small">Pequeño</string>
+    <string name="text_normal">Normal</string>
+    <string name="text_large">Grande</string>
+    <string name="text_huge">Muy grande</string>
+    <string name="density">Densidad de las listas</string>
+    <string name="density_compact">Compacta</string>
+    <string name="density_normal">Normal</string>
+    <string name="density_wide">Amplia</string>
+    <string name="corners">Esquinas</string>
+    <string name="corners_square">Cuadradas</string>
+    <string name="corners_rounded">Redondeadas</string>
+    <string name="haptics">Vibración al mantener pulsado</string>
 </resources>

@@ -159,6 +159,11 @@ fun SettingsScreen(screen: Screen.Settings) {
                     SectionRule(stringResource(R.string.set_look))
                     if ("theme" in ops) SettingRow(stringResource(R.string.theme), themeLabel(s?.theme?.name.orEmpty()), "set_theme") { Nav.open(Screen.Themes) }
                     if ("vis" in ops) SettingRow(stringResource(R.string.visualizer), s?.visualizer.orEmpty(), "set_vis") { Nav.open(Screen.Visualizers) }
+                    SettingRow(stringResource(R.string.font), Fonts.name(context, Look.font), "set_font") { Nav.open(Screen.Fonts) }
+                    Choice(stringResource(R.string.text_size), TEXT_SIZES, Look.textSize, "set_text_size") { Look.update(context) { textSize = it } }
+                    Choice(stringResource(R.string.density), DENSITIES, Look.density, "set_density") { Look.update(context) { density = it } }
+                    Choice(stringResource(R.string.corners), CORNERS, if (Look.rounded) 1 else 0, "set_corners") { Look.update(context) { rounded = it == 1 } }
+                    Toggle(stringResource(R.string.haptics), Look.haptics, "set_haptics") { Look.update(context) { haptics = it == 1 } }
                 }
             }
             item(key = "playback") {
@@ -258,7 +263,7 @@ fun SettingsScreen(screen: Screen.Settings) {
 private fun SettingRow(label: String, value: String, tag: String, onClick: () -> Unit) {
     val p = LocalPalette.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
+        Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body)
@@ -272,7 +277,7 @@ private fun SettingRow(label: String, value: String, tag: String, onClick: () ->
 private fun Toggle(label: String, on: Boolean, tag: String, set: (Int) -> Unit) {
     val p = LocalPalette.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { set(if (on) 0 else 1) }.padding(horizontal = 16.dp).testTag(tag),
+        Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable { set(if (on) 0 else 1) }.padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body)
@@ -293,6 +298,22 @@ private fun Bracketed(value: String, on: Boolean) {
         },
         style = Type.body.bold(on), maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
+}
+
+private val TEXT_SIZES = listOf(R.string.text_small, R.string.text_normal, R.string.text_large, R.string.text_huge)
+private val DENSITIES = listOf(R.string.density_compact, R.string.density_normal, R.string.density_wide)
+private val CORNERS = listOf(R.string.corners_square, R.string.corners_rounded)
+
+/** A setting with a few choices as bracket chips under its label. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Choice(label: String, options: List<Int>, selected: Int, tag: String, pick: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(label, Modifier.padding(horizontal = 16.dp), color = LocalPalette.current.textPrimary, style = Type.body)
+        FlowRow(Modifier.padding(horizontal = 12.dp)) {
+            options.forEachIndexed { i, option -> BracketChip(stringResource(option), i == selected, Modifier.testTag("${tag}_$i")) { pick(i) } }
+        }
+    }
 }
 
 /** A dim explanation under a setting. */
