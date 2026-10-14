@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -109,12 +110,12 @@ fun SheetHost(s: Snapshot?) {
     }
 }
 
-/** A 56 dp action row: a one-cell glyph (text or vector) and the label. */
+/** An action row, 56 dp or taller as the label wraps: a one-cell glyph (text or vector) and the label. */
 @Composable
 private fun MenuRow(glyph: String, label: String, tag: String, glyphColor: Color = LocalPalette.current.accent, @DrawableRes icon: Int? = null, onClick: () -> Unit) {
     val p = LocalPalette.current
     Row(
-        Modifier.fillMaxWidth().height(56.dp).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(32.dp)) {
@@ -225,6 +226,7 @@ private fun SongActions(sheet: Sheet.Song, close: () -> Unit) {
 private fun ItemActions(item: Item, close: () -> Unit) {
     val ops by Remote.ops.collectAsStateWithLifecycle()
     val signedIn by Remote.signedIn.collectAsStateWithLifecycle()
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
     val yt = !item.local
     val p = LocalPalette.current
     SheetHeader(item.art, item.title, item.subtitle)
@@ -244,9 +246,9 @@ private fun ItemActions(item: Item, close: () -> Unit) {
             if (item.kind == Kind.ALBUM && yt && signedIn == true && "provider.favorite" in ops) {
                 val pid = item.id.removePrefix("al:")
                 val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }
-                (preview as? Load.Done)?.value?.favorite?.let { saved ->
+                (favorites[pid] ?: (preview as? Load.Done)?.value?.favorite)?.let { saved ->
                     MenuRow("", stringResource(if (saved) R.string.unsave else R.string.save), "menu_save", p.favorite, icon = if (saved) R.drawable.ic_heart_outline else R.drawable.ic_heart) {
-                        run { Remote.toggle("provider.favorite", pid) {} }
+                        run { Remote.toggle("provider.favorite", pid) }
                     }
                 }
             }
@@ -271,9 +273,9 @@ private fun ItemActions(item: Item, close: () -> Unit) {
         Kind.ARTIST -> {
             if (yt && signedIn == true && "provider.favorite" in ops) {
                 val (preview, _) = rememberLoad("preview:${item.id}") { Remote.preview(item.id) }
-                (preview as? Load.Done)?.value?.favorite?.let { following ->
+                (favorites[item.id] ?: (preview as? Load.Done)?.value?.favorite)?.let { following ->
                     MenuRow("", stringResource(if (following) R.string.unfollow else R.string.follow), "menu_follow", icon = R.drawable.ic_heart) {
-                        run { Remote.toggle("provider.favorite", item.id) {} }
+                        run { Remote.toggle("provider.favorite", item.id) }
                     }
                 }
             }
@@ -283,8 +285,8 @@ private fun ItemActions(item: Item, close: () -> Unit) {
         Kind.GENRE -> {
             MenuRow("▶", stringResource(R.string.play_mix), "menu_play") { run { Remote.playItem(item) } }
             if (yt && "provider.genre_favorite" in ops) {
-                MenuRow("", stringResource(if (item.favorite) R.string.unpin else R.string.pin), "menu_pin", icon = R.drawable.ic_star) {
-                    run { Remote.toggle("provider.genre_favorite", item.id) {} }
+                MenuRow("", stringResource(if (favorites[item.id] ?: item.favorite) R.string.unpin else R.string.pin), "menu_pin", icon = R.drawable.ic_star) {
+                    run { Remote.toggle("provider.genre_favorite", item.id) }
                 }
             }
             // Radio takes the category IDs only, not search: or local: genres.
@@ -315,7 +317,7 @@ private fun AddTo(sheet: Sheet.AddTo) {
         SectionRule(title)
         rows.forEachIndexed { i, row ->
             Row(
-                Modifier.fillMaxWidth().height(56.dp).clickable {
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable {
                     Remote.addTo(row.provider, row.id, sheet.tracks, sheet.item)
                     Nav.sheet = null
                 }.padding(horizontal = 16.dp).testTag("${tag}_$i"),

@@ -23,6 +23,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.SettingsActivity
+import kotlinx.coroutines.launch
 
 /**
  * Inicio (§2.1, §3.2): the logo and Ajustes, the banner slot, then the
@@ -51,7 +54,10 @@ fun HomeScreen() {
     val context = LocalContext.current
     val list = rememberLazyListState()
     LaunchedEffect(Unit) { Nav.reselected.collect { if (it == Tab.Home) list.animateScrollToItem(0) } }
-    Pull(::refreshAll) {
+    // Set by a pull that found no network, until a pull or Reintentar refreshes (§2.10, S20).
+    var offline by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    Pull({ offline = !refreshAll() }) {
         LazyColumn(Modifier.fillMaxSize(), state = list) {
             item(key = "top") {
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -64,6 +70,7 @@ fun HomeScreen() {
             }
             item(key = "banners") {
                 Column {
+                    if (offline) ErrorState(stringResource(R.string.update_offline)) { scope.launch { offline = !refreshAll() } }
                     Banners()
                     SignInCard()
                     BatteryCard()
@@ -123,7 +130,9 @@ private fun LibraryShelves() {
     val (load, _) = rememberLoad("playlists:ytmusic") { Remote.playlists("ytmusic") }
     val rows = (load as? Load.Done)?.value.orEmpty()
     val releases = rows.filter { it.kind == Kind.ALBUM }
-    val genres = rows.filter { it.kind == Kind.GENRE }
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
+    // A star taken off since the rows were read leaves at once; a new one shows with the next load.
+    val genres = rows.filter { it.kind == Kind.GENRE && favorites[it.id] != false }
     Column {
         if (releases.isNotEmpty()) Carousel(stringResource(R.string.home_new), releases, "new") { _, item -> openItem(item, releases) }
         if (genres.isNotEmpty()) {

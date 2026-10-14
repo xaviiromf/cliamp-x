@@ -24,10 +24,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -342,20 +344,21 @@ private fun TitleBlock(s: Snapshot) {
         FavoriteButton(liked.likes(track), Modifier.testTag("fav")) { Remote.favorite(track) }
     }
     // A tap on the artist or the album opens its page when the song names it (§2.3).
-    Row {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         val artist = track.meta["ytmusic.artist"]
         val album = track.meta["ytmusic.album"]
-        fun Modifier.opens(screen: Screen?) = if (screen == null) this else clickable { Nav.open(screen) }
+        // A link gets a 48 dp target (§1.2), the text centered in it.
+        fun Modifier.opens(screen: Screen?) = if (screen == null) this else clickable { Nav.open(screen) }.heightIn(min = 48.dp).wrapContentHeight()
         if (track.artist.isNotEmpty()) {
             Text(
-                track.artist, Modifier.weight(1f, fill = false).opens(artist?.let { Screen.Artist(it, track.artist) }).testTag("player_artist"),
+                track.artist, Modifier.weight(1f, fill = false).testTag("player_artist").opens(artist?.let { Screen.Artist(it, track.artist) }),
                 color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
         if (track.album.isNotEmpty()) {
             Text(
                 (if (track.artist.isNotEmpty()) " · " else "") + track.album,
-                Modifier.weight(1f, fill = false).opens(album?.let { Screen.Album(it, track.album, track.artUrl, track.artist) }).testTag("player_album"),
+                Modifier.weight(1f, fill = false).testTag("player_album").opens(album?.let { Screen.Album(it, track.album, track.artUrl, track.artist) }),
                 color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }

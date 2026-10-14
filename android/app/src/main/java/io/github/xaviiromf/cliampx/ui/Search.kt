@@ -280,6 +280,7 @@ private fun GenreTile(genre: Item, i: Int, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
     val bar = listOf(p.green, p.yellow, p.red, p.accent)[i % 4]
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
     Row(
         modifier.height(IntrinsicSize.Min).heightIn(min = 64.dp).background(p.surface).combinedClickable(
             onLongClick = {
@@ -292,7 +293,7 @@ private fun GenreTile(genre: Item, i: Int, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(bar))
         Text(genre.title, Modifier.weight(1f).padding(horizontal = 12.dp), color = p.textPrimary, style = Type.body, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (genre.favorite) Icon(painterResource(R.drawable.ic_star), null, Modifier.padding(end = 8.dp).size(18.dp), tint = p.accent)
+        if (favorites[genre.id] ?: genre.favorite) Icon(painterResource(R.drawable.ic_star), null, Modifier.padding(end = 8.dp).size(18.dp), tint = p.accent)
     }
 }
 

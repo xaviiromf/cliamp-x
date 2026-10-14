@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -73,7 +74,8 @@ fun AlbumScreen(s: Screen.Album) {
     val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }
     val rows = (tracks as? Load.Done)?.value.orEmpty()
     val pv = (preview as? Load.Done)?.value
-    var saved by remember(pv) { mutableStateOf(pv?.favorite) }
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
+    val saved = favorites[pid] ?: pv?.favorite
     val artist = rows.firstOrNull()?.artist?.substringBefore(", ")?.ifEmpty { null } ?: s.subtitle
     val artistId = rows.firstNotNullOfOrNull { it.meta["ytmusic.artist"] }
     val art = s.art.ifEmpty { pv?.art.orEmpty() }.ifEmpty { rows.firstOrNull()?.art.orEmpty() }
@@ -86,11 +88,10 @@ fun AlbumScreen(s: Screen.Album) {
             }
             item(key = "buttons") {
                 Buttons(rows, play = { i -> Remote.loadAlbum(s.id, i, rows[i]) }) {
-                    // Save: YouTube albums of a signed-in account, once the state is known.
-                    val on = saved
-                    if (on != null && signedIn == true && s.id.startsWith("MPREb_") && "provider.favorite" in ops) {
-                        BracketChip("", on, Modifier.testTag("detail_save"), icon = if (on) R.drawable.ic_heart else R.drawable.ic_heart_outline) {
-                            Remote.toggle("provider.favorite", s.id) { saved = it }
+                    // Save: YouTube albums (MPREb_, a release al:MPREb_ too) of a signed-in account, once the state is known.
+                    if (saved != null && signedIn == true && pid.startsWith("MPREb_") && "provider.favorite" in ops) {
+                        BracketChip("", saved, Modifier.testTag("detail_save"), icon = if (saved) R.drawable.ic_heart else R.drawable.ic_heart_outline) {
+                            Remote.toggle("provider.favorite", pid)
                         }
                     }
                     if ("download" in ops && !item.local) DownloadChip(s.id, s.title)
@@ -119,7 +120,8 @@ fun ArtistScreen(s: Screen.Artist) {
     val (albums, retry) = rememberLoad("artist:${s.id}") { Remote.artistAlbums(s.id) }
     val (top, retryTop) = rememberLoad("album:$topId") { Remote.albumTracks(topId) }
     val pv = (preview as? Load.Done)?.value
-    var following by remember(pv) { mutableStateOf(pv?.favorite) }
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
+    val following = favorites[s.id] ?: pv?.favorite
     val releases = (albums as? Load.Done)?.value.orEmpty().filterNot { it.id.startsWith("ar:") }
     val songs = (top as? Load.Done)?.value.orEmpty().let { if (local) it else it.take(5) }
     val art = s.art.ifEmpty { pv?.art.orEmpty() }
@@ -131,10 +133,9 @@ fun ArtistScreen(s: Screen.Artist) {
             item(key = "head") { Header(art, s.name, "", pv?.lines.orEmpty()) }
             item(key = "buttons") {
                 Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val on = following
-                    if (on != null && signedIn == true && !local && "provider.favorite" in ops) {
-                        BracketButton(stringResource(if (on) R.string.following else R.string.follow), Modifier.testTag("detail_follow")) {
-                            Remote.toggle("provider.favorite", s.id) { following = it }
+                    if (following != null && signedIn == true && !local && "provider.favorite" in ops) {
+                        BracketButton(stringResource(if (following) R.string.following else R.string.follow), Modifier.testTag("detail_follow")) {
+                            Remote.toggle("provider.favorite", s.id)
                         }
                     }
                     if (!local && "radio.start" in ops) {
@@ -268,7 +269,8 @@ fun GenreScreen(s: Screen.Genre) {
     var sort by rememberSaveable { mutableStateOf("") }
     val current = sort.ifEmpty { sorts.firstOrNull()?.id.orEmpty() }
     val known = listOf(genres, moods).flatMap { (it as? Load.Done)?.value?.first.orEmpty() }.firstOrNull { it.id == s.id }
-    var starred by remember(known) { mutableStateOf(known?.favorite ?: false) }
+    val favorites by Remote.favorites.collectAsStateWithLifecycle()
+    val starred = favorites[s.id] ?: known?.favorite ?: false
     val (tracks, retry) = rememberLoad("genre:${s.id}:$current") { Remote.genreTracks(s.id, current) }
     val hidden by Remote.hidden.collectAsStateWithLifecycle()
     // Play sends the rows shown, so a song rated "No me interesa" can leave them at once (§2.6).
@@ -293,7 +295,7 @@ fun GenreScreen(s: Screen.Genre) {
                 Buttons(rows, shuffle = false, play = { i -> Remote.play(rows, i) }) {
                     if (!local && "provider.genre_favorite" in ops) {
                         BracketChip(stringResource(if (starred) R.string.unpin else R.string.pin), starred, Modifier.testTag("detail_pin"), icon = R.drawable.ic_star) {
-                            Remote.toggle("provider.genre_favorite", s.id) { starred = it }
+                            Remote.toggle("provider.genre_favorite", s.id)
                         }
                     }
                 }
@@ -408,7 +410,11 @@ private fun Header(art: String, title: String, subtitle: String, lines: List<Str
         Text(title, Modifier.fillMaxWidth().padding(top = 12.dp), color = p.accent, style = Type.display, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (subtitle.isNotEmpty()) {
             Text(
-                subtitle, Modifier.fillMaxWidth().then(if (onSubtitle != null) Modifier.clickable(onClick = onSubtitle) else Modifier).padding(vertical = 4.dp).testTag("detail_artist"),
+                subtitle,
+                Modifier.fillMaxWidth().testTag("detail_artist").then(
+                    // A link gets a 48 dp target (§1.2), the text centered in it.
+                    if (onSubtitle != null) Modifier.clickable(onClick = onSubtitle).heightIn(min = 48.dp).wrapContentHeight() else Modifier.padding(vertical = 4.dp),
+                ),
                 color = p.textPrimary, style = Type.bodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -420,11 +426,13 @@ private fun Header(art: String, title: String, subtitle: String, lines: List<Str
 
 /**
  * ▶ Reproducir (key pill) and [⤨], which turns shuffle on and plays a
- * random row, then the page's own buttons. Both wait for the rows.
+ * random row, then the page's own buttons, wrapping at a big font. Both
+ * wait for the rows.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Buttons(rows: List<Track>, shuffle: Boolean = true, play: (Int) -> Unit, extra: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
         KeyPill("▶ " + stringResource(R.string.play), Modifier.testTag("detail_play"), enabled = rows.isNotEmpty()) { play(0) }
         if (shuffle) {
             BracketChip("", false, Modifier.testTag("detail_shuffle"), icon = R.drawable.ic_shuffle) {

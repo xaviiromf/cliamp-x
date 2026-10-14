@@ -373,6 +373,7 @@ object ErrorMap {
     @StringRes
     fun text(code: String, detail: String): Int? = when {
         network(detail) -> R.string.update_offline
+        signIn(detail) -> R.string.err_session
         code == "unavailable" -> R.string.reconnecting
         else -> null
     }

@@ -88,6 +88,10 @@ object Remote {
     private val _liked = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val liked: StateFlow<Map<String, Boolean>> = _liked.asStateFlow()
 
+    /** The save, follow and pin state by ID that the core returned for a toggle: cached rows and previews show the old one (§5.3). */
+    private val _favorites = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val favorites: StateFlow<Map<String, Boolean>> = _favorites.asStateFlow()
+
     /** The IDs and paths rated "No me interesa" in this process: lists drop them at once (§2.6). */
     private val _hidden = MutableStateFlow<Set<String>>(emptySet())
     val hidden: StateFlow<Set<String>> = _hidden.asStateFlow()
@@ -187,6 +191,7 @@ object Remote {
         try {
             stateGet()
             // A new core (a restart, a sign-in) has other lists: the screens on show load again.
+            _favorites.value = emptyMap()
             reload()
             _connected.value = true
             val caps = ipc.call(JSONObject().put("id", "capabilities").put("method", "capabilities")).optJSONArray("result") ?: JSONArray()
@@ -299,15 +304,11 @@ object Remote {
 
     /**
      * Whether the phone has a working network. Offline, the core serves its
-     * saved lists, so a pull says "Sin conexión a internet." itself (§2.10).
+     * saved lists, so Inicio's pull says "Sin conexión a internet." itself (§2.10).
      */
     fun online(): Boolean {
         val cm = app.getSystemService(ConnectivityManager::class.java)
         return cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-    }
-
-    fun showOffline() {
-        _errors.tryEmit(app.getString(R.string.update_offline))
     }
 
     /** The text of a failed call (§5.7): invalid_params is a bug, so it names the operation. */
@@ -411,13 +412,13 @@ object Remote {
         io { searchSections(Track.list(call("discover.remixes", JSONObject().put("track", track.json())))) }
     }
 
-    /** Toggles a save, follow or genre star (provider.favorite, provider.genre_favorite); done gets the new state (G20). */
-    fun toggle(op: String, id: String, done: (Boolean) -> Unit) {
+    /** Toggles a save, follow or genre star (provider.favorite, provider.genre_favorite); favorites gets the new state (G20). */
+    fun toggle(op: String, id: String) {
         scope.launch {
             report {
                 val on = call(op, yt().put("playlist", id)).optBoolean("favorite")
+                _favorites.update { it + (id to on) }
                 invalidate() // cached lists show the old state (§5.3)
-                done(on)
             }
         }
     }

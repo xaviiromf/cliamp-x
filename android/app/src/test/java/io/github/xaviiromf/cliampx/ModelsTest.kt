@@ -194,6 +194,7 @@ class ErrorMapTest {
         assertTrue(ErrorMap.signIn("needs sign-in"))
         assertFalse(ErrorMap.signIn("Video unavailable"))
         assertEquals(R.string.update_offline, ErrorMap.text("internal_error", "no such host"))
+        assertEquals(R.string.err_session, ErrorMap.text("internal_error", "Sign in to confirm you're not a bot"))
         assertEquals(R.string.reconnecting, ErrorMap.text("unavailable", ""))
         assertNull(ErrorMap.text("internal_error", "boom"))
     }

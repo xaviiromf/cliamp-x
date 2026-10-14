@@ -68,7 +68,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import android.content.Intent
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.platform.LocalContext
+import io.github.xaviiromf.cliampx.ErrorMap
+import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.Item
+import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.PlaybackClock
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
@@ -228,7 +235,8 @@ fun BracketChip(label: String, on: Boolean, modifier: Modifier = Modifier, @Draw
         Text("[", color = bracket, style = style)
         if (icon != null) Icon(painterResource(icon), null, Modifier.size(18.dp), tint = p.accent)
         if (icon != null && label.isNotEmpty()) Spacer(Modifier.width(4.dp))
-        Text(label, color = p.accent, style = style)
+        // One line: in a FlowRow the chip then wraps whole instead of its label (font scale 2).
+        Text(label, Modifier.weight(1f, fill = false), color = p.accent, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text("]", color = bracket, style = style)
     }
 }
@@ -395,13 +403,23 @@ fun EmptyState(text: String, action: String? = null, onAction: () -> Unit = {}) 
     }
 }
 
-/** `ERR: <mensaje>` in red, then `[ Reintentar ]`. */
+/** `ERR: <mensaje>` in red, then `[ Reintentar ]`; an expired session adds `[ Iniciar sesión ]` (§5.7). */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
     val p = LocalPalette.current
+    val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text("ERR: $message", color = p.error, style = Type.body)
-        BracketButton(stringResource(R.string.retry), onClick = onRetry)
+        FlowRow {
+            // Remote.message words a sign-in detail as err_session.
+            if (message == stringResource(R.string.err_session)) {
+                BracketButton(stringResource(R.string.sign_in_short), Modifier.testTag("error_signin")) {
+                    context.startActivity(Intent(context, LoginActivity::class.java))
+                }
+            }
+            BracketButton(stringResource(R.string.retry), Modifier.testTag("error_retry"), onClick = onRetry)
+        }
     }
 }
 
@@ -554,17 +572,23 @@ fun Pull(onRefresh: suspend () -> Unit, content: @Composable () -> Unit) {
     ) { content() }
 }
 
-/** The common pull of Inicio and the detail pages: the provider drops its caches, then everything on show loads again. */
-suspend fun refreshAll() {
-    if (!Remote.online()) Remote.showOffline()
+/**
+ * Inicio's pull: the provider drops its caches, then everything on show
+ * loads again. Offline it keeps the saved lists on show and returns false,
+ * for Inicio's `Sin conexión a internet.` (§2.10).
+ */
+suspend fun refreshAll(): Boolean {
+    if (!Remote.online()) return false
     try {
         Remote.call("provider.refresh", JSONObject().put("provider", "ytmusic"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        if (e is IpcError && ErrorMap.network(e.detail)) return false
         Remote.showError(e)
     }
     Remote.reload()
+    return true
 }
 
 /** A detail page's rows of state: loading, the error with Reintentar, or nothing. */
