@@ -115,8 +115,10 @@ the stack traces of Enviar registro back into names; keep it with each
 release. R8 warns that it cannot parse the Kotlin metadata of Kotlin 2.4
 (AGP 8.13 ships an older R8); the app does not use kotlin-reflect, so the
 warning is harmless. Check a release build on the emulator before a release:
-sign it with the debug key (below) and run `scripts/ui-smoke.sh` (`s4 s17
-about` cover playback, Modo terminal and the license screens).
+sign it with the debug key (below) and run `scripts/ui-smoke.sh` (`s3 s4 s17
+about` cover search, playback, Modo terminal and the license screens).
+`sendlog` and `s1` read the app's files with `adb shell run-as`, which works
+only on a debug build.
 
 Android installs an update only when it is signed with the same key as the
 installed app. The releases and the nightly are signed with the release key;
@@ -133,7 +135,10 @@ no future APK can update the installed ones.
 `fastlane/metadata/android/` at the repository root holds the listing that
 IzzyOnDroid and F-Droid read: `en-US/` and `es-ES/` with the title, the short
 and full description and `changelogs/default.txt`, and the screenshots in
-`en-US/images/phoneScreenshots/` (the other locale falls back to them). A
+`en-US/images/phoneScreenshots/` (the other locale falls back to them). The
+screenshots come from the signed-out emulator, not a phone signed in to
+YouTube Music, whose Inicio and Biblioteca show that account's library and
+history. A
 release adds `changelogs/<versionCode>.txt`, where the versionCode is
 `git rev-list --count <tag>`. Expect the NonFreeNet anti-feature (YouTube
 Music) and, on F-Droid, the scanner's note on the prebuilt binaries of

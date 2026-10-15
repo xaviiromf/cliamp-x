@@ -23,7 +23,8 @@
 # Compose test tags, which the app exposes as resource IDs. A failed check
 # prints FAIL and the run goes on, then exits with 1; a missing element ends
 # the run. about (Acerca de and a license) and sendlog (Enviar registro) need
-# no network; CI runs s1 about sendlog on an emulator.
+# no network; CI runs s1 about sendlog on an emulator. sendlog and the yt-dlp
+# checks of s1 read the app's files with run-as, so they need a debug build.
 set -euo pipefail
 
 OUT=${1:-shots}
@@ -129,7 +130,8 @@ s4() {
 	waitfor mini_player 20
 	sleep 8
 	shot s4-playing
-	adb shell run-as "$PKG" cat files/config/cliamp.log | tail -3
+	# run-as needs a debug build; a release skips the log tail.
+	adb shell run-as "$PKG" cat files/config/cliamp.log | tail -3 || true
 }
 
 # drag ID DX DY [ms]: drags from the center of the element.
