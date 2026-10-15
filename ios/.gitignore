@@ -1,0 +1,20 @@
+# xtool and SwiftPM output
+.build/
+xtool/
+*.ipa
+*.xcarchive
+.swiftpm/
+DerivedData/
+# The Go core built for iOS
+*.a
+/Libs/
+# Signing material and personal data: never commit
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keychain
+.xtool*
+ytmusic_cookies.txt
+*.cookies.txt
+.env

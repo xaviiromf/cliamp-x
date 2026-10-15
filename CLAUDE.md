@@ -76,6 +76,16 @@ Other directories: `docs/` holds the user docs, one `.md` per feature. `scripts/
 
 `android/` holds the Android app (`io.github.xaviiromf.cliampx`). `CliampService` runs `libcliamp.so`, the Go core built by `make android-core`, in a terminal session and owns the MediaSession. `Remote.kt` is the one IPC V2 client of the native Compose UI in `ui/`, `Ytdlp.kt` keeps yt-dlp current, `Vis.kt` and `ui/Visualizer.kt` draw the core's visualizer frames (`vis.frame`), `TerminalActivity` is Modo terminal (the TUI; the core draws only while it is visible, through `ui.render`). `android/UI-SPEC.md` is the design contract, `android/PLAN.md` the port plan, `android/README.md` the build guide and `docs/android.md` the user guide. On Android the core tries yt-dlp without cookies first (`player/`), and `GOOS=android` also matches the `linux` build tag, so linux-only files carry `&& !android`.
 
+### The `iOS` branch
+
+The `iOS` branch builds the same app for iPhone, natively in Swift and
+SwiftUI with xtool, in `ios/`. An agent working on that branch must read
+`ios/CLAUDE.md` (its rules: never edit `android/`, core changes only in
+`_ios.go` files and logged in `ios/UPSTREAM.md`, no secrets in git) and
+`ios/PLAN.md` (iOS forbids child processes, so the core, YouTube stream
+resolution and decoding run in-process; spikes first). `GOOS=ios` also
+matches the `darwin` build tag.
+
 ### Runtime flow (read this before touching `main.go`)
 
 1. `main()` sets the version and runs `buildApp()` from `commands.go`. Most subcommands are thin V2 clients in `ipc_client.go`. They talk to the running instance over the socket.
