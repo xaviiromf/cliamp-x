@@ -47,6 +47,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
+      - name: Free disk space
+        # The emulator's userdata partition needs about 7.4 GB, which the core
+        # and Gradle builds leave the runner short of. These toolsets are unused.
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
