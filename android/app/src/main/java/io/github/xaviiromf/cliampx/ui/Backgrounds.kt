@@ -1,6 +1,8 @@
 package io.github.xaviiromf.cliampx.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.SharedPreferences
 import android.graphics.RuntimeShader
 import android.os.Build
@@ -45,10 +47,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -196,7 +204,79 @@ private fun shaderOf(b: Background): RuntimeShader? {
 
 /** Seconds for the shaders, the same in every window so a sheet lines up with the app; rate 0 holds a still frame. */
 private fun clock(rate: Float): Float =
-    if (rate == 0f) 30f else ((SystemClock.uptimeMillis() / 1000.0 * rate) % 3600.0).toFloat()
+    if (rate == 0f) 30f else (((SystemClock.uptimeMillis() - Scrolls.held) / 1000.0 * rate) % 3600.0).toFloat()
+
+/**
+ * Seen by every scrolling list (and its fling) under it: the backgrounds
+ * hold still while one moves, since a background step on a scroll frame
+ * missed its deadline about one time in six on the A55. held is the time
+ * spent holding, so a background resumes where it stopped.
+ */
+object Scrolls : NestedScrollConnection {
+    private var last = 0L
+    var held = 0L
+        private set
+
+    val active get() = SystemClock.uptimeMillis() - last < HOLD_MS
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        scrolled(SystemClock.uptimeMillis())
+        return Offset.Zero
+    }
+
+    /** A scroll step at now: the time since the step before counts as held when both are one scroll. */
+    fun scrolled(now: Long) {
+        if (now - last < HOLD_MS) held += now - last
+        last = now
+    }
+
+    private const val HOLD_MS = 150L
+}
+
+/** A finger is down in a window of the app (down), or was until the scroll it started stopped (busy). */
+private object Touch {
+    var down by mutableStateOf(false)
+    var busy by mutableStateOf(false)
+}
+
+/**
+ * While calm and untouched, this window asks the display for 60 Hz: the
+ * background and the visualizer step at 20 and 30 fps, and at 120 Hz each
+ * such step missed its 8 ms frame on the A55. A touch in any window, and the
+ * scroll or fling it starts, gets the display's full rate back until all is
+ * still. Every window of the app must agree: the display follows any of them.
+ */
+@Composable
+fun Modifier.calmRefreshRate(calm: Boolean): Modifier {
+    val view = LocalView.current
+    LaunchedEffect(Touch.down) {
+        if (Touch.down) {
+            Touch.busy = true
+            return@LaunchedEffect
+        }
+        do delay(IDLE_MS) while (Scrolls.active)
+        Touch.busy = false
+    }
+    val rate = if (calm && !Touch.busy) CALM_HZ else 0f
+    LaunchedEffect(rate) {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: view.context.activity()?.window ?: return@LaunchedEffect
+        if (window.attributes.preferredRefreshRate != rate) window.attributes = window.attributes.apply { preferredRefreshRate = rate }
+    }
+    return pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) Touch.down = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
+        }
+    }
+}
+
+private tailrec fun Context.activity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.activity()
+    else -> null
+}
+
+private const val CALM_HZ = 60f
+private const val IDLE_MS = 300L
 
 /**
  * The time a background draws at: it steps at 20 fps while the screen is
@@ -215,7 +295,7 @@ private fun backdropTime(b: Background, paused: Boolean): FloatState {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             // A plain write each step, no withFrameNanos: a frame request ran the Recomposer at every step.
             while (true) {
-                t.floatValue = clock(rate)
+                if (!Scrolls.active) t.floatValue = clock(rate)
                 delay(STEP_MS)
             }
         }
