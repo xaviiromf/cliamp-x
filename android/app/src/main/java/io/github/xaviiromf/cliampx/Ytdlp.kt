@@ -79,6 +79,8 @@ object Ytdlp {
         _status.value = Status.Updating
         val target = Core.ytdlp(ctx)
         val part = File(target.path + ".part")
+        // A fresh install updates before youtubedl-android has unpacked, so the directory may not exist yet.
+        target.parentFile?.mkdirs()
         val result = try {
             withTimeout(120_000) { fetch(ctx, target, part) }
         } catch (e: TimeoutCancellationException) {
