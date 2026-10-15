@@ -4,6 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,7 +44,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,8 +86,9 @@ private class Rows {
  * Siguiente (the play order after the song, shuffle aware). A tap plays a
  * row, a swipe to the start removes it, the ≡ handle reorders.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun QueuePage(s: Snapshot) {
+fun QueuePage(s: Snapshot, back: Boolean = true) {
     val p = LocalPalette.current
     val next = remember { Rows() }
     val up = remember { Rows() }
@@ -157,15 +165,20 @@ fun QueuePage(s: Snapshot) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("queue_back")) { Nav.page = PlayerPage.Player }
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Beside the player (two panes) the queue is where back leads, so it has none.
+            if (back) {
+                IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("queue_back")) { Nav.page = PlayerPage.Player }
+            } else {
+                Spacer(Modifier.width(16.dp))
+            }
             Text(
-                "▸─ " + stringResource(R.string.queue) + " " + "─".repeat(80), Modifier.weight(1f),
+                "▸─ " + stringResource(R.string.queue) + " " + "─".repeat(80), Modifier.weight(1f).ruleSemantics(stringResource(R.string.queue)),
                 color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
             )
             IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("queue_more")) { Nav.sheet = Sheet.QueueMore }
         }
-        Row(Modifier.padding(horizontal = 12.dp)) {
+        FlowRow(Modifier.padding(horizontal = 12.dp)) {
             BracketChip(stringResource(R.string.shuffle), s.shuffle, Modifier.testTag("queue_shuffle")) {
                 Remote.fire("shuffle", JSONObject().put("name", "toggle"))
             }
@@ -218,6 +231,22 @@ private fun LazyListScope.rows(
         // Not saveable: a refetch reuses keys, and a restored "dismissed" state would remove the row that takes the key.
         val dismiss = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold = { it * 0.4f }) }
         val dragged = rows.dragging == r.key
+        // TalkBack has no swipe or drag: remove and the moves are custom actions of the row.
+        val actions = buildList {
+            add(CustomAccessibilityAction(stringResource(R.string.remove_from_queue)) {
+                val at = rows.at(r.key)
+                rows.list = rows.list.filterNot { row -> row.key == r.key }
+                remove(at, r)
+                true
+            })
+            if (handle) {
+                val at = rows.at(r.key)
+                if (at > 0) add(CustomAccessibilityAction(stringResource(R.string.move_up)) { rows.swap(at, at - 1); move(at, at - 1); true })
+                if (at in 0 until rows.list.lastIndex) {
+                    add(CustomAccessibilityAction(stringResource(R.string.move_down)) { rows.swap(at, at + 1); move(at, at + 1); true })
+                }
+            }
+        }
         SwipeToDismissBox(
             dismiss,
             backgroundContent = { SwipeBehind(dismiss, stringResource(R.string.remove_from_queue)) },
@@ -234,7 +263,8 @@ private fun LazyListScope.rows(
         ) {
             TrackRow(
                 // The dragged row covers the ones it passes.
-                r.track, playing = false, Modifier.then(if (dragged) Modifier.background(p.bg) else Modifier).testTag(tag(i)),
+                r.track, playing = false,
+                Modifier.then(if (dragged) Modifier.background(p.bg) else Modifier).testTag(tag(i)).semantics { customActions = actions },
                 marker = if (prefix == "n") "Q${i + 1}" else "",
                 onLongClick = { Nav.sheet = sheet(i, r) },
                 trailing = if (!handle) null else {
@@ -250,9 +280,9 @@ private fun LazyListScope.rows(
 @Composable
 private fun DragHandle(rows: Rows, key: Int, rowPx: Float, move: (Int, Int) -> Unit) {
     val p = LocalPalette.current
-    val label = stringResource(R.string.drag)
     Box(
-        Modifier.size(48.dp).semantics { contentDescription = label }.pointerInput(key) {
+        // Hidden from TalkBack: the row's Move up and Move down actions do this.
+        Modifier.size(48.dp).clearAndSetSemantics {}.pointerInput(key) {
             fun drop() {
                 val to = rows.at(key)
                 rows.dragging = null

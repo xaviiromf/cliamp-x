@@ -101,4 +101,29 @@ class PlayerArtTest {
         }
         assertEquals(63.dp to false, playerArt(891.dp, 411.dp)) // a wide, short split-screen window: 411 − 420 + 72
     }
+
+    @Test
+    fun measuredRows() {
+        // Taller rows at a large font size take from the art, then the strip goes to it.
+        val cases = listOf(
+            Triple(600.dp, 943.dp, 343.dp to true), // the rows of §3.9 at font scale 2, on a taller window
+            Triple(PLAYER_ROWS, 763.dp, 343.dp to true), // the default
+            Triple(775.dp, 763.dp, 60.dp to false), // past the 240 dp of the strip: −12 + 72
+        )
+        for ((rows, height, want) in cases) assertEquals("$rows in $height", want, playerArt(411.dp, height, rows))
+    }
+
+    @Test
+    fun panes() {
+        for ((width, two) in listOf(411.dp to false, 839.dp to false, 840.dp to true, 1280.dp to true)) {
+            assertEquals("$width", two, twoPanes(width))
+        }
+    }
+
+    @Test
+    fun portraitOnPhonesOnly() {
+        for ((sw, portrait) in listOf(360 to true, 411 to true, 599 to true, 600 to false, 800 to false)) {
+            assertEquals("sw$sw", portrait, io.github.xaviiromf.cliampx.MainActivity.portraitOnly(sw))
+        }
+    }
 }

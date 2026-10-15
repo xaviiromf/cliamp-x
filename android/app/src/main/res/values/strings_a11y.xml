@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TalkBack labels and actions (FINAL-PLAN T10). -->
+<resources>
+    <string name="pause">Pause</string>
+    <string name="open_player">Open the player</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="cover">Cover</string>
+    <string name="show_visualizer">Show the visualizer</string>
+    <string name="show_cover">Show the cover</string>
+</resources>

@@ -57,7 +57,23 @@ song of the year and the one replayed most in one day. **Compartir imagen**
 under a card shares it as a PNG through the system share sheet. The figures
 come from the core's play log (`stats wrapped`), which stays on the phone.
 
-The main interface is portrait only. Modo terminal and Modo estéreo rotate.
+On a phone the main interface stays in portrait; Modo terminal and Modo
+estéreo rotate. On a tablet or an open foldable (600 dp or more on the short
+side) it turns too: a landscape player puts the artwork beside the controls,
+and from 840 dp wide the player shows two panes, the player and beside it the
+queue, or the EQ or full-screen lyrics it opens.
+
+### Accessibility
+
+Every button has a label for TalkBack, in English or Spanish. Toggles say
+their state (shuffle on or off, the selected chip, the playing row), the
+seek bar and the EQ bands move with TalkBack's adjust gestures or the volume
+keys, rules read as headings, and the song that starts and the status line's
+messages are announced. The swipes have custom actions in TalkBack's actions
+menu: skip (Next, Previous) on the mini-player and the artwork, remove from
+the queue or playlist, and Move up or Move down in the queue. Text follows
+the system font size up to 200 %: rows grow, the player's chips wrap and its
+artwork shrinks to keep every control on screen.
 
 **Modo estéreo** is an always-on screen for a phone on a stand: the clock,
 the artwork, the song and the visualizer. It dims from 22:00 to 07:00 and

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -56,7 +57,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -234,7 +238,9 @@ fun StatusLine(snap: Snapshot?, sides: WindowInsets) {
         else -> notice.text to p.textSecondary
     }
     Text(
-        text, Modifier.fillMaxWidth().windowInsetsPadding(sides).height(24.dp).padding(horizontal = 16.dp, vertical = 4.dp).testTag("status_line"),
+        // TalkBack says each notice and error as it comes.
+        text, Modifier.fillMaxWidth().windowInsetsPadding(sides).heightIn(min = 24.dp).padding(horizontal = 16.dp, vertical = 4.dp).testTag("status_line")
+            .semantics { liveRegion = LiveRegionMode.Polite },
         color = color, style = Type.caption.bold(color != p.textSecondary && color != p.error), maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
 }
@@ -272,7 +278,9 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
                     if (with(density) { lift < -48.dp.toPx() || velocity < -1000.dp.toPx() }) open()
                 },
             )
-            .clickable { open() },
+            .clickable(onClickLabel = stringResource(R.string.open_player)) { open() }
+            // TalkBack says the next song; the open player sheet says it itself.
+            .semantics { if (!Nav.player) liveRegion = LiveRegionMode.Polite },
     ) {
         Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).skipSwipe().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ArtBox(track.art, 48.dp, fade = true)
@@ -292,7 +300,9 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
                 ) { Remote.fire("toggle") }
             } else {
                 // Loading: neither ▶ nor ‖ until the song plays.
-                Box(Modifier.size(48.dp).testTag("mini_loading"), contentAlignment = Alignment.Center) { Text(spinner(), color = p.accent, style = Type.headline) }
+                Box(Modifier.size(48.dp).testTag("mini_loading"), contentAlignment = Alignment.Center) {
+                    Text(spinner(), Modifier.clearAndSetSemantics {}, color = p.accent, style = Type.headline)
+                }
             }
         }
         Progress(snap)
@@ -317,14 +327,18 @@ private fun Progress(snap: Snapshot?) {
 @Composable
 private fun TabBar(sides: WindowInsets) {
     val p = LocalPalette.current
-    Row(Modifier.fillMaxWidth().background(p.surface).navigationBarsPadding().windowInsetsPadding(sides).height(56.dp)) {
+    Row(Modifier.fillMaxWidth().background(p.surface).navigationBarsPadding().windowInsetsPadding(sides).heightIn(min = 56.dp).height(IntrinsicSize.Min)) {
         for (tab in Tab.entries) {
             val active = tab == Nav.tab
             val color = if (active) p.accent else p.textSecondary
             val label = stringResource(tab.label)
             Column(
                 Modifier.weight(1f).fillMaxHeight().clickable { Nav.select(tab) }.testTag(tab.tag)
-                    .semantics { role = Role.Tab; selected = active },
+                    .semantics {
+                        role = Role.Tab
+                        selected = active
+                        contentDescription = label // without the [ ] of the active tab
+                    },
                 verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(painterResource(tab.icon), null, Modifier.size(24.dp), tint = color)

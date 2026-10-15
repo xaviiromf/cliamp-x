@@ -531,7 +531,7 @@ Error card (replaces the art view):
 ```
 
 ### 3.10 Full player, landscape
-This is the only screen that changes layout in landscape. The other screens reflow (grids use `Adaptive`).
+This is the only screen that changes layout in landscape: the player page uses it whenever it is wider than tall (tablets; phones stay in portrait). From 840 dp wide the sheet shows two panes, this page and the Queue (or the Eq or Lyrics page it opens). The other screens reflow (grids use `Adaptive`).
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ ⌄  ── Sonando ahora ──               RADIO · FUNDIDO                    ⋮ │
@@ -1939,7 +1939,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 
 **Integration rule:** the UI hides every element whose operation is not yet in `capabilities`. There are no other fallbacks.
 
-**Deferred by the user (M6):** the landscape player (§3.10) and the TalkBack labels (§9.5 item 18). The ClassicPeak and Mirror renderers are done, with 32 more native modes (§0). MainActivity is locked to portrait, and Modo terminal still turns; S19 checks both.
+**Deferred by the user (M6), done in FINAL-PLAN T10:** the landscape player (§3.10) and the TalkBack labels (§9.5 item 18). The ClassicPeak and Mirror renderers are done, with 32 more native modes (§0). MainActivity locks phones (under 600 dp on the short side) to portrait and turns on tablets; from 840 dp wide the player sheet shows the player and the queue (or EQ, lyrics) side by side. Modo terminal still turns; S19 checks both.
 
 **Performance acceptance (M6):** the §9.4 frame numbers are judged on the A55 only; the emulator cannot meet any frame budget (§9.4). The A55 run (25 % janky, 90th percentile 18 ms) stays open until a trace there names the hot spot.
 
@@ -1951,7 +1951,7 @@ See `open_risks`. The top three:
 1. The yt-dlp download path: GitHub redirects, rate limits and the SUMS file, plus Python compatibility of new yt-dlp releases.
 2. The error-kind classification of the real failure text.
 3. Compose smoothness on the A55 with a 30 fps visualizer.
-4. The items the user deferred in §10 stay open: landscape, TalkBack.
+4. The items the user deferred in §10 are done (FINAL-PLAN T10): landscape on tablets, TalkBack.
 
 **Not covered:** nothing here was built or run.
 - The JBM glyph coverage was checked against the installed JetBrainsMono **Nerd Font**, a superset; `GlyphTest` confirms it against the static TTF.

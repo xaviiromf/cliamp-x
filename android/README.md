@@ -9,9 +9,11 @@ Buscar's genres and tiles, the album, artist, playlist, genre, Para ti and
 remix pages, and the action sheets; M4: Biblioteca, local lists, Descargas,
 Tus valoraciones and Estadísticas; M5: Ajustes; M6: the cover theme's color
 blend, reduced motion, the loading, empty and error states, and the
-performance pass). The native UI is portrait only; Modo terminal turns with
-the phone. The user deferred the landscape player, the ClassicPeak and Mirror
-renderers (every band mode draws as Bars) and the TalkBack labels.
+performance pass). The native UI stays portrait on phones and turns on
+tablets (`MainActivity.portraitOnly`), with the landscape player and the
+two-pane player sheet (`twoPanes`); Modo terminal turns with the phone.
+TalkBack labels, states, custom actions for the swipes and live regions are
+in the shared widgets (`ui/Widgets.kt`) and the player (FINAL-PLAN T10).
 
 The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 

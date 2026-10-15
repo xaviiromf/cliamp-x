@@ -168,7 +168,7 @@ fun SearchScreen() {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { submit() }),
             decorationBox = { field ->
-                Row(Modifier.height(48.dp).background(p.surfaceHigh).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.heightIn(min = 48.dp).background(p.surfaceHigh).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("> ", color = p.accent, style = Type.body)
                     Box(Modifier.weight(1f)) {
                         if (query.isEmpty()) {
