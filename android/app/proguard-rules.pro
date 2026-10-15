@@ -3,3 +3,7 @@
 
 # Stack traces in Enviar registro stay readable with the mapping file.
 -keepattributes SourceFile,LineNumberTable
+
+# youtubedl-android unpacks Python and ffmpeg with commons-compress, whose
+# ExtraFieldUtils creates each ZipExtraField by reflection (Class.newInstance).
+-keep class * implements org.apache.commons.compress.archivers.zip.ZipExtraField { <init>(); }
