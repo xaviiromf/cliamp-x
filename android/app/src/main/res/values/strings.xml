@@ -89,6 +89,7 @@
     <string name="sign_in_short">Sign in</string>
     <string name="no_lyrics">No lyrics for this song.</string>
     <string name="vis_next">Change the visualizer</string>
+    <string name="vis_strip">Visualizer: %1$s</string>
     <string name="back">Back</string>
     <string name="queue">Queue</string>
     <string name="queue_now">Now playing</string>

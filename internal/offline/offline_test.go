@@ -3,6 +3,7 @@ package offline
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -54,6 +55,25 @@ func TestLargeCover(t *testing.T) {
 	} {
 		if got := largeCover(in); got != want {
 			t.Errorf("largeCover(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDownloadFormatFallsBackToMuxed(t *testing.T) {
+	if !strings.HasSuffix(downloadFormat, "/best") {
+		t.Fatalf("downloadFormat %q must fall back to the muxed best format", downloadFormat)
+	}
+}
+
+func TestAudioExt(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{".m4a", ".m4a"},
+		{".mp4", ".m4a"},
+		{".webm", ".opus"},
+		{".opus", ".opus"},
+	} {
+		if got := audioExt(tc.in); got != tc.want {
+			t.Errorf("audioExt(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

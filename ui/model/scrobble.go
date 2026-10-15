@@ -112,6 +112,20 @@ func (m *Model) setScrobbleSetting(name, value string) (bool, error) {
 	return true, nil
 }
 
+// checkListenBrainzToken asks ListenBrainz about token off the event loop
+// for settings.set; handleV2Response saves it only when it is valid, so a
+// mistyped token never shows as connected.
+func (m *Model) checkListenBrainzToken(ctx context.Context, jobs *ipc.JobStore, jobID, token string) tea.Cmd {
+	s := m.scrobbler
+	return func() tea.Msg {
+		msg := ipcV2ResponseMsg{Jobs: jobs, JobID: jobID, Operation: "settings.set", Response: ipc.Response{OK: true}, credName: "listenbrainz_token", credValue: token}
+		if err := s.ValidateListenBrainz(ctx, token); err != nil {
+			msg.Response = ipc.Response{Error: err.Error()}
+		}
+		return msg
+	}
+}
+
 // handleV2LastfmAuth runs the Last.fm sign-in off the event loop: start
 // returns the page where the user allows cliamp-x and its token, finish
 // trades that token, in text, for the session key, which handleV2Response
@@ -136,7 +150,8 @@ func (m *Model) handleV2LastfmAuth(ctx context.Context, jobs *ipc.JobStore, jobI
 		if request.Name == "start" {
 			msg.Response.Token, msg.Response.URL, err = s.LastfmToken(ctx, cfg)
 		} else {
-			msg.lastfmSession, err = s.LastfmSession(ctx, cfg, token)
+			msg.credName = "lastfm_session_key"
+			msg.credValue, err = s.LastfmSession(ctx, cfg, token)
 		}
 		if err != nil {
 			msg.Response = ipc.Response{Error: err.Error()}

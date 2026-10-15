@@ -114,9 +114,10 @@ type ipcV2ResponseMsg struct {
 	JobID     string
 	Operation string
 	Response  ipc.Response
-	// lastfmSession is the session key of a Last.fm sign-in, which stays
-	// out of the job result.
-	lastfmSession string
+	// credName and credValue are a scrobble credential that async work got
+	// or checked, as the session key of a Last.fm sign-in. handleV2Response
+	// saves it, and it stays out of the job result.
+	credName, credValue string
 }
 
 func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
@@ -259,7 +260,7 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		m.completeV2Job(msg.Jobs, msg.JobID, ipc.Response{OK: true, Ratings: m.ipcRatings()})
 		return nil
 	case "settings.set":
-		return m.handleV2Setting(msg.Jobs, msg.JobID, request)
+		return m.handleV2Setting(ctx, msg.Jobs, msg.JobID, request)
 	case "lastfm.auth":
 		return m.handleV2LastfmAuth(ctx, msg.Jobs, msg.JobID, request)
 	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
@@ -685,7 +686,10 @@ var settingMax = map[string]float64{"auto_radio": 1, "normalize": 2, "crossfade"
 // handleV2Setting changes one setting and saves it, as its key does. A
 // switch takes 0 or 1, normalize 0 off, 1 track or 2 album, and crossfade
 // whole seconds from 0 to 12. The names that take text read it from text.
-func (m *Model) handleV2Setting(jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID string, request ipc.Request) tea.Cmd {
+	if token := strings.TrimSpace(request.Text); request.Name == "listenbrainz_token" && token != "" && m.scrobbler != nil && !strings.ContainsAny(token, "\r\n") {
+		return m.checkListenBrainzToken(ctx, jobs, jobID, token)
+	}
 	v := request.Value
 	limit, numeric := settingMax[request.Name]
 	ok := numeric && v == math.Trunc(v) && v >= 0 && v <= limit
@@ -870,8 +874,8 @@ func waitV2ResponseCmd(ctx context.Context, jobs *ipc.JobStore, jobID string, re
 
 // handleV2Response finishes a V2 job with the response of its async work.
 func (m *Model) handleV2Response(msg ipcV2ResponseMsg) {
-	if msg.Response.OK && msg.lastfmSession != "" {
-		if _, err := m.setScrobbleSetting("lastfm_session_key", msg.lastfmSession); err != nil {
+	if msg.Response.OK && msg.credValue != "" {
+		if _, err := m.setScrobbleSetting(msg.credName, msg.credValue); err != nil {
 			msg.Response = ipc.Response{Error: err.Error()}
 		}
 	}

@@ -29,6 +29,7 @@
     <string name="connected">connected</string>
     <string name="disconnected">not connected</string>
     <string name="lb_token">Token…</string>
+    <string name="lb_token_invalid">ListenBrainz did not accept the token.</string>
     <string name="disconnect">Disconnect</string>
     <string name="lb_help">Paste the token from listenbrainz.org/settings.</string>
     <string name="lastfm_key">API key…</string>

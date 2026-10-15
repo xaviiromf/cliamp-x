@@ -408,6 +408,7 @@ object ErrorMap {
     fun text(code: String, detail: String): Int? = when {
         network(detail) -> R.string.update_offline
         signIn(detail) -> R.string.err_session
+        "token is not valid" in detail -> R.string.lb_token_invalid
         code == "unavailable" -> R.string.reconnecting
         else -> null
     }

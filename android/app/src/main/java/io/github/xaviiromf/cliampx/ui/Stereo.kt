@@ -69,7 +69,7 @@ fun StereoScreen(exit: () -> Unit, dim: (Boolean) -> Unit) {
     val (dx, dy) = Stereo.shift(minute)
     val close = stringResource(R.string.close)
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(if (night) Color.Black else p.bg).clickable(onClickLabel = close, onClick = exit).testTag("stereo"),
+        Modifier.fillMaxSize().calmRefreshRate(true).background(if (night) Color.Black else p.bg).clickable(onClickLabel = close, onClick = exit).testTag("stereo"),
         contentAlignment = Alignment.Center,
     ) {
         val wide = maxWidth > maxHeight

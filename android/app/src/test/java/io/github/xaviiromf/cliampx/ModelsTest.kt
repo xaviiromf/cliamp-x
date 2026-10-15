@@ -196,6 +196,7 @@ class ErrorMapTest {
         assertEquals(R.string.update_offline, ErrorMap.text("internal_error", "no such host"))
         assertEquals(R.string.err_session, ErrorMap.text("internal_error", "Sign in to confirm you're not a bot"))
         assertEquals(R.string.reconnecting, ErrorMap.text("unavailable", ""))
+        assertEquals(R.string.lb_token_invalid, ErrorMap.text("internal_error", "listenbrainz: the token is not valid"))
         assertNull(ErrorMap.text("internal_error", "boom"))
     }
 

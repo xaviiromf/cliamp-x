@@ -269,11 +269,12 @@ private fun PlayerHeader(s: Snapshot, close: () -> Unit) {
 private fun Strip(s: Snapshot, view: ArtView, height: Dp) {
     Box(Modifier.fillMaxWidth().height(height).padding(horizontal = 24.dp, vertical = 8.dp)) {
         if (view == ArtView.Cover && !backgroundVis(s) && s.visualizer.isNotEmpty() && s.visualizer != "None") {
+            val label = stringResource(R.string.vis_strip, s.visualizer)
             Visualizer(
                 s,
                 Modifier.fillMaxSize().clickable(onClickLabel = stringResource(R.string.vis_next)) {
                     Remote.nextVisualizer(s.visualizer)
-                }.testTag("vis_strip"),
+                }.semantics { contentDescription = label }.testTag("vis_strip"),
             )
         }
     }

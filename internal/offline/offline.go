@@ -175,6 +175,11 @@ func Destination(dir string, job Job) (folder, base string) {
 	return filepath.Join(dir, sanitize(artist), sanitize(album)), base
 }
 
+// downloadFormat prefers an M4A audio stream. Some pages offer no separate
+// audio stream to a cookieless client, so it falls back to the best muxed
+// format, and finalize keeps only its audio.
+const downloadFormat = "bestaudio[ext=m4a]/bestaudio/best"
+
 // progressLine matches the progress template's output.
 var progressLine = regexp.MustCompile(`^CLIAMP-PROGRESS\s+([\d.]+)%`)
 
@@ -195,7 +200,7 @@ func Download(ctx context.Context, job Job, dir string, progress func(percent fl
 	defer os.RemoveAll(tmpDir)
 
 	args := []string{
-		"-f", "bestaudio[ext=m4a]/bestaudio",
+		"-f", downloadFormat,
 		"--no-playlist", "--newline", "--no-part", "--quiet", "--progress",
 		"--progress-template", "download:CLIAMP-PROGRESS %(progress._percent_str)s",
 		"--print", "after_move:CLIAMP-FILE %(filepath)s",
@@ -256,11 +261,7 @@ func finalize(ctx context.Context, job Job, file, folder, base string) (string, 
 		dest := filepath.Join(folder, base+ext)
 		return dest, os.Rename(file, dest)
 	}
-	outExt := ext
-	if ext != ".m4a" && ext != ".mp4" {
-		// WebM audio is Opus: an Ogg container holds it with tags.
-		outExt = ".opus"
-	}
+	outExt := audioExt(ext)
 	dest := filepath.Join(folder, base+outExt)
 	t := job.Track
 	album := job.Album
@@ -300,6 +301,17 @@ func finalize(ctx context.Context, job Job, file, folder, base string) (string, 
 		return dest, os.Rename(file, dest)
 	}
 	return dest, os.Rename(tmp, dest)
+}
+
+// audioExt names the audio-only file that finalize writes from a download
+// with extension ext. MP4 (a muxed fallback) holds AAC like M4A; WebM audio
+// is Opus, which an Ogg container holds with tags.
+func audioExt(ext string) string {
+	switch ext {
+	case ".m4a", ".mp4":
+		return ".m4a"
+	}
+	return ".opus"
 }
 
 // fetchCover downloads the cover image next to the audio and returns its

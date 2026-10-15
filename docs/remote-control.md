@@ -384,7 +384,7 @@ its key does. The snapshot then reports the new state.
 | `quality_wifi`, `quality_mobile` | `alta` (the best format), `normal` (up to 128 kbps) or `ahorro` (up to 64 kbps). Saved in `[ytmusic]` |
 | `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
 | `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
-| `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails |
+| `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails. A ListenBrainz token is saved only after ListenBrainz `validate-token` accepts it; otherwise the job fails with `internal_error` and the detail `listenbrainz: the token is not valid` |
 
 A quality change applies to the songs that start after it.
 

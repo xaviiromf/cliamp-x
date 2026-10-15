@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.graphics.RuntimeShader
 import android.os.Build
 import android.os.SystemClock
+import android.service.dreams.DreamService
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
@@ -259,7 +260,8 @@ fun Modifier.calmRefreshRate(calm: Boolean): Modifier {
     }
     val rate = if (calm && !Touch.busy) CALM_HZ else 0f
     LaunchedEffect(rate) {
-        val window = (view.parent as? DialogWindowProvider)?.window ?: view.context.activity()?.window ?: return@LaunchedEffect
+        val window = (view.parent as? DialogWindowProvider)?.window ?: view.context.activity()?.window
+            ?: (view.context as? DreamService)?.window ?: return@LaunchedEffect
         if (window.attributes.preferredRefreshRate != rate) window.attributes = window.attributes.apply { preferredRefreshRate = rate }
     }
     return pointerInput(Unit) {

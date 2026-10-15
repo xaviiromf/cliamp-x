@@ -175,7 +175,8 @@ be held to Wi-Fi, and **Llenar ahora** fills it at once. The player shows the
 format of the playing stream under the time, such as `OPUS · 160 kbps · 48 kHz`.
 
 **Ajustes → Scrobbling** sends what you play to ListenBrainz (paste your
-token from listenbrainz.org/settings) or Last.fm (paste the key and secret
+token from listenbrainz.org/settings; a token ListenBrainz does not accept
+is not saved) or Last.fm (paste the key and secret
 of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
 in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
 credential. Scrobbles that fail on a network error are sent later.

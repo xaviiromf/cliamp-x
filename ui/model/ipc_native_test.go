@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1105,6 +1107,11 @@ func TestNativeDiscoverRemixes(t *testing.T) {
 // settings.set changes and saves each setting, and refuses any other name
 // or value without a change.
 func TestNativeSettingsSet(t *testing.T) {
+	// ListenBrainz knows the token "tok" only.
+	listenBrainz := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"code":200,"valid":%t}`, r.URL.Path == "/1/validate-token" && r.Header.Get("Authorization") == "Token tok")
+	}))
+	defer listenBrainz.Close()
 	for _, tc := range []struct {
 		name    string
 		request ipc.Request
@@ -1123,6 +1130,8 @@ func TestNativeSettingsSet(t *testing.T) {
 		{name: "network is not saved", request: ipc.Request{Name: "network", Text: "mobile"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.network == "mobile" }},
 		{name: "premium quality", request: ipc.Request{Name: "premium_quality", Text: "on"}, check: func(m *Model, _ *normalizingEngine) bool { return m.ytQuality.premium }, saved: map[string]string{"ytmusic.premium_quality": "true"}},
 		{name: "listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: " tok "}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "tok" }, saved: map[string]string{"scrobble.listenbrainz_token": `"tok"`}},
+		{name: "unknown listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: "not-a-real-token-1234"}, wantErr: "internal_error: " + scrobble.ErrInvalidToken.Error()},
+		{name: "listenbrainz off", request: ipc.Request{Name: "listenbrainz_token"}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "" }, saved: map[string]string{"scrobble.listenbrainz_token": `""`}},
 		{name: "token with a line break", request: ipc.Request{Name: "lastfm_api_key", Text: "a\nb"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
@@ -1137,6 +1146,7 @@ func TestNativeSettingsSet(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeTrack}
 			saver := &recordingSaver{}
 			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver, scrobbler: scrobble.New(scrobble.Config{}, filepath.Join(t.TempDir(), "queue.json"))}
+			m.scrobbler.SetListenBrainzURL(listenBrainz.URL)
 			response := runV2(t, m, "settings.set", tc.request)
 			if tc.wantErr != "" {
 				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {

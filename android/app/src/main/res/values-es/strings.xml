@@ -85,6 +85,7 @@
     <string name="sign_in_short">Iniciar sesión</string>
     <string name="no_lyrics">No hay letra para esta canción.</string>
     <string name="vis_next">Cambiar el visualizador</string>
+    <string name="vis_strip">Visualizador: %1$s</string>
     <string name="back">Volver</string>
     <string name="queue">Cola</string>
     <string name="queue_now">Sonando</string>

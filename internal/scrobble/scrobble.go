@@ -96,6 +96,10 @@ func New(cfg Config, queuePath string) *Scrobbler {
 	}
 }
 
+// SetListenBrainzURL points the scrobbler at another ListenBrainz API root;
+// tests point it at a local server.
+func (s *Scrobbler) SetListenBrainzURL(root string) { s.listenBrainzURL = root }
+
 // SetConfig replaces the credentials.
 func (s *Scrobbler) SetConfig(cfg Config) {
 	s.mu.Lock()
@@ -290,6 +294,36 @@ func (s *Scrobbler) listenBrainz(ctx context.Context, cfg Config, listenType str
 	}
 	if err != nil {
 		return fmt.Errorf("listenbrainz %s: %w", listenType, err)
+	}
+	return nil
+}
+
+// ErrInvalidToken is the answer of ValidateListenBrainz to a token that
+// ListenBrainz does not know.
+var ErrInvalidToken = errors.New("listenbrainz: the token is not valid")
+
+// ValidateListenBrainz asks ListenBrainz whether token belongs to a user.
+func (s *Scrobbler) ValidateListenBrainz(ctx context.Context, token string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.listenBrainzURL+"/1/validate-token", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Token "+token)
+	body, status, err := s.post(req)
+	if err == nil && status/100 != 2 {
+		err = fmt.Errorf("HTTP %d", status)
+	}
+	var answer struct {
+		Valid bool `json:"valid"`
+	}
+	if err == nil {
+		err = json.Unmarshal(body, &answer)
+	}
+	if err != nil {
+		return fmt.Errorf("listenbrainz validate-token: %w", err)
+	}
+	if !answer.Valid {
+		return ErrInvalidToken
 	}
 	return nil
 }

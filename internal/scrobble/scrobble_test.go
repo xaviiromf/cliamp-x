@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -47,6 +48,12 @@ func (f *fakeServices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.lb = append(f.lb, body)
 		_, _ = io.WriteString(w, `{"status":"ok"}`)
+	case "/1/validate-token":
+		valid := r.Header.Get("Authorization") == "Token lb-token"
+		if f.lbStatus != 0 {
+			w.WriteHeader(f.lbStatus)
+		}
+		_, _ = io.WriteString(w, `{"code":200,"valid":`+strconv.FormatBool(valid)+`}`)
 	case "/2.0/":
 		_ = r.ParseForm()
 		form := r.PostForm
@@ -239,5 +246,29 @@ func TestLastfmSignIn(t *testing.T) {
 	}
 	if _, _, err := s.LastfmToken(context.Background(), Config{LastfmKey: "key"}); err == nil {
 		t.Fatal("LastfmToken without a secret: no error")
+	}
+}
+
+// ValidateListenBrainz accepts a known token and refuses an unknown one,
+// and a server error is not taken for an answer.
+func TestValidateListenBrainz(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		token   string
+		status  int
+		wantErr string
+	}{
+		{name: "valid", token: "lb-token"},
+		{name: "unknown token", token: "not-a-real-token-1234", wantErr: ErrInvalidToken.Error()},
+		{name: "server error", token: "lb-token", status: http.StatusBadGateway, wantErr: "HTTP 502"},
+		{name: "bad request", token: "lb-token", status: http.StatusBadRequest, wantErr: "HTTP 400"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newTestScrobbler(t, Config{}, &fakeServices{lbStatus: tc.status})
+			err := s.ValidateListenBrainz(context.Background(), tc.token)
+			if tc.wantErr == "" && err != nil || tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("ValidateListenBrainz = %v, want %q", err, tc.wantErr)
+			}
+		})
 	}
 }

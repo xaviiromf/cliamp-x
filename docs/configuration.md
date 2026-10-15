@@ -564,8 +564,9 @@ browser, search results and the queue. Songs download one at a time with
 yt-dlp, and the status line shows the progress (`↓ 3/12 · Song 45%`).
 
 Each song keeps YouTube's own AAC audio (`.m4a`) when there is one, so it is
-not re-encoded, and gets its cover (1200 px for YouTube Music songs), title,
-artist, album, year and, for an album, track number. Files land in
+not re-encoded. A song with no separate audio stream downloads its video and
+keeps only the audio track. Each song gets its cover (1200 px for YouTube
+Music songs), title, artist, album, year and, for an album, track number. Files land in
 `<directory>/<Artist>/<Album>/`, singles in `<Artist>/Singles/`. Without
 ffmpeg the files keep the audio but no tags.
 
