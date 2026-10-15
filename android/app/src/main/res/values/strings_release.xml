@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Release quality (FINAL-PLAN T11): Acerca de and Enviar registro. -->
+<!-- Release quality (FINAL-PLAN T11): About and Send log. -->
 <resources>
-    <string name="about">Acerca de</string>
-    <string name="about_independent">cliamp-x es un proyecto independiente, un fork de cliamp de Bjarne Øverli. No es el cliamp oficial: los problemas de cliamp-x se reportan en su repositorio.</string>
-    <string name="about_source">Código fuente</string>
-    <string name="about_upstream">cliamp original</string>
-    <string name="about_license">Licencia</string>
-    <string name="about_license_help">La app (este APK) se distribuye bajo GPL-3.0, porque incluye youtubedl-android. El código fuente de cliamp-x es MIT.</string>
-    <string name="about_apk">La app (APK)</string>
-    <string name="about_code">El código fuente</string>
-    <string name="about_privacy">Privacidad</string>
-    <string name="about_privacy_text">cliamp-x no recoge datos: no tiene telemetría, analíticas ni anuncios, y no tiene servidor propio. Tu sesión de YouTube Music, tu música, tus listas y tus ajustes quedan en el teléfono. La app solo habla con los servicios que usa: YouTube Music, GitHub (actualizaciones de la app y de yt-dlp), el sitio de cada fuente que descargues, LRCLIB y NetEase (letras), SponsorBlock, las radios y enlaces que abras, y ListenBrainz o Last.fm si conectas una cuenta. El registro sale del teléfono solo si lo envías tú.</string>
-    <string name="about_third_party">Licencias de terceros</string>
-    <string name="about_no_license">Falta %1$s en esta compilación.</string>
-    <string name="send_log">Enviar registro</string>
-    <string name="send_log_writing">Guardando el registro…</string>
-    <string name="send_log_help">Guarda cliamp.log y el registro de la app en un archivo de texto y abre Compartir. Nada se envía solo; revisa el archivo antes: incluye los títulos de lo que escuchaste.</string>
+    <string name="about">About</string>
+    <string name="about_independent">cliamp-x is an independent project, a fork of cliamp by Bjarne Øverli. It is not the official cliamp: report cliamp-x issues in its own repository.</string>
+    <string name="about_source">Source code</string>
+    <string name="about_upstream">Original cliamp</string>
+    <string name="about_license">License</string>
+    <string name="about_license_help">The app (this APK) is distributed under GPL-3.0 because it includes youtubedl-android. The cliamp-x source code is MIT.</string>
+    <string name="about_apk">The app (APK)</string>
+    <string name="about_code">The source code</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_text">cliamp-x collects no data: it has no telemetry, analytics or ads, and no server of its own. Your YouTube Music session, your music, your playlists and your settings stay on the phone. The app only talks to the services it uses: YouTube Music, GitHub (app and yt-dlp updates), the site of each font you download, LRCLIB and NetEase (lyrics), SponsorBlock, the radios and links you open, and ListenBrainz or Last.fm if you connect an account. The log leaves the phone only if you send it.</string>
+    <string name="about_third_party">Third-party licenses</string>
+    <string name="about_no_license">%1$s is missing from this build.</string>
+    <string name="send_log">Send log</string>
+    <string name="send_log_writing">Saving the log…</string>
+    <string name="send_log_help">Saves cliamp.log and the app log to a text file and opens Share. Nothing is sent by itself; check the file first: it lists the titles you played.</string>
 </resources>

@@ -159,11 +159,11 @@ of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
 in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
 credential. Scrobbles that fail on a network error are sent later.
 
-**Ajustes → Sistema → Acerca de** shows the version, links to the source
-and to the original cliamp (cliamp-x is an independent fork, not the
-official cliamp), the licenses (the APK is GPL-3.0 because it includes
-youtubedl-android; the source is MIT), the privacy policy and every
-third-party license in full.
+**Ajustes → Sistema → Acerca de** (Settings → System → About) shows the
+version, links to the source and to the original cliamp (cliamp-x is an
+independent fork, not the official cliamp), the licenses (the APK is
+GPL-3.0 because it includes youtubedl-android; the source is MIT), the
+privacy policy and every third-party license in full.
 
 Privacy: cliamp-x collects no data. It has no telemetry, analytics, ads or
 server of its own. It talks only to the services it uses: YouTube Music,
@@ -171,10 +171,10 @@ GitHub (app and yt-dlp updates), the site of each font you download, LRCLIB
 and NetEase (lyrics), SponsorBlock, the streams and links you open, and
 ListenBrainz or Last.fm when you connect an account.
 
-**Ajustes → Sistema → Enviar registro** writes the end of `cliamp.log`, the
-app's log and its crash log to one text file and opens the share sheet, for
-a bug report. Nothing is sent by itself; the file lists what you played, so
-read it before you send it.
+**Ajustes → Sistema → Enviar registro** (Send log) writes the end of
+`cliamp.log`, the app's log and its crash log to one text file and opens the
+share sheet, for a bug report. Nothing is sent by itself; the file lists
+what you played, so read it before you send it.
 
 ## Background playback
 
