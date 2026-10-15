@@ -13,8 +13,21 @@ Download `cliamp-x-<version>-arm64-v8a.apk` from the
 phone. Android asks once to allow installs from that app. Obtainium can track
 the releases too.
 
-The first start asks for notifications and music access, then unpacks Python
-and ffmpeg for a few seconds and downloads the newest yt-dlp.
+The first start shows three short steps while Python and ffmpeg unpack and
+the newest yt-dlp downloads behind them:
+
+1. **Permisos** (Permissions): notifications (the music controls), local music, and the
+   battery optimization, each with its state and the button that asks.
+2. **YouTube Music**: sign in, import a `cookies.txt`, or **Omitir** (Skip).
+3. **Elige un skin** (Pick a skin): a tap shows it at once; **Empezar**
+   (Start) opens the app.
+
+The app follows the phone's language: English, or Spanish on a phone set to
+Spanish. **Ajustes → Sistema → Idioma** (Settings → System → Language in
+English) overrides it: **Sistema**, **English** or **Español**. Android 13
+and later also list the app in the system's per-app language settings. A
+change restarts the core, so its own texts and the YouTube Music shelves
+change language too, in the phone's country.
 
 ## Sign in to YouTube Music
 

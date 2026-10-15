@@ -3,7 +3,7 @@ package io.github.xaviiromf.cliampx
 import android.os.Bundle
 import android.service.dreams.DreamService
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
@@ -22,7 +22,7 @@ import io.github.xaviiromf.cliampx.ui.Looks
 import io.github.xaviiromf.cliampx.ui.StereoScreen
 
 /** Modo estéreo from the player's ⋮: full screen, kept on, over the lock screen. */
-class StereoActivity : ComponentActivity() {
+class StereoActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)

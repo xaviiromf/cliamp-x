@@ -9,11 +9,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -27,7 +30,9 @@ import io.github.xaviiromf.cliampx.ui.LiveTheme
 import io.github.xaviiromf.cliampx.ui.Look
 import io.github.xaviiromf.cliampx.ui.Looks
 import io.github.xaviiromf.cliampx.ui.Nav
+import io.github.xaviiromf.cliampx.ui.Onboarding
 import io.github.xaviiromf.cliampx.ui.Screen
+import io.github.xaviiromf.cliampx.ui.Skin
 import io.github.xaviiromf.cliampx.ui.Skins
 import io.github.xaviiromf.cliampx.ui.Tab
 import com.yausername.youtubedl_android.YoutubeDL
@@ -41,8 +46,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /** The native touch UI (UI-SPEC §7.1). The service owns the core; this only talks to it over IPC. */
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("ui", MODE_PRIVATE) }
+    private var onboarding by mutableStateOf(false)
 
     private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { startCore(linkOf(intent)) }
 
@@ -55,18 +61,22 @@ class MainActivity : ComponentActivity() {
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
         Looks.load(this)
         Skins.load(this)
+        // A fresh install (no Python yet) shows the onboarding until it ends, also after a restart; an update never does.
+        if (firstRun && !prefs.contains(ONBOARDING)) prefs.edit { putBoolean(ONBOARDING, true) }
+        onboarding = prefs.getBoolean(ONBOARDING, false)
         setContent {
             LiveTheme {
-                Box(Modifier.semantics { testTagsAsResourceId = true }) { App(firstRun) }
+                Box(Modifier.semantics { testTagsAsResourceId = true }) { if (onboarding) Onboarding(::onboarded) else App(firstRun) }
             }
         }
 
         if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) Nav.openPlayer()
         if (savedInstanceState == null) shortcut(intent)
         // The first start asks for notifications and local music before the core reads the music folder.
+        // Onboarding asks for them itself while the core starts behind it.
         val link = if (savedInstanceState == null) linkOf(intent) else null
         val missing = permissions().filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
-        if (missing.isNotEmpty() && !prefs.getBoolean(ASKED, false)) {
+        if (!onboarding && missing.isNotEmpty() && !prefs.getBoolean(ASKED, false)) {
             prefs.edit { putBoolean(ASKED, true) }
             askPermissions.launch(missing.toTypedArray())
         } else {
@@ -86,6 +96,17 @@ class MainActivity : ComponentActivity() {
                     if (Remote.state.value?.playing == true) Remote.refresh()
                 }
             }
+        }
+    }
+
+    /** The end of onboarding: it does not show again, and the picked skin applies once the core takes it. */
+    private fun onboarded(skin: Skin?) {
+        prefs.edit { putBoolean(ONBOARDING, false).putBoolean(ASKED, true) }
+        onboarding = false
+        val app = applicationContext
+        if (skin != null) Remote.scope.launch(Dispatchers.Main) {
+            Remote.ops.first { "theme" in it }
+            Skins.apply(app, skin)
         }
     }
 
@@ -147,6 +168,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val ASKED = "asked_permissions"
+        private const val ONBOARDING = "onboarding"
 
         /** The notification opens the player sheet. */
         const val EXTRA_OPEN_PLAYER = "open_player"

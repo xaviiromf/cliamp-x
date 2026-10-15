@@ -330,7 +330,7 @@ fun SkinsScreen() {
 
 /** A skin: ● when it is the look on screen, its name, theme · font · background · visualizer, and its theme's colors. */
 @Composable
-private fun SkinRow(skin: Skin, name: String, palette: CliampPalette?, on: Boolean, tag: String, more: (() -> Unit)? = null, onClick: () -> Unit) {
+internal fun SkinRow(skin: Skin, name: String, palette: CliampPalette?, on: Boolean, tag: String, more: (() -> Unit)? = null, onClick: () -> Unit) {
     val p = LocalPalette.current
     val context = LocalContext.current
     Row(

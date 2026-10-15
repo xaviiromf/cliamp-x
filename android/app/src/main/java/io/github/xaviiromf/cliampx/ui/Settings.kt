@@ -66,6 +66,7 @@ import io.github.xaviiromf.cliampx.BuildConfig
 import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LauncherIcon
+import io.github.xaviiromf.cliampx.Language
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.MainActivity
@@ -258,6 +259,12 @@ fun SettingsScreen(screen: Screen.Settings) {
             item(key = "system") {
                 Column {
                     SectionRule(stringResource(R.string.set_system))
+                    TextChoice(
+                        stringResource(R.string.language),
+                        listOf(stringResource(R.string.language_system), stringResource(R.string.language_en), stringResource(R.string.language_es)),
+                        Language.TAGS.indexOf(Language.current(context)).coerceAtLeast(0), "set_language",
+                    ) { Language.set(context, Language.TAGS[it]) }
+                    Help(stringResource(R.string.language_help))
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(if (optimized) R.string.battery_optimized else R.string.battery_free), Modifier.weight(1f), color = p.textPrimary, style = Type.body)
                         if (optimized) BracketButton(stringResource(R.string.battery_remove), Modifier.testTag("set_battery")) { ignoreBatteryOptimizations(context) }
