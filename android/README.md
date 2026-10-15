@@ -102,6 +102,12 @@ Android lint.
 
 ### Release builds and signing
 
+A `v*` tag publishes the APK only when the tagged commit has `android/` and
+the android job of `release.yml`: merge `android` into `main` before you tag
+`main`, or tag a commit on `android`. A tag with a hyphen (`v2.3.0-rc.1`) is
+published as a prerelease. Each signed APK must carry the certificate in the
+repository variable `ANDROID_CERT_SHA256`, or the workflow stops.
+
 `./gradlew assembleRelease` signs the APK when `ANDROID_KEYSTORE_FILE` (the
 path of the keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
 `ANDROID_KEY_PASSWORD` are set, as `.github/workflows/nightly.yml` does with
