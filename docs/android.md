@@ -131,7 +131,10 @@ Themes with little contrast to spare show it faintly. It moves at 20 fps
 only while the app is on screen, slower with the system's reduced motion,
 and needs Android 13 or newer (older versions draw a still gradient of the
 theme). A moving background costs battery: each step redraws the whole
-screen, about half a CPU core on a Galaxy A55 while the app is in view. **Animaciones** picks
+screen, about half a CPU core on a Galaxy A55 while the app is in view. It
+holds still while a list scrolls. While nothing is touched, the app asks the
+screen for 60 Hz with a moving background and in the player, where nothing
+moves faster than 30 fps; a touch brings back the full rate. **Animaciones** picks
 Lenta, Normal or Sin animación for the screen, player page, artwork and
 cover-palette transitions; Sin animación also holds the background still.
 

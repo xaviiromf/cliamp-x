@@ -50,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -103,7 +105,9 @@ fun App(firstRun: Boolean) {
     }
     // The bars' backgrounds run to the screen edges; their content keeps clear of a side nav bar and the cutout.
     val sides = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
-    Box(Modifier.fillMaxSize()) {
+    // Under the player sheet this window asks what the sheet asks.
+    val calm = if (Nav.player) calmPlayerPage() else Looks.background != Background.Solid
+    Box(Modifier.fillMaxSize().nestedScroll(Scrolls).calmRefreshRate(calm)) {
         // Paused under the opaque player sheet, which draws its own.
         Backdrop(Looks.listLevel, Modifier.matchParentSize(), paused = Nav.player)
         Column(Modifier.fillMaxSize().imePadding()) {
@@ -265,7 +269,8 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
         else -> track.artist to p.textSecondary
     }
     val playing = snap?.playing == true && pending == null
-    val marquee = !reducedMotion()
+    // Under the player sheet nothing here moves: a redraw of this window held up each frame of the sheet's.
+    val marquee = !reducedMotion() && !Nav.player
     val density = LocalDensity.current
     var lift by remember { mutableFloatStateOf(0f) }
     val open = { if (snap?.track != null) Nav.openPlayer() }
@@ -288,7 +293,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    track.name, if (playing && marquee) Modifier.basicMarquee(initialDelayMillis = 1600, velocity = 42.dp, spacing = MarqueeSpacing(59.dp)) else Modifier,
+                    track.name, if (playing && marquee) Modifier.graphicsLayer().basicMarquee(initialDelayMillis = 1600, velocity = 42.dp, spacing = MarqueeSpacing(59.dp)) else Modifier,
                     color = p.textPrimary, style = Type.body, maxLines = 1, overflow = if (playing && marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
                 )
                 Text(second, color = color, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -314,9 +319,9 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
 @Composable
 private fun Progress(snap: Snapshot?) {
     val p = LocalPalette.current
-    val now = rememberNow(snap)
+    val now = rememberNow(snap.takeUnless { Nav.player })
     Box(
-        Modifier.fillMaxWidth().height(2.dp).drawBehind {
+        Modifier.fillMaxWidth().height(2.dp).graphicsLayer().drawBehind {
             val s = snap ?: return@drawBehind
             if (s.duration <= 0) return@drawBehind
             val f = (PlaybackClock.positionAt(s, now.longValue) / s.duration).toFloat().coerceIn(0f, 1f)

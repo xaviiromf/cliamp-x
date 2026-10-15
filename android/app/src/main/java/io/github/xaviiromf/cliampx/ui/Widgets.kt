@@ -389,6 +389,8 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
                     seek.dragging = at(x, size.width)
                 }
             }
+            // Its own layer: the 4 redraws a second leave the screen around it as recorded.
+            .graphicsLayer()
             .drawBehind {
                 val f = if (d > 0) (seek.position(s, now.longValue) / d).toFloat().coerceIn(0f, 1f) else 0f
                 val y = size.height / 2

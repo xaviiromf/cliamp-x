@@ -8,6 +8,17 @@ import org.junit.Test
 
 class BackgroundsTest {
     @Test
+    fun scrollsHoldOnlyWhileOneScrollLasts() {
+        val t = 1_000_000L
+        val start = Scrolls.held
+        // Steps 8 ms apart hold their gaps; a step after a pause starts a new scroll and holds nothing.
+        for ((now, held) in listOf(t to 0L, t + 8 to 8L, t + 16 to 16L, t + 5_000 to 16L, t + 5_010 to 26L)) {
+            Scrolls.scrolled(now)
+            assertEquals("at +${now - t}", held, Scrolls.held - start)
+        }
+    }
+
+    @Test
     fun everyBackgroundButSolidHasAShader() {
         assertTrue(Background.entries.size >= 17)
         for (b in Background.entries) {

@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -130,7 +131,7 @@ fun PlayerSheet(s: Snapshot) {
     ) {
         SheetBars()
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxSize().nestedScroll(Scrolls).calmRefreshRate(calmPlayerPage())) {
             val wide = twoPanes(maxWidth)
             Backdrop(Looks.playerLevel, Modifier.matchParentSize())
             // The visualizer behind the artwork (Ajustes or ⋮), dimmed under the text; only one vis.frame grid runs at a time.
@@ -290,6 +291,9 @@ private fun SeekRows(s: Snapshot, seek: SeekState, now: LongState) {
         Text(format, Modifier.fillMaxWidth().testTag("audio_format"), color = p.textSecondary, style = Type.label, textAlign = TextAlign.End)
     }
 }
+
+/** The player and lyrics pages move at 30 fps at most; the queue and EQ pages scroll and drag at the display's full rate. */
+fun calmPlayerPage() = Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics
 
 /** Whether the visualizer fills the player behind the artwork. */
 fun backgroundVis(s: Snapshot) = Looks.playerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
@@ -516,7 +520,8 @@ private fun TitleBlock(s: Snapshot) {
             track.name,
             // TalkBack says the next song as it starts.
             Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }.then(
-                if (moving) Modifier.basicMarquee(initialDelayMillis = 1600, velocity = 42.dp, spacing = MarqueeSpacing(92.dp)) else Modifier,
+                // In a layer: each step of the marquee re-records only the title.
+                if (moving) Modifier.graphicsLayer().basicMarquee(initialDelayMillis = 1600, velocity = 42.dp, spacing = MarqueeSpacing(92.dp)) else Modifier,
             ),
             color = p.accent, style = Type.display, maxLines = 1, overflow = if (moving) TextOverflow.Clip else TextOverflow.Ellipsis,
         )
@@ -561,7 +566,8 @@ private fun TimeRow(s: Snapshot, seek: SeekState, now: LongState) {
     val p = LocalPalette.current
     val snap by rememberUpdatedState(s)
     val secs by remember { derivedStateOf { seek.position(snap, now.longValue).toInt() } }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // Its own layer: the second ticking re-records only this row.
+    Row(Modifier.fillMaxWidth().graphicsLayer(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             if (s.duration > 0) clock(secs) + " / " + clock(s.duration.toInt()) else clock(secs),
             Modifier.weight(1f), color = p.textPrimary, style = Type.numeric,

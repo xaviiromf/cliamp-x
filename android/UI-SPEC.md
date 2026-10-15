@@ -796,9 +796,10 @@ JetBrains Mono 2.304 (SIL OFL 1.1), Regular and Bold only. Sizes are in sp, so t
 | `cover` theme, each new cover palette | the 7 colors animate over 400 ms, FastOutSlowIn |
 | Artwork of the player and mini-player | the next song's art cross-fades in over 400 ms; list rows swap at once |
 | Ajustes → Animaciones | Lenta stretches every duration above 1.6 times, Sin animación snaps them, closes sheets without the slide and holds the background still |
-| Background (Ajustes → Fondo) | an AGSL shader at half resolution behind the whole app, stepped at 20 fps (each step redraws the whole window) while the activity is started, at a quarter speed under reduced motion; paused under the player sheet, which draws its own. A scrim of bg covers it (`scrimOf`): level 100 shows the most that keeps `fg` and `brightFg` at min(4.5:1, their contrast on bg) even over a white (light theme: black) pixel, with the scrim leaned to black (white); lower levels show less and lean only as far as needed |
+| Background (Ajustes → Fondo) | an AGSL shader at half resolution behind the whole app, stepped at 20 fps (each step redraws the whole window) while the activity is started, at a quarter speed under reduced motion; paused under the player sheet, which draws its own, and held still while a list scrolls or flings (`Scrolls`), then resumed where it stopped. A scrim of bg covers it (`scrimOf`): level 100 shows the most that keeps `fg` and `brightFg` at min(4.5:1, their contrast on bg) even over a white (light theme: black) pixel, with the scrim leaned to black (white); lower levels show less and lean only as far as needed |
 | Spinner | a braille frame every 100 ms |
 | Visualizer | the core's frames arrive at up to 30 fps, one request at a time; the core animates them. On pause or stop the last frame fades out in 300 ms, then drawing stops |
+| Refresh rate | `calmRefreshRate`: a window asks for 60 Hz while nothing moves under a finger, the shell when a background moves and the player sheet on its Player and Letras pages; a touch, and the scroll or fling it starts, gets the full rate back until 300 ms of stillness. At 120 Hz each 20 or 30 fps step missed its 8 ms frame on the A55 |
 | Reduced motion | `ANIMATOR_DURATION_SCALE == 0` turns off the marquee and the crossfades. The visualizer then polls 10 frames a second |
 
 ### 4.6 Live theme flow
@@ -1868,7 +1869,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 - **Frames:** run `adb shell dumpsys gfxinfo io.github.xaviiromf.cliampx reset`. Then scroll Inicio (5 swipes), scroll a carousel, scroll a 200-row playlist, and open and close the player 3 times with the visualizer on. Then run `dumpsys gfxinfo io.github.xaviiromf.cliampx`.
   - A55: < 5 %, 90th percentile ≤ 16 ms. The frame numbers are judged on the A55 only.
   - Emulator: not judged. Its SwiftShader renderer misses the frame budget for any app (the system Settings app also shows about 40 % janky frames there), so its numbers say nothing about this app.
-  - Acceptance run on the A55 (120 Hz): 25 % janky frames, 90th percentile 18 ms, short of the target. A later pass found no cheap hot spot: the visualizer, the seek line and the mini-player progress already redraw without recomposing, the title marquees stop after 3 runs and the art decodes off the main thread. The next step is a system trace on the A55 of the player open and close.
+  - Acceptance run on the A55 (120 Hz, Tramado background, Bars, `PERF_LIST=lib_liked`): 3.9 % janky frames, 90th percentile 13 ms. A perfetto trace had named the causes: the shell window behind the player sheet still redrew (the mini-player progress and marquee) and held up each sheet frame on the one RenderThread; the visualizer, the seek line, the time row and the marquees re-recorded the whole sheet at each step (now each draws in its own layer); and at 120 Hz each background or visualizer step missed its 8 ms deadline on the little cores, which the 60 Hz request and the hold while scrolling fix. Before: the player 75 % janky, 90th percentile 15 ms.
 - **CPU:** `adb shell top -b -n 3 -d 10 -o PID,%CPU,RES,ARGS | grep -E 'cliampx|libcliamp'`.
 
   | Situation | App | Core |
@@ -1941,7 +1942,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 
 **Deferred by the user (M6), done in FINAL-PLAN T10:** the landscape player (§3.10) and the TalkBack labels (§9.5 item 18). The ClassicPeak and Mirror renderers are done, with 32 more native modes (§0). MainActivity locks phones (under 600 dp on the short side) to portrait and turns on tablets; from 840 dp wide the player sheet shows the player and the queue (or EQ, lyrics) side by side. Modo terminal still turns; S19 checks both.
 
-**Performance acceptance (M6):** the §9.4 frame numbers are judged on the A55 only; the emulator cannot meet any frame budget (§9.4). The A55 run (25 % janky, 90th percentile 18 ms) stays open until a trace there names the hot spot.
+**Performance acceptance (M6):** the §9.4 frame numbers are judged on the A55 only; the emulator cannot meet any frame budget (§9.4). The A55 run meets them (3.9 % janky, 90th percentile 13 ms, §9.4).
 
 ---
 
@@ -1950,7 +1951,7 @@ adb shell settings put global animator_duration_scale 0      (and window and tra
 See `open_risks`. The top three:
 1. The yt-dlp download path: GitHub redirects, rate limits and the SUMS file, plus Python compatibility of new yt-dlp releases.
 2. The error-kind classification of the real failure text.
-3. Compose smoothness on the A55 with a 30 fps visualizer.
+3. Compose smoothness on the A55 with a 30 fps visualizer: met on a warm release build (§9.4); a fresh install runs slower until ART compiles the app.
 4. The items the user deferred in §10 are done (FINAL-PLAN T10): landscape on tablets, TalkBack.
 
 **Not covered:** nothing here was built or run.

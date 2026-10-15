@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
@@ -100,8 +101,9 @@ fun Visualizer(s: Snapshot, modifier: Modifier = Modifier) {
     val colors = remember(p) { terminalColors(p) }
     val rects = remember { FloatArray(6 * 4) }
     val chars = remember { CharArray(2) }
+    // Its own layer: a frame re-records only the grid, not the whole screen around it.
     Spacer(
-        modifier.onSizeChanged { size = it }.drawBehind {
+        modifier.onSizeChanged { size = it }.graphicsLayer().drawBehind {
             val f = frame ?: return@drawBehind
             val g = grid ?: return@drawBehind
             val a = gain.value
