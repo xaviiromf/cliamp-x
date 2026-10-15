@@ -47,6 +47,7 @@
     <string name="first_run">Preparing Python, yt-dlp and ffmpeg (first time only)…</string>
     <string name="reconnecting">Reconnecting to cliamp-x…</string>
     <string name="core_stopped">cliamp-x stopped.</string>
+    <string name="core_not_started">cliamp-x did not start.</string>
     <string name="ytdlp_preparing">Preparing yt-dlp…</string>
     <string name="ytdlp_ready">yt-dlp %1$s ready</string>
     <string name="update_banner">cliamp-x %1$s available</string>
