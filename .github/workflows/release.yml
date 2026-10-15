@@ -65,6 +65,9 @@ jobs:
 
   android:
     runs-on: ubuntu-24.04
+    # The signing secrets live in this environment, which only android,
+    # main and v* tags may use.
+    environment: release
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -89,7 +92,7 @@ jobs:
           fi
           for name in ANDROID_KEYSTORE_B64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::warning::The repository secret $name is not set, so the release has no APK. PLAN.md phase 0 step 4 creates the keystore and its secrets."
+              echo "::warning::The secret $name of the release environment is not set, so the release has no APK. PLAN.md phase 0 step 4 creates the keystore and its secrets."
               build=false
             fi
           done
