@@ -127,6 +127,8 @@ fun App(firstRun: Boolean) {
                             Screen.Stats -> StatsScreen()
                             Screen.Wrapped -> WrappedScreen()
                             Screen.Ratings -> RatingsScreen()
+                            Screen.About -> AboutScreen()
+                            is Screen.License -> LicenseScreen(screen)
                         }
                     }
                 }

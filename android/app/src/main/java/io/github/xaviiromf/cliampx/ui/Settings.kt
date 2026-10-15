@@ -67,6 +67,7 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LauncherIcon
 import io.github.xaviiromf.cliampx.LoginActivity
+import io.github.xaviiromf.cliampx.Logs
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.MainActivity
 import io.github.xaviiromf.cliampx.Offline
@@ -293,6 +294,27 @@ fun SettingsScreen(screen: Screen.Settings) {
                         else -> {}
                     }
                     SettingRow(stringResource(R.string.terminal), "", "set_terminal") { context.startActivity(Intent(context, TerminalActivity::class.java)) }
+                    SettingRow(stringResource(R.string.about), "", "set_about") { Nav.open(Screen.About) }
+                    var sending by remember { mutableStateOf(false) }
+                    if (sending) {
+                        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) { SpinnerLine(stringResource(R.string.send_log_writing), Type.body) }
+                    } else {
+                        BracketButton(stringResource(R.string.send_log), Modifier.padding(horizontal = 12.dp).testTag("set_send_log")) {
+                            sending = true
+                            scope.launch {
+                                try {
+                                    Logs.share(context, Logs.write(context))
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "ERR: " + (e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                                } finally {
+                                    sending = false
+                                }
+                            }
+                        }
+                    }
+                    Help(stringResource(R.string.send_log_help))
                     Help(stringResource(R.string.quit_help))
                     BracketButton(stringResource(R.string.quit), Modifier.padding(horizontal = 12.dp).testTag("set_quit"), color = p.error) {
                         CliampService.send(context, CliampService.ACTION_QUIT)

@@ -321,7 +321,7 @@ fun rememberTypeface(bold: Boolean = false): android.graphics.Typeface {
 }
 
 /** The license's short name from its file name in assets/licenses. */
-private fun licenseName(file: String) = when (file.substringAfterLast('-').substringBefore('.')) {
+internal fun licenseName(file: String) = when (file.substringAfterLast('-').substringBefore('.')) {
     "OFL" -> "OFL 1.1"
     "UFL" -> "UFL 1.0"
     else -> file.substringAfterLast('-').substringBefore('.')

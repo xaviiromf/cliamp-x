@@ -10,3 +10,4 @@ app/build/
 .kotlin/
 # make android-core writes the Go core here.
 app/src/main/jniLibs/
+app/src/main/assets/licenses/go-modules.txt

@@ -16,6 +16,7 @@ build:
 # libcliamp.so, which the app runs from its native library directory. Set
 # ANDROID_NDK_HOME to an NDK r27 or newer. ANDROID_ABI=x86_64 builds for the
 # emulator. The 16 KB page alignment lets it load on Android 15+ kernels.
+# It also writes the licenses of the linked Go modules for Acerca de.
 ANDROID_ABI ?= arm64-v8a
 ANDROID_GOARCH_arm64-v8a := arm64
 ANDROID_GOARCH_x86_64 := amd64
@@ -29,6 +30,8 @@ android-core:
 	GOOS=android GOARCH=$(ANDROID_GOARCH_$(ANDROID_ABI)) CGO_ENABLED=1 CC="$(ANDROID_CC)" CXX="$(ANDROID_CC)++" \
 		go build -trimpath -buildmode=pie -ldflags="$(LDFLAGS) -extldflags '-Wl,-z,max-page-size=16384'" \
 		-o android/app/src/main/jniLibs/$(ANDROID_ABI)/libcliamp.so .
+	GOOS=android GOARCH=$(ANDROID_GOARCH_$(ANDROID_ABI)) CGO_ENABLED=1 \
+		android/scripts/go-notices.sh >android/app/src/main/assets/licenses/go-modules.txt
 
 test:
 	go test ./...

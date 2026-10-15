@@ -55,6 +55,10 @@ sealed interface Screen {
     /** Tu año en cliamp-x, pushed from Estadísticas. */
     data object Wrapped : Screen
     data object Ratings : Screen
+
+    /** Acerca de, pushed from Ajustes, and a license text it opens (file in assets/licenses). */
+    data object About : Screen
+    data class License(val title: String, val file: String) : Screen
 }
 
 /** The page an item opens, or null for a song (which plays). */
