@@ -225,7 +225,11 @@ private fun PortraitPlayer(
     var bottom by remember { mutableIntStateOf(0) }
     val rows = if (top == 0 || bottom == 0) PLAYER_ROWS else with(LocalDensity.current) { (top + bottom).toDp() } + 80.dp
     val (art, strip) = playerArt(maxWidth, maxHeight, rows)
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Scrolls rather than clips when the rows outgrow the page at a large font; unbounded, they also measure their full height.
+    Column(
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Column(Modifier.onSizeChanged { top = it.height }) { PlayerHeader(s, close) }
         // The art fills the width on a tall screen; the height left splits above and below the stack, never inside it (§3.9).
         Spacer(Modifier.weight(1f))
@@ -355,7 +359,7 @@ private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> 
     )
     Box(
         Modifier.fillMaxSize()
-            .then(if (view != ArtView.Lyrics) Modifier.skipSwipe() else Modifier)
+            .then(if (view != ArtView.Lyrics) Modifier.skipSwipe().skipActions() else Modifier)
             .semantics { if (view != ArtView.Lyrics) contentDescription = name }
             .clickable(onClickLabel = tap) {
                 when {

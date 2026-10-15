@@ -111,6 +111,10 @@ class PlayerArtTest {
             Triple(775.dp, 763.dp, 60.dp to false), // past the 240 dp of the strip: −12 + 72
         )
         for ((rows, height, want) in cases) assertEquals("$rows in $height", want, playerArt(411.dp, height, rows))
+        // The left pane of a 1280 × 800 dp tablet: rows at font scale 2 leave a small art, and taller ones none (the page scrolls).
+        assertEquals(312.dp to true, playerArt(640.dp, 760.dp, 448.dp))
+        assertEquals(132.dp to false, playerArt(640.dp, 760.dp, 700.dp))
+        assertEquals(0.dp to false, playerArt(640.dp, 760.dp, 900.dp))
     }
 
     @Test

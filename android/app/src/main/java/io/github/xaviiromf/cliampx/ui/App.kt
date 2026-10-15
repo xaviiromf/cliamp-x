@@ -279,6 +279,7 @@ private fun MiniPlayer(snap: Snapshot?, sides: WindowInsets) {
                 },
             )
             .clickable(onClickLabel = stringResource(R.string.open_player)) { open() }
+            .skipActions()
             // TalkBack says the next song; the open player sheet says it itself.
             .semantics { if (!Nav.player) liveRegion = LiveRegionMode.Polite },
     ) {

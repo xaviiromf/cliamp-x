@@ -73,7 +73,9 @@ messages are announced. The swipes have custom actions in TalkBack's actions
 menu: skip (Next, Previous) on the mini-player and the artwork, remove from
 the queue or playlist, and Move up or Move down in the queue. Text follows
 the system font size up to 200 %: rows grow, the player's chips wrap and its
-artwork shrinks to keep every control on screen.
+artwork shrinks to keep every control on screen (the player scrolls when even
+that is not enough), the EQ's frequency and gain labels shrink to fit their
+column, and a setting keeps its whole label (a long value ends in …).
 
 **Modo estéreo** is an always-on screen for a phone on a stand: the clock,
 the artwork, the song and the visualizer. It dims from 22:00 to 07:00 and

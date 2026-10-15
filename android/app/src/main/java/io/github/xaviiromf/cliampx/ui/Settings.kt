@@ -483,16 +483,21 @@ private fun ScrobbleSection(s: Snapshot?) {
 }
 
 /** A 56 dp row: the label, `[value]` in accent, and `›` when it opens something. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SettingRow(label: String, value: String, tag: String, onClick: () -> Unit) {
     val p = LocalPalette.current
-    Row(
+    // The label keeps its width; the value takes the rest of the line, or the next line when the label fills it.
+    FlowRow(
         Modifier.fillMaxWidth().heightIn(min = Look.row(56.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp).testTag(tag),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.Center,
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, Modifier.weight(1f), color = p.textPrimary, style = Type.body)
-        if (value.isNotEmpty()) Bracketed(value, false)
-        Text("›", color = p.textSecondary, style = Type.body)
+        Text(label, color = p.textPrimary, style = Type.body)
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+            if (value.isNotEmpty()) Bracketed(value, false, Modifier.weight(1f, fill = false))
+            Text("›", color = p.textSecondary, style = Type.body)
+        }
     }
 }
 
@@ -539,7 +544,7 @@ private fun Toggle(label: String, on: Boolean, tag: String, set: (Int) -> Unit) 
 
 /** `[value]` as a bracket chip draws it (§4.4), without its own touch target. */
 @Composable
-private fun Bracketed(value: String, on: Boolean) {
+private fun Bracketed(value: String, on: Boolean, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val bracket = if (on) p.accent else p.textSecondary
     Text(
@@ -548,7 +553,7 @@ private fun Bracketed(value: String, on: Boolean) {
             withStyle(SpanStyle(color = p.accent)) { append(value) }
             withStyle(SpanStyle(color = bracket)) { append("]") }
         },
-        style = Type.body.bold(on), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier, style = Type.body.bold(on), maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
 }
 

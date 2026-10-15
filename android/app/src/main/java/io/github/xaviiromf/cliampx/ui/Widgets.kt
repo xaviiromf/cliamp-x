@@ -426,9 +426,6 @@ fun SwipeBehind(state: SwipeToDismissBoxState, label: String) {
  */
 fun Modifier.skipSwipe(): Modifier = composed {
     val offset = remember { Animatable(0f) }
-    // TalkBack has no swipe here: the same skips are custom actions.
-    val next = stringResource(R.string.next)
-    val prev = stringResource(R.string.prev)
     val scope = rememberCoroutineScope()
     // The gesture reads the untranslated bounds, so the finger's speed stays true while the content moves.
     pointerInput(Unit) {
@@ -457,7 +454,17 @@ fun Modifier.skipSwipe(): Modifier = composed {
             dragX += dx
             scope.launch { offset.snapTo(dragX) }
         }
-    }.graphicsLayer { translationX = offset.value }.semantics {
+    }.graphicsLayer { translationX = offset.value }
+}
+
+/**
+ * TalkBack has no skipSwipe: the same skips as custom actions. They go on the
+ * node TalkBack focuses, since a clickable parent that merges its children drops theirs.
+ */
+fun Modifier.skipActions(): Modifier = composed {
+    val next = stringResource(R.string.next)
+    val prev = stringResource(R.string.prev)
+    semantics {
         customActions = listOf(
             CustomAccessibilityAction(next) { Remote.fire("next"); true },
             CustomAccessibilityAction(prev) { Remote.fire("prev"); true },

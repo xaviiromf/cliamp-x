@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,12 +41,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.R
 import io.github.xaviiromf.cliampx.Remote
@@ -53,11 +57,11 @@ import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.eqDrag
 import io.github.xaviiromf.cliampx.eqGain
 import io.github.xaviiromf.cliampx.eqPending
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /** The center frequencies of the core's 10 bands (player/eq.go). */
 private val FREQS = listOf("70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k")
@@ -117,7 +121,7 @@ fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
         Row(Modifier.fillMaxWidth().height(240.dp).padding(start = 8.dp, end = 16.dp, top = 8.dp)) {
             Box(Modifier.width(36.dp).fillMaxHeight()) {
                 for ((label, align) in listOf("+12" to Alignment.TopEnd, "0" to Alignment.CenterEnd, "-12" to Alignment.BottomEnd)) {
-                    Text(label, Modifier.align(align).padding(end = 4.dp), color = p.textSecondary, style = Type.label)
+                    FitText(label, Modifier.align(align).padding(end = 4.dp), p.textSecondary, Type.label)
                 }
             }
             for (band in 0 until 10) {
@@ -128,6 +132,7 @@ fun EqPage(s: Snapshot, back: () -> Unit = { Nav.page = PlayerPage.Player }) {
                             contentDescription = description
                             // TalkBack moves a band one dB per swipe or volume key.
                             progressBarRangeInfo = ProgressBarRangeInfo(gain(band).toFloat(), -12f..12f, steps = 23)
+                            stateDescription = gain(band).let { db -> if (db > 0) "+$db dB" else "$db dB" }
                             setProgress { set(band, it.roundToInt().coerceIn(-12, 12)); true }
                         }
                         .pointerInput(band) {
@@ -200,8 +205,17 @@ private fun routeLabel(route: String) = when {
 @Composable
 private fun LabelRow(labels: List<String>, color: Color, style: TextStyle) {
     Row(Modifier.fillMaxWidth().padding(start = 44.dp, end = 16.dp, top = 4.dp)) {
-        for (label in labels) Text(label, Modifier.weight(1f), color = color, style = style, textAlign = TextAlign.Center, maxLines = 1)
+        for (label in labels) FitText(label, Modifier.weight(1f).padding(horizontal = 1.dp), color, style.copy(textAlign = TextAlign.Center))
     }
+}
+
+/** One line that shrinks to its cell at a large font size, so `180` never shows as `18`. */
+@Composable
+private fun FitText(text: String, modifier: Modifier, color: Color, style: TextStyle) {
+    BasicText(
+        text, modifier, style.copy(color = color), maxLines = 1, softWrap = false,
+        autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = style.fontSize),
+    )
 }
 
 /**
