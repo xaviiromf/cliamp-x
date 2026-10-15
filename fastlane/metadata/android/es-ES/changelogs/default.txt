@@ -1,0 +1,1 @@
+Primera versión de la app nativa de Android: YouTube Music y música local, el reproductor, la cola, el ecualizador, las letras, los visualizadores, temas, skins y fuentes, descargas, widget, Android Auto, scrobbling y Modo terminal.

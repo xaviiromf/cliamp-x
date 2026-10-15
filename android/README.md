@@ -25,9 +25,10 @@ The app is one module, `app/`, package `io.github.xaviiromf.cliampx`:
 | `Ytdlp.kt` | Keeps yt-dlp new: downloads the newest release, checks its SHA2-256SUMS and renames it over the bundled copy |
 | `MainActivity.kt` | The native UI (Compose), the first-start permissions, deep links and shared URLs |
 | `TerminalActivity.kt` | Modo terminal: the terminal view, the extra keys, back, pinch zoom |
-| `ui/` | `Theme.kt` (theme colors and the cover theme's 600 ms blend, the type roles in the chosen font and size, corners, haptics, press fill, reduced motion), `Fonts.kt` (the bundled and downloadable fonts of `assets/fonts.json`, each download checked against its pinned SHA-256; `Look`, the app's own font, text size, list density, corners and haptics; the Fuente picker), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size, one fetch per image at a time), `Nav.kt` (tabs and their screen stacks, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar, the screen host), `Home.kt` (Inicio: carousels, the sign-in and battery cards, pull to refresh), `Search.kt` (recent queries, genre grids, results as tiles and rows), `Detail.kt` (album, artist, playlist, genre, Para ti, remixes), `Library.kt` (Biblioteca: the pinned rows, the lists, albums and artists, Descargas), `Stats.kt` (Estadísticas, Tus valoraciones), `Wrapped.kt` (Tu año en cliamp-x: the `stats wrapped` cards, each shared as a PNG through the FileProvider), `Settings.kt` (Ajustes, the Tema and Visualizador pickers, the normalization and crossfade sheets, app and yt-dlp updates), `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (the core's visualizer frames from `vis.frame` on one Canvas; the frame parser and block glyphs in `Vis.kt`), `Menus.kt` (song and item actions, add to a list, new list, rename, the confirmations, speed, sleep timer) |
+| `ui/` | `Theme.kt` (theme colors and the cover theme's 600 ms blend, the type roles in the chosen font and size, corners, haptics, press fill, reduced motion), `Fonts.kt` (the bundled and downloadable fonts of `assets/fonts.json`, each download checked against its pinned SHA-256; `Look`, the app's own font, text size, list density, corners and haptics; the Fuente picker), `Widgets.kt` (rows, chips, the seek bar, the skip swipe), `Art.kt` (cover art at its drawn size, one fetch per image at a time), `Nav.kt` (tabs and their screen stacks, the player sheet and the small sheets), `App.kt` (splash, banners, status line, mini-player, tab bar, the screen host), `Home.kt` (Inicio: carousels, the sign-in and battery cards, pull to refresh), `Search.kt` (recent queries, genre grids, results as tiles and rows), `Detail.kt` (album, artist, playlist, genre, Para ti, remixes), `Library.kt` (Biblioteca: the pinned rows, the lists, albums and artists, Descargas), `Stats.kt` (Estadísticas, Tus valoraciones), `About.kt` (Acerca de: version, licenses, privacy, each license text), `Wrapped.kt` (Tu año en cliamp-x: the `stats wrapped` cards, each shared as a PNG through the FileProvider), `Settings.kt` (Ajustes, the Tema and Visualizador pickers, the normalization and crossfade sheets, app and yt-dlp updates), `Player.kt` (the player sheet: cover, visualizer or lyrics, seek, transport, the play error card), `Queue.kt` (swipe to remove, drag to reorder), `Eq.kt`, `Visualizer.kt` (the core's visualizer frames from `vis.frame` on one Canvas; the frame parser and block glyphs in `Vis.kt`), `Menus.kt` (song and item actions, add to a list, new list, rename, the confirmations, speed, sleep timer) |
 | `Ipc.kt` | The V2 IPC client (`docs/remote-control.md`) over the core's Unix socket |
 | `Updates.kt` | App updates from the GitHub releases: the check through the core, the APK download, its SHA-256 and the system installer |
+| `Logs.kt` | Enviar registro: the end of `cliamp.log`, the app's logcat and crash buffer in one file for the share sheet |
 | `LoginActivity.kt` | YouTube Music sign-in in a WebView, saved as `ytmusic_cookies.txt`; the cookies.txt import and the sign-out |
 
 `scripts/ui-smoke.sh` drives the UI over adb by its test tags and saves a
@@ -35,9 +36,12 @@ screenshot per step: the scenarios of `UI-SPEC.md` §9.3, by number
 (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`, then
 `s5 s6 s7 s8 s14 s15 s16 s17 s19 s21 s22 s13` while a song plays,
 `s2 s9 s10 s11 s18 s20 s23` for browsing and `s12 s24 s25 s26` for
-Biblioteca; `s1` and `s1b` clear the app data). A failed check prints
-`FAIL` and the run goes on; a missing element ends it. The script's header
-lists what each scenario needs.
+Biblioteca; `s1` and `s1b` clear the app data; `about` and `sendlog` check
+Acerca de and Enviar registro). A failed check prints `FAIL`, the run goes
+on and exits with 1; a missing element ends it. The script's header lists
+what each scenario needs. The `ui` job of `.github/workflows/android.yml`
+runs `s1 about sendlog` on an API 34 x86_64 emulator for every change under
+`android/`, and keeps the screenshots as the `ui-smoke` artifact.
 
 `scripts/ui-smoke.sh OUT perf` runs the §9.4 pass: frame times over Inicio, a
 carousel, a 200-song list and the player, then the CPU of the app and the
@@ -103,6 +107,19 @@ the secrets of the same names. Without `ANDROID_KEYSTORE_FILE` it builds
 `app-release-unsigned.apk`, which Android does not install. With the file but
 a missing password variable, Gradle stops and names the variable.
 
+The release build runs R8: it shrinks and optimizes the code (the dex
+files drop from about 35 MB to 3.4 MB) and removes unused resources.
+`app/proguard-rules.pro` holds the app's own keep rules; the libraries bring
+theirs. R8 writes `app/build/outputs/mapping/release/mapping.txt`, which turns
+the stack traces of Enviar registro back into names; keep it with each
+release. R8 warns that it cannot parse the Kotlin metadata of Kotlin 2.4
+(AGP 8.13 ships an older R8); the app does not use kotlin-reflect, so the
+warning is harmless. Check a release build on the emulator before a release:
+sign it with the debug key (below) and run `scripts/ui-smoke.sh` (`s3 s4 s17
+about` cover search, playback, Modo terminal and the license screens).
+`sendlog` and `s1` read the app's files with `adb shell run-as`, which works
+only on a debug build.
+
 Android installs an update only when it is signed with the same key as the
 installed app. The releases and the nightly are signed with the release key;
 local debug builds are signed with `~/.android/debug.keystore`. So a debug
@@ -112,6 +129,39 @@ which deletes the app data, the YouTube sign-in included (copy
 `files/config` out with `adb shell run-as` before, if it matters). Debug
 builds of the same machine update each other. Losing the release key means
 no future APK can update the installed ones.
+
+### Store metadata and reproducible builds
+
+`fastlane/metadata/android/` at the repository root holds the listing that
+IzzyOnDroid and F-Droid read: `en-US/` and `es-ES/` with the title, the short
+and full description and `changelogs/default.txt`, and the screenshots in
+`en-US/images/phoneScreenshots/` (the other locale falls back to them). The
+screenshots come from the signed-out emulator, not a phone signed in to
+YouTube Music, whose Inicio and Biblioteca show that account's library and
+history. A
+release adds `changelogs/<versionCode>.txt`, where the versionCode is
+`git rev-list --count <tag>`. Expect the NonFreeNet anti-feature (YouTube
+Music) and, on F-Droid, the scanner's note on the prebuilt binaries of
+youtubedl-android (Python, FFmpeg, QuickJS) and the Termux library from
+JitPack; IzzyOnDroid takes the APK of the GitHub release.
+
+To rebuild a release APK:
+
+1. Clone with the full history (the versionCode counts the commits) and
+   check out the tag. Build in a plain clone: inside a git worktree nested
+   in another checkout, Go stamps the outer repository's revision into the
+   core.
+2. Use the pinned tools of [Toolchain](#toolchain): JDK 17, NDK r28c, the Go
+   of `go.mod` and the Gradle wrapper, which checks its own SHA-256.
+3. `make android-core` (the version comes from `git describe` of the clean
+   checkout), then `cd android && ./gradlew -PcliampVersion=<tag>
+   assembleRelease`.
+
+The Go core is reproducible: built from two clone paths at the same commit,
+`libcliamp.so` and `go-modules.txt` were byte-identical (`-trimpath`, no
+build paths). The APK itself has not been compared across machines; compare
+an unsigned rebuild with the release with `apksigcopier compare` or
+`diffoscope`, which ignore or show the signature.
 
 ### Updates
 
@@ -246,6 +296,9 @@ ffmpeg under their own licenses. JetBrains Mono Nerd Font (Nerd Fonts
 3.5.1) and Adwaita Mono 51.0 are bundled under SIL OFL 1.1; the fonts that
 Ajustes → Fuente downloads (pinned in `app/src/main/assets/fonts.json`) are
 OFL 1.1, MIT (Hack, Departure Mono) or the Ubuntu Font Licence (Ubuntu Mono).
-Every license text is in `app/src/main/assets/licenses/`; the `ic_home`,
+Every license text is in `app/src/main/assets/licenses/`, and Ajustes →
+Acerca de lists them all. `make android-core` also writes
+`go-modules.txt` there (ignored by git) with `scripts/go-notices.sh`: the
+license of Go and of each module linked into the core. The `ic_home`,
 `ic_search`, `ic_library`, `ic_settings` and `ic_note` icons are Material
 Symbols Sharp, Apache 2.0.

@@ -1,0 +1,21 @@
+cliamp-x is a retro music player inspired by Winamp, made for YouTube Music and the music on your phone. The same Go core as the cliamp-x terminal player plays the music; the app draws it with a native touch interface in the cliamp-x look: monospace text, square corners and the colors of a terminal theme.
+
+<b>Features</b>
+<ul>
+<li>YouTube Music with your own account (Premium included), without ads: sign in once in the app or import a cookies.txt. Search, home, your library, liked songs, playlists, albums, artists and genres.</li>
+<li>Local music from the phone's Music folder, with albums, artists and genres.</li>
+<li>Offline downloads and an automatic cache of your liked and recent songs.</li>
+<li>A 10-band equalizer with presets, remembered per output (speaker, headphones, each Bluetooth device).</li>
+<li>Synced lyrics, karaoke view, sleep timer, speed, crossfade, normalization and auto radio.</li>
+<li>Every visualizer of the terminal player, drawn from the core's own frames.</li>
+<li>Dozens of themes, a theme editor, skins, fonts, animated backgrounds and alternative icons.</li>
+<li>Widget, Quick Settings tile, Android Auto, lock screen and notification controls.</li>
+<li>Scrobbling to ListenBrainz or Last.fm, statistics and a yearly recap.</li>
+<li>Modo terminal: the full terminal interface of cliamp-x, on the phone.</li>
+</ul>
+
+<b>Privacy</b>
+cliamp-x collects no data: no telemetry, no analytics, no ads and no server of its own. It talks only to the services it uses: YouTube Music, GitHub (app and yt-dlp updates), the site of each font you download, LRCLIB and NetEase (lyrics), SponsorBlock, the streams you open, and ListenBrainz or Last.fm when you connect an account.
+
+<b>About</b>
+cliamp-x is an independent fork of cliamp by Bjarne Øverli; it is not the official cliamp. The source is MIT; the APK is GPL-3.0 because it includes youtubedl-android, which bundles Python, yt-dlp, QuickJS and FFmpeg. The interface is in Spanish.
