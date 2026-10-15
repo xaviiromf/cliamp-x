@@ -128,6 +128,36 @@ which deletes the app data, the YouTube sign-in included (copy
 builds of the same machine update each other. Losing the release key means
 no future APK can update the installed ones.
 
+### Store metadata and reproducible builds
+
+`fastlane/metadata/android/` at the repository root holds the listing that
+IzzyOnDroid and F-Droid read: `en-US/` and `es-ES/` with the title, the short
+and full description and `changelogs/default.txt`, and the screenshots in
+`en-US/images/phoneScreenshots/` (the other locale falls back to them). A
+release adds `changelogs/<versionCode>.txt`, where the versionCode is
+`git rev-list --count <tag>`. Expect the NonFreeNet anti-feature (YouTube
+Music) and, on F-Droid, the scanner's note on the prebuilt binaries of
+youtubedl-android (Python, FFmpeg, QuickJS) and the Termux library from
+JitPack; IzzyOnDroid takes the APK of the GitHub release.
+
+To rebuild a release APK:
+
+1. Clone with the full history (the versionCode counts the commits) and
+   check out the tag. Build in a plain clone: inside a git worktree nested
+   in another checkout, Go stamps the outer repository's revision into the
+   core.
+2. Use the pinned tools of [Toolchain](#toolchain): JDK 17, NDK r28c, the Go
+   of `go.mod` and the Gradle wrapper, which checks its own SHA-256.
+3. `make android-core` (the version comes from `git describe` of the clean
+   checkout), then `cd android && ./gradlew -PcliampVersion=<tag>
+   assembleRelease`.
+
+The Go core is reproducible: built from two clone paths at the same commit,
+`libcliamp.so` and `go-modules.txt` were byte-identical (`-trimpath`, no
+build paths). The APK itself has not been compared across machines; compare
+an unsigned rebuild with the release with `apksigcopier compare` or
+`diffoscope`, which ignore or show the signature.
+
 ### Updates
 
 Ajustes (`⚙` on Inicio) has "Buscar actualizaciones", the channel (Estable:

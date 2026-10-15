@@ -1,0 +1,21 @@
+cliamp-x es un reproductor de música retro inspirado en Winamp, hecho para YouTube Music y la música de tu teléfono. El mismo núcleo en Go del reproductor de terminal cliamp-x reproduce la música; la app la muestra con una interfaz táctil nativa con el aspecto de cliamp-x: texto monoespaciado, esquinas rectas y los colores de un tema de terminal.
+
+<b>Funciones</b>
+<ul>
+<li>YouTube Music con tu propia cuenta (Premium incluido), sin anuncios: inicia sesión una vez en la app o importa un cookies.txt. Búsqueda, inicio, tu biblioteca, me gusta, listas, álbumes, artistas y géneros.</li>
+<li>Música local de la carpeta Música del teléfono, con álbumes, artistas y géneros.</li>
+<li>Descargas sin conexión y una caché automática de tus me gusta y lo escuchado hace poco.</li>
+<li>Ecualizador de 10 bandas con preajustes, recordados por salida (altavoz, auriculares, cada dispositivo Bluetooth).</li>
+<li>Letras sincronizadas, vista karaoke, temporizador, velocidad, fundido, normalización y radio automática.</li>
+<li>Todos los visualizadores del reproductor de terminal, dibujados con los cuadros del propio núcleo.</li>
+<li>Decenas de temas, un editor de temas, skins, fuentes, fondos animados e iconos alternativos.</li>
+<li>Widget, botón de ajustes rápidos, Android Auto y controles en la pantalla de bloqueo y la notificación.</li>
+<li>Scrobbling a ListenBrainz o Last.fm, estadísticas y un resumen del año.</li>
+<li>Modo terminal: la interfaz de terminal completa de cliamp-x, en el teléfono.</li>
+</ul>
+
+<b>Privacidad</b>
+cliamp-x no recoge datos: no tiene telemetría, analíticas, anuncios ni servidor propio. Solo habla con los servicios que usa: YouTube Music, GitHub (actualizaciones de la app y de yt-dlp), el sitio de cada fuente que descargues, LRCLIB y NetEase (letras), SponsorBlock, las radios y enlaces que abras, y ListenBrainz o Last.fm si conectas una cuenta.
+
+<b>Acerca de</b>
+cliamp-x es un fork independiente de cliamp de Bjarne Øverli; no es el cliamp oficial. El código fuente es MIT; el APK es GPL-3.0 porque incluye youtubedl-android, que trae Python, yt-dlp, QuickJS y FFmpeg.
