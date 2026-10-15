@@ -117,6 +117,9 @@ fun reducedMotion(): Boolean {
     var reduced by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val scale = coroutineContext[MotionDurationScale] ?: return@LaunchedEffect
+        // The first read starts Compose's observer, which writes state: do it
+        // outside snapshotFlow's read-only snapshot, or it crashes with animations off.
+        reduced = scale.scaleFactor == 0f
         snapshotFlow { scale.scaleFactor == 0f }.collect { reduced = it }
     }
     return reduced
