@@ -69,14 +69,15 @@ shot() { adb exec-out screencap -p >"$OUT/$1.png"; echo "$OUT/$1.png"; }
 waitfor() {
 	local end=$((SECONDS + ${2:-20}))
 	until node "$1" >/dev/null; do
-		((SECONDS < end)) || { echo "timeout waiting for $1" >&2; return 1; }
+		((SECONDS < end)) || { echo "timeout waiting for $1" >&2; shot "timeout-$1" >&2; return 1; }
 		sleep 1
 	done
 }
 
 # onboard: goes through the first-run onboarding (permissions, Omitir the sign-in, no skin).
 onboard() {
-	waitfor onboarding 20
+	# The first start unpacks Python and ffmpeg: slow on a CI emulator.
+	waitfor onboarding 90
 	shot s1-onboarding
 	tap onboard_next
 	tap onboard_next
