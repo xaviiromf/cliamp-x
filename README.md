@@ -6,7 +6,13 @@ en **YouTube Music** y en tus **archivos locales**. Funciona en Linux.
 cliamp-x es un fork de [cliamp](https://github.com/bjarneo/cliamp), creado por
 Bjarne Øverli. Todo el mérito del reproductor original es suyo. cliamp-x quita
 los demás proveedores y se concentra en YouTube Music. Se distribuye bajo la
-licencia MIT, igual que el original (ver [LICENSE](LICENSE)).
+licencia MIT, igual que el original (ver [LICENSE](LICENSE)). La app de
+Android (el APK) se distribuye bajo GPL-3.0, porque incluye youtubedl-android
+(GPL-3.0).
+
+cliamp-x es un proyecto independiente: no es el cliamp oficial y no está
+afiliado a cliamp ni a su autor. Los problemas de cliamp-x se reportan en este
+repositorio, no en el de cliamp.
 
 ## Funciones
 
