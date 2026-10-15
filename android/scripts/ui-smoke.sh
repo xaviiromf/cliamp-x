@@ -61,7 +61,10 @@ tap() {
 	adb shell input tap $xy
 }
 
-swipe() { adb shell input swipe "$@"; }
+# Swipe coordinates are written for a 1080x2400 screen and scaled to the real
+# one, so the script also runs on the small default CI emulator.
+read -r SW SH < <(adb shell wm size | tail -n 1 | grep -o '[0-9]*x[0-9]*' | tr x ' ')
+swipe() { adb shell input swipe $(($1 * SW / 1080)) $(($2 * SH / 2400)) $(($3 * SW / 1080)) $(($4 * SH / 2400)) "$5"; }
 
 shot() { adb exec-out screencap -p >"$OUT/$1.png"; echo "$OUT/$1.png"; }
 
@@ -69,7 +72,7 @@ shot() { adb exec-out screencap -p >"$OUT/$1.png"; echo "$OUT/$1.png"; }
 waitfor() {
 	local end=$((SECONDS + ${2:-20}))
 	until node "$1" >/dev/null; do
-		((SECONDS < end)) || { echo "timeout waiting for $1" >&2; shot "timeout-$1" >&2; return 1; }
+		((SECONDS < end)) || { echo "timeout waiting for $1" >&2; shot "timeout-$1" >&2; { adb shell dumpsys activity activities | grep -m1 topResumedActivity; adb logcat -d -b crash; } >"$OUT/timeout-$1.txt" 2>&1; return 1; }
 		sleep 1
 	done
 }
@@ -638,7 +641,7 @@ perf() {
 	for _ in 1 2 3 4 5; do swipe 540 700 540 1800 150; sleep 0.5; done
 	local x y
 	read -r x y < <(node tile_shelf0_0)
-	for _ in 1 2 3; do swipe 900 "$y" 150 "$y" 200; sleep 0.5; done
+	for _ in 1 2 3; do adb shell input swipe $((900 * SW / 1080)) "$y" $((150 * SW / 1080)) "$y" 200; sleep 0.5; done # y is measured, not scaled
 	tap tab_library
 	tap "${PERF_LIST:-lib_local}"
 	waitfor row_0 30
