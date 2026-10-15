@@ -21,7 +21,9 @@
 # s26 (statistics). perf runs §9.4 on a release build: frame times, CPU and
 # memory. With none, it runs s3 and s4. The elements are found by their
 # Compose test tags, which the app exposes as resource IDs. A failed check
-# prints FAIL and the run goes on; a missing element ends the run.
+# prints FAIL and the run goes on, then exits with 1; a missing element ends
+# the run. about (Acerca de and a license) and sendlog (Enviar registro) need
+# no network; CI runs s1 about sendlog on an emulator.
 set -euo pipefail
 
 OUT=${1:-shots}
@@ -108,7 +110,7 @@ s3() {
 	tap tab_search
 	sleep 1
 	shot s3-search-empty
-	adb shell dumpsys input_method | grep -q 'mInputShown=true' && echo "FAIL: the keyboard opened" >&2
+	adb shell dumpsys input_method | grep -q 'mInputShown=true' && fail "the keyboard opened"
 	node search_clear >/dev/null && tap search_clear
 	tap search_field
 	adb shell input text 'daft%spunk'
@@ -146,7 +148,7 @@ s5() {
 	shot s5-skipped
 	drag art 0 1200 250
 	sleep 1
-	if node player >/dev/null; then echo "FAIL: the player is still open" >&2; fi
+	if node player >/dev/null; then fail "the player is still open"; fi
 }
 
 # share: the player's "01:23 / 03:45" as the played share of the song, in percent.
@@ -284,8 +286,12 @@ s17() {
 	adb shell input keyevent KEYCODE_BACK
 }
 
-# fail MESSAGE: reports a failed check and goes on.
-fail() { echo "FAIL: $*" >&2; }
+# fail MESSAGE: reports a failed check and goes on; the run then exits with 1.
+fails=0
+fail() {
+	echo "FAIL: $*" >&2
+	fails=$((fails + 1))
+}
 
 s2() {
 	tap tab_home
@@ -491,9 +497,9 @@ s23() {
 # playing: whether the media session reports a song that plays.
 playing() { adb shell dumpsys media_session | grep -m1 -q 'PlaybackState {state=PLAYING'; }
 
-# scrollto ID: swipes the list up until the element shows, at most 6 times.
+# scrollto ID: swipes the list up until the element shows, at most 12 times.
 scrollto() {
-	for _ in 1 2 3 4 5 6; do
+	for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
 		node "$1" >/dev/null && return
 		swipe 540 1700 540 700 300
 		sleep 1
@@ -651,6 +657,45 @@ perf() {
 	adb shell dumpsys meminfo "$PKG" | grep -m1 'TOTAL PSS'
 }
 
+# Acerca de: the installed version, the GPL-3.0 text, and back to Inicio.
+about() {
+	tap tab_home
+	tap settings
+	scrollto set_about
+	tap set_about
+	waitfor about_version 10
+	local want got
+	want=$(adb shell dumpsys package "$PKG" | grep -m1 -o 'versionName=[^ ]*' | cut -d= -f2)
+	got=$(text about_version)
+	[[ -n $want && $got == *"$want"* ]] || fail "Acerca de shows \"$got\", not $want"
+	shot about
+	tap about_gpl
+	waitfor license_text 10
+	[[ $(text license_text) == *"GNU GENERAL PUBLIC LICENSE"* ]] || fail "the GPL-3.0 text did not open"
+	shot about-gpl
+	for _ in 1 2 3; do adb shell input keyevent KEYCODE_BACK; done
+}
+
+# Enviar registro: the share sheet opens with a file of the core's log, logcat and the crash buffer.
+sendlog() {
+	tap tab_home
+	tap settings
+	scrollto set_send_log
+	tap set_send_log
+	sleep 3
+	shot sendlog-sheet
+	adb shell dumpsys activity activities | grep -m1 topResumedActivity | grep -q -i 'chooser\|resolver' || fail "no share sheet"
+	local f
+	f=$(adb shell run-as "$PKG" ls cache/shares | grep -m1 '^cliamp-x-log-') || { fail "no log file"; return; }
+	adb shell run-as "$PKG" cat "cache/shares/$f" >"$OUT/sendlog.txt"
+	for part in '== cliamp.log ==' '== logcat ==' '== logcat crash =='; do
+		grep -q -- "$part" "$OUT/sendlog.txt" || fail "the log file has no $part"
+	done
+	adb shell input keyevent KEYCODE_BACK
+	adb shell input keyevent KEYCODE_BACK
+}
+
 for s in "${@:-s3 s4}"; do
 	for one in $s; do "$one"; done
 done
+((fails == 0)) # the exit status

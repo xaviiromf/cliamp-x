@@ -44,8 +44,11 @@ android {
     }
 
     buildTypes {
+        // R8 shrinks the code and the resources; proguard-rules.pro keeps what is reached by reflection.
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
         }
     }

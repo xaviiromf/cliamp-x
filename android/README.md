@@ -36,9 +36,12 @@ screenshot per step: the scenarios of `UI-SPEC.md` §9.3, by number
 (`ANDROID_SERIAL=emulator-5554 scripts/ui-smoke.sh OUT s1 s3 s4`, then
 `s5 s6 s7 s8 s14 s15 s16 s17 s19 s21 s22 s13` while a song plays,
 `s2 s9 s10 s11 s18 s20 s23` for browsing and `s12 s24 s25 s26` for
-Biblioteca; `s1` and `s1b` clear the app data). A failed check prints
-`FAIL` and the run goes on; a missing element ends it. The script's header
-lists what each scenario needs.
+Biblioteca; `s1` and `s1b` clear the app data; `about` and `sendlog` check
+Acerca de and Enviar registro). A failed check prints `FAIL`, the run goes
+on and exits with 1; a missing element ends it. The script's header lists
+what each scenario needs. The `ui` job of `.github/workflows/android.yml`
+runs `s1 about sendlog` on an API 34 x86_64 emulator for every change under
+`android/`, and keeps the screenshots as the `ui-smoke` artifact.
 
 `scripts/ui-smoke.sh OUT perf` runs the §9.4 pass: frame times over Inicio, a
 carousel, a 200-song list and the player, then the CPU of the app and the
@@ -103,6 +106,17 @@ path of the keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
 the secrets of the same names. Without `ANDROID_KEYSTORE_FILE` it builds
 `app-release-unsigned.apk`, which Android does not install. With the file but
 a missing password variable, Gradle stops and names the variable.
+
+The release build runs R8: it shrinks and optimizes the code (the dex
+files drop from about 35 MB to 3.4 MB) and removes unused resources.
+`app/proguard-rules.pro` holds the app's own keep rules; the libraries bring
+theirs. R8 writes `app/build/outputs/mapping/release/mapping.txt`, which turns
+the stack traces of Enviar registro back into names; keep it with each
+release. R8 warns that it cannot parse the Kotlin metadata of Kotlin 2.4
+(AGP 8.13 ships an older R8); the app does not use kotlin-reflect, so the
+warning is harmless. Check a release build on the emulator before a release:
+sign it with the debug key (below) and run `scripts/ui-smoke.sh` (`s4 s17
+about` cover playback, Modo terminal and the license screens).
 
 Android installs an update only when it is signed with the same key as the
 installed app. The releases and the nightly are signed with the release key;
