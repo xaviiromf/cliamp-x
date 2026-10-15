@@ -71,12 +71,21 @@ waitfor() {
 	done
 }
 
+# onboard: goes through the first-run onboarding (permissions, Omitir the sign-in, no skin).
+onboard() {
+	waitfor onboarding 20
+	shot s1-onboarding
+	tap onboard_next
+	tap onboard_next
+	tap onboard_done
+}
+
 s1() {
 	adb shell pm clear "$PKG" >/dev/null
 	adb shell pm grant "$PKG" android.permission.READ_MEDIA_AUDIO
 	adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS
 	adb shell am start -n "$PKG/.MainActivity" >/dev/null
-	sleep 2
+	onboard
 	shot s1-splash
 	waitfor tab_home 90
 	shot s1-home
@@ -91,6 +100,7 @@ s1b() {
 	adb shell pm grant "$PKG" android.permission.READ_MEDIA_AUDIO
 	adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS
 	adb shell am start -n "$PKG/.MainActivity" >/dev/null
+	onboard
 	waitfor tab_search 90
 	s3
 	tap row_0
@@ -404,7 +414,7 @@ s20() {
 	sleep 8
 	adb shell input keyevent KEYCODE_BACK
 	shot s20-search
-	adb exec-out uiautomator dump /dev/tty | grep -q 'ERR: Sin conexi' || fail "no offline error"
+	adb exec-out uiautomator dump /dev/tty | grep -qE 'ERR: (Sin conexi|No (internet )?connection)' || fail "no offline error"
 	adb shell svc wifi enable
 	adb shell svc data enable
 }

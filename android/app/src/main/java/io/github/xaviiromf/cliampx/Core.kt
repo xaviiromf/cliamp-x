@@ -5,7 +5,6 @@ import android.os.Environment
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
-import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -102,7 +101,7 @@ object Core {
         val libraryPath = "$python/usr/lib:$base/packages/ffmpeg/usr/lib:$base/packages/aria2c/usr/lib"
         val certs = "$python/usr/etc/tls/cert.pem"
         val ytdlp = ytdlp(ctx)
-        val locale = Locale.getDefault()
+        val locale = Language.locale(ctx)
         val sep = "\u001f"
         return arrayOf(
             "HOME=${ctx.filesDir}/home",

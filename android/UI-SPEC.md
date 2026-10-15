@@ -66,7 +66,7 @@
      - `●` active or unseen, in accent.
    - The braille spinner `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` and the seek bar `━━━●───`.
    - Colors come only from the cliamp-x theme and change live.
-4. **Spanish UI.** All app text is in `values/strings.xml`, in Spanish. Reuse the core's Spanish wording:
+4. **English and Spanish UI** (FINAL-PLAN T9). All app text is in `values/strings*.xml` in English, the default, and in `values-es/` in Spanish; `StringsTest` fails when the two differ in names or format arguments. The app follows the system language, and Ajustes → Sistema → Idioma overrides it through `Language.kt` (AppCompat per-app locales; the core restarts with the new `LANG`). The Spanish texts reuse the core's Spanish wording:
    - states: "Sonando", "En pausa", "Detenido", "Cargando...";
    - places: "Cola", "Ecualizador", "Letras", "Ajustes", "Estadísticas", "Descargas", "Sonando ahora", "Temporizador";
    - features: "Más como esto", "Me interesa", "No me interesa", "Normalización de volumen", "Radio automática".
@@ -1661,7 +1661,7 @@ Sizes: rows 48 dp (126 px), tiles 136 dp (357 px), the player at full width (108
 
 ### 7.9 First run, permissions, sign-in
 
-1. **Launch:** the one-time POST_NOTIFICATIONS + READ_MEDIA_AUDIO request (as today), then `startForegroundService`. The splash shows until `Remote.connected`.
+1. **Launch:** a fresh install shows the onboarding (`ui/Onboarding.kt`, FINAL-PLAN T9) while the core starts behind it: permissions (notifications, local music, battery), the YouTube Music sign-in or Omitir, and a skin, which previews live once the core is up and applies at `[Empezar]`. Only a fresh install (Python not unpacked yet) gets it, until `[Empezar]` (prefs `ui` `onboarding`); an update keeps the one-time POST_NOTIFICATIONS + READ_MEDIA_AUDIO request. The splash shows until `Remote.connected`.
 2. **First run:** the forced yt-dlp update runs. If the user taps a song meanwhile, it waits behind the gate.
 3. **Inicio cards:** sign-in (dismissible; the dismissal is stored in prefs `ui`); battery; app update.
    - The app-update banner replaces phase 4's daily `AlertDialog`. It runs `Updates.check` when `Updates.due`, on IO, once per launch.
@@ -1669,7 +1669,6 @@ Sizes: rows 48 dp (126 px), tiles 136 dp (357 px), the player at full width (108
 4. **Sign-in:** LoginActivity, or the cookie import. Both restart the core. `Remote` reconnects, resets the revision floor, clears the cache and refreshes `signedIn`.
 5. **Sign-out:** `LoginActivity.signOut`.
 
-There is no separate onboarding screen.
 
 ### 7.10 Ajustes and phase 4
 
