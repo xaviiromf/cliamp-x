@@ -105,7 +105,9 @@ Android lint.
 `./gradlew assembleRelease` signs the APK when `ANDROID_KEYSTORE_FILE` (the
 path of the keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
 `ANDROID_KEY_PASSWORD` are set, as `.github/workflows/nightly.yml` does with
-the secrets of the same names. Without `ANDROID_KEYSTORE_FILE` it builds
+the secrets of the same names. Those secrets live in the `release` environment
+of the repository, which only the `android` and `main` branches and `v*` tags
+may use, so a workflow on any other branch cannot read them. Without `ANDROID_KEYSTORE_FILE` it builds
 `app-release-unsigned.apk`, which Android does not install. With the file but
 a missing password variable, Gradle stops and names the variable.
 
