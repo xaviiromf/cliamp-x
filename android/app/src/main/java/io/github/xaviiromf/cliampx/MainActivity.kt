@@ -1,9 +1,13 @@
 package io.github.xaviiromf.cliampx
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.Point
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
@@ -56,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
+        lockOrientation()
         // Python is unpacked by the first start of the core.
         Look.load(this)
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
@@ -97,6 +102,29 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        lockOrientation() // a foldable that opens or closes
+    }
+
+    /** Phones stay in portrait (UI-SPEC §3.9); a tablet or an open foldable turns, with the landscape player (§3.10). */
+    @SuppressLint("SourceLockedOrientationActivity")
+    private fun lockOrientation() {
+        // The display's size, not the window's: a letterboxed portrait window would keep a tablet locked.
+        val (w, h) = if (Build.VERSION.SDK_INT >= 30) {
+            windowManager.maximumWindowMetrics.bounds.let { it.width() to it.height() }
+        } else {
+            @Suppress("DEPRECATION")
+            Point().also { windowManager.defaultDisplay.getRealSize(it) }.let { it.x to it.y }
+        }
+        val want = if (portraitOnly((minOf(w, h) / resources.displayMetrics.density).toInt())) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        if (requestedOrientation != want) requestedOrientation = want
     }
 
     /** The end of onboarding: it does not show again, and the picked skin applies once the core takes it. */
@@ -176,6 +204,9 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
         const val ACTION_SEARCH = "io.github.xaviiromf.cliampx.SEARCH"
         const val ACTION_LIKED = "io.github.xaviiromf.cliampx.LIKED"
+
+        /** A screen under 600 dp on its short side is a phone's (the window size class "compact"). */
+        fun portraitOnly(smallestWidthDp: Int) = smallestWidthDp < 600
 
         fun permissions() = buildList {
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)

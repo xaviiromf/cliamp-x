@@ -44,6 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -251,9 +254,9 @@ fun PlaylistScreen(s: Screen.Playlist) {
             if (page != null && rows.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.no_songs)) }
             itemsIndexed(rows, key = { i, t -> "${shown[i]}:${t.path}" }) { i, t ->
                 val sheet = { Nav.sheet = if (editable) Sheet.Song(t, list = s.id, row = index(i)) else Sheet.Song(t) }
-                val row = @Composable {
+                val row = @Composable { m: Modifier ->
                     TrackRow(
-                        t, snap?.track?.path == t.path, Modifier.testTag("row_$i"), onLongClick = sheet,
+                        t, snap?.track?.path == t.path, Modifier.testTag("row_$i").then(m), onLongClick = sheet,
                         trailing = { IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("row_more_$i"), onClick = sheet) },
                     ) { Remote.load(s.provider, s.id, index(i), t) }
                 }
@@ -262,19 +265,22 @@ fun PlaylistScreen(s: Screen.Playlist) {
                         val at = shown[i]
                         Remote.editList("playlist.remove", JSONObject().put("playlist", s.id).put("index", index(i)), failed = { gone = gone - at })
                         gone = gone + at
-                    }) { row() }
+                    }, row)
                 } else {
-                    row()
+                    row(Modifier)
                 }
             }
         }
     }
 }
 
-/** A row that a swipe to the start removes (§2.4): the red label shows behind it. */
+/**
+ * A row that a swipe to the start removes (§2.4): the red label shows
+ * behind it. content gets the modifier that gives TalkBack the same remove.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SwipeRemove(remove: () -> Unit, content: @Composable () -> Unit) {
+fun SwipeRemove(remove: () -> Unit, content: @Composable (Modifier) -> Unit) {
     // Not saveable: a reloaded list reuses keys, and a restored "dismissed" state would remove the row that takes the key.
     val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold = { it * 0.4f }) }
     SwipeToDismissBox(
@@ -282,7 +288,10 @@ fun SwipeRemove(remove: () -> Unit, content: @Composable () -> Unit) {
         backgroundContent = { SwipeBehind(state, stringResource(R.string.remove_from_list)) },
         enableDismissFromStartToEnd = false,
         onDismiss = { if (it == SwipeToDismissBoxValue.EndToStart) remove() },
-    ) { content() }
+    ) {
+        val label = stringResource(R.string.remove_from_list)
+        content(Modifier.semantics { customActions = listOf(CustomAccessibilityAction(label) { remove(); true }) })
+    }
 }
 
 /** `n canciones · h min`; the length only once every row is loaded. */

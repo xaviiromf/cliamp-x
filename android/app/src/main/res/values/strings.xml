@@ -99,7 +99,6 @@
     <string name="clear_queue">Clear queue</string>
     <string name="clear_queue_confirm">Clear the queue?</string>
     <string name="cancel">Cancel</string>
-    <string name="drag">Move</string>
     <string name="play_next">Play next</string>
     <string name="remove_from_queue">Remove from queue</string>
     <string name="eq">Equalizer</string>

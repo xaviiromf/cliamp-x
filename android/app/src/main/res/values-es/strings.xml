@@ -95,7 +95,6 @@
     <string name="clear_queue">Vaciar cola</string>
     <string name="clear_queue_confirm">¿Vaciar la cola?</string>
     <string name="cancel">Cancelar</string>
-    <string name="drag">Mover</string>
     <string name="play_next">Reproducir a continuación</string>
     <string name="remove_from_queue">Quitar de la cola</string>
     <string name="eq">Ecualizador</string>

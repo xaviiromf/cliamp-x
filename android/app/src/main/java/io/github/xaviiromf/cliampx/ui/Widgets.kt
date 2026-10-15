@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.LongState
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,18 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -133,7 +145,7 @@ fun spinner(): String {
 fun SectionRule(label: String, action: @Composable (() -> Unit)? = null) {
     val p = LocalPalette.current
     Row(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("── $label " + "─".repeat(120), Modifier.weight(1f), color = p.textSecondary, style = Type.label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+        Text("── $label " + "─".repeat(300), Modifier.weight(1f).ruleSemantics(label), color = p.textSecondary, style = Type.label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
         action?.invoke()
     }
 }
@@ -143,16 +155,22 @@ fun SectionRule(label: String, action: @Composable (() -> Unit)? = null) {
 fun ScreenRule(label: String) {
     val p = LocalPalette.current
     Text(
-        "▸─ $label " + "─".repeat(80), Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp).padding(top = 16.dp),
+        "▸─ $label " + "─".repeat(80), Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp).padding(top = 16.dp).ruleSemantics(label),
         color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
     )
+}
+
+/** A rule (`── Label ───`) reads as a heading with its label, not the line glyphs. */
+fun Modifier.ruleSemantics(label: String) = clearAndSetSemantics {
+    heading()
+    contentDescription = label
 }
 
 /** A secondary button: `[ Texto ]`, 48 dp tall. */
 @Composable
 fun BracketButton(text: String, modifier: Modifier = Modifier, color: Color = LocalPalette.current.accent, onClick: () -> Unit) {
-    Box(modifier.heightIn(min = 48.dp).clickable(onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text("[ $text ]", color = color, style = Type.body)
+    Box(modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+        Text("[ $text ]", Modifier.semantics { contentDescription = text }, color = color, style = Type.body)
     }
 }
 
@@ -162,7 +180,7 @@ fun IconBtn(
     @DrawableRes icon: Int, description: String, modifier: Modifier = Modifier, tint: Color = LocalPalette.current.textSecondary,
     size: Dp = 48.dp, onClick: () -> Unit,
 ) {
-    Box(modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(modifier.size(size).clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(painterResource(icon), description, Modifier.size(24.dp), tint = tint)
     }
 }
@@ -188,7 +206,7 @@ private fun ArtFace(art: ImageBitmap?, size: Dp) {
             Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
             val cells = ((size.value / 7).toInt() + 1) * ((size.value / 14).toInt() + 1)
-            Text("░".repeat(cells), Modifier.fillMaxSize(), color = p.fg.copy(alpha = 0.25f), style = Type.label.copy(lineHeight = 14.sp), overflow = TextOverflow.Clip)
+            Text("░".repeat(cells), Modifier.fillMaxSize().clearAndSetSemantics {}, color = p.fg.copy(alpha = 0.25f), style = Type.label.copy(lineHeight = 14.sp), overflow = TextOverflow.Clip)
             Icon(painterResource(R.drawable.ic_note), null, Modifier.size(size / 2), tint = p.fg.copy(alpha = 0.5f))
         }
     }
@@ -209,13 +227,16 @@ fun TrackRow(
 ) {
     val p = LocalPalette.current
     val haptic = LocalHapticFeedback.current
+    val playingState = stringResource(R.string.status_playing)
     Row(
         // No fill: the app's background shows through (Backgrounds.kt).
         modifier.fillMaxWidth().heightIn(min = Look.row(64.dp))
             .combinedClickable(
+                onLongClickLabel = stringResource(R.string.more),
                 onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
                 onClick = onClick,
             )
+            .semantics { if (playing) stateDescription = playingState }
             .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -227,6 +248,8 @@ fun TrackRow(
                     if (marker.isNotEmpty()) withStyle(SpanStyle(color = p.accent)) { append("$marker ") }
                     append((if (playing) "▶" else "") + track.name)
                 },
+                // TalkBack reads the title alone; the row's state says it plays.
+                Modifier.semantics { contentDescription = track.name },
                 color = if (playing) p.playing else p.textPrimary,
                 style = if (playing) Type.bodyStrong else Type.body, maxLines = titleLines,
                 overflow = if (titleLines == 1) TextOverflow.MiddleEllipsis else TextOverflow.Ellipsis,
@@ -248,12 +271,19 @@ fun TrackRow(
  * accent; on, all accent bold. icon draws a vector glyph before the label.
  */
 @Composable
-fun BracketChip(label: String, on: Boolean, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, onClick: () -> Unit) {
+fun BracketChip(
+    label: String, on: Boolean, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null,
+    description: String = label, onClick: () -> Unit,
+) {
     val p = LocalPalette.current
     val style = Type.body.bold(on)
     val bracket = if (on) p.accent else p.textSecondary
     Row(
-        modifier.heightIn(min = 48.dp).clickable(onClick = onClick).padding(horizontal = 4.dp).semantics { selected = on },
+        modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp)
+            .semantics {
+                selected = on
+                contentDescription = description
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("[", color = bracket, style = style)
@@ -270,7 +300,7 @@ fun BracketChip(label: String, on: Boolean, modifier: Modifier = Modifier, @Draw
 fun KeyPill(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val p = LocalPalette.current
     Box(
-        modifier.height(48.dp).background(if (enabled) p.accent else p.surfaceHigh, Look.corner).clickable(enabled, onClick = onClick).padding(horizontal = 16.dp),
+        modifier.heightIn(min = 48.dp).background(if (enabled) p.accent else p.surfaceHigh, Look.corner).clickable(enabled, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, color = if (enabled) p.onAccent else p.textSecondary, style = Type.bodyStrong) }
 }
@@ -329,8 +359,16 @@ fun SeekBar(s: Snapshot, seek: SeekState, now: LongState, modifier: Modifier = M
     // The gesture blocks outlive a snapshot: they read the song they seek in here.
     val path by rememberUpdatedState(s.track?.path)
     fun at(x: Float, width: Int) = (x / width).coerceIn(0f, 1f) * d
+    // TalkBack reads and sets the position in whole seconds: volume keys or swipes up and down move it.
+    val snap by rememberUpdatedState(s)
+    val secs by remember { derivedStateOf { seek.position(snap, now.longValue).toInt() } }
     Box(
         modifier.fillMaxWidth().height(48.dp)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(secs.toFloat(), 0f..d.toFloat().coerceAtLeast(0f), steps = 0)
+                stateDescription = if (d > 0) clock(secs) + " / " + clock(d.toInt()) else clock(secs)
+                if (enabled) setProgress { seek.release(it.toDouble().coerceIn(0.0, d), path); true }
+            }
             .pointerInput(enabled, d) {
                 if (enabled) detectTapGestures { seek.release(at(it.x, size.width), path) }
             }
@@ -419,12 +457,27 @@ fun Modifier.skipSwipe(): Modifier = composed {
     }.graphicsLayer { translationX = offset.value }
 }
 
+/**
+ * TalkBack has no skipSwipe: the same skips as custom actions. They go on the
+ * node TalkBack focuses, since a clickable parent that merges its children drops theirs.
+ */
+fun Modifier.skipActions(): Modifier = composed {
+    val next = stringResource(R.string.next)
+    val prev = stringResource(R.string.prev)
+    semantics {
+        customActions = listOf(
+            CustomAccessibilityAction(next) { Remote.fire("next"); true },
+            CustomAccessibilityAction(prev) { Remote.fire("prev"); true },
+        )
+    }
+}
+
 /** The braille spinner (accent) and a dim text. */
 @Composable
 fun SpinnerLine(text: String, style: TextStyle = Type.caption) {
     val p = LocalPalette.current
     Row {
-        Text(spinner(), color = p.accent, style = style)
+        Text(spinner(), Modifier.clearAndSetSemantics {}, color = p.accent, style = style)
         Text(" $text", color = p.textSecondary, style = style)
     }
 }
@@ -515,10 +568,10 @@ fun <T> rememberLoad(key: String, load: suspend () -> T): Pair<Load<T>, () -> Un
 @Composable
 fun TopBar(title: String = "", more: (() -> Unit)? = null) {
     val p = LocalPalette.current
-    Row(Modifier.fillMaxWidth().height(48.dp).padding(end = if (more == null) 16.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(end = if (more == null) 16.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("detail_back")) { Nav.pop() }
         Text(
-            if (title.isEmpty()) "" else "▸─ $title " + "─".repeat(80), Modifier.weight(1f),
+            if (title.isEmpty()) "" else "▸─ $title " + "─".repeat(80), Modifier.weight(1f).ruleSemantics(title),
             color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
         )
         if (more != null) IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("detail_more"), onClick = more)

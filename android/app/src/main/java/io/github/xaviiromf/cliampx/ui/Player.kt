@@ -9,6 +9,11 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -54,7 +59,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
@@ -113,25 +125,46 @@ fun PlayerSheet(s: Snapshot) {
         scrimColor = SCRIM,
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0) },
+        // The whole window on a tablet too, where the sheet would stop at 640 dp.
+        sheetMaxWidth = Dp.Unspecified,
     ) {
         SheetBars()
         BackHandler(Nav.page != PlayerPage.Player) { Nav.page = PlayerPage.Player }
-        Box(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = twoPanes(maxWidth)
             Backdrop(Looks.playerLevel, Modifier.matchParentSize())
             // The visualizer behind the artwork (Ajustes or ⋮), dimmed under the text; only one vis.frame grid runs at a time.
-            if (backgroundVis(s) && (Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics)) {
+            if (backgroundVis(s) && (wide || Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics)) {
                 Visualizer(s, Modifier.matchParentSize().graphicsLayer { alpha = BACKGROUND_VIS_ALPHA }.testTag("vis_background"))
             }
             Column(
                 Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                     .semantics { testTagsAsResourceId = true }.testTag("player"),
             ) {
-                AnimatedContent(Nav.page, Modifier.weight(1f), transitionSpec = { Motion.screen(250) }, label = "page") { page ->
-                    when (page) {
-                        PlayerPage.Player -> PlayerPage(s, close)
-                        PlayerPage.Queue -> QueuePage(s)
-                        PlayerPage.Eq -> EqPage(s)
-                        PlayerPage.Lyrics -> KaraokePage(s)
+                if (wide) {
+                    // Two panes: the player, and beside it the queue, or the EQ or lyrics page it opens.
+                    Row(Modifier.weight(1f)) {
+                        Box(Modifier.weight(1f).fillMaxHeight().semantics { isTraversalGroup = true }) { PlayerPage(s, close) }
+                        val side = if (Nav.page == PlayerPage.Player) PlayerPage.Queue else Nav.page
+                        AnimatedContent(
+                            side, Modifier.weight(1f).fillMaxHeight().semantics { isTraversalGroup = true }.testTag("player_side"),
+                            transitionSpec = { Motion.screen(250) }, label = "side",
+                        ) { page ->
+                            when (page) {
+                                PlayerPage.Eq -> EqPage(s)
+                                PlayerPage.Lyrics -> KaraokePage(s)
+                                else -> QueuePage(s, back = false)
+                            }
+                        }
+                    }
+                } else {
+                    AnimatedContent(Nav.page, Modifier.weight(1f), transitionSpec = { Motion.screen(250) }, label = "page") { page ->
+                        when (page) {
+                            PlayerPage.Player -> PlayerPage(s, close)
+                            PlayerPage.Queue -> QueuePage(s)
+                            PlayerPage.Eq -> EqPage(s)
+                            PlayerPage.Lyrics -> KaraokePage(s)
+                        }
                     }
                 }
                 // The shell's status line sits behind the sheet: the sheet's actions report here.
@@ -141,53 +174,120 @@ fun PlayerSheet(s: Snapshot) {
     }
 }
 
-/** The player page in portrait (§3.9). */
+/** From this width the player sheet shows two panes (the window size class "expanded"). */
+fun twoPanes(width: Dp) = width >= 840.dp
+
+/**
+ * The player page: portrait (§3.9), or with the art beside the controls
+ * when the page is wider than tall (§3.10).
+ */
 @Composable
 private fun PlayerPage(s: Snapshot, close: () -> Unit) {
-    val p = LocalPalette.current
     if (s.track == null) return
     var view by rememberSaveable { mutableStateOf(ArtView.Cover) }
     val now = rememberNow(s)
     val seek = remember { SeekState() }
+    val setView: (ArtView) -> Unit = { view = it }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val (art, strip) = playerArt(maxWidth, maxHeight)
-        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBtn(R.drawable.ic_expand_down, stringResource(R.string.close_player), Modifier.testTag("player_close"), onClick = close)
-                Text(
-                    "── " + stringResource(R.string.playing_now) + " ──", Modifier.weight(1f),
-                    color = p.textSecondary, style = Type.label, textAlign = TextAlign.Center, maxLines = 1,
-                )
-                IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("player_more")) { Nav.sheet = Sheet.PlayerMore }
-            }
-            ModeTags(s)
-            // The art fills the width on a tall screen; the height left splits above and below the stack, never inside it (§3.9).
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.padding(top = 8.dp).size(art)) { ArtArea(s, view, art) { view = it } }
-            Box(Modifier.fillMaxWidth().height(if (strip) 72.dp else 0.dp).padding(horizontal = 24.dp, vertical = 8.dp)) {
-                if (strip && view == ArtView.Cover && !backgroundVis(s) && s.visualizer.isNotEmpty() && s.visualizer != "None") {
-                    Visualizer(
-                        s,
-                        Modifier.fillMaxSize().clickable(onClickLabel = stringResource(R.string.vis_next)) {
-                            Remote.nextVisualizer(s.visualizer)
-                        }.testTag("vis_strip"),
-                    )
+        if (maxWidth > maxHeight) {
+            Column(Modifier.fillMaxSize()) {
+                PlayerHeader(s, close)
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+                    val side = minOf(maxHeight, maxWidth / 2 - 12.dp).coerceAtLeast(0.dp)
+                    val height = maxHeight
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(side)) { ArtArea(s, view, side, setView) }
+                        // Scrolls rather than clips at a large font size.
+                        Column(Modifier.weight(1f).padding(start = 24.dp).verticalScroll(rememberScrollState())) {
+                            Column(Modifier.heightIn(min = height), verticalArrangement = Arrangement.Center) {
+                                TitleBlock(s)
+                                Strip(s, view, 56.dp)
+                                SeekRows(s, seek, now)
+                                Transport(s)
+                                Chips(s, view, setView)
+                            }
+                        }
+                    }
                 }
             }
+        } else {
+            PortraitPlayer(s, close, view, setView, seek, now, maxWidth, maxHeight)
+        }
+    }
+}
+
+@Composable
+private fun PortraitPlayer(
+    s: Snapshot, close: () -> Unit, view: ArtView, setView: (ArtView) -> Unit, seek: SeekState, now: LongState, maxWidth: Dp, maxHeight: Dp,
+) {
+    // The rows around the art as measured: a large font makes them taller than the 420 dp of §3.9.
+    var top by remember { mutableIntStateOf(0) }
+    var bottom by remember { mutableIntStateOf(0) }
+    val rows = if (top == 0 || bottom == 0) PLAYER_ROWS else with(LocalDensity.current) { (top + bottom).toDp() } + 80.dp
+    val (art, strip) = playerArt(maxWidth, maxHeight, rows)
+    // Scrolls rather than clips when the rows outgrow the page at a large font; unbounded, they also measure their full height.
+    Column(
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(Modifier.onSizeChanged { top = it.height }) { PlayerHeader(s, close) }
+        // The art fills the width on a tall screen; the height left splits above and below the stack, never inside it (§3.9).
+        Spacer(Modifier.weight(1f))
+        Box(Modifier.padding(top = 8.dp).size(art)) { ArtArea(s, view, art, setView) }
+        Box(Modifier.fillMaxWidth().height(if (strip) 72.dp else 0.dp)) { if (strip) Strip(s, view, 72.dp) }
+        Column(Modifier.fillMaxWidth().onSizeChanged { bottom = it.height }) {
             Column(Modifier.padding(horizontal = 24.dp)) {
                 TitleBlock(s)
-                val seekLabel = stringResource(R.string.seek)
-                SeekBar(s, seek, now, Modifier.testTag("seek").semantics { contentDescription = seekLabel })
-                TimeRow(s, seek, now)
-                val format = audioFormat(s.audioCodec, s.audioKbps, s.audioRate)
-                if (format.isNotEmpty()) {
-                    Text(format, Modifier.fillMaxWidth().testTag("audio_format"), color = p.textSecondary, style = Type.label, maxLines = 1, textAlign = TextAlign.End)
-                }
+                SeekRows(s, seek, now)
             }
             Transport(s)
-            Chips(s, view) { view = it }
-            Spacer(Modifier.weight(1f))
+            Chips(s, view, setView)
         }
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+/** ⌄, `── Sonando ahora ──`, ⋮, then the mode tags. */
+@Composable
+private fun PlayerHeader(s: Snapshot, close: () -> Unit) {
+    val p = LocalPalette.current
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconBtn(R.drawable.ic_expand_down, stringResource(R.string.close_player), Modifier.testTag("player_close"), onClick = close)
+        val title = stringResource(R.string.playing_now)
+        Text(
+            "── $title ──", Modifier.weight(1f).ruleSemantics(title),
+            color = p.textSecondary, style = Type.label, textAlign = TextAlign.Center, maxLines = 1,
+        )
+        IconBtn(R.drawable.ic_more, stringResource(R.string.more), Modifier.testTag("player_more")) { Nav.sheet = Sheet.PlayerMore }
+    }
+    ModeTags(s)
+}
+
+/** The visualizer strip under the cover (tap: next mode), when no other visualizer shows. */
+@Composable
+private fun Strip(s: Snapshot, view: ArtView, height: Dp) {
+    Box(Modifier.fillMaxWidth().height(height).padding(horizontal = 24.dp, vertical = 8.dp)) {
+        if (view == ArtView.Cover && !backgroundVis(s) && s.visualizer.isNotEmpty() && s.visualizer != "None") {
+            Visualizer(
+                s,
+                Modifier.fillMaxSize().clickable(onClickLabel = stringResource(R.string.vis_next)) {
+                    Remote.nextVisualizer(s.visualizer)
+                }.testTag("vis_strip"),
+            )
+        }
+    }
+}
+
+/** The seek bar, the time and state, and the stream's format. */
+@Composable
+private fun SeekRows(s: Snapshot, seek: SeekState, now: LongState) {
+    val p = LocalPalette.current
+    val seekLabel = stringResource(R.string.seek)
+    SeekBar(s, seek, now, Modifier.testTag("seek").semantics { contentDescription = seekLabel })
+    TimeRow(s, seek, now)
+    val format = audioFormat(s.audioCodec, s.audioKbps, s.audioRate)
+    if (format.isNotEmpty()) {
+        Text(format, Modifier.fillMaxWidth().testTag("audio_format"), color = p.textSecondary, style = Type.label, textAlign = TextAlign.End)
     }
 }
 
@@ -197,13 +297,16 @@ fun backgroundVis(s: Snapshot) = Looks.playerVis && s.visualizer.isNotEmpty() &&
 /** How much of the background visualizer shows under the player's text. */
 private const val BACKGROUND_VIS_ALPHA = 0.4f
 
+/** The rows around the art in §3.9, the strip's 72 dp included, until the page has measured its own. */
+val PLAYER_ROWS = 420.dp
+
 /**
  * The art side and whether the visualizer strip shows (§3.9): the rows
- * around the art take about 420 dp and the art gets the rest, square; under
+ * around the art take rows and the art gets the rest, square; under
  * 240 dp the strip's 72 dp go to the art. Never below 0, as in a short split-screen window.
  */
-fun playerArt(width: Dp, height: Dp): Pair<Dp, Boolean> {
-    val art = minOf(width - 48.dp, height - 420.dp)
+fun playerArt(width: Dp, height: Dp, rows: Dp = PLAYER_ROWS): Pair<Dp, Boolean> {
+    val art = minOf(width - 48.dp, height - rows)
     if (art >= 240.dp) return art to true
     return minOf(width - 48.dp, art + 72.dp).coerceAtLeast(0.dp) to false
 }
@@ -221,7 +324,7 @@ private fun ModeTags(s: Snapshot) {
     }
     if (tags.isNotEmpty()) {
         Text(
-            tags.joinToString(" · "), Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(16.dp),
+            tags.joinToString(" · "), Modifier.fillMaxWidth().padding(horizontal = 24.dp).heightIn(min = 16.dp),
             color = p.accent, style = Type.labelCaps.copy(fontSize = Type.caption.fontSize), maxLines = 1,
         )
     }
@@ -240,10 +343,25 @@ fun sleepClock(s: Snapshot): String? =
 private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> Unit) {
     val track = s.track ?: return
     if (s.playError != null) return ErrorCard(s)
+    val name = stringResource(
+        when (view) {
+            ArtView.Cover -> R.string.cover
+            ArtView.Visualizer -> R.string.visualizer
+            ArtView.Lyrics -> R.string.lyrics
+        },
+    )
+    val tap = stringResource(
+        when {
+            view == ArtView.Lyrics -> R.string.lyrics_full
+            view == ArtView.Cover && !backgroundVis(s) -> R.string.show_visualizer
+            else -> R.string.show_cover
+        },
+    )
     Box(
         Modifier.fillMaxSize()
-            .then(if (view != ArtView.Lyrics) Modifier.skipSwipe() else Modifier)
-            .clickable {
+            .then(if (view != ArtView.Lyrics) Modifier.skipSwipe().skipActions() else Modifier)
+            .semantics { if (view != ArtView.Lyrics) contentDescription = name }
+            .clickable(onClickLabel = tap) {
                 when {
                     // A tap on the lyrics opens them full screen (karaoke).
                     view == ArtView.Lyrics -> Nav.page = PlayerPage.Lyrics
@@ -301,10 +419,10 @@ private fun KaraokePage(s: Snapshot) {
     val p = LocalPalette.current
     val track = s.track ?: return
     Column(Modifier.fillMaxSize().testTag("karaoke")) {
-        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(R.drawable.ic_back, stringResource(R.string.back), Modifier.testTag("karaoke_back")) { Nav.page = PlayerPage.Player }
             Text(
-                "▸─ " + stringResource(R.string.lyrics) + " " + "─".repeat(80), Modifier.weight(1f),
+                "▸─ " + stringResource(R.string.lyrics) + " " + "─".repeat(80), Modifier.weight(1f).ruleSemantics(stringResource(R.string.lyrics)),
                 color = p.accent, style = Type.headline, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
             )
         }
@@ -396,7 +514,8 @@ private fun TitleBlock(s: Snapshot) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             track.name,
-            Modifier.weight(1f).then(
+            // TalkBack says the next song as it starts.
+            Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }.then(
                 if (moving) Modifier.basicMarquee(initialDelayMillis = 1600, velocity = 42.dp, spacing = MarqueeSpacing(92.dp)) else Modifier,
             ),
             color = p.accent, style = Type.display, maxLines = 1, overflow = if (moving) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -454,7 +573,8 @@ private fun TimeRow(s: Snapshot, seek: SeekState, now: LongState) {
             s.state == "paused" -> "‖ " + stringResource(R.string.status_paused) to p.textSecondary
             else -> "■ " + stringResource(R.string.status_stopped) to p.textSecondary
         }
-        Text(status, color = color, style = Type.numeric.bold(color == p.playing))
+        // TalkBack reads the state without its glyph.
+        Text(status, Modifier.semantics { contentDescription = status.removePrefix("▶ ").removePrefix("‖ ").removePrefix("◌ ").removePrefix("■ ") }, color = color, style = Type.numeric.bold(color == p.playing))
     }
 }
 
@@ -466,16 +586,17 @@ private fun Transport(s: Snapshot) {
         Modifier.fillMaxWidth().height(88.dp).padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBtn(R.drawable.ic_shuffle, stringResource(R.string.shuffle), Modifier.testTag("shuffle"), tint = if (s.shuffle) p.accent else p.textSecondary, size = 56.dp) {
+        val shuffleState = stringResource(if (s.shuffle) R.string.on else R.string.off)
+        IconBtn(R.drawable.ic_shuffle, stringResource(R.string.shuffle), Modifier.testTag("shuffle").semantics { stateDescription = shuffleState }, tint = if (s.shuffle) p.accent else p.textSecondary, size = 56.dp) {
             Remote.fire("shuffle", JSONObject().put("name", "toggle"))
         }
         IconBtn(R.drawable.ic_prev, stringResource(R.string.prev), Modifier.testTag("prev"), tint = p.textPrimary, size = 56.dp) { Remote.fire("prev") }
         Box(
-            Modifier.size(72.dp).background(p.accent).clickable { Remote.fire("toggle") }.testTag("play_pause"),
+            Modifier.size(72.dp).background(p.accent).clickable(role = Role.Button) { Remote.fire("toggle") }.testTag("play_pause"),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painterResource(if (s.playing) R.drawable.ic_pause else R.drawable.ic_play), stringResource(R.string.play_pause),
+                painterResource(if (s.playing) R.drawable.ic_pause else R.drawable.ic_play), stringResource(if (s.playing) R.string.pause else R.string.play),
                 Modifier.size(32.dp), tint = p.onAccent,
             )
         }
@@ -496,12 +617,13 @@ fun repeatLabel(mode: String) = stringResource(
     },
 )
 
-/** [Letras] [En cola: n] [EQ] [⏲ 23:40]. */
+/** [Letras] [En cola: n] [EQ] [⏲ 23:40]; they wrap at a large font size. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Chips(s: Snapshot, view: ArtView, setView: (ArtView) -> Unit) {
-    Row(
+    FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly, itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         BracketChip(stringResource(R.string.lyrics), view == ArtView.Lyrics, Modifier.testTag("chip_lyrics")) {
             setView(if (view == ArtView.Lyrics) ArtView.Cover else ArtView.Lyrics)
@@ -509,6 +631,9 @@ private fun Chips(s: Snapshot, view: ArtView, setView: (ArtView) -> Unit) {
         BracketChip(stringResource(R.string.queue_count, s.total), false, Modifier.testTag("chip_queue")) { Nav.page = PlayerPage.Queue }
         BracketChip(stringResource(R.string.eq_short), false, Modifier.testTag("chip_eq")) { Nav.page = PlayerPage.Eq }
         val sleep = if (s.sleepMinutes == -1) stringResource(R.string.sleep_chip_end) else sleepClock(s)
-        BracketChip(sleep.orEmpty(), sleep != null, Modifier.testTag("chip_sleep"), icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }
+        BracketChip(
+            sleep.orEmpty(), sleep != null, Modifier.testTag("chip_sleep"), icon = R.drawable.ic_timer,
+            description = stringResource(R.string.sleep) + (sleep?.let { ": $it" } ?: ""),
+        ) { Nav.sheet = Sheet.Sleep }
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -59,8 +60,8 @@ fun HomeScreen() {
     Pull({ offline = !refreshAll() }) {
         LazyColumn(Modifier.fillMaxSize(), state = list) {
             item(key = "top") {
-                Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("C L I A M P - X", color = p.accent, style = Type.logo)
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("C L I A M P - X", Modifier.ruleSemantics("cliamp-x"), color = p.accent, style = Type.logo)
                     Spacer(Modifier.weight(1f))
                     IconBtn(R.drawable.ic_settings, stringResource(R.string.settings), Modifier.testTag("settings")) { Nav.open(Screen.Settings()) }
                 }

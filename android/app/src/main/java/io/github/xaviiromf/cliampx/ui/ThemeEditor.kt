@@ -328,7 +328,7 @@ private fun HexField(color: Color, set: (Color) -> Unit) {
         cursorBrush = SolidColor(p.accent),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Ascii),
         decorationBox = { field ->
-            Row(Modifier.height(48.dp).background(p.surfaceHigh).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.heightIn(min = 48.dp).background(p.surfaceHigh).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("#", color = p.textSecondary, style = Type.body)
                 Box(Modifier.size(width = 72.dp, height = 24.dp), contentAlignment = Alignment.CenterStart) { field() }
             }
