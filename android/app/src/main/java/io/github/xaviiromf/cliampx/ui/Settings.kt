@@ -263,7 +263,7 @@ fun SettingsScreen(screen: Screen.Settings) {
                         Help(stringResource(R.string.whole_phone_help))
                         if (folders.isEmpty()) Line(stringResource(R.string.no_music_folders), p.textSecondary)
                         folders.forEachIndexed { i, f ->
-                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(f, Modifier.weight(1f).testTag("music_dir_$i"), color = p.textPrimary, style = Type.body)
                                 if (!phoneWide) BracketButton(stringResource(R.string.remove_folder), Modifier.testTag("music_dir_remove_$i")) {
                                     scope.launch { changeFolders { MusicFolders.set("music_dir_remove", f) } }
