@@ -50,7 +50,7 @@ a confirmation. It cannot be undone; the app opens as a fresh install.
 | Biblioteca | Liked songs, history, local music, your playlists, downloads, ratings, statistics |
 | Mini-player | Tap or swipe up to open the player; swipe sideways to skip |
 | Player | Swipe the artwork to skip, tap it to switch artwork and visualizer, tap the visualizer to change mode, swipe down to close. `⋮` holds the full-screen lyrics, the background visualizer and Modo estéreo |
-| Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it |
+| Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it. `−0.5 s` and `+0.5 s` under the title move the lyrics earlier or later, for songs whose timestamps are off; the offset is saved in the core, as on the desktop |
 | Rows | Tap to play from there; long-press or `⋮` for actions (play next, queue, like, more like this, go to album or artist, download) |
 | Queue | Swipe a row to remove it, drag `≡` to reorder |
 

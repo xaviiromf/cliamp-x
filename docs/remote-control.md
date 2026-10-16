@@ -111,6 +111,7 @@ false, zero or empty.
 | `auto_radio` | The auto radio is on |
 | `normalize` | The volume normalization: `off`, `track` or `album` |
 | `crossfade` | The crossfade between songs of different albums, in seconds |
+| `lyrics_offset_ms` | The synced-lyrics timing offset in milliseconds, `0` when none |
 | `eq_auto` | The EQ preset follows the genre of each song |
 | `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
 | `network` | The network that the app last reported: `wifi` or `mobile` |
@@ -378,6 +379,7 @@ its key does. The snapshot then reports the new state.
 | `crossfade` | Seconds from `0` to `12` |
 | `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
 | `mono` | `0` off or `1` on |
+| `lyrics_offset` | Synced-lyrics timing in milliseconds, from `-10000` to `10000`. Saved as `lyrics_offset_ms`, as the `[` and `]` keys do |
 
 | `name` | `text` |
 | --- | --- |

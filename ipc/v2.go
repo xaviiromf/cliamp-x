@@ -143,7 +143,9 @@ type RuntimeSnapshot struct {
 	AutoRadio    bool        `json:"auto_radio,omitempty"`
 	Normalize    string      `json:"normalize,omitempty"`
 	Crossfade    int         `json:"crossfade,omitempty"`
-	EQAuto       bool        `json:"eq_auto,omitempty"`
+	// The synced-lyrics timing offset in milliseconds, set by settings.set lyrics_offset.
+	LyricsOffsetMs int  `json:"lyrics_offset_ms,omitempty"`
+	EQAuto         bool `json:"eq_auto,omitempty"`
 	// The YouTube audio quality on each network, the network the app last
 	// reported, and the Premium quality switch.
 	QualityWifi    string `json:"quality_wifi,omitempty"`
