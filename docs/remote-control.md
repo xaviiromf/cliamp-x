@@ -422,8 +422,8 @@ yt-dlp links, are skipped.
 
 `download.status` gives the queue in `downloads`. `current` and `percent`
 are the song that downloads now, `queued` the songs that wait, `failed` the
-songs that failed with the reason, `done` the songs downloaded since the
-queue last ran empty, and `directory` the folder of the files.
+songs that failed with the reason, `done` the songs downloaded by the last
+batch (it stays after the queue runs empty, until a new batch starts), and `directory` the folder of the files.
 `download.cancel` stops the running download and empties the queue.
 `download.retry` queues the failed songs again.
 

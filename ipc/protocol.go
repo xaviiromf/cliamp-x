@@ -211,7 +211,7 @@ type RatingInfo struct {
 }
 
 // DownloadsInfo is the offline download queue of download.status. Done
-// counts the songs downloaded since the queue last ran empty.
+// counts the songs the last batch downloaded, kept until a new batch starts.
 type DownloadsInfo struct {
 	Running   bool              `json:"running,omitempty"`
 	Current   *TrackInfo        `json:"current,omitempty"`
