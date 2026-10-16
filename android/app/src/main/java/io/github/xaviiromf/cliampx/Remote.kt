@@ -591,6 +591,7 @@ object Remote {
                 val (name, text) = io { readM3u(uri) }
                 val entries = M3u.parse(text)
                 if (entries.size > M3u.MAX_ENTRIES) throw IllegalArgumentException(app.getString(R.string.m3u_too_big))
+                MusicFolders.load() // the list is read only where Ajustes shows it
                 val roots = listOfNotNull(m3uFolder(uri)) + MusicFolders.list.value
                 val tracks = io { entries.mapNotNull { e -> M3u.resolve(e.path, roots) { File(it).isFile }?.let { M3u.track(e, it) } } }
                 val skipped = entries.size - tracks.size

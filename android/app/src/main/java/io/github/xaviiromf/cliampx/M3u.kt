@@ -18,7 +18,7 @@ object M3u {
         val out = ArrayList<Entry>()
         var title = ""
         var seconds = -1
-        for (raw in text.removePrefix("﻿").lineSequence()) {
+        for (raw in text.removePrefix("\uFEFF").lineSequence()) {
             val line = raw.trim()
             when {
                 line.isEmpty() || line.startsWith("#EXTM3U") -> {}

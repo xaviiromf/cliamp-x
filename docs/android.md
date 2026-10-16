@@ -61,6 +61,16 @@ song of the year and the one replayed most in one day. **Compartir imagen**
 under a card shares it as a PNG through the system share sheet. The figures
 come from the core's play log (`stats wrapped`), which stays on the phone.
 
+**Biblioteca → Playlists → Local → Importar M3U** makes a local playlist from an
+`.m3u` or `.m3u8` file the system file picker opens, named after the file.
+URLs (YouTube links too) stay as they are. A file path counts when the file
+exists: an absolute one as it is, a relative one from the folder of the M3U
+file or from the music folders. The other entries are skipped, and the status
+line says how many. A file is read up to 2 MB and 5000 entries. **⋮ →
+Exportar M3U** on a playlist writes an `#EXTM3U` file with the system "create
+document" picker: local songs by path, YouTube songs by watch URL, each with
+its duration and "artist - title".
+
 On a phone the main interface stays in portrait; Modo terminal and Modo
 estéreo rotate. On a tablet or an open foldable (600 dp or more on the short
 side) it turns too: a landscape player puts the artwork beside the controls,
