@@ -432,6 +432,10 @@
     <string name="lyrics_seek">Go to this line</string>
     <string name="lyrics_full">Full-screen lyrics</string>
     <string name="lyrics_offset">Lyrics timing</string>
+    <string name="lyrics_earlier">−0.5 s</string>
+    <string name="lyrics_later">+0.5 s</string>
+    <string name="lyrics_earlier_desc">Lyrics half a second earlier</string>
+    <string name="lyrics_later_desc">Lyrics half a second later</string>
     <string name="player_vis">Visualizer behind the player</string>
     <string name="stereo">Stereo mode</string>
     <string name="stereo_charging">Stereo mode while charging</string>
