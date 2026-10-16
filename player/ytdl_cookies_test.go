@@ -92,6 +92,9 @@ esac
 // formatFile matches the temporary file of --print-to-file.
 var formatFile = regexp.MustCompile(`\S*cliamp-x-format-\S*`)
 
+// infoFile matches the page info template of --write-info-json.
+var infoFile = regexp.MustCompile(`infojson:\S*`)
+
 // On Android the runs that resolve a signed-in YouTube page for playback go
 // first without the cookies, and with them only when that run fails. Other
 // platforms and other hosts keep their cookies on the one run.
@@ -104,16 +107,21 @@ func TestYTDLCookielessFirst(t *testing.T) {
 		cloud   = "https://soundcloud.com/artist/track"
 	)
 	// The argv before the cookies of each run, and how to start it.
+	// tail follows the cookies: a stream start saves the page info it
+	// extracts, for the seeks of the track.
 	runs := []struct {
 		name string
 		args string
+		tail string
 		run  func(t *testing.T, url string)
 	}{
 		{
 			name: "stream",
 			args: "-f " + ytdlFormat + " --no-playlist --quiet --no-warnings --socket-timeout 15 -o - --print-to-file " + ytdlFormatTemplate + " FORMAT",
+			tail: " --write-info-json -o infojson:INFO",
 			run: func(t *testing.T, url string) {
 				p := &Player{sr: 44100, bitDepth: 16}
+				t.Cleanup(p.ytdlInfo.close)
 				tp, err := p.buildYTDLPipeline(url, 0)
 				if err != nil {
 					t.Fatalf("buildYTDLPipeline: %v", err)
@@ -194,11 +202,12 @@ func TestYTDLCookielessFirst(t *testing.T) {
 					if withCookies {
 						argv += " " + cookies
 					}
-					want = append(want, argv+" -- "+tt.url)
+					want = append(want, argv+r.tail+" -- "+tt.url)
 				}
 				got := readLines(t, calls)
 				for i := range got {
 					got[i] = formatFile.ReplaceAllString(got[i], "FORMAT")
+					got[i] = infoFile.ReplaceAllString(got[i], "infojson:INFO")
 				}
 				if !slices.Equal(got, want) {
 					t.Fatalf("yt-dlp runs:\n got %q\nwant %q", got, want)
