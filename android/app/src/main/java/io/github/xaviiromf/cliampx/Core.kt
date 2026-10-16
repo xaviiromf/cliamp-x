@@ -1,6 +1,7 @@
 package io.github.xaviiromf.cliampx
 
 import android.content.Context
+import android.media.AudioManager
 import android.os.Environment
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
@@ -120,6 +121,14 @@ object Core {
             "CLIAMP_YTDLP_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs${sep}PYTHONHOME=$pythonHome${sep}HOME=$pythonHome",
             "CLIAMP_FFMPEG=$lib/libffmpeg.so",
             "CLIAMP_FFMPEG_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs",
-        )
+        ) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
     }
+
+    /**
+     * The phone's native output rate for the core (player/device_android.go), so
+     * it skips a second resample and Android can grant a FAST track; null when
+     * the property is missing or not a sane rate.
+     */
+    fun sampleRateEnv(property: String?) =
+        property?.toIntOrNull()?.takeIf { it in 8000..192000 }?.let { "CLIAMP_DEVICE_SAMPLE_RATE=$it" }
 }

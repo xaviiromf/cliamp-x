@@ -215,6 +215,11 @@ wired headphones, USB, and each Bluetooth device by name) and switches to it
 when that output connects; the EQ screen names the current output. The
 automatic EQ by genre and a Personalizado curve are not remembered.
 
+The core plays at the phone's native output rate (48000 Hz on most phones),
+which the app reads from Android and passes in `CLIAMP_DEVICE_SAMPLE_RATE`.
+Audio is then resampled once at most, and Android can give it a low-latency
+track. A `sample_rate` set in `config.toml` still wins.
+
 ## Phone and car integrations
 
 - **Widget:** a 4×1 mini player for the home screen with the cover, the song
