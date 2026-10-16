@@ -21,7 +21,7 @@ func Swatches(img image.Image) []Swatch {
 	if img == nil {
 		return nil
 	}
-	px := resample(img, 48, 48)
+	px := resample(trimBars(img), 48, 48)
 	var pts [][3]float64
 	for i := 0; i+3 < len(px.Pix); i += 4 {
 		pts = append(pts, [3]float64{float64(px.Pix[i]), float64(px.Pix[i+1]), float64(px.Pix[i+2])})
@@ -96,6 +96,72 @@ func Swatches(img image.Image) []Swatch {
 		}
 	}
 	return out
+}
+
+// barMax is the brightest channel a letterbox bar may have, and barSlack how
+// far its pixels may differ from each other (JPEG noise).
+const (
+	barMax   = 24
+	barSlack = 16
+)
+
+// view is img seen through a smaller rectangle.
+type view struct {
+	image.Image
+	r image.Rectangle
+}
+
+func (v view) Bounds() image.Rectangle { return v.r }
+
+// trimBars drops the uniform near-black bars at the edges of img, such as the
+// ones of a 4:3 YouTube thumbnail with a 16:9 picture, so they do not count as
+// the main color of the cover. A side loses at most a fifth of the image and
+// nothing under a sixteenth: a
+// dark cover with a small logo stays dark.
+func trimBars(img image.Image) image.Image {
+	b := img.Bounds()
+	// bar reports whether the line from (x, y) in steps of (dx, dy), n pixels, is a bar.
+	bar := func(x, y, dx, dy, n int) bool {
+		var lo, hi uint32 = 0xff, 0
+		for range n {
+			r, g, bl, _ := img.At(x, y).RGBA()
+			for _, c := range [3]uint32{r >> 8, g >> 8, bl >> 8} {
+				lo, hi = min(lo, c), max(hi, c)
+			}
+			x, y = x+dx, y+dy
+		}
+		return hi <= barMax && hi-lo <= barSlack
+	}
+	r := b
+	for r.Min.Y < b.Min.Y+b.Dy()/5 && bar(b.Min.X, r.Min.Y, 1, 0, b.Dx()) {
+		r.Min.Y++
+	}
+	for r.Max.Y > b.Max.Y-b.Dy()/5 && bar(b.Min.X, r.Max.Y-1, 1, 0, b.Dx()) {
+		r.Max.Y--
+	}
+	for r.Min.X < b.Min.X+b.Dx()/5 && bar(r.Min.X, b.Min.Y, 0, 1, b.Dy()) {
+		r.Min.X++
+	}
+	for r.Max.X > b.Max.X-b.Dx()/5 && bar(r.Max.X-1, b.Min.Y, 0, 1, b.Dy()) {
+		r.Max.X--
+	}
+	// A thin dark edge is no letterbox and changes no color: leave it.
+	if r.Min.Y-b.Min.Y < b.Dy()/16 {
+		r.Min.Y = b.Min.Y
+	}
+	if b.Max.Y-r.Max.Y < b.Dy()/16 {
+		r.Max.Y = b.Max.Y
+	}
+	if r.Min.X-b.Min.X < b.Dx()/16 {
+		r.Min.X = b.Min.X
+	}
+	if b.Max.X-r.Max.X < b.Dx()/16 {
+		r.Max.X = b.Max.X
+	}
+	if r == b {
+		return img
+	}
+	return view{img, r}
 }
 
 // Dist is the RGB distance of two colors, 0-441.
