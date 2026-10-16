@@ -71,7 +71,15 @@ object Stations {
     /** What to call a resolved URL: the podcast's name, the station's, or the host. */
     fun nameOf(url: String, tracks: List<Track>): String {
         val t = tracks.firstOrNull() ?: return defaultName(url)
-        return (if (isFeed(tracks)) t.artist else t.station.ifEmpty { t.title }).trim().ifEmpty { defaultName(url) }
+        val name = if (isFeed(tracks)) t.artist else t.station.ifEmpty { t.title.takeUnless { fromPath(it, t.path) }.orEmpty() }
+        return name.trim().ifEmpty { defaultName(url) }
+    }
+
+    /** Whether title is only the file name of path (what the core names a bare stream URL), not a real name. */
+    fun fromPath(title: String, path: String): Boolean {
+        fun key(s: String) = s.filter(Char::isLetterOrDigit).lowercase()
+        val file = path.substringBefore('?').substringAfterLast('/')
+        return key(title) in setOf(key(file), key(file.substringBeforeLast('.')))
     }
 
     private const val KEY = "list"

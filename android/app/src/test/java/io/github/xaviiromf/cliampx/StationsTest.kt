@@ -60,7 +60,9 @@ class StationsTest {
         val url = "https://www.show.example/feed"
         assertEquals("The Show", Stations.nameOf(url, listOf(track("e1", artist = "The Show", feed = true))))
         assertEquals("Groove Salad", Stations.nameOf(url, listOf(track("Song", station = "Groove Salad"))))
-        assertEquals("Stream", Stations.nameOf(url, listOf(track("Stream"))))
+        assertEquals("Radio One", Stations.nameOf(url, listOf(track("Radio One").copy(path = "https://x/s1"))))
+        assertEquals("show.example", Stations.nameOf(url, listOf(track("groove-128-mp3").let { it.copy(path = "https://x/groove-128-mp3?a=1") })))
+        assertEquals("show.example", Stations.nameOf(url, listOf(track("Groove 128").let { it.copy(path = "https://x/groove-128.mp3") })))
         assertEquals("show.example", Stations.nameOf(url, emptyList()))
     }
 }
