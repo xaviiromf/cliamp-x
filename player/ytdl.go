@@ -16,6 +16,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 
+	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/internal/extbin"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlcookies"
 	"github.com/xaviiromf/cliamp-x/internal/ytdlp"
@@ -482,6 +483,7 @@ func decodeYTDLPipeInfo(pageURL, infoPath string, cookies bool, sr beep.SampleRa
 // If startSec > 0, playback begins at that offset (seek-by-restart).
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
+	begin := time.Now()
 
 	// A start, or a seek, uses the page info prefetched for it, if any.
 	info := p.ytdlInfo.get(pageURL)
@@ -519,6 +521,14 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			continue
 		}
 
+		st := &ytdlStart{begin: begin, prefetched: info != "", offset: startSec, firstPCM: time.Since(begin)}
+		if fi, err := os.Stat(decoder.formatPath); err == nil && decoder.formatPath != "" {
+			st.extract = fi.ModTime().Sub(begin)
+		}
+		if fb := decoder.relay.firstByte(); !fb.IsZero() {
+			st.firstByte = fb.Sub(begin)
+		}
+
 		// The prefetch reads the pipe away from the speaker callback. A
 		// stalled download then plays silence and does not hold the speaker
 		// lock, which would freeze every control.
@@ -531,15 +541,16 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			ytdlSeek:     true,
 			streamOffset: time.Duration(startSec) * time.Second,
 			audio:        decoder.pickedFormat(),
+			ytdlStart:    st,
 		}, true), nil
 	}
 }
 
 // buildYTDLSource starts the yt-dlp | ffmpeg chain for pageURL at offset
-// (whole seconds). With probe and no known duration, it asks yt-dlp for the
+// (whole seconds). On a play with no known duration, it asks yt-dlp for the
 // duration while the chain starts.
-func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Duration, probe bool) (*trackPipeline, error) {
-	probe = probe && knownDuration == 0
+func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Duration, play bool) (*trackPipeline, error) {
+	probe := play && knownDuration == 0
 	// Probe duration concurrently with pipeline setup so it doesn't delay playback.
 	probeCh := make(chan time.Duration, 1)
 	if probe {
@@ -566,7 +577,43 @@ func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Dura
 		}
 	}
 	tp.knownDuration = knownDuration
+	if play {
+		// A play, not a preload: log the start once it is heard.
+		tp.logYTDLStart("start")
+	}
 	return tp, nil
+}
+
+// ytdlStart is where the start of a yt-dlp chain spent its time, each stage
+// counted from begin, for the "playback: start" line in cliamp.log.
+type ytdlStart struct {
+	begin      time.Time // the start began, before any wait for prefetched info
+	prefetched bool      // yt-dlp loaded prefetched page info
+	offset     int       // seconds into the track
+	extract    time.Duration
+	firstByte  time.Duration
+	firstPCM   time.Duration
+}
+
+func (s *ytdlStart) line(event, track string, audio time.Duration) string {
+	info := "extracted"
+	if s.prefetched {
+		info = "prefetched"
+	}
+	return fmt.Sprintf("playback: %s track=%q offset=%ds info=%s extract=%.2fs firstbyte=%.2fs firstpcm=%.2fs audio=%.2fs",
+		event, track, s.offset, info, s.extract.Seconds(), s.firstByte.Seconds(), s.firstPCM.Seconds(), audio.Seconds())
+}
+
+// logYTDLStart logs the start timing of a yt-dlp pipeline when the speaker
+// first takes its audio. event is start or seek.
+func (tp *trackPipeline) logYTDLStart(event string) {
+	st, path := tp.ytdlStart, tp.path
+	if st == nil || tp.livePrefetch == nil {
+		return
+	}
+	tp.livePrefetch.onFirstAudio(func() {
+		applog.Info("%s", st.line(event, path, time.Since(st.begin)))
+	})
 }
 
 func prefillYTDLPipe(decoder *ytdlPipeStreamer, timeout time.Duration) error {

@@ -181,6 +181,7 @@ func (p *Player) SeekYTDL(d time.Duration) error {
 	}
 	tp.knownDuration = cur.knownDuration
 	tp.ytdlSeek = true
+	tp.logYTDLStart("seek")
 	p.levelPipeline(tp, cur.level)
 
 	if !p.commitYTDLSeek(cur, tp, gen) {
