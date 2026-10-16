@@ -88,6 +88,9 @@ type Player struct {
 
 	localCopies func(path string) (string, bool) // downloaded copies; guarded by mu
 	ytdlInfo    ytdlInfoCache                    // prefetched yt-dlp page info; own lock
+
+	health        playbackHealth // speaker waits for the track's audio, see health.go
+	healthRunning atomic.Bool    // the health monitor goroutine runs
 }
 
 // maxAnalysisWindow is the largest window the visualizer asks for in one read
@@ -128,7 +131,8 @@ func New(q Quality) (*Player, error) {
 	p.volMin.Store(math.Float64bits(-50))
 	p.speed.Store(math.Float64bits(1.0))
 	p.normTarget.Store(math.Float64bits(DefaultNormalizeTarget))
-	p.gapless = &gaplessStreamer{remaining: p.currentRemainingFrames}
+	p.health.sr = sr
+	p.gapless = &gaplessStreamer{remaining: p.currentRemainingFrames, health: &p.health}
 	// Suspend the speaker immediately; the ALSA audio callback goroutine
 	// burns ~2% CPU even on silence. Resume is called on every track start.
 	//
@@ -305,6 +309,7 @@ func (p *Player) playPipelineForGeneration(tp *trackPipeline, generation uint64)
 	// (no-op otherwise). Done here, not in buildPipeline, so preloaded
 	// pipelines that may never play don't spawn pollers.
 	p.startStreamMetadata(tp.path)
+	p.startHealthMonitor()
 	// Close old resources asynchronously to avoid blocking the caller
 	// (UI thread) on slow Close() operations (ffmpeg wait, HTTP teardown).
 	go closePipelines(oldCurrent, oldNext)

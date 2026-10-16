@@ -145,6 +145,7 @@ func (p *Player) prefetchNetworkPipeline(tp *trackPipeline, enabled bool) *track
 		tp.decodedDuration = tp.format.SampleRate.D(n)
 	}
 	prefetch := newLivePrefetchStreamer(tp.stream, p.sr)
+	prefetch.health = &p.health
 	tp.stream = prefetch
 	tp.livePrefetch = prefetch
 	return tp

@@ -267,3 +267,13 @@ Pon `enabled = false` para desactivar el proveedor. Consulta
   lento. La biblioteca, los me gusta y el inicio siguen usando la sesión.
 - **Errores**: revisa `~/.config/cliamp-x/cliamp.log`, o arranca con
   `cliamp-x --log-level debug`.
+- **El audio se corta o va a saltos**: mientras suena una canción,
+  `cliamp.log` guarda cada 15 s una línea `playback: health`, otra
+  `playback: starved` cuando el audio tuvo que esperar más de 100 ms, y una
+  `playback: end` al terminar la canción. `downloaded` y `rate` son la descarga
+  y su velocidad, `ahead` el audio ya descargado que aún no suena, `starved` y
+  `waited` cuántas veces y cuánto tiempo esperó el altavoz, y `output` el audio
+  que sonó frente al tiempo real sin pausa. Si `rate` es baja y `ahead` cerca
+  de 0, la descarga es lenta. Si `ahead` es alto y aun así hay esperas, el
+  decodificador (ffmpeg) no da abasto. Si no hay esperas pero `output` queda
+  bastante por debajo del tiempo real, la salida de audio se queda sin CPU.

@@ -18,7 +18,8 @@ type memRelay struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
 	buf    []byte
-	off    int // read position in buf
+	off    int   // read position in buf
+	total  int64 // bytes written, for the health log
 	eof    bool
 	closed bool
 }
@@ -39,6 +40,7 @@ func (r *memRelay) Write(p []byte) (int, error) {
 		return 0, io.ErrClosedPipe
 	}
 	r.buf = append(r.buf, p...)
+	r.total += int64(len(p))
 	r.cond.Broadcast()
 	return len(p), nil
 }
@@ -85,6 +87,14 @@ func (r *memRelay) Close() error {
 	r.cond.Broadcast()
 	r.mu.Unlock()
 	return nil
+}
+
+// progress reports the bytes downloaded, those not yet read by ffmpeg, and
+// whether the download ended.
+func (r *memRelay) progress() (written, pending int64, done bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.total, int64(len(r.buf) - r.off), r.eof
 }
 
 // resumable reports whether the download is not held back by the cap, so a

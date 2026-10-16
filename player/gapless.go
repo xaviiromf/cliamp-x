@@ -4,6 +4,7 @@ import (
 	"math"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gopxl/beep/v2"
 )
@@ -31,6 +32,8 @@ type gaplessStreamer struct {
 	remaining  func() (int, bool)
 	fade       fadeState
 	buf        [][2]float64
+
+	health *playbackHealth // times the reads of the current track
 }
 
 // fadeState tracks one crossfade. version ties it to the current track, so
@@ -99,7 +102,9 @@ func (g *gaplessStreamer) Stream(samples [][2]float64) (int, bool) {
 		return g.streamCrossfade(samples, cur, next, currentVersion)
 	}
 
+	start := time.Now()
 	n, ok := cur.Stream(samples)
+	g.health.sourceRead(time.Since(start), len(samples))
 	if g.fade.incoming {
 		g.applyFadeIn(samples[:n])
 	}
