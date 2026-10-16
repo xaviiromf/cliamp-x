@@ -374,6 +374,13 @@
     <string name="bg_circuit">Circuit</string>
     <string name="bg_topo">Topographic</string>
     <string name="bg_grain">Grain</string>
+    <string name="lite">Lightweight mode</string>
+    <string name="lite_auto">Automatic</string>
+    <string name="lite_on">On</string>
+    <string name="lite_off">Off</string>
+    <string name="lite_help_on">Lightweight mode is on.</string>
+    <string name="lite_help_off">Lightweight mode is off.</string>
+    <string name="lite_help">For slow phones. Automatic turns it on with under 4 GB of RAM, a low-RAM phone, a 32-bit CPU or a CPU under 2 GHz. While on: no visualizer behind the player, at most 10 frames per second elsewhere, a still background, no animation or cover color blend, covers at half size, a 1 s audio buffer and the next song\'s info loaded later. Your own settings come back when it is off. The core restarts when the mode changes.</string>
     <string name="motion">Animations</string>
     <string name="motion_slow">Slow</string>
     <string name="motion_normal">Normal</string>

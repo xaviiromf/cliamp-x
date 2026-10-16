@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.xaviiromf.cliampx.Lite
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Snapshot
 import io.github.xaviiromf.cliampx.VisFrame
@@ -95,7 +96,7 @@ fun Visualizer(s: Snapshot, modifier: Modifier = Modifier) {
         }
         gain.snapTo(1f)
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            Remote.visFrames(grid.cols, grid.rows, if (reduced) 100L else 33L).collect { frame = it }
+            Remote.visFrames(grid.cols, grid.rows, if (reduced || Lite.on) 100L else 33L).collect { frame = it }
         }
     }
     val colors = remember(p) { terminalColors(p) }

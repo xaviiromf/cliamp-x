@@ -368,6 +368,13 @@
     <string name="bg_circuit">Circuito</string>
     <string name="bg_topo">Topográfico</string>
     <string name="bg_grain">Grano</string>
+    <string name="lite">Modo ligero</string>
+    <string name="lite_auto">Automático</string>
+    <string name="lite_on">Activado</string>
+    <string name="lite_off">Desactivado</string>
+    <string name="lite_help_on">El modo ligero está activado.</string>
+    <string name="lite_help_off">El modo ligero está desactivado.</string>
+    <string name="lite_help">Para teléfonos lentos. Automático lo activa con menos de 4 GB de RAM, un teléfono de poca RAM, una CPU de 32 bits o una CPU de menos de 2 GHz. Activado: sin visualizador tras el reproductor, como máximo 10 fotogramas por segundo en el resto, fondo quieto, sin animación ni mezcla de colores de la carátula, carátulas a media resolución, un búfer de audio de 1 s y la información de la siguiente canción cargada más tarde. Tus ajustes vuelven al desactivarlo. El núcleo se reinicia al cambiar el modo.</string>
     <string name="motion">Animaciones</string>
     <string name="motion_slow">Lenta</string>
     <string name="motion_normal">Normal</string>

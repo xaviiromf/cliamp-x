@@ -24,3 +24,27 @@ func TestParseDeviceSampleRate(t *testing.T) {
 		}
 	}
 }
+
+func TestLightMode(t *testing.T) {
+	for in, want := range map[string]bool{"1": true, "": false, "0": false, "true": false, " 1": false} {
+		if got := parseLightMode(in); got != want {
+			t.Errorf("parseLightMode(%q) = %v, want %v", in, got, want)
+		}
+	}
+	tests := []struct {
+		ms    int
+		light bool
+		want  int
+	}{
+		{250, false, 250},
+		{250, true, 1000},
+		{50, true, 1000},
+		{2000, true, 2000},
+		{2000, false, 2000},
+	}
+	for _, tt := range tests {
+		if got := BufferMsFor(tt.ms, tt.light); got != tt.want {
+			t.Errorf("BufferMsFor(%d, %v) = %d, want %d", tt.ms, tt.light, got, tt.want)
+		}
+	}
+}

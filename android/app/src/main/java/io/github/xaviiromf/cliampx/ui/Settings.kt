@@ -67,6 +67,8 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LauncherIcon
 import io.github.xaviiromf.cliampx.Language
+import io.github.xaviiromf.cliampx.Lite
+import io.github.xaviiromf.cliampx.LiteMode
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.Logs
 import io.github.xaviiromf.cliampx.IpcError
@@ -177,6 +179,12 @@ fun SettingsScreen(screen: Screen.Settings) {
             item(key = "look") {
                 Column {
                     SectionRule(stringResource(R.string.set_look))
+                    TextChoice(
+                        stringResource(R.string.lite),
+                        LiteMode.entries.map { stringResource(it.label) },
+                        Lite.mode.ordinal, "set_lite",
+                    ) { if (Lite.set(context, LiteMode.entries[it])) CliampService.send(context, CliampService.ACTION_RESTART) }
+                    Help(stringResource(if (Lite.on) R.string.lite_help_on else R.string.lite_help_off) + "\n" + stringResource(R.string.lite_help))
                     SettingRow(stringResource(R.string.skins), Skins.BUILT_IN.find { Skins.isOn(it, s) }?.let { stringResource(it.label) } ?: Skins.user.find { Skins.isOn(it, s) }?.name.orEmpty(), "set_skins") {
                         Nav.open(Screen.Skins)
                     }

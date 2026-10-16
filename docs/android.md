@@ -97,6 +97,22 @@ battery setting, updates, the yt-dlp update and Modo terminal.
 
 **Ajustes → Apariencia** also sets the look of the app itself:
 
+- **Modo ligero**: Automático (default), Activado or Desactivado, for slow
+  phones that play YouTube choppy or whose interface stutters. Automático
+  turns it on when Android flags the phone as low RAM, it reports under 4 GiB
+  of RAM (a phone sold with 4 GB reports about 3.7 GB), it has no 64-bit ABI,
+  or its fastest core is under 2 GHz (a Moto G20 matches the RAM and the
+  clock). While on, with nothing else to set: no visualizer behind the
+  player and at most 10 frames per second in the other places, the background
+  drawn as a plain color, no animations and no cover-color blend between songs
+  (as Animaciones → Sin animación), covers decoded at half size, a 1 s audio
+  buffer in the core (`buffer_ms` below 1000 is raised to 1000; a higher one
+  stays) and the info of the next YouTube song fetched 8 s after the current
+  one starts, so it does not compete with it. Your own Fondo, Animaciones and
+  background visualizer choices are kept, not changed, and apply again when
+  the mode is off. The core reads the buffer when it starts, so changing the
+  mode restarts the core (the music stops for a moment). The setting shows
+  whether it is on now.
 - **Fuente**: JetBrains Mono Nerd Font (default) and Adwaita Mono are built
   in. 18 more free monospace fonts download on a tap (Fira Code, Hack,
   Cascadia Code, Source Code Pro, IBM Plex Mono, Ubuntu Mono, Victor Mono,

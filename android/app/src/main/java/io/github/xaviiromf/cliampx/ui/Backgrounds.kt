@@ -62,6 +62,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.xaviiromf.cliampx.Lite
 import io.github.xaviiromf.cliampx.R
 import kotlinx.coroutines.delay
 
@@ -95,7 +96,13 @@ object Looks {
         private set
     private var prefs: SharedPreferences? = null
 
+    // What the UI draws: the user's choice above, unless Modo ligero overrides it (it never rewrites the choice).
+    val shownBackground get() = if (Lite.on) Background.Solid else background
+    val activeMotion get() = if (Lite.on) MotionSpeed.Off else motion
+    val showPlayerVis get() = playerVis && !Lite.on
+
     fun load(context: Context) {
+        Lite.load(context)
         val p = context.applicationContext.getSharedPreferences("ui", Context.MODE_PRIVATE).also { prefs = it }
         background = enumOr(p.getString(BACKGROUND, null), Background.Solid)
         listLevel = p.getInt(LIST_LEVEL, 40).coerceIn(0, 100)
@@ -180,14 +187,14 @@ fun contrast(a: Color, b: Color): Float {
 
 /** Eased motion (FastOutSlowIn) scaled by Ajustes → Animaciones. */
 object Motion {
-    fun <T> spec(ms: Int): FiniteAnimationSpec<T> = durationOf(ms, Looks.motion)?.let { tween(it, easing = FastOutSlowInEasing) } ?: snap()
+    fun <T> spec(ms: Int): FiniteAnimationSpec<T> = durationOf(ms, Looks.activeMotion)?.let { tween(it, easing = FastOutSlowInEasing) } ?: snap()
 
     /** ms stretched by m, or null when m turns motion off. */
     fun durationOf(ms: Int, m: MotionSpeed): Int? = if (m == MotionSpeed.Off) null else (ms * m.factor).toInt()
 
     /** A pushed or popped screen, or a player page: fades in rising slightly as the old one fades out. */
     fun screen(ms: Int = 300): ContentTransform =
-        if (Looks.motion == MotionSpeed.Off) EnterTransition.None togetherWith ExitTransition.None
+        if (Looks.activeMotion == MotionSpeed.Off) EnterTransition.None togetherWith ExitTransition.None
         else (fadeIn(spec(ms)) + slideInVertically(spec(ms)) { it / 40 }) togetherWith fadeOut(spec(ms * 2 / 3))
 }
 
@@ -288,7 +295,7 @@ private const val IDLE_MS = 300L
 @Composable
 private fun backdropTime(b: Background, paused: Boolean): FloatState {
     val reduced = reducedMotion()
-    val rate = Looks.motion.factor * if (reduced) 0.25f else 1f
+    val rate = Looks.activeMotion.factor * if (reduced) 0.25f else 1f
     val t = remember { mutableFloatStateOf(clock(rate)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(b, paused, rate) {
@@ -313,7 +320,7 @@ private fun backdropTime(b: Background, paused: Boolean): FloatState {
 @Composable
 fun Backdrop(level: Int, modifier: Modifier = Modifier, paused: Boolean = false) {
     val p = LocalPalette.current
-    val b = Looks.background
+    val b = Looks.shownBackground
     val scrim = remember(b, level, p) { scrimOf(b, level, p) }
     val shader = remember(b) { shaderOf(b) }
     val time = backdropTime(b, paused)
