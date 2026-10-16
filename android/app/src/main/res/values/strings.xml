@@ -463,4 +463,14 @@
     <string name="onboard_skin_help">You can change it any time in Settings → Skins.</string>
     <string name="skip">Skip</string>
     <string name="onboard_start">Start</string>
+    <string name="m3u_import">Import M3U</string>
+    <string name="m3u_export">Export M3U</string>
+    <string name="m3u_unreadable">Could not read that file.</string>
+    <string name="m3u_too_big">That playlist file is too big (at most 5000 songs, 2 MB).</string>
+    <string name="m3u_none">No songs found in that file (%1$d skipped).</string>
+    <string name="m3u_exported">Exported %1$s.</string>
+    <plurals name="m3u_imported">
+        <item quantity="one">Imported %1$d song into %2$s (%3$d skipped).</item>
+        <item quantity="other">Imported %1$d songs into %2$s (%3$d skipped).</item>
+    </plurals>
 </resources>

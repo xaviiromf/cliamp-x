@@ -3,9 +3,13 @@ package io.github.xaviiromf.cliampx
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Uri
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Environment
 import android.os.SystemClock
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +44,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 
 /**
@@ -572,6 +577,60 @@ object Remote {
                 add(provider, id, if (queue) queueTracks() else tracks.ifEmpty { item?.let { tracksOf(it) }.orEmpty() })
                 reload() // Biblioteca shows the new list
                 done()
+            }
+        }
+    }
+
+    /**
+     * Importar M3U: reads the file at uri (at most M3u.MAX_BYTES and M3u.MAX_ENTRIES entries), keeps the URLs and the files that exist (a relative
+     * path is looked up in the file's folder and the music folders), and makes a local list named after the file of them. The status line says how many.
+     */
+    fun importM3u(uri: Uri) {
+        scope.launch {
+            report {
+                val (name, text) = io { readM3u(uri) }
+                val entries = M3u.parse(text)
+                if (entries.size > M3u.MAX_ENTRIES) throw IllegalArgumentException(app.getString(R.string.m3u_too_big))
+                val roots = listOfNotNull(m3uFolder(uri)) + MusicFolders.list.value
+                val tracks = io { entries.mapNotNull { e -> M3u.resolve(e.path, roots) { File(it).isFile }?.let { M3u.track(e, it) } } }
+                val skipped = entries.size - tracks.size
+                if (tracks.isEmpty()) {
+                    _info.tryEmit(app.getString(R.string.m3u_none, skipped))
+                    return@report
+                }
+                val taken = playlists("local").map { it.id }
+                val base = name.replace(Regex("[/\\:<>\"|?*]"), " ").trim().ifEmpty { "M3U" }
+                val list = generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base $it" }.first { Library.nameError(it, taken) == null }
+                val id = call("playlist.create", JSONObject().put("provider", "local").put("playlist", list)).optString("playlist").ifEmpty { list }
+                for (chunk in tracks.chunked(200)) call("playlist.add_many", JSONObject().put("provider", "local").put("playlist", id).put("tracks", JSONArray(chunk)))
+                reload()
+                _info.tryEmit(app.resources.getQuantityString(R.plurals.m3u_imported, tracks.size, tracks.size, list, skipped))
+            }
+        }
+    }
+
+    /** The display name without its extension and the text of the file at uri; throws when it is too big. */
+    private fun readM3u(uri: Uri): Pair<String, String> {
+        val name = app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        val bytes = app.contentResolver.openInputStream(uri)?.use { it.readNBytes(M3u.MAX_BYTES + 1) } ?: throw IOException(app.getString(R.string.m3u_unreadable))
+        if (bytes.size > M3u.MAX_BYTES) throw IllegalArgumentException(app.getString(R.string.m3u_too_big))
+        return (name ?: "M3U").substringBeforeLast('.') to String(bytes, Charsets.UTF_8)
+    }
+
+    /** The folder of the file at uri when it is a path on the phone's storage, else null. */
+    private fun m3uFolder(uri: Uri): String? = runCatching {
+        Core.treePath(uri.authority, DocumentsContract.getDocumentId(uri), Environment.getExternalStorageDirectory().path)?.substringBeforeLast('/')
+    }.getOrNull()
+
+    /** Exportar M3U: writes every song of the list item to the document at uri (G20: the status line says how many). */
+    fun exportM3u(item: Item, uri: Uri) {
+        scope.launch {
+            report {
+                val tracks = all { offset -> tracks(item.provider, item.id, offset).let { it.rows to it.total } }
+                io {
+                    app.contentResolver.openOutputStream(uri, "wt")?.use { it.write(M3u.write(tracks).toByteArray(Charsets.UTF_8)) } ?: throw IOException(app.getString(R.string.m3u_unreadable))
+                }
+                _info.tryEmit(app.getString(R.string.m3u_exported, item.title))
             }
         }
     }
