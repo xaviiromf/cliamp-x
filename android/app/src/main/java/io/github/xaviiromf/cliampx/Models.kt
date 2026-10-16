@@ -125,6 +125,7 @@ data class Snapshot(
     val audioCodec: String = "",
     val audioKbps: Int = 0,
     val audioRate: Int = 0,
+    val lyricsOffsetMs: Int = 0,
 ) {
     val playing get() = state == "playing"
 
@@ -173,6 +174,7 @@ data class Snapshot(
             audioCodec = o.optString("audio_codec"),
             audioKbps = o.optInt("audio_kbps"),
             audioRate = o.optInt("audio_rate"),
+            lyricsOffsetMs = o.optInt("lyrics_offset_ms"),
         )
     }
 }

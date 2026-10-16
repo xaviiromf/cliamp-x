@@ -419,6 +419,7 @@
     <string name="preview_next">Siguiente canción</string>
     <string name="lyrics_seek">Ir a esta línea</string>
     <string name="lyrics_full">Letras a pantalla completa</string>
+    <string name="lyrics_offset">Ajuste de letras</string>
     <string name="player_vis">Visualizador de fondo en el reproductor</string>
     <string name="stereo">Modo estéreo</string>
     <string name="stereo_charging">Modo estéreo al cargar</string>

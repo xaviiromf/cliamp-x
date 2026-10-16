@@ -1151,6 +1151,10 @@ func TestNativeSettingsSet(t *testing.T) {
 		{name: "half a second", request: ipc.Request{Name: "crossfade", Value: 1.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "negative mode", request: ipc.Request{Name: "normalize", Value: -1}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "switch at 2", request: ipc.Request{Name: "mono", Value: 2}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "lyrics offset early", request: ipc.Request{Name: "lyrics_offset", Value: -500}, check: func(m *Model, _ *normalizingEngine) bool { return m.lyrics.offset == -500*time.Millisecond }, saved: map[string]string{"lyrics_offset_ms": "-500"}},
+		{name: "lyrics offset at the bound", request: ipc.Request{Name: "lyrics_offset", Value: 10000}, check: func(m *Model, _ *normalizingEngine) bool { return m.lyrics.offset == 10*time.Second }, saved: map[string]string{"lyrics_offset_ms": "10000"}},
+		{name: "lyrics offset past the bound", request: ipc.Request{Name: "lyrics_offset", Value: 10001}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "lyrics offset fraction", request: ipc.Request{Name: "lyrics_offset", Value: 0.5}, wantErr: ipc.V2ErrorCodeInvalidParams},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := &normalizingEngine{mode: player.NormalizeTrack}

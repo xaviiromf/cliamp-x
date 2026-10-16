@@ -435,7 +435,28 @@ private fun KaraokePage(s: Snapshot) {
             track.name + if (track.artist.isNotEmpty()) " · " + track.artist else "", Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             color = p.textSecondary, style = Type.label, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
+        LyricsOffsetRow(s)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)) { LyricsView(s, maxHeight, karaoke = true) }
+    }
+}
+
+/** The synced-lyrics timing: `[ −0.5 s ]`, the offset in seconds, `[ +0.5 s ]`. The core saves it (settings.set lyrics_offset). */
+@Composable
+private fun LyricsOffsetRow(s: Snapshot) {
+    val p = LocalPalette.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    if ("settings.set" !in ops || s.track == null) return
+    fun nudge(step: Int) {
+        val ms = (s.lyricsOffsetMs + step).coerceIn(-10_000, 10_000)
+        Remote.fire("settings.set", JSONObject().put("name", "lyrics_offset").put("value", ms))
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        BracketButton("−0.5 s", Modifier.testTag("lyrics_earlier")) { nudge(-500) }
+        Text(
+            stringResource(R.string.lyrics_offset) + " " + "%+.1f s".format(s.lyricsOffsetMs / 1000.0),
+            Modifier.padding(horizontal = 8.dp).testTag("lyrics_offset"), color = p.textSecondary, style = Type.label,
+        )
+        BracketButton("+0.5 s", Modifier.testTag("lyrics_later")) { nudge(500) }
     }
 }
 
@@ -472,7 +493,7 @@ private fun LyricsView(s: Snapshot, side: Dp, karaoke: Boolean) {
             val now = rememberNow(s)
             val snap by rememberUpdatedState(s)
             val active by remember(shown) {
-                derivedStateOf { if (synced) Lyrics.active(shown, PlaybackClock.positionAt(snap, now.longValue)) else -1 }
+                derivedStateOf { if (synced) Lyrics.active(shown, PlaybackClock.positionAt(snap, now.longValue) + snap.lyricsOffsetMs / 1000.0) else -1 }
             }
             val list = rememberLazyListState()
             LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem(active) }
@@ -488,7 +509,7 @@ private fun LyricsView(s: Snapshot, side: Dp, karaoke: Boolean) {
                             .then(
                                 if (seeks) {
                                     Modifier.clickable(onClickLabel = seekLabel) {
-                                        Remote.fire("seek.absolute", JSONObject().put("value", line.start))
+                                        Remote.fire("seek.absolute", JSONObject().put("value", (line.start - s.lyricsOffsetMs / 1000.0).coerceAtLeast(0.0)))
                                     }.heightIn(min = 48.dp).wrapContentHeight()
                                 } else {
                                     Modifier

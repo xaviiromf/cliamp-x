@@ -425,6 +425,7 @@
     <string name="preview_next">Next song</string>
     <string name="lyrics_seek">Go to this line</string>
     <string name="lyrics_full">Full-screen lyrics</string>
+    <string name="lyrics_offset">Lyrics timing</string>
     <string name="player_vis">Visualizer behind the player</string>
     <string name="stereo">Stereo mode</string>
     <string name="stereo_charging">Stereo mode while charging</string>

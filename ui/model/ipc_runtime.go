@@ -692,6 +692,17 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	if token := strings.TrimSpace(request.Text); request.Name == "listenbrainz_token" && token != "" && m.scrobbler != nil && !strings.ContainsAny(token, "\r\n") {
 		return m.checkListenBrainzToken(ctx, jobs, jobID, token)
 	}
+	if request.Name == "lyrics_offset" {
+		// The offset is in whole milliseconds, within the desktop's bound.
+		ms := request.Value
+		if ms != math.Trunc(ms) || math.Abs(ms) > float64(maxLyricsOffset.Milliseconds()) {
+			m.failV2Job(jobs, jobID, v2InvalidParamsError())
+			return nil
+		}
+		m.nudgeLyricsOffset(time.Duration(ms)*time.Millisecond - m.lyrics.offset)
+		m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
+		return nil
+	}
 	v := request.Value
 	limit, numeric := settingMax[request.Name]
 	ok := numeric && v == math.Trunc(v) && v >= 0 && v <= limit
@@ -1042,6 +1053,7 @@ func (m *Model) runtimeSnapshot() ipc.RuntimeSnapshot {
 	snapshot.AutoRadio = m.autoRadio
 	snapshot.Normalize = m.normalizeName()
 	snapshot.Crossfade = int(m.crossfade / time.Second)
+	snapshot.LyricsOffsetMs = int(m.lyrics.offset.Milliseconds())
 	snapshot.EQAuto = m.eqAuto
 	snapshot.QualityWifi, snapshot.QualityMobile = m.ytQuality.wifi, m.ytQuality.mobile
 	snapshot.Network, snapshot.PremiumQuality = m.ytQuality.network, m.ytQuality.premium

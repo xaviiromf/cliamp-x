@@ -38,7 +38,7 @@
 | Default theme | "Default - Terminal colors" is drawn with the built-in `winamp` palette, the closest match to the green-on-black Termux view the user had |
 | Visualizer | The core draws every mode (all 47 and any Lua mode) and `vis.frame` returns its rows with ANSI colors; the app draws them cell by cell on one Canvas in the monospace font (`Vis.kt` parses, `ui/Visualizer.kt` draws). Block, quadrant and sextant glyphs and braille dots are drawn as rectangles so they tile with no gap in any font; the 16 terminal colors of the Default theme map to the theme palette |
 | Volume | Android media volume: the hardware keys and the system panel. The core's own volume is not exposed |
-| Modo terminal only | Lua plugins, blocked words and artists, `ssh://` paths, `vis_palette`, the lyrics offset and the output device |
+| Modo terminal only | Lua plugins, blocked words and artists, `ssh://` paths, `vis_palette` and the output device |
 
 ---
 
