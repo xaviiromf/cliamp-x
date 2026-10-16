@@ -115,6 +115,9 @@ sealed interface Sheet {
     /** Cerrar sesión y borrar datos, after a confirmation. */
     data object EraseData : Sheet
 
+    /** Importar copia, after Backup.check accepted the file: the confirmation to replace the data. */
+    data object RestoreBackup : Sheet
+
     /** Guardar el actual como skin… (old null), or Renombrar… the user skin old. */
     data class SkinName(val old: String?) : Sheet
     data class SkinActions(val name: String) : Sheet

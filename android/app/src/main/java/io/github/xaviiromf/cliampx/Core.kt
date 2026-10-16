@@ -14,6 +14,8 @@ object Core {
     fun binary(ctx: Context) = File(ctx.applicationInfo.nativeLibraryDir, "libcliamp.so")
     fun configDir(ctx: Context) = File(ctx.filesDir, "config")
     fun configFile(ctx: Context) = File(configDir(ctx), "config.toml")
+    /** The core's data directory: HOME/.local/share/cliamp-x (play log, search history), which its HOME decides. */
+    fun dataDir(ctx: Context) = File(ctx.filesDir, "home/.local/share/cliamp-x")
     fun socket(ctx: Context) = File(configDir(ctx), "cliamp-x.sock")
     fun cookies(ctx: Context) = File(configDir(ctx), "ytmusic_cookies.txt")
 

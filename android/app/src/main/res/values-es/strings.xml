@@ -453,4 +453,21 @@
     <string name="onboard_skin_help">Puedes cambiarlo cuando quieras en Ajustes → Skins.</string>
     <string name="skip">Omitir</string>
     <string name="onboard_start">Empezar</string>
+    <string name="backup_all">Copia de seguridad completa</string>
+    <string name="backup_all_help">Favoritos, listas, historial, estadísticas, valoraciones, temas, historial de búsqueda, carpetas de música, ajustes y la personalización de la app en un .zip. No incluye descargas, cachés ni registros, ni las claves de Last.fm y ListenBrainz. Importar reemplaza esos archivos y la app reinicia su reproductor.</string>
+    <string name="backup_session">Incluir la sesión de YouTube Music</string>
+    <string name="backup_session_warning">Atención: el archivo contendrá tus cookies de YouTube Music. Quien lo tenga puede usar tu cuenta. Guárdalo en privado.</string>
+    <string name="backup_export_done">Copia exportada</string>
+    <string name="backup_import_confirm">¿Reemplazar tus favoritos, listas, historial, valoraciones, temas y ajustes por los de esta copia?</string>
+    <string name="backup_import_action">Restaurar</string>
+    <string name="backup_import_done">Copia restaurada</string>
+    <string name="backup_import_error">No se pudo escribir la copia. Tus datos pueden estar incompletos.</string>
+    <string name="backup_import_failed">No se importó, no cambió nada: %1$s</string>
+    <string name="backup_err_format">no es una copia de cliamp-x</string>
+    <string name="backup_err_version">la versión %1$s de la copia no es compatible</string>
+    <string name="backup_err_path">archivo inesperado en la copia: %1$s</string>
+    <string name="backup_err_size">%1$s es demasiado grande</string>
+    <string name="backup_err_total">la copia es demasiado grande</string>
+    <string name="backup_err_content">%1$s no es válido</string>
+    <string name="backup_err_zip">el zip está dañado: %1$s</string>
 </resources>

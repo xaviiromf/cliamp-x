@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import io.github.xaviiromf.cliampx.Backup
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.BuildConfig
@@ -169,6 +170,13 @@ fun SettingsScreen(screen: Screen.Settings) {
     var phoneWide by remember { mutableStateOf(MusicFolders.prefs(context).getBoolean(MusicFolders.PHONE, false)) }
     LaunchedEffect(Unit) { MusicFolders.load() }
     val pickFolder = rememberMusicFolderPicker()
+    var withSession by remember { mutableStateOf(false) }
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) Backup.export(context, uri, s, withSession)
+    }
+    val importBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) Backup.check(context, uri) { Nav.sheet = Sheet.RestoreBackup }
+    }
     fun set(name: String, value: Int) = Remote.fire("settings.set", JSONObject().put("name", name).put("value", value))
     val settable = "settings.set" in ops
     Column(Modifier.fillMaxSize()) {
@@ -276,6 +284,22 @@ fun SettingsScreen(screen: Screen.Settings) {
                     FlowRow(Modifier.padding(horizontal = 12.dp)) {
                         if (settable && !phoneWide) BracketButton(stringResource(R.string.add_folder), Modifier.testTag("set_music_dir"), onClick = pickFolder)
                         if (!music) BracketButton(stringResource(R.string.allow_music), Modifier.testTag("set_music")) { askMusic.launch(MainActivity.musicPermission()) }
+                    }
+                }
+            }
+            item(key = "backup") {
+                Column {
+                    SectionRule(stringResource(R.string.backup_all))
+                    Help(stringResource(R.string.backup_all_help))
+                    Toggle(stringResource(R.string.backup_session), withSession, "set_backup_session") { withSession = it == 1 }
+                    if (withSession) Text(stringResource(R.string.backup_session_warning), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = p.error, style = Type.body)
+                    FlowRow(Modifier.padding(horizontal = 12.dp)) {
+                        BracketButton(stringResource(R.string.export), Modifier.testTag("set_backup_export")) {
+                            exportBackup.launch("cliamp-x-" + java.time.LocalDate.now() + ".zip")
+                        }
+                        BracketButton(stringResource(R.string.import_file), Modifier.testTag("set_backup_import")) {
+                            importBackup.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+                        }
                     }
                 }
             }
