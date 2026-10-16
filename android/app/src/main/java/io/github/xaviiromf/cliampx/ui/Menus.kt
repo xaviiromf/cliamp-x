@@ -2,6 +2,8 @@ package io.github.xaviiromf.cliampx.ui
 
 import android.content.Intent
 import androidx.annotation.DrawableRes
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -284,6 +286,13 @@ private fun ItemActions(item: Item, close: () -> Unit) {
             MenuRow("▶", play, "menu_play") { run { Remote.playItem(item) } }
             MenuRow("", shuffle, "menu_shuffle", icon = R.drawable.ic_shuffle) { run { Remote.playItem(item, shuffle = true) } }
             if ("track.queue" in ops) MenuRow("▶", stringResource(R.string.play_next), "menu_play_next") { run { Remote.queueItem(item) } }
+            if (item.kind == Kind.PLAYLIST) {
+                val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+                    uri?.let { Remote.exportM3u(item, it) }
+                    close()
+                }
+                MenuRow("↑", stringResource(R.string.m3u_export), "menu_export_m3u") { save.launch(item.title.replace('/', ' ') + ".m3u") }
+            }
             if (item.kind == Kind.ALBUM && yt && signedIn == true && "provider.favorite" in ops) {
                 val pid = item.id.removePrefix("al:")
                 val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }

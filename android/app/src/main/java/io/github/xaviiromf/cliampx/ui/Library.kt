@@ -1,5 +1,7 @@
 package io.github.xaviiromf.cliampx.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -177,7 +179,11 @@ private fun LazyListScope.lists(yt: Load<List<Item>>, retry: () -> Unit) {
     item(key = "local") {
         val (local, retryLocal) = rememberLoad("playlists:local") { Remote.playlists("local") }
         Column {
-            SectionRule(stringResource(R.string.local))
+            val ops by Remote.ops.collectAsStateWithLifecycle()
+            val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(Remote::importM3u) }
+            SectionRule(stringResource(R.string.local)) {
+                if ("playlist.add_many" in ops) BracketButton(stringResource(R.string.m3u_import), Modifier.testTag("lib_import_m3u")) { pick.launch(arrayOf("*/*")) }
+            }
             LoadState(local, retryLocal)
             val rows = (local as? Load.Done)?.value.orEmpty().filter { it.id !in Library.VIRTUAL }
             if (local is Load.Done && rows.isEmpty()) {

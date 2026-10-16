@@ -72,6 +72,8 @@ http://example.com/live
 
 If `radio.m3u` is in `~/playlists/`, cliamp-x resolves `../Music/song.mp3` to `~/Music/song.mp3`.
 
+On Android, **Biblioteca → Importar M3U** and **Exportar M3U** in a playlist's menu move lists to and from these files; see [Android](android.md).
+
 ### Edge Cases Handled
 
 - UTF-8 BOM (common in Windows-created files)
