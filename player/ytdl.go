@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -471,6 +472,9 @@ func decodeYTDLPipeInfo(pageURL, infoPath, saveInfo string, cookies bool, sr bee
 	}, format, nil
 }
 
+// streamURLs matches the URLs in an error text, kept out of cliamp.log.
+var streamURLs = regexp.MustCompile(`https?://\S+`)
+
 // buildYTDLPipeline creates a trackPipeline for a yt-dlp URL.
 // If startSec > 0, playback begins at that offset (seek-by-restart).
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
@@ -490,7 +494,8 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			return tp, nil
 		} else if !errors.Is(err, errNoYTDLURL) {
 			// The audio URL went stale: extract the page again.
-			applog.Info("playback: seek in the audio URL of %q failed, downloading from the start: %v", pageURL, err)
+			// The error can hold ffmpeg's stderr with the stream URL, which carries the user's IP.
+			applog.Info("playback: seek in the audio URL of %q failed, downloading from the start: %s", pageURL, streamURLs.ReplaceAllString(err.Error(), "<url>"))
 			p.ytdlInfo.drop(pageURL, info)
 			info = ""
 		}

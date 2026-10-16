@@ -172,7 +172,10 @@ func (m *Model) prefetchNext() {
 		if player.LightMode() {
 			// Lightweight mode: let the current song start first on a slow CPU.
 			// A skip before the timer fires extracts the page itself, as without a prefetch.
-			time.AfterFunc(player.LightPrefetchDelay, func() { pf.PrefetchYTDL(next.Path) })
+			if m.prefetchTimer != nil {
+				m.prefetchTimer.Stop()
+			}
+			m.prefetchTimer = time.AfterFunc(player.LightPrefetchDelay, func() { pf.PrefetchYTDL(next.Path) })
 			return
 		}
 		pf.PrefetchYTDL(next.Path)

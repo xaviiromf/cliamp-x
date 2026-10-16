@@ -266,8 +266,8 @@ fun SettingsScreen(screen: Screen.Settings) {
                     if (settable) {
                         Toggle(stringResource(R.string.whole_phone), phoneWide, "set_phone_wide") {
                             phoneWide = it == 1
-                            MusicFolders.prefs(context).edit { putBoolean(MusicFolders.PHONE, phoneWide) }
-                            scope.launch { MusicFolders.syncPhone(context) }
+                            val on = phoneWide
+                            scope.launch { MusicFolders.setPhone(context, on) }
                         }
                         Help(stringResource(R.string.whole_phone_help))
                         if (folders.isEmpty()) Line(stringResource(R.string.no_music_folders), p.textSecondary)

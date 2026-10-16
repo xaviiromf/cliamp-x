@@ -485,6 +485,8 @@ type Model struct {
 	preloading bool
 	// preloadFor is the path of the armed or in-flight preload.
 	preloadFor string
+	// prefetchTimer is the delayed page prefetch of Modo ligero; the next one stops it.
+	prefetchTimer *time.Timer
 	// preloadFailed is the path of a track whose preload failed. It is not
 	// retried until a new track starts.
 	preloadFailed string

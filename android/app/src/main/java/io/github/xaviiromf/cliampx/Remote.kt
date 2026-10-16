@@ -614,7 +614,17 @@ object Remote {
     /** The display name without its extension and the text of the file at uri; throws when it is too big. */
     private fun readM3u(uri: Uri): Pair<String, String> {
         val name = app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
-        val bytes = app.contentResolver.openInputStream(uri)?.use { it.readNBytes(M3u.MAX_BYTES + 1) } ?: throw IOException(app.getString(R.string.m3u_unreadable))
+        // Not readNBytes: it needs API 33.
+        val bytes = app.contentResolver.openInputStream(uri)?.use { input ->
+            val buf = ByteArray(M3u.MAX_BYTES + 1)
+            var n = 0
+            while (n < buf.size) {
+                val r = input.read(buf, n, buf.size - n)
+                if (r < 0) break
+                n += r
+            }
+            buf.copyOf(n)
+        } ?: throw IOException(app.getString(R.string.m3u_unreadable))
         if (bytes.size > M3u.MAX_BYTES) throw IllegalArgumentException(app.getString(R.string.m3u_too_big))
         return (name ?: "M3U").substringBeforeLast('.') to String(bytes, Charsets.UTF_8)
     }

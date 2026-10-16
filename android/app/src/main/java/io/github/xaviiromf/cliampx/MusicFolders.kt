@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import java.io.File
  */
 object MusicFolders {
     const val PHONE = "phone_wide"
+    private const val OWN = "own_dirs"
 
     fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences("music", Context.MODE_PRIVATE)
 
@@ -70,6 +72,23 @@ object MusicFolders {
         args?.let { params.put("args", JSONArray(it)) }
         _list.value = items(Remote.call("settings.set", params))
         Remote.reload()
+    }
+
+    /** Turns Todo el teléfono on or off; off gives back the folders the user had before it was on. */
+    suspend fun setPhone(ctx: Context, on: Boolean) {
+        val p = prefs(ctx)
+        if (on && !p.getBoolean(PHONE, false)) p.edit { putString(OWN, JSONArray(_list.value).toString()) }
+        p.edit { putBoolean(PHONE, on) }
+        if (on) return syncPhone(ctx)
+        val own = p.getString(OWN, null) ?: return
+        try {
+            set("music_dirs", args = JSONArray(own).let { a -> (0 until a.length()).map(a::getString) })
+            p.edit { remove(OWN) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "own music folders: $e")
+        }
     }
 
     /** Todo el teléfono: while it is on and the app may read audio, the core indexes the folders of every song on the phone. */
