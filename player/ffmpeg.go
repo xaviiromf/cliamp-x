@@ -222,7 +222,7 @@ func decodeFFmpegStream(path string, sr beep.SampleRate, bitDepth int) (*ffmpegP
 	if err := requireFFmpeg(); err != nil {
 		return nil, beep.Format{}, err
 	}
-	fp, format, err := startFFmpegPipe(path, nil, sr, bitDepth)
+	fp, format, err := startFFmpegPipe([]string{"-i", path}, nil, sr, bitDepth)
 	if err != nil {
 		return nil, beep.Format{}, err
 	}
@@ -235,13 +235,14 @@ func decodeFFmpegStream(path string, sr beep.SampleRate, bitDepth int) (*ffmpegP
 }
 
 // startFFmpegPipe launches ffmpeg transcoding input to raw PCM on stdout and
-// returns an ffmpegPipe reading that stdout. input is the ffmpeg -i argument
-// (a URL/path, or "pipe:0" when feeding via stdin); stdin, when non-nil, is
+// returns an ffmpegPipe reading that stdout. input holds the input options
+// and ends with the -i argument (a URL/path, or "pipe:0" when feeding via
+// stdin); stdin, when non-nil, is
 // wired to the process. Callers add the concrete Seek behavior by embedding the
 // returned ffmpegPipe in a streamer type.
-func startFFmpegPipe(input string, stdin io.ReadCloser, sr beep.SampleRate, bitDepth int) (ffmpegPipe, beep.Format, error) {
+func startFFmpegPipe(input []string, stdin io.ReadCloser, sr beep.SampleRate, bitDepth int) (ffmpegPipe, beep.Format, error) {
 	_, _, precision := ffmpegPCMArgs(bitDepth)
-	cmd := extbin.Command(context.Background(), "ffmpeg", append([]string{"-i", input}, pcmOutputArgs(sr, bitDepth)...)...)
+	cmd := extbin.Command(context.Background(), "ffmpeg", append(input, pcmOutputArgs(sr, bitDepth)...)...)
 	cmd.Stdin = stdin
 	proc := newFFmpegProcess(cmd)
 
@@ -400,7 +401,7 @@ func decodeFFmpegPipeStream(src io.ReadCloser, sr beep.SampleRate, bitDepth int,
 	if err := requireFFmpeg(); err != nil {
 		return nil, beep.Format{}, err
 	}
-	fp, format, err := startFFmpegPipe("pipe:0", src, sr, bitDepth)
+	fp, format, err := startFFmpegPipe([]string{"-i", "pipe:0"}, src, sr, bitDepth)
 	if err != nil {
 		return nil, beep.Format{}, err
 	}

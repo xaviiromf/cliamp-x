@@ -126,6 +126,11 @@ func TestPlayTrackStartsSlowSourcesOffUpdate(t *testing.T) {
 			if gotSync := len(player.playCalls) > 0; gotSync == tt.wantAsync {
 				t.Fatalf("play calls inside playTrack = %v, want sync start %v", player.playCalls, !tt.wantAsync)
 			}
+			// A start that loads silences the old track at once; a sync
+			// start replaces it at once anyway.
+			if hushed := player.hushCalls == 1; hushed != tt.wantAsync {
+				t.Fatalf("hush calls = %d, want hushed %v", player.hushCalls, tt.wantAsync)
+			}
 			if !tt.wantAsync {
 				return
 			}
@@ -138,6 +143,44 @@ func TestPlayTrackStartsSlowSourcesOffUpdate(t *testing.T) {
 			m = updated.(Model)
 			if m.buffering || m.err != nil {
 				t.Fatalf("after start: buffering = %v, err = %v", m.buffering, m.err)
+			}
+		})
+	}
+}
+
+// An async start that fails after playTrack hushed the old track stops the
+// player, so it does not report a silent track as playing. A start that
+// works keeps playing.
+func TestFailedAsyncStartStopsHushedPlayer(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantStop bool
+	}{
+		{name: "start works"},
+		{name: "start fails", err: errors.New("yt-dlp: HTTP Error 404"), wantStop: true},
+		{name: "start needs sign-in", err: playlist.ErrNeedsAuth, wantStop: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			player := &playbackFakeEngine{playing: true}
+			m := newCustomStreamModel(player)
+			path := "https://www.youtube.com/watch?v=abc"
+			m.playlist.Replace([]playlist.Track{{Title: "Song", Path: path}})
+			m.playlist.SetIndex(0)
+
+			m.playTrack(playlist.Track{Title: "Song", Path: path})
+			if player.hushCalls != 1 || !m.buffering {
+				t.Fatalf("before the start: hush calls %d, buffering %v; want 1, true", player.hushCalls, m.buffering)
+			}
+			updated, _ := m.Update(streamPlayedMsg{path: path, gen: m.requests.stream, err: tt.err})
+			m = updated.(Model)
+
+			if stopped := player.stopCalls > 0; stopped != tt.wantStop {
+				t.Fatalf("stop calls = %d, want stopped %v", player.stopCalls, tt.wantStop)
+			}
+			if m.buffering {
+				t.Fatal("still buffering after the start reported")
 			}
 		})
 	}

@@ -39,6 +39,7 @@ type playbackFakeEngine struct {
 	clearPreloadCalls   int
 	cancelSeekYTDLCalls int
 	stopCalls           int
+	hushCalls           int
 	playGeneration      uint64
 	preloadGeneration   uint64
 	hasPreload          bool
@@ -93,6 +94,9 @@ func (f *playbackFakeEngine) Stop() {
 	f.stopCalls++
 	f.playing, f.paused = false, false
 }
+
+// Hush silences the playing track as the real player does: it stays playing.
+func (f *playbackFakeEngine) Hush()        { f.hushCalls++ }
 func (f *playbackFakeEngine) Close()       {}
 func (f *playbackFakeEngine) TogglePause() { f.paused = !f.paused }
 func (f *playbackFakeEngine) Seek(d time.Duration) error {

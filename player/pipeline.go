@@ -46,6 +46,9 @@ type trackPipeline struct {
 
 	// audio is the codec, bitrate and rate of the source, as far as known.
 	audio AudioFormat
+
+	// ytdlStart is where the start of a yt-dlp chain spent its time, or nil.
+	ytdlStart *ytdlStart
 }
 
 // positionAndDuration is the clock of the pipeline. The caller holds the

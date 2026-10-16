@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -94,4 +95,86 @@ func readLines(t *testing.T, path string) []string {
 		t.Fatal(err)
 	}
 	return strings.Split(strings.TrimSpace(string(data)), "\n")
+}
+
+// A start that extracts the page saves its info, and a seek or a resume then
+// has ffmpeg seek in the audio URL of that info, so it does not wait for
+// yt-dlp to download all the audio before the offset. Info with no direct
+// URL seeks through yt-dlp as before, and a stale URL extracts the page again.
+func TestYTDLSeekOpensTheAudioURL(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX process fixtures")
+	}
+	const (
+		direct = `{"url":"https://media.example/a","protocol":"https","http_headers":{"User-Agent":"UA"},"acodec":"opus","abr":130,"asr":48000}`
+		hls    = `{"url":"https://media.example/a.m3u8","protocol":"m3u8_native"}`
+	)
+	tests := []struct {
+		name   string
+		info   string
+		ffFail bool // ffmpeg fails to open the audio URL
+		start  bool // the track starts at 0 before the seek
+		want   []string
+	}{
+		{name: "seek after a start", info: direct, start: true, want: []string{"start", "url"}},
+		{name: "resume extracts the page first", info: direct, want: []string{"info", "url"}},
+		{name: "no direct URL seeks through yt-dlp", info: hls, start: true, want: []string{"start", "load"}},
+		{name: "stale URL extracts the page again", info: direct, ffFail: true, start: true, want: []string{"start", "url", "start"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			log := filepath.Join(dir, "calls")
+			infoFile := filepath.Join(dir, "info")
+			if err := os.WriteFile(infoFile, []byte(tt.info), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			writeExecutable(t, filepath.Join(dir, "yt-dlp"), `#!/bin/sh
+case "$*" in
+  *-J*) echo info >> `+log+`; cat `+infoFile+`; exit 0 ;;
+  *load-info-json*) echo load >> `+log+` ;;
+  *write-info-json*) echo start >> `+log+`; f=$(echo "$@" | sed 's/.*infojson:\([^ ]*\).*/\1/'); cp `+infoFile+` "$f.info.json" ;;
+esac
+head -c 4096 /dev/zero
+`)
+			fail := "head -c 4096 /dev/zero"
+			if tt.ffFail {
+				fail = "echo 'HTTP error 403 Forbidden' >&2; exit 1"
+			}
+			writeExecutable(t, filepath.Join(dir, "ffmpeg"), `#!/bin/sh
+case "$*" in
+  *"-headers User-Agent: UA"*"-ss 600 -i https://media.example/a "*) echo url >> `+log+`; `+fail+` ;;
+  *) cat ;;
+esac
+`)
+			t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+			p := &Player{sr: 44100, bitDepth: 16}
+			p.RegisterYTDLMatcher(func(string) bool { return true })
+			t.Cleanup(p.ytdlInfo.close)
+			const url = "https://music.youtube.com/watch?v=abc"
+			if tt.start {
+				tp, err := p.buildYTDLPipeline(url, 0)
+				if err != nil {
+					t.Fatalf("start: %v", err)
+				}
+				tp.close()
+			}
+			tp, err := p.buildYTDLPipeline(url, 600)
+			if err != nil {
+				t.Fatalf("seek: %v", err)
+			}
+			tp.close()
+
+			if got := readLines(t, log); !slices.Equal(got, tt.want) {
+				t.Fatalf("calls = %q, want %q", got, tt.want)
+			}
+			if tp.streamOffset != 600*time.Second {
+				t.Fatalf("stream offset = %v, want 10m0s", tp.streamOffset)
+			}
+			if want := (AudioFormat{Codec: "opus", Kbps: 130, Rate: 48000}); tt.info == direct && !tt.ffFail && tp.audio != want {
+				t.Fatalf("audio = %+v, want %+v", tp.audio, want)
+			}
+		})
+	}
 }

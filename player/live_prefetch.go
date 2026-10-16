@@ -41,6 +41,8 @@ type livePrefetchStreamer struct {
 	fillDone  chan struct{}
 
 	health *playbackHealth // counts the silence of an underrun after audio played
+
+	firstAudio func() // runs on its own goroutine when the speaker first takes audio
 }
 
 func newLivePrefetchStreamer(src beep.Streamer, sampleRate beep.SampleRate) *livePrefetchStreamer {
@@ -169,6 +171,10 @@ func (p *livePrefetchStreamer) Stream(samples [][2]float64) (int, bool) {
 		samples[i] = p.buf[p.r]
 		p.r = (p.r + 1) % len(p.buf)
 	}
+	if p.consumed == 0 && p.firstAudio != nil {
+		go p.firstAudio()
+		p.firstAudio = nil
+	}
 	p.consumed += int64(n)
 	p.full = false
 	p.cond.Broadcast()
@@ -210,6 +216,14 @@ func (p *livePrefetchStreamer) Err() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.err
+}
+
+// onFirstAudio has f run, on its own goroutine, when the speaker first takes
+// audio from p.
+func (p *livePrefetchStreamer) onFirstAudio(f func()) {
+	p.mu.Lock()
+	p.firstAudio = f
+	p.mu.Unlock()
 }
 
 // buffered is the decoded audio waiting for the speaker.
