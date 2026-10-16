@@ -12,7 +12,7 @@
     <string name="import_failed">No se pudo leer el archivo.</string>
     <string name="not_cookies">El archivo no es un cookies.txt.</string>
     <string name="no_sign_in">El cookies.txt no tiene una sesión de YouTube (falta SAPISID).</string>
-    <string name="music_help">La música local se lee de la carpeta de música, que Ajustes puede cambiar, y necesita el permiso de audio.</string>
+    <string name="music_help">La música local se lee de las carpetas de música, que Ajustes puede cambiar, y necesita el permiso de audio.</string>
     <string name="allow_music">Permitir música local</string>
     <string name="battery_help">Para que One UI no corte la música con la pantalla apagada, quita la optimización de batería. Además, en Ajustes → Batería → Límites de uso en segundo plano → Apps que nunca se suspenden, añade cliamp-x.</string>
     <string name="updates_help">Actualizaciones de cliamp-x desde GitHub. Nightly trae cada cambio en cuanto se publica, menos probado. yt-dlp se actualiza aparte, sin reinstalar la app, cuando YouTube cambia algo y las canciones dejan de sonar.</string>
@@ -257,9 +257,12 @@
     <string name="signed_in_state">Sesión iniciada</string>
     <string name="signed_out_state">No has iniciado sesión</string>
     <string name="sign_out">Cerrar sesión</string>
-    <string name="music_folder">Carpeta  %1$s</string>
-    <string name="explore">Explorar</string>
-    <string name="no_local_music">No hay música en %1$s. Elige otra carpeta.</string>
+    <string name="no_local_music">No hay música en %1$s. Agrega otra carpeta.</string>
+    <string name="add_folder">+ Carpeta</string>
+    <string name="remove_folder">Quitar</string>
+    <string name="whole_phone">Todo el teléfono</string>
+    <string name="whole_phone_help">Lee todas las carpetas con música del teléfono, de nuevo en cada inicio y al deslizar para actualizar.</string>
+    <string name="no_music_folders">No hay carpetas de música.</string>
     <string name="folder_no_path">Esa carpeta no está en el almacenamiento del teléfono. Elige una carpeta del teléfono o de la tarjeta SD.</string>
     <string name="battery_optimized">Batería: optimizada</string>
     <string name="battery_free">Batería: sin optimizar</string>

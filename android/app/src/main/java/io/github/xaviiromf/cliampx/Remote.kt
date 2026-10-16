@@ -278,6 +278,7 @@ object Remote {
             stateGet()
             // A new core (a restart, a sign-in) has other lists: the screens on show load again.
             _favorites.value = emptyMap()
+            MusicFolders.syncPhone(app)
             reload()
             _connected.value = true
             val caps = ipc.call(JSONObject().put("id", "capabilities").put("method", "capabilities")).optJSONArray("result") ?: JSONArray()
@@ -764,6 +765,9 @@ object Remote {
 
     /** Drops the value cached under key, so its next read loads it again. */
     fun forget(key: String) = synchronized(cache) { cache.remove(key) }
+
+    /** Todo el teléfono's pull: the folders of the phone's music go to the core again. */
+    suspend fun syncMusicFolders() = MusicFolders.syncPhone(app)
 
     /** Clears the cache and makes the screens on show load again. */
     fun reload() {

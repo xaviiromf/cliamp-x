@@ -232,7 +232,7 @@ LoginActivity (WebView sign-in, unchanged)
 
 **Música local**
 - The folder path.
-- `[ Explorar ]`: the system folder picker (OpenDocumentTree). Its tree URI becomes a path (`Core.treePath`) that `settings.set` `music_dir` gives the core, which saves it and indexes it at once. A folder with no path (a cloud) shows a toast and keeps the old one. Biblioteca → Música local with no songs shows `No hay música en <carpeta>. Elige otra carpeta.` and the same `[ Explorar ]`.
+- Música local lists the core's folders (`settings.get` `music_dirs`), each with `[ Quitar ]` (`settings.set` `music_dir_remove`). `[ + Carpeta ]`: the system folder picker (OpenDocumentTree). Its tree URI becomes a path (`Core.treePath`) that `settings.set` `music_dir_add` gives the core, which saves the list and indexes it at once. A folder with no path (a cloud) shows a toast and keeps the list. The toggle `Todo el teléfono` sends the distinct folders of MediaStore's music (`MusicFolders`, the DATA column, nested folders dropped) as `settings.set` `music_dirs` at each core connect and pull to refresh; while it is on, the list has no `[ Quitar ]` or `[ + Carpeta ]`. Biblioteca → Música local always shows `[ + Carpeta ]` next to Play; with no songs it says `No hay música en <carpetas>. Agrega otra carpeta.`
 - `[ Permitir música local ]` when the permission is missing.
 
 **Sistema**

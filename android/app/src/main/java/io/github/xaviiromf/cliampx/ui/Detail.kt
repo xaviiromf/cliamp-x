@@ -63,6 +63,7 @@ import io.github.xaviiromf.cliampx.Library
 import io.github.xaviiromf.cliampx.Page
 import io.github.xaviiromf.cliampx.Paging
 import io.github.xaviiromf.cliampx.R
+import io.github.xaviiromf.cliampx.MusicFolders
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Track
 import io.github.xaviiromf.cliampx.clock
@@ -231,7 +232,10 @@ fun PlaylistScreen(s: Screen.Playlist) {
     val editable = Library.editable(item) && "playlist.remove" in ops
     // A row's place in the list on the core: its place when read, less the rows removed above it since.
     fun index(i: Int) = shown[i] - gone.count { it < shown[i] }
-    Pull(Remote::reload) {
+    Pull({
+        if (s.id == "local:all") Remote.syncMusicFolders()
+        Remote.reload()
+    }) {
         LazyColumn(Modifier.fillMaxSize(), state = list) {
             item(key = "top") { TopBar(more = { Nav.sheet = Sheet.Of(item) }) }
             item(key = "head") {
@@ -247,6 +251,7 @@ fun PlaylistScreen(s: Screen.Playlist) {
             item(key = "buttons") {
                 Buttons(rows, play = { i -> Remote.load(s.provider, s.id, i, rows[i]) }) {
                     if ("download" in ops && !item.local) DownloadChip(s.id, s.title)
+                    if (s.id == "local:all" && "settings.set" in ops) BracketButton(stringResource(R.string.add_folder), Modifier.testTag("local_add_folder"), onClick = rememberMusicFolderPicker())
                 }
             }
             item(key = "rule") { SectionRule(stringResource(R.string.songs)) }
@@ -276,12 +281,12 @@ fun PlaylistScreen(s: Screen.Playlist) {
     }
 }
 
-/** Música local with no songs: the folder it reads and `[ Explorar ]` for another. */
+/** Música local with no songs: the folders it reads; the header's `[ + Carpeta ]` adds another. */
 @Composable
 private fun LocalMusicEmpty() {
-    var folder by rememberMusicFolder()
-    val pick = rememberMusicFolderPicker { folder = it }
-    EmptyState(stringResource(R.string.no_local_music, folder), stringResource(R.string.explore), pick)
+    val folders by MusicFolders.list.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { MusicFolders.load() }
+    EmptyState(if (folders.isEmpty()) stringResource(R.string.no_music_folders) else stringResource(R.string.no_local_music, folders.joinToString(", ")))
 }
 
 /**

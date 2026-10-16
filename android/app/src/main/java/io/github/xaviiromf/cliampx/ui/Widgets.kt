@@ -680,6 +680,7 @@ fun Pull(onRefresh: suspend () -> Unit, content: @Composable () -> Unit) {
  * for Inicio's `Sin conexión a internet.` (§2.10).
  */
 suspend fun refreshAll(): Boolean {
+    Remote.syncMusicFolders()
     if (!Remote.online()) return false
     try {
         Remote.call("provider.refresh", JSONObject().put("provider", "ytmusic"))
