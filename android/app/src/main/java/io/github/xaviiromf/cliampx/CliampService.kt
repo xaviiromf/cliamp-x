@@ -136,6 +136,7 @@ class CliampService : Service(), TerminalSessionClient {
             }.collect(::onState)
         }
         watchOutputs()
+        ContextCompat.registerReceiver(this, noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -161,6 +162,7 @@ class CliampService : Service(), TerminalSessionClient {
 
     override fun onDestroy() {
         audio.unregisterAudioDeviceCallback(outputs)
+        unregisterReceiver(noisy)
         setPlaying(false)
         if (hasFocus) AudioManagerCompat.abandonAudioFocusRequest(audio, focusRequest)
         media.release()
@@ -460,7 +462,11 @@ class CliampService : Service(), TerminalSessionClient {
             ) op("play")
         }
 
-        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = followOutput()
+        // Second guard beside ACTION_AUDIO_BECOMING_NOISY: some route changes send no broadcast.
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+            followOutput()
+            if (Routes.pauseOnRemoved(removed.filter { it.isSink }.map { it.type }, Remote.state.value?.playing == true)) op("pause")
+        }
     }
 
     private fun followOutput() {
@@ -483,6 +489,8 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
+    // Registered for the whole life of the service. RECEIVER_NOT_EXPORTED would, below API 33, guard it with a
+    // signature permission; the system sends this protected broadcast, so nobody else can forge it.
     private val noisy = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = op("pause")
     }
@@ -495,10 +503,8 @@ class CliampService : Service(), TerminalSessionClient {
                 hasFocus = AudioManagerCompat.requestAudioFocus(audio, focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
                 if (!hasFocus) op("pause")
             }
-            ContextCompat.registerReceiver(this, noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED)
             wakeLock.acquire(6 * 60 * 60 * 1000L)
         } else {
-            unregisterReceiver(noisy)
             if (wakeLock.isHeld) wakeLock.release()
         }
     }

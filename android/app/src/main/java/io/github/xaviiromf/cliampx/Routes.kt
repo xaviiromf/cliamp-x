@@ -21,6 +21,11 @@ object Routes {
     /** Whether an output of type is headphones or a Bluetooth speaker: connecting one may resume playback. */
     fun headphones(type: Int) = kind(type) != null
 
+    /** Whether removing outputs of these types while playing must pause: headphones, headsets and Bluetooth, not the speaker. */
+    fun pauseOnRemoved(types: List<Int>, playing: Boolean) = playing && types.any {
+        headphones(it) || it == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it == AudioDeviceInfo.TYPE_HEARING_AID
+    }
+
     private fun kind(type: Int): String? = when (type) {
         AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER -> "bt"
         AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "usb"
