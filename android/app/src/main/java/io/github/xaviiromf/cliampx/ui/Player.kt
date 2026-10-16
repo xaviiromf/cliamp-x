@@ -113,7 +113,7 @@ fun PlayerSheet(s: Snapshot) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val close: () -> Unit = {
-        if (Looks.motion == MotionSpeed.Off) Nav.player = false else scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false }
+        if (Looks.activeMotion == MotionSpeed.Off) Nav.player = false else scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false }
     }
     ModalBottomSheet(
         onDismissRequest = { Nav.player = false },
@@ -297,7 +297,7 @@ private fun SeekRows(s: Snapshot, seek: SeekState, now: LongState) {
 fun calmPlayerPage() = Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics
 
 /** Whether the visualizer fills the player behind the artwork. */
-fun backgroundVis(s: Snapshot) = Looks.playerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
+fun backgroundVis(s: Snapshot) = Looks.showPlayerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
 
 /** How much of the background visualizer shows under the player's text. */
 private const val BACKGROUND_VIS_ALPHA = 0.4f

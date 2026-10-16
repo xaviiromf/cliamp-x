@@ -144,7 +144,7 @@ object Core {
             "CLIAMP_YTDLP_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs${sep}PYTHONHOME=$pythonHome${sep}HOME=$pythonHome",
             "CLIAMP_FFMPEG=$lib/libffmpeg.so",
             "CLIAMP_FFMPEG_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs",
-        ) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
+        ) + Lite.env(ctx) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
     }
 
     /**

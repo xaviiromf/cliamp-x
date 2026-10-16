@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 )
 
@@ -168,6 +169,12 @@ func (m *Model) prefetchNext() {
 		return
 	}
 	if next, ok := m.playlist.PeekNext(); ok && playlist.IsYTDL(next.Path) {
+		if player.LightMode() {
+			// Lightweight mode: let the current song start first on a slow CPU.
+			// A skip before the timer fires extracts the page itself, as without a prefetch.
+			time.AfterFunc(player.LightPrefetchDelay, func() { pf.PrefetchYTDL(next.Path) })
+			return
+		}
 		pf.PrefetchYTDL(next.Path)
 	}
 }

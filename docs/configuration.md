@@ -11,6 +11,11 @@ cliamp-x searches for its config directory in this order:
 - `XDG_CONFIG_HOME/cliamp-x`
 - `HOME/.config/cliamp-x`
 
+The Android app also sets `CLIAMP_LIGHT=1` for the core when its Modo ligero
+is on (see [Android](android.md)). The core then raises `buffer_ms` to at
+least 1000 and starts the next-song prefetch 8 s late. It reads the variable
+only at start.
+
 The examples below use `~/.config/cliamp-x`.
 
 For other settings, copy and edit the example config:

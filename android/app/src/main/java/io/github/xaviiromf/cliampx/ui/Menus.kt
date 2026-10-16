@@ -91,7 +91,7 @@ fun SheetHost(s: Snapshot?) {
     val scope = rememberCoroutineScope()
     // shortcut: Material 3 1.4 keeps the sheets' own motion internal, so Sin animación only skips the slide out.
     val close: () -> Unit = {
-        if (Looks.motion == MotionSpeed.Off) Nav.sheet = null else scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null }
+        if (Looks.activeMotion == MotionSpeed.Off) Nav.sheet = null else scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null }
     }
     ModalBottomSheet(
         onDismissRequest = { Nav.sheet = null },

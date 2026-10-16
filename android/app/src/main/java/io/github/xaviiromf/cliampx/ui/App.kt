@@ -106,7 +106,7 @@ fun App(firstRun: Boolean) {
     // The bars' backgrounds run to the screen edges; their content keeps clear of a side nav bar and the cutout.
     val sides = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
     // Under the player sheet this window asks what the sheet asks.
-    val calm = if (Nav.player) calmPlayerPage() else Looks.background != Background.Solid
+    val calm = if (Nav.player) calmPlayerPage() else Looks.shownBackground != Background.Solid
     Box(Modifier.fillMaxSize().nestedScroll(Scrolls).calmRefreshRate(calm)) {
         // Paused under the opaque player sheet, which draws its own.
         Backdrop(Looks.listLevel, Modifier.matchParentSize(), paused = Nav.player)
@@ -179,9 +179,9 @@ private fun Splash(firstRun: Boolean, stopped: Boolean) {
         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // The logo types itself letter by letter behind a block cursor; Sin animación shows it whole.
-        val typed by produceState(if (Looks.motion == MotionSpeed.Off) LOGO.length else 0) {
+        val typed by produceState(if (Looks.activeMotion == MotionSpeed.Off) LOGO.length else 0) {
             while (value < LOGO.length) {
-                delay((LOGO_STEP_MS * Looks.motion.factor).toLong())
+                delay((LOGO_STEP_MS * Looks.activeMotion.factor).toLong())
                 value++
             }
         }

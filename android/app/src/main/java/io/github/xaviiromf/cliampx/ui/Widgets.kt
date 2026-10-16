@@ -93,6 +93,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.Item
+import io.github.xaviiromf.cliampx.Lite
 import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.PlaybackClock
@@ -190,7 +191,7 @@ fun IconBtn(
 /** A track's art at size, or the `░` placeholder with a note while it loads or when there is none. */
 @Composable
 fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier, fade: Boolean = false) {
-    val px = with(LocalDensity.current) { size.roundToPx() }
+    val px = Lite.artPx(with(LocalDensity.current) { size.roundToPx() }, Lite.on)
     val art = rememberArt(key, px)
     // fade cross-fades the next song's art in (player, mini-player); list rows swap at once, which costs less.
     if (fade) {

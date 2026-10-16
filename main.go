@@ -310,9 +310,13 @@ func newPlayer(cfg config.Config) (p *player.Player, closePlayer func(), err err
 		}
 	}
 
+	bufferMs := player.BufferMsFor(cfg.BufferMs, player.LightMode())
+	if bufferMs != cfg.BufferMs {
+		applog.Info("player: lightweight mode, speaker buffer %d ms (config %d ms)", bufferMs, cfg.BufferMs)
+	}
 	p, err = player.New(player.Quality{
 		SampleRate:      sampleRate,
-		BufferMs:        cfg.BufferMs,
+		BufferMs:        bufferMs,
 		ResampleQuality: cfg.ResampleQuality,
 		BitDepth:        cfg.BitDepth,
 	})
