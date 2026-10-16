@@ -449,6 +449,8 @@ private fun LyricsOffsetRow(s: Snapshot) {
     val p = LocalPalette.current
     val ops by Remote.ops.collectAsStateWithLifecycle()
     if ("settings.set" !in ops || s.track == null) return
+    val shown = "%+.1f s".format(s.lyricsOffsetMs / 1000.0)
+    val timing = stringResource(R.string.lyrics_offset) + " " + shown
     fun nudge(step: Int) {
         val ms = (s.lyricsOffsetMs + step).coerceIn(-10_000, 10_000)
         Remote.fire("settings.set", JSONObject().put("name", "lyrics_offset").put("value", ms))
@@ -456,8 +458,9 @@ private fun LyricsOffsetRow(s: Snapshot) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         BracketButton(stringResource(R.string.lyrics_earlier), Modifier.testTag("lyrics_earlier"), description = stringResource(R.string.lyrics_earlier_desc)) { nudge(-500) }
         Text(
-            stringResource(R.string.lyrics_offset) + " " + "%+.1f s".format(s.lyricsOffsetMs / 1000.0),
-            Modifier.padding(horizontal = 8.dp).testTag("lyrics_offset"), color = p.textSecondary, style = Type.label,
+            shown,
+            Modifier.weight(1f).padding(horizontal = 8.dp).testTag("lyrics_offset").semantics { contentDescription = timing }, color = p.textSecondary, style = Type.label,
+            textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         BracketButton(stringResource(R.string.lyrics_later), Modifier.testTag("lyrics_later"), description = stringResource(R.string.lyrics_later_desc)) { nudge(500) }
     }

@@ -172,7 +172,7 @@ fun BracketButton(
     text: String, modifier: Modifier = Modifier, color: Color = LocalPalette.current.accent, description: String = text, onClick: () -> Unit,
 ) {
     Box(modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text("[ $text ]", Modifier.semantics { contentDescription = description }, color = color, style = Type.body)
+        Text("[ $text ]", Modifier.semantics { contentDescription = description }, color = color, style = Type.body, softWrap = false)
     }
 }
 
