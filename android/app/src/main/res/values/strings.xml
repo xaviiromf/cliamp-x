@@ -269,6 +269,9 @@
     <string name="whole_phone">Whole phone</string>
     <string name="whole_phone_help">Reads every folder with music on the phone, again at each start and pull to refresh.</string>
     <string name="no_music_folders">No music folders.</string>
+    <string name="erase_all">Sign out and erase all data</string>
+    <string name="erase_all_action">Erase all</string>
+    <string name="erase_all_confirm">Sign out and erase everything? This erases all of cliamp-x\'s data: the YouTube Music sign-in, settings, lists, history and downloads. It cannot be undone.</string>
     <string name="folder_no_path">That folder is not on the phone\'s storage. Choose a folder on the phone or the SD card.</string>
     <string name="battery_optimized">Battery: optimized</string>
     <string name="battery_free">Battery: not optimized</string>

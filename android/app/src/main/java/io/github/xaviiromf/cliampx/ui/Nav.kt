@@ -112,6 +112,8 @@ sealed interface Sheet {
     data object Normalize : Sheet
     data object Crossfade : Sheet
     data object ClearQueue : Sheet
+    /** Cerrar sesión y borrar datos, after a confirmation. */
+    data object EraseData : Sheet
 
     /** Guardar el actual como skin… (old null), or Renombrar… the user skin old. */
     data class SkinName(val old: String?) : Sheet

@@ -263,6 +263,9 @@
     <string name="whole_phone">Todo el teléfono</string>
     <string name="whole_phone_help">Lee todas las carpetas con música del teléfono, de nuevo en cada inicio y al deslizar para actualizar.</string>
     <string name="no_music_folders">No hay carpetas de música.</string>
+    <string name="erase_all">Cerrar sesión y borrar datos</string>
+    <string name="erase_all_action">Borrar todo</string>
+    <string name="erase_all_confirm">¿Cerrar sesión y borrar todo? Se borran todos los datos de cliamp-x: el inicio de sesión de YouTube Music, los ajustes, las listas, el historial y las descargas. No se puede deshacer.</string>
     <string name="folder_no_path">Esa carpeta no está en el almacenamiento del teléfono. Elige una carpeta del teléfono o de la tarjeta SD.</string>
     <string name="battery_optimized">Batería: optimizada</string>
     <string name="battery_free">Batería: sin optimizar</string>

@@ -37,6 +37,10 @@ the desktop (`~/.config/cliamp-x/ytmusic_cookies.txt`), copy it to the phone
 and use **Importar cookies.txt**. Delete the copy afterwards; it holds your
 session.
 
+**Ajustes → Cuenta → Cerrar sesión y borrar datos** signs out and erases all
+cliamp-x data on the phone (sign-in, settings, lists, history, downloads) after
+a confirmation. It cannot be undone; the app opens as a fresh install.
+
 ## Use
 
 | Where | What |

@@ -2,6 +2,7 @@
 
 package io.github.xaviiromf.cliampx
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -141,7 +142,7 @@ class CliampService : Service(), TerminalSessionClient {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The widget, the tile and the shortcuts start the service in the foreground: it must show its notification.
-        if (intent?.action != ACTION_QUIT) ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        if (intent?.action != ACTION_QUIT && intent?.action != ACTION_ERASE) ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         val control = intent?.action in setOf(ACTION_PREV, ACTION_TOGGLE, ACTION_NEXT, ACTION_RESUME)
         // With no core, a control from the widget, the tile or a shortcut resumes: start the core and play what it restored.
         if (control && session == null) return START_NOT_STICKY.also { resume() }
@@ -151,6 +152,7 @@ class CliampService : Service(), TerminalSessionClient {
             ACTION_RESUME -> resume()
             ACTION_NEXT -> op("next")
             ACTION_QUIT -> quit()
+            ACTION_ERASE -> erase()
             // The rest come from the app on screen, which may start the foreground service.
             else -> {
                 if (intent?.action == ACTION_RESTART) restart() else start()
@@ -256,6 +258,12 @@ class CliampService : Service(), TerminalSessionClient {
     fun quit() {
         Remote.quitting.value = true
         stopCore { finish(true) }
+    }
+
+    /** Stops the core, then wipes the app's data: sign-in, settings, lists, history and downloads. */
+    fun erase() {
+        Remote.quitting.value = true
+        stopCore { getSystemService(ActivityManager::class.java).clearApplicationUserData() }
     }
 
     /** Stops the core with SIGTERM, so it saves the resume position, then runs then. */
@@ -587,6 +595,7 @@ class CliampService : Service(), TerminalSessionClient {
         const val ACTION_TOGGLE = "io.github.xaviiromf.cliampx.TOGGLE"
         const val ACTION_NEXT = "io.github.xaviiromf.cliampx.NEXT"
         const val ACTION_QUIT = "io.github.xaviiromf.cliampx.QUIT"
+        const val ACTION_ERASE = "io.github.xaviiromf.cliampx.ERASE"
         const val ACTION_RESTART = "io.github.xaviiromf.cliampx.RESTART"
         const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
 
