@@ -301,3 +301,56 @@ func TestInitMissingDirCreatesIt(t *testing.T) {
 		t.Errorf("log file not created: %v", err)
 	}
 }
+
+func TestRotation(t *testing.T) {
+	tests := []struct {
+		name      string
+		existing  int
+		writes    []string
+		wantMain  string // "" means any size check below
+		wantPrev  string
+		wantNoOld bool
+	}{
+		{name: "below the limit appends", writes: []string{"aaaa", "bb"}, wantMain: "aaaabb", wantNoOld: true},
+		{name: "past the limit rotates", writes: []string{"aaaaaaaaaa", "b", "c"}, wantMain: "bc", wantPrev: "aaaaaaaaaa"},
+		{name: "second rotation replaces .1", writes: []string{"aaaaaaaaaa", "bbbbbbbbbb", "c"}, wantMain: "c", wantPrev: "bbbbbbbbbb"},
+		{name: "huge legacy log is dropped", existing: 100, writes: []string{"x"}, wantMain: "x", wantNoOld: true},
+		{name: "legacy log at the limit becomes .1", existing: 10, writes: []string{"x"}, wantMain: "x", wantPrev: strings.Repeat("o", 10)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "cliamp.log")
+			if tt.existing > 0 {
+				if err := os.WriteFile(path, []byte(strings.Repeat("o", tt.existing)), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			w, err := openRotating(path, 10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, s := range tt.writes {
+				if _, err := w.Write([]byte(s)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if got, _ := os.ReadFile(path); string(got) != tt.wantMain {
+				t.Errorf("log = %q, want %q", got, tt.wantMain)
+			}
+			prev, err := os.ReadFile(path + ".1")
+			if tt.wantNoOld {
+				if err == nil {
+					t.Errorf(".1 exists: %q", prev)
+				}
+			} else if string(prev) != tt.wantPrev {
+				t.Errorf(".1 = %q, want %q", prev, tt.wantPrev)
+			}
+			if _, err := w.Write([]byte("z")); err == nil {
+				t.Error("write after Close succeeded")
+			}
+		})
+	}
+}

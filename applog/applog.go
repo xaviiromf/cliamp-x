@@ -50,6 +50,9 @@ const (
 
 const maxEntries = 4
 
+// maxLogBytes is the size at which the log file rotates to path + ".1".
+const maxLogBytes = 1 << 20
+
 var (
 	logger atomic.Pointer[slog.Logger]
 
@@ -69,17 +72,17 @@ func Init(path string, level Level) (func() error, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("create log dir: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	w, err := openRotating(path, maxLogBytes)
 	if err != nil {
-		return nil, fmt.Errorf("open log file: %w", err)
+		return nil, err
 	}
 
-	h := slog.NewTextHandler(f, &slog.HandlerOptions{Level: level})
+	h := slog.NewTextHandler(w, &slog.HandlerOptions{Level: level})
 	logger.Store(slog.New(h))
 
 	mu.Lock()
 	prev := currentFile
-	currentFile = f
+	currentFile = w
 	mu.Unlock()
 	if prev != nil {
 		_ = prev.Close()
@@ -176,4 +179,73 @@ func pushFooter(msg string) {
 		entries = entries[len(entries)-maxEntries:]
 	}
 	mu.Unlock()
+}
+
+// rotatingWriter appends to path and, when a write would pass max bytes,
+// renames the file to path+".1" (replacing an older one) and starts a fresh
+// file, so the log never holds more than about 2*max bytes.
+type rotatingWriter struct {
+	mu   sync.Mutex
+	f    *os.File
+	path string
+	max  int64
+	size int64
+}
+
+func openRotating(path string, max int64) (*rotatingWriter, error) {
+	w := &rotatingWriter{path: path, max: max}
+	if err := w.open(); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func (w *rotatingWriter) open() error {
+	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open log file: %w", err)
+	}
+	st, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("stat log file: %w", err)
+	}
+	w.f, w.size = f, st.Size()
+	return nil
+}
+
+func (w *rotatingWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.f == nil {
+		return 0, os.ErrClosed
+	}
+	if w.size >= w.max {
+		_ = w.f.Close()
+		if w.size > 2*w.max {
+			// A log from before the limit: keeping it as .1 would keep the size problem.
+			_ = os.Remove(w.path)
+		} else {
+			// A failed rename keeps the old file: it grows rather than loses lines.
+			_ = os.Rename(w.path, w.path+".1")
+		}
+		if err := w.open(); err != nil {
+			w.f = nil
+			return 0, err
+		}
+	}
+	n, err := w.f.Write(p)
+	w.size += int64(n)
+	return n, err
+}
+
+func (w *rotatingWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.f == nil {
+		return nil
+	}
+	err := w.f.Close()
+	w.f = nil
+	return err
 }
