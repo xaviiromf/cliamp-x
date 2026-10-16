@@ -43,3 +43,41 @@ func TestHSLRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestSwatchesIgnoreLetterbox(t *testing.T) {
+	// The picture is four light stripes of about 19% each, so black bars of
+	// 25% in all would be the biggest swatch if they counted.
+	stripes := []color.RGBA{{240, 240, 240, 255}, {240, 190, 190, 255}, {190, 200, 240, 255}, {240, 235, 180, 255}}
+	black := color.RGBA{0, 0, 0, 255}
+	tests := []struct {
+		name      string
+		w, h      int
+		top, side int // bar thickness in pixels
+		bar       color.RGBA
+		wantDark  bool
+	}{
+		{"black bars top and bottom", 480, 360, 45, 0, black, false},
+		{"near-black bars", 480, 360, 45, 0, color.RGBA{14, 12, 10, 255}, false},
+		{"pillarbox", 480, 360, 0, 60, black, false},
+		{"bars on every side", 480, 360, 40, 40, black, false},
+		{"no bars", 480, 360, 0, 0, black, false},
+		// A side loses at most a fifth, so a dark cover with a small logo stays dark.
+		{"black cover with logo", 480, 360, 150, 150, black, true},
+	}
+	for _, tc := range tests {
+		img := image.NewRGBA(image.Rect(0, 0, tc.w, tc.h))
+		for y := range tc.h {
+			for x := range tc.w {
+				c := stripes[x*4/tc.w]
+				if y < tc.top || y >= tc.h-tc.top || x < tc.side || x >= tc.w-tc.side {
+					c = tc.bar
+				}
+				img.Set(x, y, c)
+			}
+		}
+		_, _, l := HSL(Swatches(img)[0].Color)
+		if dark := l < 0.2; dark != tc.wantDark {
+			t.Errorf("%s: dominant lightness %.2f, dark = %v, want %v", tc.name, l, dark, tc.wantDark)
+		}
+	}
+}

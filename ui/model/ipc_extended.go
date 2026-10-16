@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/internal/stats"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/lyrics"
@@ -609,6 +610,7 @@ func (m *Model) handleIPCLibrary(request ipcLibraryRequest) tea.Cmd {
 			request.Reply <- ipc.Response{OK: false, Error: "provider does not support refresh"}
 			return nil
 		}
+		applog.Info("provider: refresh %s", entry.Key)
 		return ipcMutationCmd(request.Context, request.Reply, func() error {
 			refresher.Refresh()
 			return nil

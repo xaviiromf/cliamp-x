@@ -426,6 +426,10 @@
     <string name="lyrics_seek">Ir a esta línea</string>
     <string name="lyrics_full">Letras a pantalla completa</string>
     <string name="lyrics_offset">Ajuste de letras</string>
+    <string name="lyrics_earlier">−0,5 s</string>
+    <string name="lyrics_later">+0,5 s</string>
+    <string name="lyrics_earlier_desc">Letras medio segundo antes</string>
+    <string name="lyrics_later_desc">Letras medio segundo después</string>
     <string name="player_vis">Visualizador de fondo en el reproductor</string>
     <string name="stereo">Modo estéreo</string>
     <string name="stereo_charging">Modo estéreo al cargar</string>

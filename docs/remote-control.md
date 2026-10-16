@@ -312,6 +312,9 @@ unstars the genre `playlist` and gives the new state in `favorite`.
 
 `provider.refresh` drops the cached lists of the provider, so the next read
 asks the service again, and starts the `foryou` lists over.
+It logs `provider: refresh <key>` at info level, and YouTube Music logs
+`ytmusic: home reloaded, N shelves` when the home page comes back, so a log shows
+whether a pull to refresh reached the core.
 
 `provider.preview` gives the picture and the non-blank detail lines of an album,
 artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube

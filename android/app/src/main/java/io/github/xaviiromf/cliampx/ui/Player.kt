@@ -379,7 +379,10 @@ private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> 
         when (view) {
             ArtView.Cover -> ArtBox(track.art, side, fade = true)
             ArtView.Visualizer -> Visualizer(s, Modifier.fillMaxSize())
-            ArtView.Lyrics -> LyricsView(s, side, karaoke = false)
+            ArtView.Lyrics -> Column {
+                Box(Modifier.weight(1f).fillMaxWidth()) { LyricsView(s, side - 48.dp, karaoke = false) }
+                LyricsOffsetRow(s)
+            }
         }
     }
 }
@@ -446,17 +449,20 @@ private fun LyricsOffsetRow(s: Snapshot) {
     val p = LocalPalette.current
     val ops by Remote.ops.collectAsStateWithLifecycle()
     if ("settings.set" !in ops || s.track == null) return
+    val shown = "%+.1f s".format(s.lyricsOffsetMs / 1000.0)
+    val timing = stringResource(R.string.lyrics_offset) + " " + shown
     fun nudge(step: Int) {
         val ms = (s.lyricsOffsetMs + step).coerceIn(-10_000, 10_000)
         Remote.fire("settings.set", JSONObject().put("name", "lyrics_offset").put("value", ms))
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        BracketButton("−0.5 s", Modifier.testTag("lyrics_earlier")) { nudge(-500) }
+        BracketButton(stringResource(R.string.lyrics_earlier), Modifier.testTag("lyrics_earlier"), description = stringResource(R.string.lyrics_earlier_desc)) { nudge(-500) }
         Text(
-            stringResource(R.string.lyrics_offset) + " " + "%+.1f s".format(s.lyricsOffsetMs / 1000.0),
-            Modifier.padding(horizontal = 8.dp).testTag("lyrics_offset"), color = p.textSecondary, style = Type.label,
+            shown,
+            Modifier.weight(1f).padding(horizontal = 8.dp).testTag("lyrics_offset").semantics { contentDescription = timing }, color = p.textSecondary, style = Type.label,
+            textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
-        BracketButton("+0.5 s", Modifier.testTag("lyrics_later")) { nudge(500) }
+        BracketButton(stringResource(R.string.lyrics_later), Modifier.testTag("lyrics_later"), description = stringResource(R.string.lyrics_later_desc)) { nudge(500) }
     }
 }
 

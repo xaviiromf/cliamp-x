@@ -86,6 +86,18 @@ func TestCoverThemeFollowsDominantColor(t *testing.T) {
 			v := uint8(20 + x*3)
 			return color.RGBA{v, v, v, 255}
 		}), false, true, "", true},
+		// A 4:3 YouTube thumbnail: light picture, black bars of 12.5% top and bottom.
+		{"letterboxed light photo", coverImg(func(x, y int) color.RGBA {
+			switch {
+			case y < 8 || y >= 52:
+				return black
+			case x < 20:
+				return color.RGBA{235, 235, 230, 255}
+			case x < 40:
+				return color.RGBA{240, 200, 200, 255}
+			}
+			return color.RGBA{200, 215, 240, 255}
+		}), true, false, "", false},
 		{"photo mix", coverImg(func(x, y int) color.RGBA {
 			switch {
 			case y < 30:

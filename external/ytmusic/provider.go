@@ -219,6 +219,8 @@ func (p *Provider) fetchHome() []Shelf {
 	home, err := p.client.Home(ctx, 10)
 	if err != nil {
 		applog.Warn("ytmusic: home: %v", err)
+	} else {
+		applog.Info("ytmusic: home reloaded, %d shelves", len(home))
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
