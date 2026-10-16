@@ -14,7 +14,7 @@
     <string name="import_failed">The file could not be read.</string>
     <string name="not_cookies">The file is not a cookies.txt.</string>
     <string name="no_sign_in">The cookies.txt has no YouTube sign-in (SAPISID is missing).</string>
-    <string name="music_help">Local music is read from the music folder, which Settings can change, and needs the audio permission.</string>
+    <string name="music_help">Local music is read from the music folders, which Settings can change, and needs the audio permission.</string>
     <string name="allow_music">Allow local music</string>
     <string name="battery_help">So that One UI does not cut the music with the screen off, remove the battery optimization. Also add cliamp-x in Settings → Battery → Background usage limits → Never sleeping apps.</string>
     <string name="updates_help">cliamp-x updates from GitHub. Nightly brings every change as soon as it is published, less tested. yt-dlp updates on its own, without reinstalling the app, when YouTube changes something and songs stop playing.</string>
@@ -263,9 +263,12 @@
     <string name="signed_in_state">Signed in</string>
     <string name="signed_out_state">Not signed in</string>
     <string name="sign_out">Sign out</string>
-    <string name="music_folder">Folder  %1$s</string>
-    <string name="explore">Browse</string>
-    <string name="no_local_music">No music in %1$s. Choose another folder.</string>
+    <string name="no_local_music">No music in %1$s. Add another folder.</string>
+    <string name="add_folder">+ Folder</string>
+    <string name="remove_folder">Remove</string>
+    <string name="whole_phone">Whole phone</string>
+    <string name="whole_phone_help">Reads every folder with music on the phone, again at each start and pull to refresh.</string>
+    <string name="no_music_folders">No music folders.</string>
     <string name="folder_no_path">That folder is not on the phone\'s storage. Choose a folder on the phone or the SD card.</string>
     <string name="battery_optimized">Battery: optimized</string>
     <string name="battery_free">Battery: not optimized</string>

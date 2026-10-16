@@ -7,12 +7,14 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/xaviiromf/cliamp-x/ipc"
+	"github.com/xaviiromf/cliamp-x/locallib"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/taste"
@@ -263,6 +265,9 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return nil
 	case "settings.set":
 		return m.handleV2Setting(ctx, msg.Jobs, msg.JobID, request)
+	case "settings.get":
+		m.handleV2SettingGet(msg.Jobs, msg.JobID, request)
+		return nil
 	case "lastfm.auth":
 		return m.handleV2LastfmAuth(ctx, msg.Jobs, msg.JobID, request)
 	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
@@ -692,6 +697,10 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	if token := strings.TrimSpace(request.Text); request.Name == "listenbrainz_token" && token != "" && m.scrobbler != nil && !strings.ContainsAny(token, "\r\n") {
 		return m.checkListenBrainzToken(ctx, jobs, jobID, token)
 	}
+	if strings.HasPrefix(request.Name, "music_dir") {
+		m.handleV2MusicDirs(jobs, jobID, request)
+		return nil
+	}
 	v := request.Value
 	limit, numeric := settingMax[request.Name]
 	ok := numeric && v == math.Trunc(v) && v >= 0 && v <= limit
@@ -701,9 +710,6 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	}
 	if !numeric && !ok {
 		ok, err = m.setScrobbleSetting(request.Name, strings.TrimSpace(request.Text))
-	}
-	if !numeric && !ok {
-		ok, err = m.setMusicDirSetting(request.Name, strings.TrimSpace(request.Text))
 	}
 	if !ok {
 		m.failV2Job(jobs, jobID, v2InvalidParamsError())
@@ -736,25 +742,82 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	return nil
 }
 
-// SetMusicDirFunc wires set, which points the local library at a new
-// folder, for settings.set music_dir.
-func (m *Model) SetMusicDirFunc(set func(dir string)) { m.setMusicDir = set }
+// MusicLibrary is the local library as the music folder settings use it.
+type MusicLibrary interface {
+	Dirs() []string
+	SetDirs(dirs []string)
+}
 
-// setMusicDirSetting points the local library at dir, an existing absolute
-// folder, and saves it as music_dir. ok is false for another name or a bad
-// folder.
-func (m *Model) setMusicDirSetting(name, dir string) (bool, error) {
-	if name != "music_dir" || !filepath.IsAbs(dir) {
-		return false, nil
+// SetMusicLibrary wires lib, the indexed local music folders, for the
+// music_dir settings.
+func (m *Model) SetMusicLibrary(lib MusicLibrary) { m.musicLib = lib }
+
+func (m *Model) musicDirs() []string {
+	if m.musicLib == nil {
+		return nil
 	}
-	dir = filepath.Clean(dir)
-	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-		return false, nil
+	return m.musicLib.Dirs()
+}
+
+// isMusicDir reports whether dir is the absolute path of an existing folder.
+func isMusicDir(dir string) bool {
+	if !filepath.IsAbs(dir) {
+		return false
 	}
-	if m.setMusicDir != nil {
-		m.setMusicDir(dir)
+	info, err := os.Stat(dir)
+	return err == nil && info.IsDir()
+}
+
+// handleV2MusicDirs changes the local music folders and saves them as
+// music_dirs: music_dir replaces them with one folder, music_dir_add adds
+// one, music_dir_remove removes one and music_dirs sets the list from args.
+// Every folder it adds must exist. The result lists the folders in items.
+func (m *Model) handleV2MusicDirs(jobs *ipc.JobStore, jobID string, request ipc.Request) {
+	dir := strings.TrimSpace(request.Text)
+	var next []string
+	ok := isMusicDir(dir)
+	switch request.Name {
+	case "music_dir":
+		next = []string{dir}
+	case "music_dir_add":
+		next = append(m.musicDirs(), dir)
+	case "music_dir_remove":
+		ok = filepath.IsAbs(dir)
+		next = slices.DeleteFunc(m.musicDirs(), func(d string) bool { return d == filepath.Clean(dir) })
+	case "music_dirs":
+		ok = true
+		for _, d := range request.Args {
+			ok = ok && isMusicDir(strings.TrimSpace(d))
+		}
+		next = request.Args
+	default:
+		ok = false
 	}
-	return true, m.saveConfigString("music_dir", dir)
+	if !ok {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return
+	}
+	next = locallib.CleanDirs(next)
+	if m.musicLib != nil {
+		m.musicLib.SetDirs(next)
+	}
+	if err := m.saveConfigStrings("music_dirs", next); err != nil {
+		v2Err := v2InternalError()
+		v2Err.Detail = err.Error()
+		m.failV2Job(jobs, jobID, v2Err)
+		return
+	}
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Items: next})
+}
+
+// handleV2SettingGet reads one setting: music_dirs lists the local music
+// folders in items.
+func (m *Model) handleV2SettingGet(jobs *ipc.JobStore, jobID string, request ipc.Request) {
+	if request.Name != "music_dirs" {
+		m.failV2Job(jobs, jobID, v2InvalidParamsError())
+		return
+	}
+	m.completeV2Job(jobs, jobID, ipc.Response{OK: true, Items: m.musicDirs()})
 }
 
 // autoCacheDefaultSongs is the song limit of download.auto without limit,

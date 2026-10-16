@@ -43,6 +43,10 @@ mono = false
 # local files out of those menus.
 # music_dir = "~/Music"
 
+# Several local music folders. When set, even to [], this list replaces
+# music_dir. A song under two of them (nested folders) appears once.
+# music_dirs = ["~/Music", "~/Downloads/Music"]
+
 # Initial directory for the file browser ('o' key). 
 # Supports environment variables ($HOME) and tilde expansion (~/Music).
 # initial_directory = "~/Music"

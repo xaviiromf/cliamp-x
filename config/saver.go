@@ -40,6 +40,21 @@ func (SaveFunc) SaveFloats(key string, values []float64) error {
 	return SaveFloats(key, values)
 }
 
+// SaveStrings delegates to the package-level config.SaveStrings.
+func (SaveFunc) SaveStrings(key string, values []string) error {
+	return SaveStrings(key, values)
+}
+
+// SaveStrings saves a top-level list of strings as ["a", "b"], each quoted
+// with QuoteString, so Load reads the same list back.
+func SaveStrings(key string, values []string) error {
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = QuoteString(v)
+	}
+	return save(key, "["+strings.Join(parts, ", ")+"]")
+}
+
 // SaveString saves a top-level string key. It quotes value with QuoteString,
 // so Load reads the same text back. value must be a single line.
 func SaveString(key, value string) error {

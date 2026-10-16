@@ -88,7 +88,7 @@ pick Modo estéreo.
 
 **Ajustes** holds the theme (all cliamp-x themes, with a live preview), the
 visualizer (every mode of the terminal, drawn from the core's own frames), the EQ, sleep
-timer, speed, normalization, crossfade, auto radio, the music folder, the
+timer, speed, normalization, crossfade, auto radio, the music folders, the
 battery setting, updates, the yt-dlp update and Modo terminal.
 
 **Ajustes → Apariencia** also sets the look of the app itself:
@@ -181,16 +181,23 @@ of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
 in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
 credential. Scrobbles that fail on a network error are sent later.
 
-**Ajustes → Música local** shows the folder the app reads local music from
-(`Music` on the phone's storage at first). **Explorar** opens the system
+**Ajustes → Música local** lists the folders the app reads local music from
+(`Music` on the phone's storage at first). **+ Carpeta** opens the system
 folder picker: pick any folder on the phone's storage or an SD card, such as
-`Download/MiMusica`, and tap **Usar esta carpeta**. **Biblioteca → Música
-local** lists its songs at once, and the folder stays after a restart. When
-that folder has no music, **Biblioteca → Música local** offers the same
-**Explorar**. Android does not let the picker choose the root of the storage
-or `Download` itself; pick a folder inside. A cloud or app folder (Drive,
-Recent) has no path on the phone, so the app says so and keeps the old
-folder.
+`Download/MiMusica`, and tap **Usar esta carpeta**. It joins the list, and
+**Biblioteca → Música local** lists the songs of every folder at once; a song
+under two of them shows once. **Quitar** next to a folder takes its songs out.
+The list stays after a restart. **Biblioteca → Música local** has the same
+**+ Carpeta** at the top. Android does not let the picker choose the root of
+the storage or `Download` itself; pick a folder inside. A cloud or app folder
+(Drive, Recent) has no path on the phone, so the app says so and keeps the
+list.
+
+**Todo el teléfono** (Whole phone) replaces the list with every folder that
+holds music on the phone, as Android's media index (MediaStore) knows it, and
+reads them again at each start and each pull to refresh. While it is on, the
+list cannot be edited by hand; turning it off keeps the last list. It needs the
+local music permission.
 
 **Ajustes → Sistema → Acerca de** (Settings → System → About) shows the
 version, links to the source and to the original cliamp (cliamp-x is an

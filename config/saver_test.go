@@ -279,6 +279,20 @@ func TestTypedSavers(t *testing.T) {
 			want:     [10]float64{6, 4.5, -2, 0, 0, 0, 0, 0, 0, -12},
 		},
 		{
+			name:     "strings",
+			save:     func() error { return SaveFunc{}.SaveStrings("music_dirs", []string{"/a b", `/c "d", \e`}) },
+			wantLine: `music_dirs = ["/a b", "/c \"d\", \\e"]`,
+			got:      func(c Config) any { return fmt.Sprintf("%q", c.MusicFolders()) },
+			want:     `["/a b" "/c \"d\", \\e"]`,
+		},
+		{
+			name:     "no strings",
+			save:     func() error { return SaveStrings("music_dirs", nil) },
+			wantLine: "music_dirs = []",
+			got:      func(c Config) any { return c.MusicDirs != nil && len(c.MusicFolders()) == 0 },
+			want:     true,
+		},
+		{
 			name:     "SaveFunc string",
 			save:     func() error { return SaveFunc{}.SaveString("theme", `a "b" \ c`) },
 			wantLine: `theme = "a \"b\" \\ c"`,

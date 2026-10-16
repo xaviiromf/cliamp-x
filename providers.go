@@ -164,7 +164,7 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 		applog.Info("copied %d bookmarks into favorites", added)
 	}
 
-	s.library = localLibrary(cfg.MusicDir)
+	s.library = localLibrary(cfg.MusicFolders())
 	env := providerEnv{
 		cfg:         cfg,
 		interactive: interactive,
@@ -210,14 +210,14 @@ func buildProvider(pf providerFactory, env providerEnv) (entries []provider.Entr
 	return entries
 }
 
-// localLibrary returns the index of the local music folder that joins the
-// YouTube Music menus: music_dir, or the user's music folder when unset.
-// "off" turns it off.
-func localLibrary(dir string) *locallib.Library {
-	if strings.TrimSpace(dir) == "" {
-		dir = locallib.DefaultDir()
+// localLibrary returns the index of the local music folders that join the
+// YouTube Music menus: music_dirs or music_dir, or the user's music folder
+// when neither is set. music_dir "off" turns it off.
+func localLibrary(dirs []string) *locallib.Library {
+	if dirs == nil {
+		dirs = []string{locallib.DefaultDir()}
 	}
-	return locallib.New(dir)
+	return locallib.New(dirs...)
 }
 
 // Close releases the providers that implement provider.Closer. The three

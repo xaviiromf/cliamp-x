@@ -54,6 +54,14 @@ func (s *recordingSaver) SaveFloats(key string, values []float64) error {
 	return s.record(key, "["+strings.Join(parts, ", ")+"]")
 }
 
+func (s *recordingSaver) SaveStrings(key string, values []string) error {
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = config.QuoteString(v)
+	}
+	return s.record(key, "["+strings.Join(parts, ", ")+"]")
+}
+
 func (s *recordingSaver) SaveSectionBool(section, key string, value bool) error {
 	return s.record(section+"."+key, strconv.FormatBool(value))
 }

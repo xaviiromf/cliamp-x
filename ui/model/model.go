@@ -28,6 +28,7 @@ type ConfigSaver interface {
 	SaveBool(key string, value bool) error
 	SaveFloat(key string, value float64, prec int) error
 	SaveFloats(key string, values []float64) error
+	SaveStrings(key string, values []string) error
 }
 
 // ResumeSaver persists the active track, timeline position, and source context.
@@ -43,6 +44,13 @@ func (m *Model) saveConfigString(key, value string) error {
 		return nil
 	}
 	return m.reportConfigSave(m.configSaver.SaveString(key, value))
+}
+
+func (m *Model) saveConfigStrings(key string, values []string) error {
+	if m.configSaver == nil {
+		return nil
+	}
+	return m.reportConfigSave(m.configSaver.SaveStrings(key, values))
 }
 
 func (m *Model) saveConfigBool(key string, value bool) error {
@@ -535,9 +543,9 @@ type Model struct {
 	// taste holds the "interested" and "not interested" ratings, shared
 	// with the providers. Nil turns the rating keys off.
 	taste *taste.Store
-	// setMusicDir points the local library at a new folder. Nil when no
-	// library is wired.
-	setMusicDir func(dir string)
+	// musicLib is the indexed local music folders. Nil when no library is
+	// wired.
+	musicLib MusicLibrary
 	// favSync orders the calls that copy favorite changes to providers. It
 	// is created on first use and shared across Model value copies.
 	favSync *favorites.SyncQueue

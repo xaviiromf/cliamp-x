@@ -153,8 +153,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	m := model.New(p, pl, providers.entries, defaultProvider, providers.localPlaylists(), providers.favorites, providers.history, theme.LoadAll(), luaMgr, config.SaveFunc{})
 	m.SetIPCBroker(pluginBroker)
 	m.SetTaste(providers.taste)
-	// shortcut: with music_dir off there is no library, and a new folder applies at the next start.
-	m.SetMusicDirFunc(providers.library.SetDir)
+	// shortcut: with music_dir off there is no library, and new folders apply at the next start.
+	m.SetMusicLibrary(providers.library)
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaStateProvider(p, m.PluginStateLoader()))
 		if names := luaMgr.Visualizers(); len(names) > 0 {
