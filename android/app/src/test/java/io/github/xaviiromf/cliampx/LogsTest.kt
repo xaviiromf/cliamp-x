@@ -91,6 +91,6 @@ class LogsTest {
             NOW
         """.trimIndent() + "\n"
         assertEquals(want, Logs.header(info, "NOW"))
-        assertEquals(true, Logs.header(info.copy(settings = emptyList()), "NOW").contains("  (none set)\n"))
+        assertEquals(true, Logs.header(info.copy(settings = emptyList()), "NOW").contains("  (all defaults)\n"))
     }
 }

@@ -83,7 +83,7 @@ object Logs {
         appendLine("battery saver: ${if (i.batterySaver) "on" else "off"}")
         appendLine("device sample rate: ${i.deviceSampleRate}")
         appendLine("settings:")
-        if (i.settings.isEmpty()) appendLine("  (none set)")
+        if (i.settings.isEmpty()) appendLine("  (all defaults)")
         for ((k, v) in i.settings) appendLine("  $k = $v")
         appendLine(now)
     }
