@@ -3,6 +3,7 @@ package locallib
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -93,32 +94,67 @@ func TestLibraryIndexIsReusedAndRefreshed(t *testing.T) {
 }
 
 func TestNewAndNilLibrary(t *testing.T) {
-	if New("") != nil || New("off") != nil || New(" OFF ") != nil {
-		t.Fatal("an empty or off folder must give no library")
+	if New("off") != nil || New(" OFF ") != nil {
+		t.Fatal("an off folder must give no library")
+	}
+	if lib := New(""); lib == nil || len(lib.Dirs()) != 0 {
+		t.Fatal("no folder must give an empty library that can take folders")
 	}
 	var lib *Library
-	if len(lib.Tracks()) != 0 || len(lib.Albums()) != 0 || len(lib.Search("x", 1)) != 0 || lib.Dir() != "" {
+	if len(lib.Tracks()) != 0 || len(lib.Albums()) != 0 || len(lib.Search("x", 1)) != 0 || lib.Dirs() != nil {
 		t.Fatal("a nil library must be empty")
 	}
 	lib.Refresh()
+	lib.SetDirs([]string{"/x"})
 }
 
-func TestSetDirScansTheNewFolder(t *testing.T) {
+func TestCleanDirs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"none", nil, []string{}},
+		{"empty and spaces dropped", []string{"", "  "}, []string{}},
+		{"cleaned", []string{"/a/b/", "/a/./c"}, []string{"/a/b", "/a/c"}},
+		{"repeats dropped", []string{"/a", "/a/", " /a"}, []string{"/a"}},
+		{"home expanded", []string{"~/Music"}, []string{filepath.Join(home, "Music")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CleanDirs(tt.in); !slices.Equal(got, tt.want) {
+				t.Fatalf("CleanDirs(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetDirsScansEveryFolderOnce(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old, next := t.TempDir(), t.TempDir()
-	writeFiles(t, old, "A/X - One.mp3")
-	writeFiles(t, next, "B/Y - Two.mp3", "B/Y - Three.mp3")
-	lib := New(old)
-	if got := len(lib.Tracks()); got != 1 {
-		t.Fatalf("old folder = %d, want 1", got)
+	a, b := t.TempDir(), t.TempDir()
+	writeFiles(t, a, "A/X - One.mp3", "Sub/X - Nested.mp3")
+	writeFiles(t, b, "B/Y - Two.mp3", "B/Y - Three.mp3")
+	tests := []struct {
+		name string
+		dirs []string
+		want int
+	}{
+		{"one folder", []string{a}, 2},
+		{"two folders", []string{a, b}, 4},
+		{"a nested folder counts its songs once", []string{a, filepath.Join(a, "Sub"), b}, 4},
+		{"a removed folder drops its songs", []string{b}, 2},
+		{"no folder", nil, 0},
+		{"a missing folder is skipped", []string{filepath.Join(a, "gone"), b}, 2},
 	}
-	lib.SetDir(next)
-	if lib.Dir() != next {
-		t.Fatalf("Dir = %q, want %q", lib.Dir(), next)
+	lib := New(a)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lib.SetDirs(tt.dirs)
+			if got := len(lib.Tracks()); got != tt.want {
+				t.Fatalf("tracks = %d, want %d", got, tt.want)
+			}
+		})
 	}
-	if got := len(lib.Tracks()); got != 2 {
-		t.Fatalf("new folder = %d, want 2", got)
-	}
-	var none *Library
-	none.SetDir(next)
 }

@@ -738,3 +738,25 @@ func TestLoadPluginKeysThatCliampReads(t *testing.T) {
 		})
 	}
 }
+
+func TestMusicFolders(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		want []string
+	}{
+		{"neither set", Config{}, nil},
+		{"the old single folder", Config{MusicDir: "/m"}, []string{"/m"}},
+		{"the old folder off", Config{MusicDir: "off"}, []string{"off"}},
+		{"the list wins", Config{MusicDir: "/m", MusicDirs: []string{"/a", "/b"}}, []string{"/a", "/b"}},
+		{"an empty list wins", Config{MusicDir: "/m", MusicDirs: []string{}}, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.MusicFolders()
+			if (got == nil) != (tt.want == nil) || !slices.Equal(got, tt.want) {
+				t.Fatalf("MusicFolders() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}

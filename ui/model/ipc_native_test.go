@@ -1113,11 +1113,6 @@ func TestNativeSettingsSet(t *testing.T) {
 		fmt.Fprintf(w, `{"code":200,"valid":%t}`, r.URL.Path == "/1/validate-token" && r.Header.Get("Authorization") == "Token tok")
 	}))
 	defer listenBrainz.Close()
-	musicDir, picked := t.TempDir(), ""
-	musicFile := filepath.Join(musicDir, "song.mp3")
-	if err := os.WriteFile(musicFile, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
 	for _, tc := range []struct {
 		name    string
 		request ipc.Request
@@ -1139,10 +1134,6 @@ func TestNativeSettingsSet(t *testing.T) {
 		{name: "unknown listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: "not-a-real-token-1234"}, wantErr: "internal_error: " + scrobble.ErrInvalidToken.Error()},
 		{name: "listenbrainz off", request: ipc.Request{Name: "listenbrainz_token"}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "" }, saved: map[string]string{"scrobble.listenbrainz_token": `""`}},
 		{name: "token with a line break", request: ipc.Request{Name: "lastfm_api_key", Text: "a\nb"}, wantErr: ipc.V2ErrorCodeInvalidParams},
-		{name: "music folder", request: ipc.Request{Name: "music_dir", Text: " " + musicDir + "/ "}, check: func(*Model, *normalizingEngine) bool { return picked == musicDir }, saved: map[string]string{"music_dir": config.QuoteString(musicDir)}},
-		{name: "relative music folder", request: ipc.Request{Name: "music_dir", Text: "Music"}, wantErr: ipc.V2ErrorCodeInvalidParams},
-		{name: "missing music folder", request: ipc.Request{Name: "music_dir", Text: filepath.Join(musicDir, "gone")}, wantErr: ipc.V2ErrorCodeInvalidParams},
-		{name: "music file", request: ipc.Request{Name: "music_dir", Text: musicFile}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "premium as a number", request: ipc.Request{Name: "premium_quality", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
@@ -1157,11 +1148,9 @@ func TestNativeSettingsSet(t *testing.T) {
 			saver := &recordingSaver{}
 			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver, scrobbler: scrobble.New(scrobble.Config{}, filepath.Join(t.TempDir(), "queue.json"))}
 			m.scrobbler.SetListenBrainzURL(listenBrainz.URL)
-			picked = ""
-			m.SetMusicDirFunc(func(dir string) { picked = dir })
 			response := runV2(t, m, "settings.set", tc.request)
 			if tc.wantErr != "" {
-				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack || picked != "" {
+				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {
 					t.Fatalf("response = %+v, saved %v; want %s and no change", response, saver.saved, tc.wantErr)
 				}
 				return
@@ -1175,6 +1164,75 @@ func TestNativeSettingsSet(t *testing.T) {
 	m := &Model{player: &playbackFakeEngine{}, playlist: playlist.New(), configSaver: &recordingSaver{err: errors.New("disk full")}}
 	if response := runV2(t, m, "settings.set", ipc.Request{Name: "mono", Value: 1}); response.Error != "internal_error: disk full" {
 		t.Fatalf("settings.set with a failing save = %+v, want internal_error", response)
+	}
+}
+
+// fakeMusicLibrary records the folders the music_dir settings give it.
+type fakeMusicLibrary struct{ dirs []string }
+
+func (f *fakeMusicLibrary) Dirs() []string        { return slices.Clone(f.dirs) }
+func (f *fakeMusicLibrary) SetDirs(dirs []string) { f.dirs = dirs }
+
+// The music_dir settings replace, add and remove the local music folders,
+// save them as music_dirs and list them; settings.get lists them too.
+func TestNativeMusicDirs(t *testing.T) {
+	a, b := t.TempDir(), t.TempDir()
+	file := filepath.Join(a, "song.mp3")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	quoted := func(dirs ...string) map[string]string {
+		parts := make([]string, len(dirs))
+		for i, d := range dirs {
+			parts[i] = config.QuoteString(d)
+		}
+		return map[string]string{"music_dirs": "[" + strings.Join(parts, ", ") + "]"}
+	}
+	for _, tc := range []struct {
+		name    string
+		start   []string
+		op      string
+		request ipc.Request
+		want    []string
+		wantErr string
+	}{
+		{name: "one folder replaces the list", start: []string{a, b}, op: "settings.set", request: ipc.Request{Name: "music_dir", Text: " " + b + "/ "}, want: []string{b}},
+		{name: "add a folder", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_add", Text: b}, want: []string{a, b}},
+		{name: "add a folder twice", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_add", Text: a + "/"}, want: []string{a}},
+		{name: "remove a folder", start: []string{a, b}, op: "settings.set", request: ipc.Request{Name: "music_dir_remove", Text: a}, want: []string{b}},
+		{name: "remove the last folder", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_remove", Text: a}, want: []string{}},
+		{name: "remove a gone folder", start: []string{a, "/gone"}, op: "settings.set", request: ipc.Request{Name: "music_dir_remove", Text: "/gone"}, want: []string{a}},
+		{name: "set the whole list", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dirs", Args: []string{b, a, b}}, want: []string{b, a}},
+		{name: "set no folders", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dirs"}, want: []string{}},
+		{name: "relative folder", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_add", Text: "Music"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "missing folder", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir", Text: filepath.Join(a, "gone")}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "a file", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_add", Text: file}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "a bad folder in the list", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dirs", Args: []string{b, "rel"}}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "remove a relative folder", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dir_remove", Text: "rel"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "unknown music name", start: []string{a}, op: "settings.set", request: ipc.Request{Name: "music_dirz", Text: b}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "list the folders", start: []string{a, b}, op: "settings.get", request: ipc.Request{Name: "music_dirs"}, want: []string{a, b}},
+		{name: "get another name", start: []string{a}, op: "settings.get", request: ipc.Request{Name: "mono"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lib := &fakeMusicLibrary{dirs: tc.start}
+			saver := &recordingSaver{}
+			m := &Model{player: &playbackFakeEngine{}, playlist: playlist.New(), configSaver: saver}
+			m.SetMusicLibrary(lib)
+			response := runV2(t, m, tc.op, tc.request)
+			if tc.wantErr != "" {
+				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || !slices.Equal(lib.dirs, tc.start) {
+					t.Fatalf("response = %+v, saved %v, dirs %q; want %s and no change", response, saver.saved, lib.dirs, tc.wantErr)
+				}
+				return
+			}
+			var saved map[string]string
+			if tc.op == "settings.set" {
+				saved = quoted(tc.want...)
+			}
+			if !response.OK || !slices.Equal(response.Items, tc.want) || !slices.Equal(lib.dirs, tc.want) || !reflect.DeepEqual(saver.saved, saved) {
+				t.Fatalf("response = %+v, dirs %q, saved %v; want %q", response, lib.dirs, saver.saved, tc.want)
+			}
+		})
 	}
 }
 

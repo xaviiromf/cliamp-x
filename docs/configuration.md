@@ -52,6 +52,11 @@ initial_directory = "~/Music"
 # local files out of those menus.
 music_dir = ""
 
+# Several local music folders. When set, even to [], this list replaces
+# music_dir. A song under two of them (nested folders) appears once.
+# The music_dir_add and music_dir_remove remote settings edit it.
+# music_dirs = ["~/Music", "~/Downloads/Music"]
+
 # Shift+Left/Right seek jump in seconds
 seek_large_step_sec = 30
 
