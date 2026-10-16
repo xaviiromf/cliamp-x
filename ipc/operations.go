@@ -142,6 +142,7 @@ func DefaultOperationRegistry() *OperationRegistry {
 		{Name: "ui.render", Description: "stop (off) or resume (on) drawing the screen", Parameters: []string{"name"}},
 		{Name: "load", Description: "load a local playlist", Async: true, Parameters: []string{"playlist"}},
 		{Name: "queue", Description: "append one path to the live playlist", Parameters: []string{"path", "if_revision"}},
+		{Name: "url.list", Description: "resolve a URL and return its tracks without queueing them", Async: true, Parameters: []string{"path"}},
 		{Name: "url.load", Description: "resolve and append a URL, optionally playing it", Async: true, Parameters: []string{"path", "play"}},
 		{Name: "save", Description: "download the current track", Async: true},
 		{Name: "queue.list", Description: "list the live playlist, or with the sort upnext the tracks after the playing one in play order", Parameters: []string{"sort", "offset", "limit"}},

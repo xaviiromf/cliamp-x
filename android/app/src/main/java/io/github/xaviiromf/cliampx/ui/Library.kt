@@ -117,6 +117,7 @@ fun LibraryScreen() {
                             Nav.open(Screen.Playlist("ytmusic", "local:all", it))
                         }
                         if ("taste.list" in ops) Pinned(R.drawable.ic_check, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
+                        if ("url.list" in ops) Pinned(R.drawable.ic_play, stringResource(R.string.lib_radio), 0, "lib_radio") { Nav.open(Screen.Radio) }
                         if ("stats" in ops) Pinned(R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
                     }
                 }

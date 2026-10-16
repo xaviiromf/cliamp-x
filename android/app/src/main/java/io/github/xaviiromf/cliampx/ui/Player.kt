@@ -569,6 +569,10 @@ private fun TitleBlock(s: Snapshot) {
             )
         }
     }
+    // A radio's name, while its stream sends the song (ICY).
+    if (track.station.isNotEmpty()) {
+        Text(stringResource(R.string.radio_station, track.station), Modifier.testTag("player_station"), color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 
 /** ♥ in red when the song is a favorite, an outline in dim when not. */

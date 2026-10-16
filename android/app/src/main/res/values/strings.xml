@@ -183,6 +183,14 @@
     <string name="lib_local">Local music</string>
     <string name="ratings">Your ratings</string>
     <string name="stats">Statistics</string>
+    <string name="lib_radio">Radio and podcasts</string>
+    <string name="radio_hint">Stream, .m3u/.pls or podcast feed URL</string>
+    <string name="radio_invalid">The address must start with http:// or https://.</string>
+    <string name="radio_saved">Saved</string>
+    <string name="radio_none">No saved stations or podcasts. Paste an address and tap Save.</string>
+    <string name="radio_episodes">%1$d episodes, newest first</string>
+    <string name="radio_delete_confirm">Remove %1$s from the saved list?</string>
+    <string name="radio_station">Station: %1$s</string>
     <string name="no_lists">You have no local playlists.</string>
     <string name="no_yt_lists">You have no playlists on YouTube Music.</string>
     <string name="downloads_off">Downloads are not available.</string>

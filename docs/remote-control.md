@@ -152,7 +152,7 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Appearance | `theme`, `vis`, `ui.render` |
 | Live playlist | `queue`, `queue.list`, `queue.replace`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
-| Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
+| Sources | `load`, `url.list`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
@@ -181,6 +181,13 @@ tracks as other operations return them, and plays the one at `index`. An
 index out of range plays the nearest track. The result is the first page of
 the new live playlist. The live playlist then mirrors no saved playlist.
 Empty or too many `tracks` fail with `invalid_params`.
+
+`url.list` resolves the `path` URL as `url.load` does (a stream, an M3U or
+PLS playlist, an RSS feed, a video page) and returns its `tracks` in source
+order, a feed's episodes as the feed lists them (newest first for most
+podcasts, at most 300), with the `podcast.published` date and the duration in
+`provider_meta` and `duration_secs` when the feed has them. It does not touch
+the live playlist or the player. Play one of the tracks with `queue.replace`.
 
 ```sh
 cliamp-x remote call queue.replace --params '{"tracks":[{"path":"/music/a.flac"},{"path":"/music/b.flac"}],"index":1}' --wait

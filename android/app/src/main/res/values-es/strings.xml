@@ -178,6 +178,14 @@
     <string name="lib_local">Música local</string>
     <string name="ratings">Tus valoraciones</string>
     <string name="stats">Estadísticas</string>
+    <string name="lib_radio">Radio y podcasts</string>
+    <string name="radio_hint">URL de radio, .m3u/.pls o feed de podcast</string>
+    <string name="radio_invalid">La dirección debe empezar con http:// o https://.</string>
+    <string name="radio_saved">Guardadas</string>
+    <string name="radio_none">No hay radios ni podcasts guardados. Pega una dirección y toca Guardar.</string>
+    <string name="radio_episodes">%1$d episodios, del más reciente al más antiguo</string>
+    <string name="radio_delete_confirm">¿Quitar %1$s de la lista guardada?</string>
+    <string name="radio_station">Emisora: %1$s</string>
     <string name="no_lists">No tienes listas locales.</string>
     <string name="no_yt_lists">No tienes listas en YouTube Music.</string>
     <string name="downloads_off">Las descargas no están disponibles.</string>

@@ -24,6 +24,8 @@ data class Track(
     val favorite: Boolean = false,
     /** The row's index in the live playlist, in queue.list and playnext.list rows. */
     val index: Int = 0,
+    /** The radio station's name, when the title is the song its stream sends (ICY). */
+    val station: String = "",
 ) {
     /** The title, or the file name of a track that has none. */
     val name get() = title.ifEmpty { path.substringAfterLast('/') }
@@ -47,6 +49,7 @@ data class Track(
                 meta = meta?.keys()?.asSequence()?.associateWith { meta.optString(it) }.orEmpty(),
                 favorite = o.optBoolean("bookmark"),
                 index = o.optInt("index"),
+                station = o.optString("station"),
             )
         }
 

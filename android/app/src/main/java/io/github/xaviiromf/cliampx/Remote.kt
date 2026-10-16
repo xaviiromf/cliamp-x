@@ -635,6 +635,9 @@ object Remote {
     /** The calendar year's story (T8), or the current year's with 0. */
     suspend fun wrapped(year: Int): Wrap = io { Wrap.parse(call("stats", JSONObject().put("name", "wrapped").put("value", year))) }
 
+    /** The tracks of a stream, playlist or podcast feed URL, without queueing them (url.list). */
+    suspend fun urlTracks(url: String): List<Track> = cached("url:$url", 300_000) { io { Track.list(call("url.list", JSONObject().put("path", url))) } }
+
     suspend fun downloads(): Downloads = io { Downloads.parse(call("download.status")) }
 
     /** The themes with their colors (G17); a theme file added later shows after a reconnect. */

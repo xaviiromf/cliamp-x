@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         val firstRun = !File(noBackupFilesDir, "${YoutubeDL.baseName}/packages/python").exists()
         Looks.load(this)
         Skins.load(this)
+        Stations.load(this)
         // A fresh install (no Python yet) shows the onboarding until it ends, also after a restart; an update never does.
         if (firstRun && !prefs.contains(ONBOARDING)) prefs.edit { putBoolean(ONBOARDING, true) }
         onboarding = prefs.getBoolean(ONBOARDING, false)

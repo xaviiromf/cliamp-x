@@ -272,7 +272,7 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		return m.handleV2LastfmAuth(ctx, msg.Jobs, msg.JobID, request)
 	case "download", "download.status", "download.cancel", "download.retry", "download.auto":
 		return m.handleV2Download(msg.Jobs, msg.JobID, request)
-	case "url.load", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
+	case "url.load", "url.list", "save", "lyrics", "history", "history.clear", "radio.start", "discover.remixes", "stats":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
 	}
 	if isV2LibraryOperation(request.Cmd) {
@@ -918,8 +918,8 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 	reply := make(chan ipc.Response, 1)
 	var cmd tea.Cmd
 	switch request.Cmd {
-	case "url.load":
-		cmd = m.handleIPCURL(ipcURLRequest{URL: request.Path, Play: request.Play, Context: ctx, Reply: reply})
+	case "url.load", "url.list":
+		cmd = m.handleIPCURL(ipcURLRequest{URL: request.Path, Play: request.Play, ListOnly: request.Cmd == "url.list", Context: ctx, Reply: reply})
 	case "save":
 		cmd = m.handleIPCSave(ipcSaveRequest{Context: ctx, Reply: reply})
 	case "lyrics":
