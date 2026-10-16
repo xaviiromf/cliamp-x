@@ -135,6 +135,8 @@ fun App(firstRun: Boolean) {
                             Screen.Stats -> StatsScreen()
                             Screen.Wrapped -> WrappedScreen()
                             Screen.Ratings -> RatingsScreen()
+                            Screen.Radio -> RadioScreen()
+                            is Screen.Feed -> FeedScreen(screen)
                             Screen.About -> AboutScreen()
                             is Screen.License -> LicenseScreen(screen)
                         }

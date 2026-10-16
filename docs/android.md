@@ -47,12 +47,23 @@ a confirmation. It cannot be undone; the app opens as a fresh install.
 |-------|------|
 | Inicio | Recently played, your home shelves, Para ti albums and artists, new releases, genres |
 | Buscar | Search (the only place the keyboard opens), recent searches, genre grids |
-| Biblioteca | Liked songs, history, local music, your playlists, downloads, ratings, statistics |
+| Biblioteca | Liked songs, history, local music, Radio y podcasts, your playlists, downloads, ratings, statistics |
 | Mini-player | Tap or swipe up to open the player; swipe sideways to skip |
 | Player | Swipe the artwork to skip, tap it to switch artwork and visualizer, tap the visualizer to change mode, swipe down to close. `⋮` holds the full-screen lyrics, the background visualizer and Modo estéreo |
 | Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it. `−0.5 s` and `+0.5 s` (in the player view and on the full-screen one) move the lyrics earlier or later, for songs whose timestamps are off; the offset is saved in the core, as on the desktop |
 | Rows | Tap to play from there; long-press or `⋮` for actions (play next, queue, like, more like this, go to album or artist, download) |
 | Queue | Swipe a row to remove it, drag `≡` to reorder |
+
+**Biblioteca → Radio y podcasts** plays an address you paste: an internet
+radio stream, an `.m3u` or `.pls` playlist, or a podcast RSS feed (it must
+start with `http://` or `https://`). **[ Reproducir ]** plays a stream or
+playlist at once, and the player shows the song the station sends (ICY) with
+the station's name under it. For a podcast feed it opens the episodes,
+newest first with date and length, and a tap plays from that episode on.
+**[ Guardar ]** keeps the address in a list on the phone, named after the
+station or the podcast; `⋮` on a saved row renames or removes it, and a tap
+plays it or opens its episodes. The list needs a core with `url.list`
+(see `docs/remote-control.md`).
 
 **Biblioteca → Estadísticas → Tu año en cliamp-x** tells this year (or the
 last one) as swipeable cards in the current theme and font: minutes and days

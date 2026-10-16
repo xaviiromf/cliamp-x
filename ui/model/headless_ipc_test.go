@@ -407,6 +407,39 @@ func TestIPCURLUsesRequestContext(t *testing.T) {
 	}
 }
 
+// url.list answers with the resolved tracks and leaves the queue and the
+// player alone (a zero Model has neither, so any touch would panic).
+func TestIPCURLListOnly(t *testing.T) {
+	tests := []struct {
+		name      string
+		result    ipcURLLoadResult
+		wantOK    bool
+		wantTotal int
+		wantError string
+	}{
+		{name: "two episodes", result: ipcURLLoadResult{tracks: []playlist.Track{{Title: "B", Path: "http://x/b.mp3"}, {Title: "A", Path: "http://x/a.mp3"}}}, wantOK: true, wantTotal: 2},
+		{name: "no tracks", result: ipcURLLoadResult{}, wantError: "no tracks found at URL"},
+		{name: "resolve error", result: ipcURLLoadResult{err: errors.New("fetching feed: boom")}, wantError: "fetching feed: boom"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var m Model
+			reply := make(chan ipc.Response, 1)
+			tt.result.request = ipcURLRequest{ListOnly: true, Reply: reply}
+			if cmd := m.handleIPCURLResult(tt.result); cmd != nil {
+				t.Fatalf("cmd = %v, want nil", cmd)
+			}
+			got := <-reply
+			if got.OK != tt.wantOK || got.Total != tt.wantTotal || got.Error != tt.wantError || len(got.Tracks) != tt.wantTotal {
+				t.Fatalf("response = %+v, want ok %v total %d error %q", got, tt.wantOK, tt.wantTotal, tt.wantError)
+			}
+			if tt.wantOK && got.Tracks[0].Title != "B" {
+				t.Fatalf("first track = %q, want feed order (B first)", got.Tracks[0].Title)
+			}
+		})
+	}
+}
+
 // A job.cancel request or an IPC server shutdown cancels the request context,
 // which stops the yt-dlp download of a save. A live request saves the track.
 func TestIPCSaveUsesRequestContext(t *testing.T) {

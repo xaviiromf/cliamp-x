@@ -56,6 +56,10 @@ sealed interface Screen {
     data object Wrapped : Screen
     data object Ratings : Screen
 
+    /** Radio y podcasts, and the episodes of the podcast feed url. */
+    data object Radio : Screen
+    data class Feed(val url: String, val name: String) : Screen
+
     /** Acerca de, pushed from Ajustes, and a license text it opens (file in assets/licenses). */
     data object About : Screen
     data class License(val title: String, val file: String) : Screen
@@ -118,6 +122,10 @@ sealed interface Sheet {
     /** Guardar el actual como skin… (old null), or Renombrar… the user skin old. */
     data class SkinName(val old: String?) : Sheet
     data class SkinActions(val name: String) : Sheet
+
+    /** A saved station's ⋮ (Renombrar…, Eliminar), and its name field. */
+    data class StationActions(val url: String) : Sheet
+    data class StationName(val url: String) : Sheet
 
     /** The theme editor's Guardar como…: its seven colors, and the name it offers. */
     data class ThemeName(val colors: List<String>, val initial: String) : Sheet

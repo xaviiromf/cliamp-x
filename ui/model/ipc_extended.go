@@ -42,12 +42,14 @@ type ipcLibraryRequest struct {
 
 // ipcURLRequest carries url.load to handleIPCURL. Play starts the first
 // added track even when something already plays. Without it the URL is
-// appended and plays only when the player was idle.
+// appended and plays only when the player was idle. ListOnly (url.list) only
+// returns the tracks and leaves the queue and the player alone.
 type ipcURLRequest struct {
-	URL     string
-	Play    bool
-	Context context.Context
-	Reply   chan ipc.Response
+	URL      string
+	Play     bool
+	ListOnly bool
+	Context  context.Context
+	Reply    chan ipc.Response
 }
 
 // ipcSaveRequest, ipcLyricsRequest and ipcHistoryRequest carry the save,
@@ -127,6 +129,10 @@ func (m *Model) handleIPCURLResult(result ipcURLLoadResult) tea.Cmd {
 	}
 	if len(result.tracks) == 0 {
 		result.request.Reply <- ipc.Response{OK: false, Error: "no tracks found at URL"}
+		return nil
+	}
+	if result.request.ListOnly {
+		result.request.Reply <- ipc.Response{OK: true, Tracks: ipcTrackInfos(result.tracks, func(playlist.Track) bool { return false }), Total: len(result.tracks)}
 		return nil
 	}
 	// A Play request jumps to the first newly added track, so a caller that

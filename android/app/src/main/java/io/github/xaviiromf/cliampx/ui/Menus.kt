@@ -137,6 +137,8 @@ fun SheetHost(s: Snapshot?) {
                     Sheet.Crossfade -> CrossfadeSheet(s, close)
                     is Sheet.SkinName -> SkinNameSheet(sheet, close)
                     is Sheet.SkinActions -> SkinActionsSheet(sheet, close)
+                    is Sheet.StationActions -> StationActionsSheet(sheet, close)
+                    is Sheet.StationName -> StationNameSheet(sheet, close)
                     is Sheet.ThemeName -> ThemeNameSheet(sheet, close)
                     Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
                     Sheet.EraseData -> Confirm(stringResource(R.string.erase_all_confirm), stringResource(R.string.erase_all_action), close) { CliampService.send(context, CliampService.ACTION_ERASE) }
