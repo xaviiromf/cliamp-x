@@ -125,7 +125,9 @@ jobs:
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
           # Any key passes verify, so pin the certificate of the release key:
           # an APK signed with another key could never update installed apps.
-          cert=$("$apksigner" verify --print-certs "$signed" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          certs=$("$apksigner" verify --print-certs "$signed")
+          echo "$certs"
+          cert=$(grep -m1 'certificate SHA-256 digest:' <<<"$certs" | awk '{print $NF}')
           if [ "$cert" != "$ANDROID_CERT_SHA256" ]; then
             echo "::error::The APK is signed with $cert, not the release certificate $ANDROID_CERT_SHA256 (repository variable ANDROID_CERT_SHA256)."
             exit 1
