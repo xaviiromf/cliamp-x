@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -90,36 +91,76 @@ func (m *Model) coverCmds() tea.Cmd {
 	return nil
 }
 
-// coverTheme builds a theme from the cover's colors: the most vivid one is
-// the accent, the next ones color the spectrum. Lightness is pinned so text
-// stays readable on the dark background, a shade of the accent's hue.
-// fallback gives the colors of a
+// coverTheme builds a theme from the cover's colors. The background is the
+// color that covers the most area, so a white cover gives a light theme and a
+// black one a dark theme (mid tones go to the nearest dark or light shade of
+// the same hue). The accent is the most prominent color that stands out from
+// it, the next ones color the spectrum, and every text color is moved along
+// lightness until it reads on the background. fallback gives the colors of a
 // cover that has none to offer.
 func coverTheme(img image.Image, fallback theme.Theme) theme.Theme {
-	cols := artwork.Palette(img, 4)
-	if len(cols) == 0 {
+	sw := artwork.Swatches(img)
+	if len(sw) == 0 {
 		return fallback
 	}
-	h0, s0, _ := artwork.HSL(cols[0])
+	dom := sw[0].Color
+	bh, bs, bl := artwork.HSL(dom)
+	lightBG := bl >= 0.55
+	bgL, tint := clamp(bl, 0.04, 0.2), math.Min(bs, 0.5)
+	if lightBG {
+		bgL, tint = clamp(bl, 0.88, 0.97), math.Min(bs, 0.4)
+	}
+	bg := artwork.FromHSL(bh, tint, bgL)
+	// Shades are given for a dark background and mirrored on a light one.
+	shade := func(l float64) float64 {
+		if lightBG {
+			return 1 - l
+		}
+		return l
+	}
+	// Colors that stand out from the main one, most prominent first: area
+	// weighted by saturation, so a small red logo beats a larger grey.
+	score := func(s artwork.Swatch) float64 {
+		_, sat, _ := artwork.HSL(s.Color)
+		return s.Share * (0.1 + sat*sat)
+	}
+	rest := sw[1:]
+	sort.SliceStable(rest, func(i, j int) bool { return score(rest[i]) > score(rest[j]) })
+	var cols []color.RGBA
+	for _, s := range rest {
+		if s.Share >= 0.02 && artwork.Dist(s.Color, dom) > 60 {
+			cols = append(cols, s.Color)
+		}
+	}
+	h0, s0 := bh, bs
+	if len(cols) > 0 {
+		h0, s0, _ = artwork.HSL(cols[0])
+	}
+	// A grey cover keeps grey colors: its hue is meaningless.
+	sat := func(s float64) float64 {
+		if s <= 0.12 {
+			return s
+		}
+		return clamp(s, 0.45, 0.9)
+	}
 	pick := func(i int, light float64) color.RGBA {
 		if i < len(cols) {
-			h, s, _ := artwork.HSL(cols[i])
-			if s > 0.12 {
-				return artwork.FromHSL(h, clamp(s, 0.45, 0.9), light)
+			if h, s, _ := artwork.HSL(cols[i]); s > 0.12 {
+				return artwork.FromHSL(h, sat(s), shade(light))
 			}
 		}
 		// Too few vivid colors: turn the accent's hue.
-		return artwork.FromHSL(math.Mod(h0+float64(i)*40, 360), clamp(s0, 0.45, 0.85), light)
+		return artwork.FromHSL(math.Mod(h0+float64(i)*40, 360), sat(s0), shade(light))
 	}
 	hex := func(c color.RGBA) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
-	bg := artwork.FromHSL(h0, 0.25, 0.08)
 	readable := func(c color.RGBA) string { return hex(readableOn(c, bg)) }
+	text := math.Min(bs, 0.12)
 	return theme.Theme{
 		Name:     fallback.Name,
 		BG:       hex(bg),
 		Accent:   readable(pick(0, 0.64)),
-		BrightFG: readable(artwork.FromHSL(h0, 0.12, 0.92)),
-		FG:       readable(artwork.FromHSL(h0, 0.1, 0.68)),
+		BrightFG: readable(artwork.FromHSL(bh, text, shade(0.92))),
+		FG:       readable(artwork.FromHSL(bh, text, shade(0.68))),
 		Green:    readable(pick(1, 0.6)),
 		Yellow:   readable(pick(2, 0.62)),
 		Red:      readable(pick(3, 0.6)),
@@ -176,12 +217,16 @@ func (m Model) renderFullVisCover(spectrum string) string {
 	return strings.Join(lines, "\n")
 }
 
-// readableOn lightens c until it has a 4.5:1 contrast on bg, the WCAG level
-// for text. Dark blues need the most.
+// readableOn moves c along lightness, away from bg, until it has a 4.5:1
+// contrast on bg, the WCAG level for text. Dark blues on dark need the most.
 func readableOn(c, bg color.RGBA) color.RGBA {
 	h, sat, l := artwork.HSL(c)
-	for contrast(c, bg) < 4.5 && l < 0.95 {
-		l += 0.03
+	step := 0.03
+	if contrast(color.RGBA{255, 255, 255, 255}, bg) < contrast(color.RGBA{A: 255}, bg) {
+		step = -step
+	}
+	for contrast(c, bg) < 4.5 && l+step >= 0 && l+step <= 1 {
+		l += step
 		c = artwork.FromHSL(h, sat, l)
 	}
 	return c

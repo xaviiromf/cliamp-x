@@ -7,12 +7,18 @@ import (
 	"sort"
 )
 
-// Palette returns up to n colors that stand out in img, the most vivid first:
-// k-means over a sample of its pixels, then the clusters ranked by how
-// saturated and bright they are and how much of the image they cover. Very
-// dark, very pale and grey clusters rank last.
-func Palette(img image.Image, n int) []color.RGBA {
-	if img == nil || n <= 0 {
+// Swatch is a color of an image and the share (0-1) of the image it covers.
+type Swatch struct {
+	Color color.RGBA
+	Share float64
+}
+
+// Swatches returns the main colors of img, the one that covers the most area
+// first: k-means over a 48x48 sample, seeded with the farthest pixels so a
+// small logo keeps its own cluster. White, grey and black count like any
+// other color. Clusters closer than 30 in RGB merge into the larger one.
+func Swatches(img image.Image) []Swatch {
+	if img == nil {
 		return nil
 	}
 	px := resample(img, 48, 48)
@@ -20,20 +26,38 @@ func Palette(img image.Image, n int) []color.RGBA {
 	for i := 0; i+3 < len(px.Pix); i += 4 {
 		pts = append(pts, [3]float64{float64(px.Pix[i]), float64(px.Pix[i+1]), float64(px.Pix[i+2])})
 	}
-	k := 8
-	centers := make([][3]float64, k)
-	for i := range centers {
-		centers[i] = pts[i*len(pts)/k]
+	if len(pts) == 0 {
+		return nil
 	}
-	counts := make([]int, k)
+	const k = 8
+	centers := [][3]float64{pts[0]}
+	near := make([]float64, len(pts))
+	for i, p := range pts {
+		near[i] = dist2(p, pts[0])
+	}
+	for len(centers) < k {
+		far := 0
+		for i := range pts {
+			if near[i] > near[far] {
+				far = i
+			}
+		}
+		if near[far] == 0 {
+			break
+		}
+		centers = append(centers, pts[far])
+		for i, p := range pts {
+			near[i] = math.Min(near[i], dist2(p, pts[far]))
+		}
+	}
+	counts := make([]int, len(centers))
 	for range 12 {
-		sums := make([][3]float64, k)
+		sums := make([][3]float64, len(centers))
 		clear(counts)
 		for _, p := range pts {
 			best, bestD := 0, math.MaxFloat64
 			for c, ctr := range centers {
-				d := sq(p[0]-ctr[0]) + sq(p[1]-ctr[1]) + sq(p[2]-ctr[2])
-				if d < bestD {
+				if d := dist2(p, ctr); d < bestD {
 					best, bestD = c, d
 				}
 			}
@@ -50,41 +74,36 @@ func Palette(img image.Image, n int) []color.RGBA {
 			}
 		}
 	}
-	type scored struct {
-		c     color.RGBA
-		score float64
-	}
-	var out []scored
+	var all []Swatch
 	for c, ctr := range centers {
-		if counts[c] == 0 {
-			continue
+		if counts[c] > 0 {
+			all = append(all, Swatch{color.RGBA{uint8(ctr[0]), uint8(ctr[1]), uint8(ctr[2]), 255}, float64(counts[c]) / float64(len(pts))})
 		}
-		col := color.RGBA{uint8(ctr[0]), uint8(ctr[1]), uint8(ctr[2]), 255}
-		_, s, l := HSL(col)
-		vivid := s * (1 - math.Abs(l-0.55)*1.6)
-		share := float64(counts[c]) / float64(len(pts))
-		out = append(out, scored{col, vivid*2 + math.Sqrt(share)})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].score > out[j].score })
-	var result []color.RGBA
-	for _, o := range out {
-		// Skip colors too close to one already picked.
-		dup := false
-		for _, r := range result {
-			if sq(float64(r.R)-float64(o.c.R))+sq(float64(r.G)-float64(o.c.G))+sq(float64(r.B)-float64(o.c.B)) < 900 {
-				dup = true
+	sort.Slice(all, func(i, j int) bool { return all[i].Share > all[j].Share })
+	var out []Swatch
+	for _, s := range all {
+		merged := false
+		for i := range out {
+			if Dist(out[i].Color, s.Color) < 30 {
+				out[i].Share += s.Share
+				merged = true
 				break
 			}
 		}
-		if !dup {
-			result = append(result, o.c)
-		}
-		if len(result) == n {
-			break
+		if !merged {
+			out = append(out, s)
 		}
 	}
-	return result
+	return out
 }
+
+// Dist is the RGB distance of two colors, 0-441.
+func Dist(a, b color.RGBA) float64 {
+	return math.Sqrt(dist2([3]float64{float64(a.R), float64(a.G), float64(a.B)}, [3]float64{float64(b.R), float64(b.G), float64(b.B)}))
+}
+
+func dist2(a, b [3]float64) float64 { return sq(a[0]-b[0]) + sq(a[1]-b[1]) + sq(a[2]-b[2]) }
 
 func sq(x float64) float64 { return x * x }
 
