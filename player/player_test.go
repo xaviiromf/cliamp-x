@@ -303,6 +303,83 @@ func TestClearPreloadDoesNotWaitForClose(t *testing.T) {
 	}
 }
 
+// Hush runs on the UI goroutine when a skip starts loading a new track. It
+// silences the old track and its preload at once, keeps the playing state
+// for the start that follows, and does not wait while they close.
+func TestHushSilencesWithoutWaiting(t *testing.T) {
+	tests := []struct {
+		name    string
+		current bool
+		preload bool
+	}{
+		{name: "nothing plays"},
+		{name: "a track plays", current: true},
+		{name: "a track plays with a preload", current: true, preload: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPlayer()
+			p.gapless = &gaplessStreamer{}
+			p.playing.Store(true)
+			var decoders []*blockingCloseDecoder
+			pipeline := func() *trackPipeline {
+				d := &blockingCloseDecoder{playbackTestDecoder: newPlaybackTestDecoder(), release: make(chan struct{})}
+				decoders = append(decoders, d)
+				return &trackPipeline{decoder: d, stream: d}
+			}
+			if tt.current {
+				p.current = pipeline()
+				p.gapless.Replace(p.current.stream)
+			}
+			if tt.preload {
+				if err := p.preloadPipelineForGeneration(pipeline(), 0); err != nil {
+					t.Fatalf("preloadPipelineForGeneration: %v", err)
+				}
+			}
+			generation := p.preloadGen.Load()
+
+			done := make(chan struct{})
+			go func() {
+				p.Hush()
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				for _, d := range decoders {
+					close(d.release)
+				}
+				<-done
+				t.Fatal("Hush waited for the old pipelines to close")
+			}
+
+			if !p.IsPlaying() {
+				t.Fatal("Hush left the playing state")
+			}
+			if tt.current && p.preloadGen.Load() == generation {
+				t.Fatal("Hush did not reject a preload in flight")
+			}
+			p.mu.Lock()
+			cur, next := p.current, p.nextPipeline
+			p.mu.Unlock()
+			p.gapless.mu.Lock()
+			gCur, gNext := p.gapless.current, p.gapless.next
+			p.gapless.mu.Unlock()
+			if cur != nil || next != nil || gCur != nil || gNext != nil {
+				t.Fatalf("after Hush: current %v next %v, gapless current %v next %v, want all nil", cur, next, gCur, gNext)
+			}
+			for _, d := range decoders {
+				close(d.release)
+				select {
+				case <-d.closed:
+				case <-time.After(2 * time.Second):
+					t.Fatal("Hush did not close an old pipeline")
+				}
+			}
+		})
+	}
+}
+
 // preparedSeekTestDecoder seeks through the prepared ffmpeg path, as a
 // local ffmpeg decoder does, without a process.
 type preparedSeekTestDecoder struct {

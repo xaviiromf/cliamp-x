@@ -134,6 +134,10 @@ func (m *Model) handleStreamPlayed(msg streamPlayedMsg) tea.Cmd {
 	}
 	var resumeCmd, backfillCmd tea.Cmd
 	m.setPlayError(msg.path, msg.err)
+	if msg.err != nil {
+		// playTrack hushed the old track, so nothing plays now.
+		m.player.Stop()
+	}
 	if errors.Is(msg.err, playlist.ErrNeedsAuth) {
 		// The provider session went stale, for example after Spotify
 		// rejected the stream keys. Ask for sign-in, not a raw error.

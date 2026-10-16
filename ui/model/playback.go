@@ -425,6 +425,10 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	// local file that ffmpeg decodes waits for ffprobe and the first audio.
 	// Start them off the Update goroutine like streams.
 	if track.Stream || playlist.IsYTDL(track.Path) || m.isCustomStreamURI(track.Path) || player.UsesLocalFFmpeg(track.Path) {
+		// The old track goes silent now, not when the new one is ready.
+		if h, ok := m.player.(husher); ok {
+			h.Hush()
+		}
 		m.buffering = true
 		m.bufferingAt = time.Now()
 		m.err = nil
@@ -458,6 +462,12 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 		return tea.Batch(m.preloadNext(), fetchCmd)
 	}
 	return m.preloadNext()
+}
+
+// husher is the part of the real player that silences the playing track
+// while a skip loads the next one; the test engines may lack it.
+type husher interface {
+	Hush()
 }
 
 // isCustomStreamURI reports whether a provider decodes path itself, as the
