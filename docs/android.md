@@ -204,10 +204,14 @@ GitHub (app and yt-dlp updates), the site of each font you download, LRCLIB
 and NetEase (lyrics), SponsorBlock, the streams and links you open, and
 ListenBrainz or Last.fm when you connect an account.
 
-**Ajustes → Sistema → Enviar registro** (Send log) writes the end of
-`cliamp.log`, the app's log and its crash log to one text file and opens the
-share sheet, for a bug report. Nothing is sent by itself; the file lists
-what you played, so read it before you send it.
+**Ajustes → Sistema → Enviar registro** (Send log) writes one text file of
+about 300 KB at most and opens the share sheet, for a bug report: a header
+(app, Android and device, memory, cores, network, battery saver, sample rate
+and the settings that matter for playback), the last 1500 lines of
+`cliamp.log`, the last 1000 lines of the app's log and its crash log. Nothing
+is sent by itself; the file lists what you played, so read it before you send
+it. `cliamp.log` itself stays under about 2 MB: at 1 MB the core moves it to
+`cliamp.log.1`, replacing the older one, and starts a new file.
 
 ## Background playback
 

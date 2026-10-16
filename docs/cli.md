@@ -50,7 +50,7 @@ cliamp-x --visualizer-60fps ~/Music            # smoother visualizer animation (
 cliamp-x --log-level debug                     # raise log verbosity for one session
 ```
 
-cliamp-x writes logs to `~/.config/cliamp-x/cliamp.log`. Use `debug`, `info` (default), `warn`, or `error`.
+cliamp-x writes logs to `~/.config/cliamp-x/cliamp.log`. Use `debug`, `info` (default), `warn`, or `error`. The file does not grow without bound: at 1 MB cliamp-x renames it to `cliamp.log.1`, replacing the previous one, and starts a new `cliamp.log`.
 
 ## Low-power mode
 
