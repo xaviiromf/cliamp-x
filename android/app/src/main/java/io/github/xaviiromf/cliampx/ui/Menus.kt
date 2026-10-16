@@ -490,10 +490,17 @@ internal fun NameSheet(
 @Composable
 private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     val context = LocalContext.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
     s?.track?.let {
         SongHeader(it)
         LikeRow(it, close)
         ShareRow(it, close)
+        if ("download" in ops) {
+            MenuRow("↓", stringResource(R.string.download), "menu_download") {
+                Remote.download(JSONObject().put("track", it.json()))
+                close()
+            }
+        }
     }
     MenuRow("×", stringResource(R.string.speed_more), "menu_speed") { Nav.sheet = Sheet.Speed }
     MenuRow("", stringResource(R.string.sleep_more), "menu_sleep", icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }
