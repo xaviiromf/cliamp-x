@@ -318,7 +318,7 @@ object Remote {
 
     /**
      * Runs an operation as a V2 job and returns its result (§5.1). Play
-     * operations first wait behind the yt-dlp gate. Cancelling the caller
+     * operations and downloads first wait behind the yt-dlp gate. Cancelling the caller
      * cancels the job. Throws IpcError.
      */
     suspend fun call(op: String, params: JSONObject = JSONObject(), timeoutMs: Long = timeout(op)): JSONObject =
@@ -326,7 +326,8 @@ object Remote {
 
     /** Runs an operation like call and returns the whole succeeded job: its result and the snapshot it committed. */
     suspend fun job(op: String, params: JSONObject = JSONObject(), timeoutMs: Long = timeout(op)): JSONObject {
-        if (op in PLAY_OPS || (op == "url.load" && params.optBoolean("play"))) awaitGate()
+        // A download started while yt-dlp is being replaced fails on its half-written file, as a play does.
+        if (op in PLAY_OPS || op == "download" || (op == "url.load" && params.optBoolean("play"))) awaitGate()
         return withContext(Dispatchers.IO) {
             val submitted = checked(op) { ipc.submit(op, params) }.getJSONObject("job")
             val id = submitted.getString("id")
