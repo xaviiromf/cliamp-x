@@ -251,7 +251,9 @@ fun PlaylistScreen(s: Screen.Playlist) {
             }
             item(key = "rule") { SectionRule(stringResource(R.string.songs)) }
             if (first !is Load.Done) item(key = "state") { LoadState(first, retry) }
-            if (page != null && rows.isEmpty()) item(key = "empty") { EmptyState(stringResource(R.string.no_songs)) }
+            if (page != null && rows.isEmpty()) item(key = "empty") {
+                if (s.id == "local:all" && "settings.set" in ops) LocalMusicEmpty() else EmptyState(stringResource(R.string.no_songs))
+            }
             itemsIndexed(rows, key = { i, t -> "${shown[i]}:${t.path}" }) { i, t ->
                 val sheet = { Nav.sheet = if (editable) Sheet.Song(t, list = s.id, row = index(i)) else Sheet.Song(t) }
                 val row = @Composable { m: Modifier ->
@@ -272,6 +274,14 @@ fun PlaylistScreen(s: Screen.Playlist) {
             }
         }
     }
+}
+
+/** Música local with no songs: the folder it reads and `[ Explorar ]` for another. */
+@Composable
+private fun LocalMusicEmpty() {
+    var folder by rememberMusicFolder()
+    val pick = rememberMusicFolderPicker { folder = it }
+    EmptyState(stringResource(R.string.no_local_music, folder), stringResource(R.string.explore), pick)
 }
 
 /**
