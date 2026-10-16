@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestPalettePicksVividColors(t *testing.T) {
-	// Mostly grey with a red and a blue block: the vivid colors come first.
+func TestSwatchesOrderByArea(t *testing.T) {
+	// Mostly grey with a red and a blue block: grey covers the most.
 	img := image.NewRGBA(image.Rect(0, 0, 60, 60))
 	for y := range 60 {
 		for x := range 60 {
@@ -22,14 +22,15 @@ func TestPalettePicksVividColors(t *testing.T) {
 			img.Set(x, y, c)
 		}
 	}
-	p := Palette(img, 3)
-	if len(p) < 2 {
-		t.Fatalf("palette = %v", p)
+	p := Swatches(img)
+	if len(p) != 3 {
+		t.Fatalf("swatches = %v, want grey, red and blue", p)
 	}
-	for _, c := range p[:2] {
-		if _, s, _ := HSL(c); s < 0.5 {
-			t.Fatalf("first colors %v must be the vivid ones", p[:2])
-		}
+	if _, s, _ := HSL(p[0].Color); s > 0.05 || p[0].Share < 0.6 {
+		t.Fatalf("first swatch %v must be the grey that covers 2/3", p[0])
+	}
+	if p[1].Color.R < 200 && p[1].Color.B < 200 {
+		t.Fatalf("red and blue must keep their own swatches, got %v", p)
 	}
 }
 

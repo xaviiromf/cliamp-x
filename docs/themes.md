@@ -10,10 +10,12 @@ cliamp-x saves your selection and restores it at the next start.
 
 alucard, amber, ayu-dark, ayu-light, ayu-mirage-dark, base16-ocean, c64, catppuccin, catppuccin-frappe, catppuccin-latte, catppuccin-macchiato, cga-blue, challenger-deep, cobalt2, cover, cyberpunk-neon, dayfox, dracula, ember, ethereal, everforest, everforest-light, flexoki-light, gameboy, github-dark, github-dark-dimmed, github-light, gruvbox, gruvbox-light, hackerman, high-contrast, high-contrast-light, horizon, iceberg, kanagawa, kanagawa-dragon, kanagawa-lotus, material-ocean, matrix, matte-black, miasma, monokai, monokai-pro, moonfly, neon-blade-runner, nightfox, night-owl, nord, one-dark, one-light, osaka-jade, outrun, oxocarbon, palenight, papercolor-light, poimandres, ristretto, rose-pine, rose-pine-dawn, rose-pine-moon, solarized-dark, solarized-light, sonokai, srcery, sunset, synthwave-84, tokyo-night, tokyo-night-light, tokyo-night-storm, tomorrow-night, vantablack, vaporwave, vesper, winamp, winamp-modern, zenburn, zx-spectrum
 
-`cover` follows the cover of the playing song: its accent and spectrum colors
-come from the cover's most vivid colors, on a dark shade of its main hue, and
-change with each song. Colors are lightened as needed to keep text at a 4.5:1
-contrast. Until a cover loads it uses its own colors. When the song changes,
+`cover` follows the cover of the playing song. Its background is the color
+that covers the most area of the cover (a white cover gives a light theme, a
+black one a dark theme, a mid tone its dark or light shade), its accent is the
+most prominent color that stands out from it, and the next ones color the
+spectrum. A grey cover gets grey colors. Text colors move lighter or darker
+as needed to keep a 4.5:1 contrast. Until a cover loads it uses its own colors. When the song changes,
 the colors blend into the new cover's over about half a second instead of
 jumping.
 
