@@ -61,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Item
 import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.Library
@@ -85,6 +86,7 @@ import kotlin.math.abs
 fun SheetHost(s: Snapshot?) {
     val sheet = Nav.sheet ?: return
     val p = LocalPalette.current
+    val context = LocalContext.current
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     // shortcut: Material 3 1.4 keeps the sheets' own motion internal, so Sin animación only skips the slide out.
@@ -135,6 +137,7 @@ fun SheetHost(s: Snapshot?) {
                     is Sheet.SkinActions -> SkinActionsSheet(sheet, close)
                     is Sheet.ThemeName -> ThemeNameSheet(sheet, close)
                     Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
+                    Sheet.EraseData -> Confirm(stringResource(R.string.erase_all_confirm), stringResource(R.string.erase_all_action), close) { CliampService.send(context, CliampService.ACTION_ERASE) }
                 }
             }
         }

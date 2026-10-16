@@ -245,6 +245,7 @@ fun SettingsScreen(screen: Screen.Settings) {
                             importCookies.launch(arrayOf("text/*", "application/octet-stream"))
                         }
                         BracketButton(stringResource(R.string.sign_out), Modifier.testTag("set_signout")) { LoginActivity.signOut(context) }
+                        BracketButton(stringResource(R.string.erase_all), Modifier.testTag("set_erase"), color = p.error) { Nav.sheet = Sheet.EraseData }
                     }
                 }
             }

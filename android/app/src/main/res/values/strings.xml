@@ -263,6 +263,9 @@
     <string name="signed_in_state">Signed in</string>
     <string name="signed_out_state">Not signed in</string>
     <string name="sign_out">Sign out</string>
+    <string name="erase_all">Sign out and erase all data</string>
+    <string name="erase_all_action">Erase all</string>
+    <string name="erase_all_confirm">Sign out and erase everything? This erases all of cliamp-x\'s data: the YouTube Music sign-in, settings, lists, history and downloads. It cannot be undone.</string>
     <string name="music_folder">Folder  %1$s</string>
     <string name="explore">Browse</string>
     <string name="no_local_music">No music in %1$s. Choose another folder.</string>

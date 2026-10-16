@@ -257,6 +257,9 @@
     <string name="signed_in_state">Sesión iniciada</string>
     <string name="signed_out_state">No has iniciado sesión</string>
     <string name="sign_out">Cerrar sesión</string>
+    <string name="erase_all">Cerrar sesión y borrar datos</string>
+    <string name="erase_all_action">Borrar todo</string>
+    <string name="erase_all_confirm">¿Cerrar sesión y borrar todo? Se borran todos los datos de cliamp-x: el inicio de sesión de YouTube Music, los ajustes, las listas, el historial y las descargas. No se puede deshacer.</string>
     <string name="music_folder">Carpeta  %1$s</string>
     <string name="explore">Explorar</string>
     <string name="no_local_music">No hay música en %1$s. Elige otra carpeta.</string>
