@@ -21,6 +21,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/xaviiromf/cliamp-x/config"
 	"github.com/xaviiromf/cliamp-x/favorites"
 	"github.com/xaviiromf/cliamp-x/history"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
@@ -1112,6 +1113,11 @@ func TestNativeSettingsSet(t *testing.T) {
 		fmt.Fprintf(w, `{"code":200,"valid":%t}`, r.URL.Path == "/1/validate-token" && r.Header.Get("Authorization") == "Token tok")
 	}))
 	defer listenBrainz.Close()
+	musicDir, picked := t.TempDir(), ""
+	musicFile := filepath.Join(musicDir, "song.mp3")
+	if err := os.WriteFile(musicFile, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		name    string
 		request ipc.Request
@@ -1133,6 +1139,10 @@ func TestNativeSettingsSet(t *testing.T) {
 		{name: "unknown listenbrainz token", request: ipc.Request{Name: "listenbrainz_token", Text: "not-a-real-token-1234"}, wantErr: "internal_error: " + scrobble.ErrInvalidToken.Error()},
 		{name: "listenbrainz off", request: ipc.Request{Name: "listenbrainz_token"}, check: func(m *Model, _ *normalizingEngine) bool { return m.scrobbler.Config().ListenBrainzToken == "" }, saved: map[string]string{"scrobble.listenbrainz_token": `""`}},
 		{name: "token with a line break", request: ipc.Request{Name: "lastfm_api_key", Text: "a\nb"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "music folder", request: ipc.Request{Name: "music_dir", Text: " " + musicDir + "/ "}, check: func(*Model, *normalizingEngine) bool { return picked == musicDir }, saved: map[string]string{"music_dir": config.QuoteString(musicDir)}},
+		{name: "relative music folder", request: ipc.Request{Name: "music_dir", Text: "Music"}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "missing music folder", request: ipc.Request{Name: "music_dir", Text: filepath.Join(musicDir, "gone")}, wantErr: ipc.V2ErrorCodeInvalidParams},
+		{name: "music file", request: ipc.Request{Name: "music_dir", Text: musicFile}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown quality", request: ipc.Request{Name: "quality_wifi", Text: "max"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "unknown network", request: ipc.Request{Name: "network", Text: "ethernet"}, wantErr: ipc.V2ErrorCodeInvalidParams},
 		{name: "premium as a number", request: ipc.Request{Name: "premium_quality", Value: 1}, wantErr: ipc.V2ErrorCodeInvalidParams},
@@ -1147,9 +1157,11 @@ func TestNativeSettingsSet(t *testing.T) {
 			saver := &recordingSaver{}
 			m := &Model{player: engine, playlist: playlist.New(), configSaver: saver, scrobbler: scrobble.New(scrobble.Config{}, filepath.Join(t.TempDir(), "queue.json"))}
 			m.scrobbler.SetListenBrainzURL(listenBrainz.URL)
+			picked = ""
+			m.SetMusicDirFunc(func(dir string) { picked = dir })
 			response := runV2(t, m, "settings.set", tc.request)
 			if tc.wantErr != "" {
-				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack {
+				if response.OK || response.Error != tc.wantErr || len(saver.saved) != 0 || engine.mono || engine.mode != player.NormalizeTrack || picked != "" {
 					t.Fatalf("response = %+v, saved %v; want %s and no change", response, saver.saved, tc.wantErr)
 				}
 				return

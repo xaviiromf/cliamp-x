@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -700,6 +702,9 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	if !numeric && !ok {
 		ok, err = m.setScrobbleSetting(request.Name, strings.TrimSpace(request.Text))
 	}
+	if !numeric && !ok {
+		ok, err = m.setMusicDirSetting(request.Name, strings.TrimSpace(request.Text))
+	}
 	if !ok {
 		m.failV2Job(jobs, jobID, v2InvalidParamsError())
 		return nil
@@ -729,6 +734,27 @@ func (m *Model) handleV2Setting(ctx context.Context, jobs *ipc.JobStore, jobID s
 	}
 	m.completeV2Job(jobs, jobID, ipc.Response{OK: true})
 	return nil
+}
+
+// SetMusicDirFunc wires set, which points the local library at a new
+// folder, for settings.set music_dir.
+func (m *Model) SetMusicDirFunc(set func(dir string)) { m.setMusicDir = set }
+
+// setMusicDirSetting points the local library at dir, an existing absolute
+// folder, and saves it as music_dir. ok is false for another name or a bad
+// folder.
+func (m *Model) setMusicDirSetting(name, dir string) (bool, error) {
+	if name != "music_dir" || !filepath.IsAbs(dir) {
+		return false, nil
+	}
+	dir = filepath.Clean(dir)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return false, nil
+	}
+	if m.setMusicDir != nil {
+		m.setMusicDir(dir)
+	}
+	return true, m.saveConfigString("music_dir", dir)
 }
 
 // autoCacheDefaultSongs is the song limit of download.auto without limit,

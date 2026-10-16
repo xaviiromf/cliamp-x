@@ -535,6 +535,9 @@ type Model struct {
 	// taste holds the "interested" and "not interested" ratings, shared
 	// with the providers. Nil turns the rating keys off.
 	taste *taste.Store
+	// setMusicDir points the local library at a new folder. Nil when no
+	// library is wired.
+	setMusicDir func(dir string)
 	// favSync orders the calls that copy favorite changes to providers. It
 	// is created on first use and shared across Model value copies.
 	favSync *favorites.SyncQueue

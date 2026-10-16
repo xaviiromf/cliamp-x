@@ -385,6 +385,7 @@ its key does. The snapshot then reports the new state.
 | `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
 | `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
 | `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails. A ListenBrainz token is saved only after ListenBrainz `validate-token` accepts it; otherwise the job fails with `internal_error` and the detail `listenbrainz: the token is not valid` |
+| `music_dir` | The absolute path of an existing folder. The local library indexes it from the next read, so Local music lists its songs at once. Saved as the top-level `music_dir`. Another path fails with `invalid_params`. With `music_dir = "off"` there is no library, and the folder applies at the next start |
 
 A quality change applies to the songs that start after it.
 
