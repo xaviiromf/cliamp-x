@@ -84,6 +84,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
         run: |
           build=true
           if [ ! -d android ]; then
@@ -110,6 +111,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
         run: |
           # The core and the APK report the same version, so the app's
           # update check compares them correctly.
@@ -121,7 +123,15 @@ jobs:
           rm -f "$ANDROID_KEYSTORE_FILE"
           signed=android/app/build/outputs/apk/release/app-release.apk
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
-          "$apksigner" verify --print-certs "$signed"
+          # Any key passes verify, so pin the certificate of the release key:
+          # an APK signed with another key could never update installed apps.
+          certs=$("$apksigner" verify --print-certs "$signed")
+          echo "$certs"
+          cert=$(grep -m1 'certificate SHA-256 digest:' <<<"$certs" | awk '{print $NF}')
+          if [ "$cert" != "$ANDROID_CERT_SHA256" ]; then
+            echo "::error::The APK is signed with $cert, not the release certificate $ANDROID_CERT_SHA256 (repository variable ANDROID_CERT_SHA256)."
+            exit 1
+          fi
           mkdir dist
           cp "$signed" "dist/cliamp-x-${GITHUB_REF_NAME#v}-arm64-v8a.apk"
       - name: Upload artifact
@@ -132,10 +142,11 @@ jobs:
           path: dist/*
 
   release:
-    # A failed Android build does not hold back the Linux release; its job
-    # shows as failed and the release has no APK.
+    # A failed Android build stops the release, so it never ships without the
+    # APK; an android job skipped for missing secrets or android/ still lets the
+    # Linux release out.
     needs: [build, android]
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.android.result != 'failure' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Download artifacts
@@ -153,5 +164,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" artifacts/* \
+          # A tag with a hyphen (v2.3.0-rc.1) is a prerelease, so the stable
+          # channel of the app never offers it.
+          pre=()
+          case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" artifacts/* "${pre[@]}" \
             --repo "$GITHUB_REPOSITORY" --title "cliamp-x $GITHUB_REF_NAME" --generate-notes

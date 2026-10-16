@@ -12,10 +12,11 @@ on:
 permissions:
   contents: write
 
-# Only the newest push publishes.
+# Runs queue instead of cancelling, so a cancel between deleting and
+# recreating the release never leaves no nightly; the newest run publishes last.
 concurrency:
   group: nightly
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   apk:
@@ -32,6 +33,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
         run: |
           missing=0
           for name in ANDROID_KEYSTORE_B64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
@@ -75,6 +77,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
         run: |
           export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
           printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
@@ -83,7 +86,15 @@ jobs:
           rm -f "$ANDROID_KEYSTORE_FILE"
           signed=android/app/build/outputs/apk/release/app-release.apk
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
-          "$apksigner" verify --print-certs "$signed"
+          # Any key passes verify, so pin the certificate of the release key:
+          # an APK signed with another key could never update installed apps.
+          certs=$("$apksigner" verify --print-certs "$signed")
+          echo "$certs"
+          cert=$(grep -m1 'certificate SHA-256 digest:' <<<"$certs" | awk '{print $NF}')
+          if [ "$cert" != "$ANDROID_CERT_SHA256" ]; then
+            echo "::error::The APK is signed with $cert, not the release certificate $ANDROID_CERT_SHA256 (repository variable ANDROID_CERT_SHA256)."
+            exit 1
+          fi
           mkdir dist
           cp "$signed" "dist/$APK"
           cd dist
