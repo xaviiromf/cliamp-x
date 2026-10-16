@@ -64,7 +64,7 @@ func installCookielessFixtures(t *testing.T, mode string) string {
 echo "$*" >> "$YTDL_CALLS"
 n=0
 for a in "$@"; do
-  if [ "$n" = 2 ]; then echo "opus 129.5 48000" > "$a"; n=0
+  if [ "$n" = 2 ]; then echo "opus 129.5 48000 212" > "$a"; n=0
   elif [ "$n" = 1 ]; then n=2
   elif [ "$a" = "--print-to-file" ]; then n=1
   fi
@@ -78,7 +78,6 @@ case "$*" in
 esac
 case "$*" in
   *" -J "*) echo '{"id":"x"}' ;;
-  *"--print duration"*) echo 212 ;;
   *) head -c 4096 /dev/zero ;;
 esac
 `)
@@ -129,6 +128,10 @@ func TestYTDLCookielessFirst(t *testing.T) {
 				if want := (AudioFormat{Codec: "opus", Kbps: 130, Rate: 48000}); tp.audio != want {
 					t.Errorf("audio = %+v, want %+v", tp.audio, want)
 				}
+				// The duration comes from the same run: no probe.
+				if tp.knownDuration != 212*time.Second {
+					t.Errorf("duration = %v, want 3m32s", tp.knownDuration)
+				}
 				tp.close()
 			},
 		},
@@ -142,15 +145,6 @@ func TestYTDLCookielessFirst(t *testing.T) {
 				}
 				if b, _ := os.ReadFile(path); !strings.Contains(string(b), `"id"`) {
 					t.Fatalf("info file = %q", b)
-				}
-			},
-		},
-		{
-			name: "duration probe",
-			args: "--skip-download --no-playlist --socket-timeout 10 --print duration",
-			run: func(t *testing.T, url string) {
-				if d := probeYTDLDuration(url); d != 212*time.Second {
-					t.Fatalf("probeYTDLDuration = %v, want 212s", d)
 				}
 			},
 		},
@@ -260,17 +254,18 @@ func TestParseYTDLFormat(t *testing.T) {
 	tests := []struct {
 		line string
 		want AudioFormat
+		dur  time.Duration
 	}{
-		{"opus 129.478 48000\n", AudioFormat{Codec: "opus", Kbps: 129, Rate: 48000}},
-		{"mp4a.40.2 130.2 44100", AudioFormat{Codec: "aac", Kbps: 130, Rate: 44100}},
-		{"NA NA NA", AudioFormat{}},
-		{"none 64 NA", AudioFormat{Kbps: 64}},
-		{"", AudioFormat{}},
-		{"opus 64", AudioFormat{}},
+		{"opus 129.478 48000 213\n", AudioFormat{Codec: "opus", Kbps: 129, Rate: 48000}, 213 * time.Second},
+		{"mp4a.40.2 130.2 44100 6060.5", AudioFormat{Codec: "aac", Kbps: 130, Rate: 44100}, 6060500 * time.Millisecond},
+		{"NA NA NA NA", AudioFormat{}, 0},
+		{"none 64 NA NA", AudioFormat{Kbps: 64}, 0},
+		{"", AudioFormat{}, 0},
+		{"opus 64 48000", AudioFormat{}, 0},
 	}
 	for _, tt := range tests {
-		if got := parseYTDLFormat(tt.line); got != tt.want {
-			t.Errorf("parseYTDLFormat(%q) = %+v, want %+v", tt.line, got, tt.want)
+		if got, dur := parseYTDLFormat(tt.line); got != tt.want || dur != tt.dur {
+			t.Errorf("parseYTDLFormat(%q) = %+v, %v; want %+v, %v", tt.line, got, dur, tt.want, tt.dur)
 		}
 	}
 }

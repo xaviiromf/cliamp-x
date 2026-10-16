@@ -2,6 +2,7 @@ package player
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -116,22 +117,6 @@ func ytdlOutput(ctx context.Context, pageURL string, args ...string) ([]byte, er
 		}
 	}
 	return run(ctx, true)
-}
-
-// probeYTDLDuration runs a quick yt-dlp --print duration to obtain
-// the track duration when --flat-playlist didn't provide it.
-func probeYTDLDuration(pageURL string) time.Duration {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	out, err := ytdlOutput(ctx, pageURL, "--skip-download", "--no-playlist", "--socket-timeout", "10", "--print", "duration")
-	if err != nil {
-		return 0
-	}
-	secs, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
-	if err != nil || secs <= 0 {
-		return 0
-	}
-	return time.Duration(secs * float64(time.Second))
 }
 
 // ffmpegInstallHint returns a platform-specific install command suggestion.
@@ -270,15 +255,16 @@ func (y *ytdlPipeStreamer) Close() error {
 	return nil
 }
 
-// pickedFormat reads the format that yt-dlp printed before its download,
-// which the first audio byte follows. It is zero when yt-dlp printed none.
-func (y *ytdlPipeStreamer) pickedFormat() AudioFormat {
+// pickedFormat reads the format and duration that yt-dlp printed before its
+// download, which the first audio byte follows. They are zero when yt-dlp
+// printed none.
+func (y *ytdlPipeStreamer) pickedFormat() (AudioFormat, time.Duration) {
 	if y.formatPath == "" {
-		return AudioFormat{}
+		return AudioFormat{}, 0
 	}
 	data, err := os.ReadFile(y.formatPath)
 	if err != nil {
-		return AudioFormat{}
+		return AudioFormat{}, 0
 	}
 	return parseYTDLFormat(string(data))
 }
@@ -560,56 +546,37 @@ func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline
 			st.firstByte = fb.Sub(begin)
 		}
 
+		audio, dur := decoder.pickedFormat()
 		// The prefetch reads the pipe away from the speaker callback. A
 		// stalled download then plays silence and does not hold the speaker
 		// lock, which would freeze every control.
 		return p.prefetchNetworkPipeline(&trackPipeline{
-			decoder:      decoder,
-			stream:       decoder,
-			format:       format,
-			seekable:     false,
-			path:         pageURL,
-			ytdlSeek:     true,
-			streamOffset: time.Duration(startSec) * time.Second,
-			audio:        decoder.pickedFormat(),
-			ytdlStart:    st,
+			decoder:       decoder,
+			stream:        decoder,
+			format:        format,
+			seekable:      false,
+			path:          pageURL,
+			ytdlSeek:      true,
+			streamOffset:  time.Duration(startSec) * time.Second,
+			knownDuration: dur,
+			audio:         audio,
+			ytdlStart:     st,
 		}, true), nil
 	}
 }
 
 // buildYTDLSource starts the yt-dlp | ffmpeg chain for pageURL at offset
-// (whole seconds). On a play with no known duration, it asks yt-dlp for the
-// duration while the chain starts.
+// (whole seconds). The duration yt-dlp printed fills in an unknown
+// knownDuration. A play, unlike a preload, logs its start timing.
 func (p *Player) buildYTDLSource(pageURL string, knownDuration, offset time.Duration, play bool) (*trackPipeline, error) {
-	probe := play && knownDuration == 0
-	// Probe duration concurrently with pipeline setup so it doesn't delay playback.
-	probeCh := make(chan time.Duration, 1)
-	if probe {
-		go func() { probeCh <- probeYTDLDuration(pageURL) }()
-	}
 	tp, err := p.buildYTDLPipeline(pageURL, max(0, int(offset.Seconds())))
 	if err != nil {
 		return nil, err
 	}
-	if probe {
-		// The probe ran concurrently with buildYTDLPipeline. Try to
-		// collect the result, but don't block playback for more than 2s.
-		// A hung probeYTDLDuration (e.g. yt-dlp zombie keeping pipes
-		// open) previously blocked here forever, leaving the UI stuck
-		// at "Buffering...".
-		select {
-		case d := <-probeCh:
-			if d > 0 {
-				knownDuration = d
-			}
-		case <-time.After(2 * time.Second):
-			// Probe still running — start playback without duration.
-			// The seek bar won't show progress but audio plays immediately.
-		}
+	if knownDuration > 0 {
+		tp.knownDuration = knownDuration
 	}
-	tp.knownDuration = knownDuration
 	if play {
-		// A play, not a preload: log the start once it is heard.
 		tp.logYTDLStart("start")
 	}
 	return tp, nil
@@ -676,6 +643,7 @@ func (p *Player) ytdlURLPipeline(pageURL, infoPath string, startSec int, begin t
 		ACodec   string            `json:"acodec"`
 		ABR      float64           `json:"abr"`
 		ASR      int               `json:"asr"`
+		Duration float64           `json:"duration"`
 	}
 	if json.Unmarshal(data, &info) != nil || info.URL == "" || (info.Protocol != "https" && info.Protocol != "http") {
 		return nil, errNoYTDLURL
@@ -697,19 +665,21 @@ func (p *Player) ytdlURLPipeline(pageURL, infoPath string, startSec int, begin t
 		return nil, err
 	}
 	decoder := &ffmpegPipeStreamer{ffmpegPipe: fp}
+	audio, dur := parseYTDLFormat(fmt.Sprintf("%s %g %d %g", cmp.Or(info.ACodec, "NA"), info.ABR, info.ASR, info.Duration))
 	if err := decoder.waitForInitialAudio(ytdlPipeTimeout); err != nil {
 		decoder.Close()
 		return nil, err
 	}
 	return p.prefetchNetworkPipeline(&trackPipeline{
-		decoder:      decoder,
-		stream:       decoder,
-		format:       format,
-		path:         pageURL,
-		ytdlSeek:     true,
-		streamOffset: time.Duration(startSec) * time.Second,
-		audio:        parseYTDLFormat(fmt.Sprintf("%s %g %d", info.ACodec, info.ABR, info.ASR)),
-		ytdlStart:    &ytdlStart{begin: begin, prefetched: true, direct: true, offset: startSec, firstPCM: time.Since(begin)},
+		decoder:       decoder,
+		stream:        decoder,
+		format:        format,
+		path:          pageURL,
+		ytdlSeek:      true,
+		streamOffset:  time.Duration(startSec) * time.Second,
+		knownDuration: dur,
+		audio:         audio,
+		ytdlStart:     &ytdlStart{begin: begin, prefetched: true, direct: true, offset: startSec, firstPCM: time.Since(begin)},
 	}, true), nil
 }
 

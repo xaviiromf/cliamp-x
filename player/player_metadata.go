@@ -121,16 +121,17 @@ func (p *Player) AudioFormat() AudioFormat {
 }
 
 // ytdlFormatTemplate is the --print-to-file template that records the format
-// yt-dlp picked. parseYTDLFormat reads it.
-const ytdlFormatTemplate = "before_dl:%(acodec)s %(abr)s %(asr)s"
+// yt-dlp picked and the length of the page. parseYTDLFormat reads it.
+const ytdlFormatTemplate = "before_dl:%(acodec)s %(abr)s %(asr)s %(duration)s"
 
 // parseYTDLFormat reads a line of ytdlFormatTemplate, such as
-// "opus 129.5 48000". yt-dlp prints NA or none for a field it does not know.
-func parseYTDLFormat(line string) AudioFormat {
+// "opus 129.5 48000 213". yt-dlp prints NA or none for a field it does not
+// know. The duration is 0 when unknown.
+func parseYTDLFormat(line string) (AudioFormat, time.Duration) {
 	var f AudioFormat
 	fields := strings.Fields(line)
-	if len(fields) != 3 {
-		return f
+	if len(fields) != 4 {
+		return f, 0
 	}
 	if c := strings.ToLower(fields[0]); c != "na" && c != "none" {
 		// mp4a.40.2 is AAC-LC, mp4a.40.5 HE-AAC.
@@ -145,7 +146,11 @@ func parseYTDLFormat(line string) AudioFormat {
 	if v, err := strconv.Atoi(fields[2]); err == nil && v > 0 {
 		f.Rate = v
 	}
-	return f
+	var d time.Duration
+	if v, err := strconv.ParseFloat(fields[3], 64); err == nil && v > 0 {
+		d = time.Duration(v * float64(time.Second))
+	}
+	return f, d
 }
 
 // localCodecs names the codec of each local file extension that is not
