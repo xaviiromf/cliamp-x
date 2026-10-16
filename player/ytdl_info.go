@@ -104,6 +104,9 @@ func (c *ytdlInfoCache) startPath(pageURL string) string {
 // restarts of pageURL load it instead of extracting the page again. Info
 // that the cache already holds for pageURL wins.
 func (c *ytdlInfoCache) add(pageURL, path string) {
+	if _, err := os.Stat(path); err != nil {
+		return // this yt-dlp wrote none
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, ok := c.entries[pageURL]; ok || c.dir == "" || filepath.Dir(path) != c.dir {
