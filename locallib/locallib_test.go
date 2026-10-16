@@ -102,3 +102,23 @@ func TestNewAndNilLibrary(t *testing.T) {
 	}
 	lib.Refresh()
 }
+
+func TestSetDirScansTheNewFolder(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old, next := t.TempDir(), t.TempDir()
+	writeFiles(t, old, "A/X - One.mp3")
+	writeFiles(t, next, "B/Y - Two.mp3", "B/Y - Three.mp3")
+	lib := New(old)
+	if got := len(lib.Tracks()); got != 1 {
+		t.Fatalf("old folder = %d, want 1", got)
+	}
+	lib.SetDir(next)
+	if lib.Dir() != next {
+		t.Fatalf("Dir = %q, want %q", lib.Dir(), next)
+	}
+	if got := len(lib.Tracks()); got != 2 {
+		t.Fatalf("new folder = %d, want 2", got)
+	}
+	var none *Library
+	none.SetDir(next)
+}

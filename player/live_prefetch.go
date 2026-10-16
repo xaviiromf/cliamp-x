@@ -39,6 +39,8 @@ type livePrefetchStreamer struct {
 	buffering bool
 	wasSilent bool
 	fillDone  chan struct{}
+
+	health *playbackHealth // counts the silence of an underrun after audio played
 }
 
 func newLivePrefetchStreamer(src beep.Streamer, sampleRate beep.SampleRate) *livePrefetchStreamer {
@@ -142,6 +144,9 @@ func (p *livePrefetchStreamer) Stream(samples [][2]float64) (int, bool) {
 	if p.buffering && !p.done && available < p.resumeAt {
 		clear(samples)
 		p.wasSilent = true
+		if p.consumed > 0 {
+			p.health.silence(len(samples), false)
+		}
 		return len(samples), true
 	}
 	if available == 0 {
@@ -150,6 +155,9 @@ func (p *livePrefetchStreamer) Stream(samples [][2]float64) (int, bool) {
 			return 0, false
 		}
 		clear(samples)
+		if p.consumed > 0 {
+			p.health.silence(len(samples), true)
+		}
 		p.buffering = true
 		p.wasSilent = true
 		return len(samples), true
@@ -193,6 +201,7 @@ func (p *livePrefetchStreamer) Stream(samples [][2]float64) (int, bool) {
 	p.wasSilent = short > 0
 	if short > 0 && !p.done {
 		p.buffering = true
+		p.health.silence(short, true)
 	}
 	return len(samples), true
 }
@@ -201,6 +210,13 @@ func (p *livePrefetchStreamer) Err() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.err
+}
+
+// buffered is the decoded audio waiting for the speaker.
+func (p *livePrefetchStreamer) buffered() time.Duration {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.sampleRate.D(p.availableToReadLocked())
 }
 
 func (p *livePrefetchStreamer) Position() time.Duration {

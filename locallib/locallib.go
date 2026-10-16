@@ -115,16 +115,20 @@ func New(dir string) *Library {
 	if dir == "" || strings.EqualFold(dir, "off") {
 		return nil
 	}
-	if strings.HasPrefix(dir, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			dir = filepath.Join(home, dir[2:])
-		}
-	}
-	l := &Library{dir: dir}
+	l := &Library{dir: expandHome(dir)}
 	if data, err := appdir.DataDir(); err == nil {
 		l.indexPath = filepath.Join(data, "local_library.json")
 	}
 	return l
+}
+
+func expandHome(dir string) string {
+	if strings.HasPrefix(dir, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, dir[2:])
+		}
+	}
+	return dir
 }
 
 // Dir returns the indexed folder.
@@ -132,7 +136,21 @@ func (l *Library) Dir() string {
 	if l == nil {
 		return ""
 	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.dir
+}
+
+// SetDir indexes dir from now on. The next read scans it. A nil Library
+// stays empty.
+func (l *Library) SetDir(dir string) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	l.dir = expandHome(dir)
+	l.scannedAt = time.Time{}
+	l.mu.Unlock()
 }
 
 // snapshot returns the index, scanning the folder when the index is stale.

@@ -231,7 +231,8 @@ LoginActivity (WebView sign-in, unchanged)
 - `[ Iniciar sesión ]` (LoginActivity), `[ Importar cookies.txt ]` (SAF), `[ Cerrar sesión ]`.
 
 **Música local**
-- The folder path, read-only.
+- The folder path.
+- `[ Explorar ]`: the system folder picker (OpenDocumentTree). Its tree URI becomes a path (`Core.treePath`) that `settings.set` `music_dir` gives the core, which saves it and indexes it at once. A folder with no path (a cloud) shows a toast and keeps the old one. Biblioteca → Música local with no songs shows `No hay música en <carpeta>. Elige otra carpeta.` and the same `[ Explorar ]`.
 - `[ Permitir música local ]` when the permission is missing.
 
 **Sistema**
@@ -611,6 +612,7 @@ Confirm (Eliminar lista, Vaciar cola): "¿Eliminar «Mi lista»?"  [ Eliminar ] 
 │ [ Iniciar sesión ] [ Importar cookies.txt ] [ Cerrar sesión ]   (wraps)
 │ ── Música local ───────────────────────── │
 │ Carpeta  /storage/emulated/0/Music        │
+│ [ Explorar ]                              │
 │ ── Sistema ────────────────────────────── │
 │ Batería: optimizada        [ Quitar ]     │
 │ Actualizaciones   [Estable]  Nightly      │

@@ -1,6 +1,6 @@
-// player/device_other.go — stub for non-macOS platforms.
+// player/device_other.go — stub for platforms other than macOS and Android.
 
-//go:build !darwin || ios || !cgo
+//go:build (!darwin || ios || !cgo) && !android
 
 package player
 

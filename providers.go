@@ -39,6 +39,8 @@ type providerSet struct {
 	// taste holds the "interested" and "not interested" ratings that the
 	// providers and the Model share.
 	taste *taste.Store
+	// library is the indexed local music folder, nil when it is off.
+	library *locallib.Library
 }
 
 // providerKey is one provider that --provider and the provider config key
@@ -162,13 +164,14 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 		applog.Info("copied %d bookmarks into favorites", added)
 	}
 
+	s.library = localLibrary(cfg.MusicDir)
 	env := providerEnv{
 		cfg:         cfg,
 		interactive: interactive,
 		favorites:   s.favorites,
 		history:     s.history,
 		taste:       s.taste,
-		library:     localLibrary(cfg.MusicDir),
+		library:     s.library,
 		local:       s.local,
 	}
 	for _, pf := range providerFactories {

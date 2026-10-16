@@ -1,6 +1,7 @@
 package io.github.xaviiromf.cliampx
 
 import android.content.Context
+import android.media.AudioManager
 import android.os.Environment
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
@@ -45,6 +46,29 @@ object Core {
             dir.listFiles()?.filter { now - it.lastModified() > 7 * 86_400_000L }?.forEach { it.delete() }
             dir.delete() // only when empty
         }
+    }
+
+    /**
+     * The path of a folder from the system folder picker, as the core reads
+     * music by path: external storage's `primary:Music/Rock` under primary
+     * (the phone's storage), `home:` under its Documents, an SD card's
+     * `1234-ABCD:Music` under /storage/1234-ABCD, and the Downloads
+     * provider's `raw:/path`. Null for any other provider, such as a cloud.
+     */
+    fun treePath(authority: String?, docId: String?, primary: String): String? {
+        if (docId == null || docId.split('/').any { it == ".." }) return null
+        if (authority == "com.android.providers.downloads.documents") return docId.removePrefix("raw:").takeIf { docId.startsWith("raw:/") }
+        if (authority != "com.android.externalstorage.documents") return null
+        val parts = docId.split(':', limit = 2)
+        if (parts.size != 2) return null
+        val (volume, path) = parts
+        val root = when {
+            volume == "primary" -> primary
+            volume == "home" -> "$primary/Documents"
+            volume.matches(Regex("[0-9A-Za-z-]+")) -> "/storage/$volume"
+            else -> return null
+        }
+        return if (path.isEmpty()) root else "$root/${path.trimEnd('/')}"
     }
 
     private val unpacked = AtomicBoolean(false)
@@ -120,6 +144,14 @@ object Core {
             "CLIAMP_YTDLP_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs${sep}PYTHONHOME=$pythonHome${sep}HOME=$pythonHome",
             "CLIAMP_FFMPEG=$lib/libffmpeg.so",
             "CLIAMP_FFMPEG_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs",
-        )
+        ) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
     }
+
+    /**
+     * The phone's native output rate for the core (player/device_android.go), so
+     * it skips a second resample and Android can grant a FAST track; null when
+     * the property is missing or not a sane rate.
+     */
+    fun sampleRateEnv(property: String?) =
+        property?.toIntOrNull()?.takeIf { it in 8000..192000 }?.let { "CLIAMP_DEVICE_SAMPLE_RATE=$it" }
 }

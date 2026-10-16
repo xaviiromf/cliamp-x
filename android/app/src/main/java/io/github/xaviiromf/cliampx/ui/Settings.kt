@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.PowerManager
+import android.provider.DocumentsContract
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
@@ -39,9 +40,9 @@ import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -164,9 +165,8 @@ fun SettingsScreen(screen: Screen.Settings) {
         music = granted
         if (granted) CliampService.send(context, CliampService.ACTION_RESTART)
     }
-    val folder by produceState(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).path) {
-        withContext(Dispatchers.IO) { musicDir(Core.configFile(context)) }?.let { value = it }
-    }
+    var folder by rememberMusicFolder()
+    val pickFolder = rememberMusicFolderPicker { folder = it }
     fun set(name: String, value: Int) = Remote.fire("settings.set", JSONObject().put("name", name).put("value", value))
     val settable = "settings.set" in ops
     Column(Modifier.fillMaxSize()) {
@@ -254,7 +254,10 @@ fun SettingsScreen(screen: Screen.Settings) {
                     SectionRule(stringResource(R.string.lib_local))
                     Line(stringResource(R.string.music_folder, folder), p.textPrimary)
                     Help(stringResource(R.string.music_help))
-                    if (!music) BracketButton(stringResource(R.string.allow_music), Modifier.padding(horizontal = 12.dp).testTag("set_music")) { askMusic.launch(MainActivity.musicPermission()) }
+                    FlowRow(Modifier.padding(horizontal = 12.dp)) {
+                        if (settable) BracketButton(stringResource(R.string.explore), Modifier.testTag("set_music_dir"), onClick = pickFolder)
+                        if (!music) BracketButton(stringResource(R.string.allow_music), Modifier.testTag("set_music")) { askMusic.launch(MainActivity.musicPermission()) }
+                    }
                 }
             }
             item(key = "system") {
@@ -616,6 +619,53 @@ private fun crossfadeLabel(secs: Int) = if (secs <= 0) stringResource(R.string.o
 /** music_dir from config.toml, as the core reads it, or null. */
 private fun musicDir(config: File): String? =
     runCatching { config.readLines() }.getOrNull()?.firstNotNullOfOrNull { Regex("""^\s*music_dir\s*=\s*"(.*)"\s*$""").find(it)?.groupValues?.get(1) }
+
+/** The local music folder: music_dir from config.toml, the phone's Music folder until it is read. */
+@Composable
+fun rememberMusicFolder(): MutableState<String> {
+    val context = LocalContext.current
+    @Suppress("DEPRECATION") // only the path is used, as locallib reads it by path
+    val folder = remember { mutableStateOf(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).path) }
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { musicDir(Core.configFile(context)) }?.let { folder.value = it } }
+    return folder
+}
+
+/**
+ * `[ Explorar ]`: the system folder picker; the folder's path becomes the
+ * core's music_dir (settings.set), and the lists load again. A folder with
+ * no path on the phone (a cloud) keeps the old one.
+ */
+@Composable
+fun rememberMusicFolderPicker(picked: (String) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        @Suppress("DEPRECATION") // only the path is used, as locallib reads it by path
+        val path = runCatching { Core.treePath(uri.authority, DocumentsContract.getTreeDocumentId(uri), Environment.getExternalStorageDirectory().path) }.getOrNull()
+        if (path == null) {
+            Toast.makeText(context, R.string.folder_no_path, Toast.LENGTH_LONG).show()
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            try {
+                Remote.call("settings.set", JSONObject().put("name", "music_dir").put("text", path))
+                picked(path)
+                Remote.invalidate()
+                Remote.reload()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (e is IpcError && e.code == "invalid_params") {
+                    Toast.makeText(context, R.string.folder_no_path, Toast.LENGTH_LONG).show()
+                } else {
+                    Remote.showError(e)
+                }
+            }
+        }
+    }
+    return { runCatching { launcher.launch(null) }.onFailure { Toast.makeText(context, R.string.folder_no_path, Toast.LENGTH_LONG).show() } }
+}
 
 /**
  * The app update of phase 4 (Updates.kt): ask the core for the newest

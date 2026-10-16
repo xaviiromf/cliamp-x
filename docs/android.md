@@ -181,6 +181,17 @@ of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
 in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
 credential. Scrobbles that fail on a network error are sent later.
 
+**Ajustes → Música local** shows the folder the app reads local music from
+(`Music` on the phone's storage at first). **Explorar** opens the system
+folder picker: pick any folder on the phone's storage or an SD card, such as
+`Download/MiMusica`, and tap **Usar esta carpeta**. **Biblioteca → Música
+local** lists its songs at once, and the folder stays after a restart. When
+that folder has no music, **Biblioteca → Música local** offers the same
+**Explorar**. Android does not let the picker choose the root of the storage
+or `Download` itself; pick a folder inside. A cloud or app folder (Drive,
+Recent) has no path on the phone, so the app says so and keeps the old
+folder.
+
 **Ajustes → Sistema → Acerca de** (Settings → System → About) shows the
 version, links to the source and to the original cliamp (cliamp-x is an
 independent fork, not the official cliamp), the licenses (the APK is
@@ -214,6 +225,11 @@ The equalizer remembers the preset you pick for each output (the speaker,
 wired headphones, USB, and each Bluetooth device by name) and switches to it
 when that output connects; the EQ screen names the current output. The
 automatic EQ by genre and a Personalizado curve are not remembered.
+
+The core plays at the phone's native output rate (48000 Hz on most phones),
+which the app reads from Android and passes in `CLIAMP_DEVICE_SAMPLE_RATE`.
+Audio is then resampled once at most, and Android can give it a low-latency
+track. A `sample_rate` set in `config.toml` still wins.
 
 ## Phone and car integrations
 

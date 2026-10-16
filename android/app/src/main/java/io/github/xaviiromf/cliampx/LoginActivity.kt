@@ -3,8 +3,10 @@ package io.github.xaviiromf.cliampx
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -29,7 +31,7 @@ class LoginActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
-        web.settings.userAgentString = CHROME_UA
+        web.settings.userAgentString = chromeUserAgent(WebSettings.getDefaultUserAgent(this), Build.VERSION.RELEASE, Build.MODEL)
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 val cookies = CookieManager.getInstance()
@@ -50,9 +52,18 @@ class LoginActivity : AppCompatActivity() {
     companion object {
         private const val MUSIC = "https://music.youtube.com"
         private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?continue=https://music.youtube.com/"
-        // A recent Chrome on Android, without the "wv" WebView token that Google refuses.
-        private const val CHROME_UA = "Mozilla/5.0 (Linux; Android 16; SM-A556B) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36"
+
+        /**
+         * A Chrome on Android user agent for this phone: its own Android
+         * version and model, so Google's sign-in alert names the right device,
+         * and the WebView's Chrome version without the "wv" token that Google
+         * refuses.
+         */
+        internal fun chromeUserAgent(webViewDefault: String, release: String, model: String): String {
+            val chrome = Regex("""Chrome/[\d.]+""").find(webViewDefault)?.value ?: "Chrome/141.0.0.0"
+            val device = model.replace(Regex("[;()]"), " ").trim().ifEmpty { "K" }
+            return "Mozilla/5.0 (Linux; Android $release; $device) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Mobile Safari/537.36"
+        }
 
         /**
          * The WebView cookies in the Netscape cookies.txt format that the core and
