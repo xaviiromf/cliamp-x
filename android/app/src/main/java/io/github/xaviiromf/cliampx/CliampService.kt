@@ -153,6 +153,7 @@ class CliampService : Service(), TerminalSessionClient {
             ACTION_NEXT -> op("next")
             ACTION_QUIT -> quit()
             ACTION_ERASE -> erase()
+            ACTION_RESTORE -> restoreBackup()
             // The rest come from the app on screen, which may start the foreground service.
             else -> {
                 if (intent?.action == ACTION_RESTART) restart() else start()
@@ -264,6 +265,26 @@ class CliampService : Service(), TerminalSessionClient {
     fun erase() {
         Remote.quitting.value = true
         stopCore { getSystemService(ActivityManager::class.java).clearApplicationUserData() }
+    }
+
+    /** Importar copia: with the core stopped (it saves at exit and would overwrite the files), writes the checked backup, then starts the core on it. */
+    fun restoreBackup() {
+        val backup = Backup.pending ?: return
+        Backup.pending = null
+        stopCore {
+            val msg = try {
+                Backup.apply(this, backup)
+                R.string.backup_import_done
+            } catch (e: Exception) {
+                Log.e(TAG, "restore", e)
+                R.string.backup_import_error
+            }
+            Toast.makeText(this, getString(msg), Toast.LENGTH_LONG).show()
+            start()
+            scope.launch {
+                if (coreUp()) Remote.reload()
+            }
+        }
     }
 
     /** Stops the core with SIGTERM, so it saves the resume position, then runs then. */
@@ -596,6 +617,7 @@ class CliampService : Service(), TerminalSessionClient {
         const val ACTION_NEXT = "io.github.xaviiromf.cliampx.NEXT"
         const val ACTION_QUIT = "io.github.xaviiromf.cliampx.QUIT"
         const val ACTION_ERASE = "io.github.xaviiromf.cliampx.ERASE"
+        const val ACTION_RESTORE = "io.github.xaviiromf.cliampx.RESTORE"
         const val ACTION_RESTART = "io.github.xaviiromf.cliampx.RESTART"
         const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
 

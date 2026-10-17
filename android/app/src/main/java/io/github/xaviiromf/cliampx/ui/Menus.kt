@@ -141,6 +141,9 @@ fun SheetHost(s: Snapshot?) {
                     is Sheet.StationName -> StationNameSheet(sheet, close)
                     is Sheet.ThemeName -> ThemeNameSheet(sheet, close)
                     Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
+                    Sheet.RestoreBackup -> Confirm(stringResource(R.string.backup_import_confirm), stringResource(R.string.backup_import_action), close) {
+                        CliampService.send(context, CliampService.ACTION_RESTORE)
+                    }
                     Sheet.EraseData -> Confirm(stringResource(R.string.erase_all_confirm), stringResource(R.string.erase_all_action), close) { CliampService.send(context, CliampService.ACTION_ERASE) }
                 }
             }

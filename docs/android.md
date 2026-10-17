@@ -190,6 +190,39 @@ density, corners, vibration and animations) to one JSON file through the
 system file picker; **Importar** reads it back (1 MB at most; an entry that
 is not valid is left out).
 
+### Backup
+
+**Ajustes → Copia de seguridad completa** keeps your data in one `.zip`, so a
+reinstall (or **Cerrar sesión y borrar datos**) does not lose it. **Exportar**
+writes the file through the system file picker; **Importar** reads it back.
+
+The zip holds `manifest.json` (`{"format": "cliamp-x-backup", "version": 1,
+"session": false}`) and only these files:
+
+| In the zip | What |
+|------------|------|
+| `config/config.toml` | Settings and the music folders, with every credential line removed (scrobble tokens and keys, passwords) |
+| `config/favorites.toml`, `history.toml`, `taste.json`, `ytmusic_genres.json` | Favorites, history, ratings, favorite genres |
+| `config/playlists/*.toml`, `config/themes/*.toml` | Local playlists and your themes |
+| `data/plays.jsonl`, `data/search_history.json` | The play log (statistics and Wrapped) and the search history |
+| `app/personalization.json`, `app/prefs/*.json` | The Skins personalization, saved radio stations and a few app settings |
+
+Downloads, caches, yt-dlp and logs are never included. Last.fm and
+ListenBrainz keys are not exported either: sign in again after a restore.
+The YouTube Music session (`ytmusic_cookies.txt`, `ytmusic_auth.json`) is out
+unless you turn on **Incluir la sesión de YouTube Music**. That file then holds
+your cookies, so anyone with it can use your account: keep it private.
+
+**Importar** checks the whole file before it writes anything: a known format
+version, only the paths above (no absolute path, no `..`), at most 24 MB per
+file, 64 MB and 1000 files in all, and valid UTF-8 and JSON in each file. A
+backup with the YouTube Music session in it must say so in its manifest. If
+anything fails, nothing changes and the message says why. Otherwise, after
+you confirm, the app stops the core, writes the files (each one whole or not
+at all), starts the core again and reloads the screens. Files in the backup
+replace the ones with the same name; playlists or themes that are not in the
+backup stay.
+
 **Tema** also has:
 
 - **Editor de temas**: the seven colors of the theme on screen (bg, accent,

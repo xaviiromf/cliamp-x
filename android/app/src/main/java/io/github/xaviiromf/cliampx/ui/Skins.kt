@@ -246,6 +246,20 @@ class Personalization(
             }
         }
 
+        /** Applies d to the screens and their stores; its themes are already in the themes directory. */
+        fun apply(app: Context, d: Personalization) {
+            Remote.forget("themes")
+            d.skins.forEach(Skins::put)
+            Look.update(app) {
+                d.textSize?.let { textSize = it }
+                d.density?.let { density = it }
+                d.rounded?.let { rounded = it }
+                d.haptics?.let { haptics = it }
+            }
+            d.motion?.let(Looks::putMotion)
+            d.current?.let { Skins.apply(app, it) }
+        }
+
         /** Reads uri and applies it: themes first, so the skin on screen finds its theme. */
         fun import(ctx: Context, uri: Uri) {
             val app = ctx.applicationContext
@@ -255,16 +269,7 @@ class Personalization(
                         val text = (app.contentResolver.openInputStream(uri) ?: throw IOException("cannot open the file")).use { readLimited(it) }
                         parse(text).also { d -> d.themes.forEach { UserThemes.write(UserThemes.dir(app), it) } }
                     }
-                    Remote.forget("themes")
-                    d.skins.forEach(Skins::put)
-                    Look.update(app) {
-                        d.textSize?.let { textSize = it }
-                        d.density?.let { density = it }
-                        d.rounded?.let { rounded = it }
-                        d.haptics?.let { haptics = it }
-                    }
-                    d.motion?.let(Looks::putMotion)
-                    d.current?.let { Skins.apply(app, it) }
+                    apply(app, d)
                     app.getString(R.string.import_done, d.skins.size, d.themes.size)
                 } catch (e: CancellationException) {
                     throw e
