@@ -58,10 +58,11 @@ a confirmation. It cannot be undone; the app opens as a fresh install.
 radio stream, an `.m3u` or `.pls` playlist, or a podcast RSS feed (it must
 start with `http://` or `https://`). **[ Reproducir ]** plays a stream or
 playlist at once, and the player shows the song the station sends (ICY) with
-the station's name under it. For a podcast feed it opens the episodes,
-newest first with date and length, and a tap plays from that episode on.
-**[ Guardar ]** keeps the address in a list on the phone, named after the
-station or the podcast; `⋮` on a saved row renames or removes it, and a tap
+the station's name, or for a bare stream address its file name, under it. For
+a podcast feed it opens the episodes, newest first with date and length, and
+a tap plays from that episode on. **[ Guardar ]** keeps the address in a list
+on the phone, named after the podcast, the station a `.pls` or `.m3u` names,
+or else the address's host; `⋮` on a saved row renames or removes it, and a tap
 plays it or opens its episodes. The list needs a core with `url.list`
 (see `docs/remote-control.md`).
 
