@@ -28,7 +28,10 @@ import (
 func installPipelineRouteFixtures(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	// Like the real one, it outputs only after its input starts, so yt-dlp has
+	// printed its format and duration by then.
 	writeExecutable(t, filepath.Join(dir, "ffmpeg"), `#!/bin/sh
+head -c 1 >/dev/null
 printf '\000\100\000\300'
 exec sleep 30
 `)
