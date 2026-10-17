@@ -168,7 +168,7 @@ The zip holds `manifest.json` (`{"format": "cliamp-x-backup", "version": 1,
 | `config/favorites.toml`, `history.toml`, `taste.json`, `ytmusic_genres.json` | Favorites, history, ratings, favorite genres |
 | `config/playlists/*.toml`, `config/themes/*.toml` | Local playlists and your themes |
 | `data/plays.jsonl`, `data/search_history.json` | The play log (statistics and Wrapped) and the search history |
-| `app/personalization.json`, `app/prefs/*.json` | The Skins personalization and a few app settings |
+| `app/personalization.json`, `app/prefs/*.json` | The Skins personalization, saved radio stations and a few app settings |
 
 Downloads, caches, yt-dlp and logs are never included. Last.fm and
 ListenBrainz keys are not exported either: sign in again after a restore.

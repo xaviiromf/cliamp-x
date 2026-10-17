@@ -52,7 +52,7 @@ object Backup {
         "data/plays.jsonl", "data/search_history.json", "app/personalization.json",
     )
     private val SESSION = setOf("config/ytmusic_cookies.txt", "config/ytmusic_auth.json")
-    private val PREFS = listOf("ui", "music", "routes", "offline")
+    private val PREFS = listOf("ui", "music", "routes", "offline", "stations")
     private val DIRS = setOf("config/", "config/playlists/", "config/themes/", "data/", "app/", "app/prefs/")
     private val NAMED = Regex("""^config/(playlists|themes)/[^/\\\p{Cntrl}.][^/\\\p{Cntrl}]*\.toml$""")
     private val SECRET = Regex("""(?i)(token|secret|passw|session|api_?key|cookie|credential|auth)""")

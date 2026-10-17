@@ -50,7 +50,7 @@ class BackupTest {
 
     @Test
     fun theWhitelistTakesTheUserFiles() {
-        for (name in listOf("config/config.toml", "config/playlists/Mi lista (1).toml", "config/playlists/Rock ñ.toml", "config/themes/neon.toml", "data/plays.jsonl", "app/prefs/ui.json")) {
+        for (name in listOf("config/config.toml", "config/playlists/Mi lista (1).toml", "config/playlists/Rock ñ.toml", "config/themes/neon.toml", "data/plays.jsonl", "app/prefs/ui.json", "app/prefs/stations.json")) {
             assertTrue(name, Backup.allowed(name, false))
         }
         assertFalse(Backup.allowed("config/ytmusic_cookies.txt", false))
