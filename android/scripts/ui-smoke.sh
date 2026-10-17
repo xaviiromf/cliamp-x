@@ -704,7 +704,7 @@ sendlog() {
 	local f
 	f=$(adb shell run-as "$PKG" ls cache/shares | grep -m1 '^cliamp-x-log-') || { fail "no log file"; return; }
 	adb shell run-as "$PKG" cat "cache/shares/$f" >"$OUT/sendlog.txt"
-	for part in '== cliamp.log ==' '== logcat ==' '== logcat crash =='; do
+	for part in '== cliamp.log' '== logcat (' '== logcat crash =='; do
 		grep -q -- "$part" "$OUT/sendlog.txt" || fail "the log file has no $part"
 	done
 	adb shell input keyevent KEYCODE_BACK
