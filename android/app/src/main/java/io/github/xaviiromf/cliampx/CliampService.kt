@@ -272,16 +272,19 @@ class CliampService : Service(), TerminalSessionClient {
         val backup = Backup.pending ?: return
         Backup.pending = null
         stopCore {
-            val msg = try {
-                Backup.apply(this, backup)
-                R.string.backup_import_done
-            } catch (e: Exception) {
-                Log.e(TAG, "restore", e)
-                R.string.backup_import_error
-            }
-            Toast.makeText(this, getString(msg), Toast.LENGTH_LONG).show()
-            start()
             scope.launch {
+                val msg = try {
+                    withContext(Dispatchers.IO) { Backup.apply(this@CliampService, backup) }
+                    Backup.applyLook(this@CliampService, backup)
+                    R.string.backup_import_done
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "restore", e)
+                    R.string.backup_import_error
+                }
+                Toast.makeText(this@CliampService, getString(msg), Toast.LENGTH_LONG).show()
+                start()
                 if (coreUp()) Remote.reload()
             }
         }

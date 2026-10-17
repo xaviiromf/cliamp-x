@@ -144,7 +144,10 @@ object Backup {
                     is JSONObject, is JSONArray -> {}
                     else -> throw Invalid(R.string.backup_err_content, name)
                 }
-                else -> if (text.any { it < ' ' && it != '\n' && it != '\r' && it != '\t' }) throw Invalid(R.string.backup_err_content, name)
+                // The core's TOML reader stops at a line over 64 KB, and the core would then not start.
+                else -> if (text.any { it < ' ' && it != '\n' && it != '\r' && it != '\t' } || text.lineSequence().any { it.length > 16_000 }) {
+                    throw Invalid(R.string.backup_err_content, name)
+                }
             }
             if (name == "app/personalization.json") Personalization.parse(text)
             if (name.startsWith("app/prefs/")) prefsFromJson(JSONObject(text))
@@ -267,7 +270,13 @@ object Backup {
         val app = ctx.applicationContext
         Remote.scope.launch(Dispatchers.Main) {
             try {
-                val c = withContext(Dispatchers.IO) { (app.contentResolver.openInputStream(uri) ?: throw IOException("cannot open the file")).use(::read) }
+                val c = withContext(Dispatchers.IO) {
+                    try {
+                        (app.contentResolver.openInputStream(uri) ?: throw IOException("cannot open the file")).use(::read)
+                    } catch (e: OutOfMemoryError) {
+                        throw Invalid(R.string.backup_err_total)
+                    }
+                }
                 pending = c
                 onChecked(c)
             } catch (e: CancellationException) {
@@ -279,7 +288,7 @@ object Backup {
         }
     }
 
-    /** With the core stopped: the files, then the app state, which the screens read from here on. */
+    /** With the core stopped, off the main thread: the files and the SharedPreferences. [applyLook] follows on the main thread. */
     fun apply(ctx: Context, c: Content) {
         restore(Core.configDir(ctx), Core.dataDir(ctx), c.files)
         for (n in PREFS) c.files["app/prefs/$n.json"]?.let { b ->
@@ -295,6 +304,12 @@ object Backup {
                 }
             }.commit()
         }
+    }
+
+    /** On the main thread after [apply]: the personalization and the lists the screens keep in memory. */
+    fun applyLook(ctx: Context, c: Content) {
+        // Stations writes its whole list back on the next change: read the restored one first.
+        Stations.load(ctx)
         c.files["app/personalization.json"]?.let { Personalization.apply(ctx, Personalization.parse(String(it, Charsets.UTF_8))) }
     }
 }

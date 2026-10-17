@@ -79,6 +79,7 @@ class BackupTest {
     fun contentMustBeValid() {
         refused(R.string.backup_err_content, zip("config/config.toml" to byteArrayOf(0x61, 0xC3.toByte(), 0x28)))
         refused(R.string.backup_err_content, zip("config/config.toml" to "a\u0000b".toByteArray()))
+        refused(R.string.backup_err_content, zip("config/config.toml" to ("a = \"" + "x".repeat(20_000) + "\"").toByteArray()))
         refused(R.string.backup_err_content, zip("config/taste.json" to "{not json".toByteArray()))
         refused(R.string.backup_err_content, zip("config/taste.json" to "42".toByteArray()))
         refused(R.string.backup_err_content, zip("data/plays.jsonl" to "{}\nnot json\n".toByteArray()))
