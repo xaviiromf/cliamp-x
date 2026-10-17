@@ -37,18 +37,34 @@ the desktop (`~/.config/cliamp-x/ytmusic_cookies.txt`), copy it to the phone
 and use **Importar cookies.txt**. Delete the copy afterwards; it holds your
 session.
 
+**Ajustes → Cuenta → Cerrar sesión y borrar datos** signs out and erases all
+cliamp-x data on the phone (sign-in, settings, lists, history, downloads) after
+a confirmation. It cannot be undone; the app opens as a fresh install.
+
 ## Use
 
 | Where | What |
 |-------|------|
 | Inicio | Recently played, your home shelves, Para ti albums and artists, new releases, genres |
 | Buscar | Search (the only place the keyboard opens), recent searches, genre grids |
-| Biblioteca | Liked songs, history, local music, your playlists, downloads, ratings, statistics |
+| Biblioteca | Liked songs, history, local music, Radio y podcasts, your playlists, downloads, ratings, statistics |
 | Mini-player | Tap or swipe up to open the player; swipe sideways to skip |
 | Player | Swipe the artwork to skip, tap it to switch artwork and visualizer, tap the visualizer to change mode, swipe down to close. `⋮` holds the full-screen lyrics, the background visualizer and Modo estéreo |
-| Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it |
+| Lyrics | **[Letras]** shows them in place of the artwork; a tap there opens them full screen (karaoke): the line that sings is highlighted and kept in the middle, and a tap on a synced line seeks to it. `−0.5 s` and `+0.5 s` (in the player view and on the full-screen one) move the lyrics earlier or later, for songs whose timestamps are off; the offset is saved in the core, as on the desktop |
 | Rows | Tap to play from there; long-press or `⋮` for actions (play next, queue, like, more like this, go to album or artist, download) |
 | Queue | Swipe a row to remove it, drag `≡` to reorder |
+
+**Biblioteca → Radio y podcasts** plays an address you paste: an internet
+radio stream, an `.m3u` or `.pls` playlist, or a podcast RSS feed (it must
+start with `http://` or `https://`). **[ Reproducir ]** plays a stream or
+playlist at once, and the player shows the song the station sends (ICY) with
+the station's name, or for a bare stream address its file name, under it. For
+a podcast feed it opens the episodes, newest first with date and length, and
+a tap plays from that episode on. **[ Guardar ]** keeps the address in a list
+on the phone, named after the podcast, the station a `.pls` or `.m3u` names,
+or else the address's host; `⋮` on a saved row renames or removes it, and a tap
+plays it or opens its episodes. The list needs a core with `url.list`
+(see `docs/remote-control.md`).
 
 **Biblioteca → Estadísticas → Tu año en cliamp-x** tells this year (or the
 last one) as swipeable cards in the current theme and font: minutes and days
@@ -56,6 +72,16 @@ of music, top artists, songs, albums and genres, the longest streak, the first
 song of the year and the one replayed most in one day. **Compartir imagen**
 under a card shares it as a PNG through the system share sheet. The figures
 come from the core's play log (`stats wrapped`), which stays on the phone.
+
+**Biblioteca → Playlists → Local → Importar M3U** makes a local playlist from an
+`.m3u` or `.m3u8` file the system file picker opens, named after the file.
+URLs (YouTube links too) stay as they are. A file path counts when the file
+exists: an absolute one as it is, a relative one from the folder of the M3U
+file or from the music folders. The other entries are skipped, and the status
+line says how many. A file is read up to 2 MB and 5000 entries. **⋮ →
+Exportar M3U** on a playlist writes an `#EXTM3U` file with the system "create
+document" picker: local songs by path, YouTube songs by watch URL, each with
+its duration and "artist - title".
 
 On a phone the main interface stays in portrait; Modo terminal and Modo
 estéreo rotate. On a tablet or an open foldable (600 dp or more on the short
@@ -88,11 +114,27 @@ pick Modo estéreo.
 
 **Ajustes** holds the theme (all cliamp-x themes, with a live preview), the
 visualizer (every mode of the terminal, drawn from the core's own frames), the EQ, sleep
-timer, speed, normalization, crossfade, auto radio, the music folder, the
+timer, speed, normalization, crossfade, auto radio, the music folders, the
 battery setting, updates, the yt-dlp update and Modo terminal.
 
 **Ajustes → Apariencia** also sets the look of the app itself:
 
+- **Modo ligero**: Automático (default), Activado or Desactivado, for slow
+  phones that play YouTube choppy or whose interface stutters. Automático
+  turns it on when Android flags the phone as low RAM, it reports under 4 GiB
+  of RAM (a phone sold with 4 GB reports about 3.7 GB), it has no 64-bit ABI,
+  or its fastest core is under 2 GHz (a Moto G20 matches the RAM and the
+  clock). While on, with nothing else to set: no visualizer behind the
+  player and at most 10 frames per second in the other places, the background
+  drawn as a plain color, no animations and no cover-color blend between songs
+  (as Animaciones → Sin animación), covers decoded at half size, a 1 s audio
+  buffer in the core (`buffer_ms` below 1000 is raised to 1000; a higher one
+  stays) and the info of the next YouTube song fetched 8 s after the current
+  one starts, so it does not compete with it. Your own Fondo, Animaciones and
+  background visualizer choices are kept, not changed, and apply again when
+  the mode is off. The core reads the buffer when it starts, so changing the
+  mode restarts the core (the music stops for a moment). The setting shows
+  whether it is on now.
 - **Fuente**: JetBrains Mono Nerd Font (default) and Adwaita Mono are built
   in. 18 more free monospace fonts download on a tap (Fira Code, Hack,
   Cascadia Code, Source Code Pro, IBM Plex Mono, Ubuntu Mono, Victor Mono,
@@ -149,6 +191,39 @@ density, corners, vibration and animations) to one JSON file through the
 system file picker; **Importar** reads it back (1 MB at most; an entry that
 is not valid is left out).
 
+### Backup
+
+**Ajustes → Copia de seguridad completa** keeps your data in one `.zip`, so a
+reinstall (or **Cerrar sesión y borrar datos**) does not lose it. **Exportar**
+writes the file through the system file picker; **Importar** reads it back.
+
+The zip holds `manifest.json` (`{"format": "cliamp-x-backup", "version": 1,
+"session": false}`) and only these files:
+
+| In the zip | What |
+|------------|------|
+| `config/config.toml` | Settings and the music folders, with every credential line removed (scrobble tokens and keys, passwords) |
+| `config/favorites.toml`, `history.toml`, `taste.json`, `ytmusic_genres.json` | Favorites, history, ratings, favorite genres |
+| `config/playlists/*.toml`, `config/themes/*.toml` | Local playlists and your themes |
+| `data/plays.jsonl`, `data/search_history.json` | The play log (statistics and Wrapped) and the search history |
+| `app/personalization.json`, `app/prefs/*.json` | The Skins personalization, saved radio stations and a few app settings |
+
+Downloads, caches, yt-dlp and logs are never included. Last.fm and
+ListenBrainz keys are not exported either: sign in again after a restore.
+The YouTube Music session (`ytmusic_cookies.txt`, `ytmusic_auth.json`) is out
+unless you turn on **Incluir la sesión de YouTube Music**. That file then holds
+your cookies, so anyone with it can use your account: keep it private.
+
+**Importar** checks the whole file before it writes anything: a known format
+version, only the paths above (no absolute path, no `..`), at most 24 MB per
+file, 64 MB and 1000 files in all, and valid UTF-8 and JSON in each file. A
+backup with the YouTube Music session in it must say so in its manifest. If
+anything fails, nothing changes and the message says why. Otherwise, after
+you confirm, the app stops the core, writes the files (each one whole or not
+at all), starts the core again and reloads the screens. Files in the backup
+replace the ones with the same name; playlists or themes that are not in the
+backup stay.
+
 **Tema** also has:
 
 - **Editor de temas**: the seven colors of the theme on screen (bg, accent,
@@ -181,16 +256,23 @@ of your own API account from last.fm/api, tap **Conectar**, allow cliamp-x
 in the browser, then tap **Ya lo autoricé**). **Desconectar** removes the
 credential. Scrobbles that fail on a network error are sent later.
 
-**Ajustes → Música local** shows the folder the app reads local music from
-(`Music` on the phone's storage at first). **Explorar** opens the system
+**Ajustes → Música local** lists the folders the app reads local music from
+(`Music` on the phone's storage at first). **+ Carpeta** opens the system
 folder picker: pick any folder on the phone's storage or an SD card, such as
-`Download/MiMusica`, and tap **Usar esta carpeta**. **Biblioteca → Música
-local** lists its songs at once, and the folder stays after a restart. When
-that folder has no music, **Biblioteca → Música local** offers the same
-**Explorar**. Android does not let the picker choose the root of the storage
-or `Download` itself; pick a folder inside. A cloud or app folder (Drive,
-Recent) has no path on the phone, so the app says so and keeps the old
-folder.
+`Download/MiMusica`, and tap **Usar esta carpeta**. It joins the list, and
+**Biblioteca → Música local** lists the songs of every folder at once; a song
+under two of them shows once. **Quitar** next to a folder takes its songs out.
+The list stays after a restart. **Biblioteca → Música local** has the same
+**+ Carpeta** at the top. Android does not let the picker choose the root of
+the storage or `Download` itself; pick a folder inside. A cloud or app folder
+(Drive, Recent) has no path on the phone, so the app says so and keeps the
+list.
+
+**Todo el teléfono** (Whole phone) replaces the list with every folder that
+holds music on the phone, as Android's media index (MediaStore) knows it, and
+reads them again at each start and each pull to refresh. While it is on, the
+list cannot be edited by hand; turning it off keeps the last list. It needs the
+local music permission.
 
 **Ajustes → Sistema → Acerca de** (Settings → System → About) shows the
 version, links to the source and to the original cliamp (cliamp-x is an
@@ -204,10 +286,14 @@ GitHub (app and yt-dlp updates), the site of each font you download, LRCLIB
 and NetEase (lyrics), SponsorBlock, the streams and links you open, and
 ListenBrainz or Last.fm when you connect an account.
 
-**Ajustes → Sistema → Enviar registro** (Send log) writes the end of
-`cliamp.log`, the app's log and its crash log to one text file and opens the
-share sheet, for a bug report. Nothing is sent by itself; the file lists
-what you played, so read it before you send it.
+**Ajustes → Sistema → Enviar registro** (Send log) writes one text file of
+about 300 KB at most and opens the share sheet, for a bug report: a header
+(app, Android and device, memory, cores, network, battery saver, sample rate
+and the settings that matter for playback), the last 1500 lines of
+`cliamp.log`, the last 1000 lines of the app's log and its crash log. Nothing
+is sent by itself; the file lists what you played, so read it before you send
+it. `cliamp.log` itself stays under about 2 MB: at 1 MB the core moves it to
+`cliamp.log.1`, replacing the older one, and starts a new file.
 
 ## Background playback
 

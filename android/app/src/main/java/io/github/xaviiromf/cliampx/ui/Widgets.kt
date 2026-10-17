@@ -93,6 +93,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.xaviiromf.cliampx.ErrorMap
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.Item
+import io.github.xaviiromf.cliampx.Lite
 import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.PlaybackClock
@@ -168,9 +169,11 @@ fun Modifier.ruleSemantics(label: String) = clearAndSetSemantics {
 
 /** A secondary button: `[ Texto ]`, 48 dp tall. */
 @Composable
-fun BracketButton(text: String, modifier: Modifier = Modifier, color: Color = LocalPalette.current.accent, onClick: () -> Unit) {
+fun BracketButton(
+    text: String, modifier: Modifier = Modifier, color: Color = LocalPalette.current.accent, description: String = text, onClick: () -> Unit,
+) {
     Box(modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text("[ $text ]", Modifier.semantics { contentDescription = text }, color = color, style = Type.body)
+        Text("[ $text ]", Modifier.semantics { contentDescription = description }, color = color, style = Type.body, softWrap = false)
     }
 }
 
@@ -188,7 +191,7 @@ fun IconBtn(
 /** A track's art at size, or the `░` placeholder with a note while it loads or when there is none. */
 @Composable
 fun ArtBox(key: String, size: Dp, modifier: Modifier = Modifier, fade: Boolean = false) {
-    val px = with(LocalDensity.current) { size.roundToPx() }
+    val px = Lite.artPx(with(LocalDensity.current) { size.roundToPx() }, Lite.on)
     val art = rememberArt(key, px)
     // fade cross-fades the next song's art in (player, mini-player); list rows swap at once, which costs less.
     if (fade) {
@@ -680,6 +683,7 @@ fun Pull(onRefresh: suspend () -> Unit, content: @Composable () -> Unit) {
  * for Inicio's `Sin conexión a internet.` (§2.10).
  */
 suspend fun refreshAll(): Boolean {
+    Remote.syncMusicFolders()
     if (!Remote.online()) return false
     try {
         Remote.call("provider.refresh", JSONObject().put("provider", "ytmusic"))

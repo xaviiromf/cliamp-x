@@ -1,4 +1,4 @@
-// Package locallib indexes the music files of a folder by their tags, so
+// Package locallib indexes the music files of some folders by their tags, so
 // local albums, artists and genres can sit next to the YouTube Music ones in
 // the same menus. The index is cached and refreshed incrementally: only
 // files whose size or modification time changed are read again.
@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -48,9 +49,10 @@ type Album struct {
 	Tracks []playlist.Track
 }
 
-// Library is the index of one music folder. A nil Library is empty.
+// Library is the index of a list of music folders. A file under two of
+// them, as in nested folders, is indexed once. A nil Library is empty.
 type Library struct {
-	dir       string
+	dirs      []string
 	indexPath string
 
 	mu        sync.Mutex
@@ -109,17 +111,32 @@ func userDirsMusic(home string) string {
 	return ""
 }
 
-// New returns the library of dir. An empty dir or "off" gives nil.
-func New(dir string) *Library {
-	dir = strings.TrimSpace(dir)
-	if dir == "" || strings.EqualFold(dir, "off") {
+// New returns the library of dirs. "off" as the only folder gives nil.
+func New(dirs ...string) *Library {
+	if len(dirs) == 1 && strings.EqualFold(strings.TrimSpace(dirs[0]), "off") {
 		return nil
 	}
-	l := &Library{dir: expandHome(dir)}
+	l := &Library{dirs: CleanDirs(dirs)}
 	if data, err := appdir.DataDir(); err == nil {
 		l.indexPath = filepath.Join(data, "local_library.json")
 	}
 	return l
+}
+
+// CleanDirs expands ~ and cleans each folder, and drops the empty ones and
+// the repeats.
+func CleanDirs(dirs []string) []string {
+	out := []string{}
+	for _, d := range dirs {
+		if d = strings.TrimSpace(d); d == "" {
+			continue
+		}
+		d = filepath.Clean(expandHome(d))
+		if !slices.Contains(out, d) {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 func expandHome(dir string) string {
@@ -131,24 +148,24 @@ func expandHome(dir string) string {
 	return dir
 }
 
-// Dir returns the indexed folder.
-func (l *Library) Dir() string {
+// Dirs returns the indexed folders.
+func (l *Library) Dirs() []string {
 	if l == nil {
-		return ""
+		return nil
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.dir
+	return slices.Clone(l.dirs)
 }
 
-// SetDir indexes dir from now on. The next read scans it. A nil Library
-// stays empty.
-func (l *Library) SetDir(dir string) {
+// SetDirs indexes dirs from now on. The next read scans them, and reuses
+// the index of the files it already read. A nil Library stays empty.
+func (l *Library) SetDirs(dirs []string) {
 	if l == nil {
 		return
 	}
 	l.mu.Lock()
-	l.dir = expandHome(dir)
+	l.dirs = CleanDirs(dirs)
 	l.scannedAt = time.Time{}
 	l.mu.Unlock()
 }
@@ -206,36 +223,40 @@ func (l *Library) scanLocked() {
 		}
 	}
 	var out []entry
+	seen := map[string]bool{}
 	read := 0
-	_ = filepath.WalkDir(l.dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") && path != l.dir {
-				return filepath.SkipDir
+	for _, root := range l.dirs {
+		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
 			}
+			if d.IsDir() {
+				if strings.HasPrefix(d.Name(), ".") && path != root {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if len(out) >= maxFiles || seen[path] || !playlist.IsAudioFile(path) {
+				return nil
+			}
+			seen[path] = true
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+			if e, ok := cached[path]; ok && e.Size == info.Size() && e.ModTime == info.ModTime().Unix() {
+				out = append(out, e)
+				return nil
+			}
+			t := playlist.TrackFromPath(path)
+			read++
+			out = append(out, entry{
+				Path: path, Size: info.Size(), ModTime: info.ModTime().Unix(),
+				Title: t.Title, Artist: t.Artist, Album: t.Album, Genre: t.Genre, Year: t.Year, Number: t.TrackNumber,
+			})
 			return nil
-		}
-		if len(out) >= maxFiles || !playlist.IsAudioFile(path) {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil {
-			return nil
-		}
-		if e, ok := cached[path]; ok && e.Size == info.Size() && e.ModTime == info.ModTime().Unix() {
-			out = append(out, e)
-			return nil
-		}
-		t := playlist.TrackFromPath(path)
-		read++
-		out = append(out, entry{
-			Path: path, Size: info.Size(), ModTime: info.ModTime().Unix(),
-			Title: t.Title, Artist: t.Artist, Album: t.Album, Genre: t.Genre, Year: t.Year, Number: t.TrackNumber,
 		})
-		return nil
-	})
+	}
 	l.entries = out
 	l.scannedAt = time.Now()
 	if read > 0 || len(out) != len(cached) {

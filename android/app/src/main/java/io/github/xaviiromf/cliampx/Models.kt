@@ -24,6 +24,8 @@ data class Track(
     val favorite: Boolean = false,
     /** The row's index in the live playlist, in queue.list and playnext.list rows. */
     val index: Int = 0,
+    /** The radio station's name, when the title is the song its stream sends (ICY). */
+    val station: String = "",
 ) {
     /** The title, or the file name of a track that has none. */
     val name get() = title.ifEmpty { path.substringAfterLast('/') }
@@ -47,6 +49,7 @@ data class Track(
                 meta = meta?.keys()?.asSequence()?.associateWith { meta.optString(it) }.orEmpty(),
                 favorite = o.optBoolean("bookmark"),
                 index = o.optInt("index"),
+                station = o.optString("station"),
             )
         }
 
@@ -125,6 +128,7 @@ data class Snapshot(
     val audioCodec: String = "",
     val audioKbps: Int = 0,
     val audioRate: Int = 0,
+    val lyricsOffsetMs: Int = 0,
 ) {
     val playing get() = state == "playing"
 
@@ -173,6 +177,7 @@ data class Snapshot(
             audioCodec = o.optString("audio_codec"),
             audioKbps = o.optInt("audio_kbps"),
             audioRate = o.optInt("audio_rate"),
+            lyricsOffsetMs = o.optInt("lyrics_offset_ms"),
         )
     }
 }

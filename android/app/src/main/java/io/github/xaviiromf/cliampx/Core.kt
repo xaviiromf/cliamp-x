@@ -14,6 +14,8 @@ object Core {
     fun binary(ctx: Context) = File(ctx.applicationInfo.nativeLibraryDir, "libcliamp.so")
     fun configDir(ctx: Context) = File(ctx.filesDir, "config")
     fun configFile(ctx: Context) = File(configDir(ctx), "config.toml")
+    /** The core's data directory: HOME/.local/share/cliamp-x (play log, search history), which its HOME decides. */
+    fun dataDir(ctx: Context) = File(ctx.filesDir, "home/.local/share/cliamp-x")
     fun socket(ctx: Context) = File(configDir(ctx), "cliamp-x.sock")
     fun cookies(ctx: Context) = File(configDir(ctx), "ytmusic_cookies.txt")
 
@@ -144,7 +146,7 @@ object Core {
             "CLIAMP_YTDLP_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs${sep}PYTHONHOME=$pythonHome${sep}HOME=$pythonHome",
             "CLIAMP_FFMPEG=$lib/libffmpeg.so",
             "CLIAMP_FFMPEG_ENV=LD_LIBRARY_PATH=$libraryPath${sep}SSL_CERT_FILE=$certs",
-        ) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
+        ) + Lite.env(ctx) + listOfNotNull(sampleRateEnv(ctx.getSystemService(AudioManager::class.java)?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)))
     }
 
     /**

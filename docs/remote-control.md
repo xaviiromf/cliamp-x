@@ -111,6 +111,7 @@ false, zero or empty.
 | `auto_radio` | The auto radio is on |
 | `normalize` | The volume normalization: `off`, `track` or `album` |
 | `crossfade` | The crossfade between songs of different albums, in seconds |
+| `lyrics_offset_ms` | The synced-lyrics timing offset in milliseconds, `0` when none |
 | `eq_auto` | The EQ preset follows the genre of each song |
 | `quality_wifi`, `quality_mobile` | The YouTube audio quality on Wi-Fi and on mobile data: `alta`, `normal` or `ahorro` |
 | `network` | The network that the app last reported: `wifi` or `mobile` |
@@ -151,11 +152,11 @@ Run `cliamp-x remote capabilities` to get the current machine-readable list.
 | Appearance | `theme`, `vis`, `ui.render` |
 | Live playlist | `queue`, `queue.list`, `queue.replace`, `queue.play`, `queue.enqueue`, `queue.remove`, `queue.move`, `queue.clear`, `track.play`, `track.queue` |
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
-| Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
+| Sources | `load`, `url.list`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog`, `provider.home`, `provider.genres`, `provider.genre_tracks`, `provider.genre_favorite`, `provider.refresh`, `provider.preview` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Ratings and discovery | `taste.rate`, `taste.list`, `radio.start`, `discover.remixes` |
-| Settings | `settings.set`, `lastfm.auth` |
+| Settings | `settings.set`, `settings.get`, `lastfm.auth` |
 | Downloads and statistics | `download`, `download.status`, `download.cancel`, `download.retry`, `download.auto`, `stats` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
@@ -180,6 +181,13 @@ tracks as other operations return them, and plays the one at `index`. An
 index out of range plays the nearest track. The result is the first page of
 the new live playlist. The live playlist then mirrors no saved playlist.
 Empty or too many `tracks` fail with `invalid_params`.
+
+`url.list` resolves the `path` URL as `url.load` does (a stream, an M3U or
+PLS playlist, an RSS feed, a video page) and returns its `tracks` in source
+order, a feed's episodes as the feed lists them (newest first for most
+podcasts, at most 300), with the `podcast.published` date and the duration in
+`provider_meta` and `duration_secs` when the feed has them. It does not touch
+the live playlist or the player. Play one of the tracks with `queue.replace`.
 
 ```sh
 cliamp-x remote call queue.replace --params '{"tracks":[{"path":"/music/a.flac"},{"path":"/music/b.flac"}],"index":1}' --wait
@@ -311,6 +319,9 @@ unstars the genre `playlist` and gives the new state in `favorite`.
 
 `provider.refresh` drops the cached lists of the provider, so the next read
 asks the service again, and starts the `foryou` lists over.
+It logs `provider: refresh <key>` at info level, and YouTube Music logs
+`ytmusic: home reloaded, N shelves` when the home page comes back, so a log shows
+whether a pull to refresh reached the core.
 
 `provider.preview` gives the picture and the non-blank detail lines of an album,
 artist or playlist ID in `preview`: `image_url` and `lines`. For a YouTube
@@ -378,6 +389,7 @@ its key does. The snapshot then reports the new state.
 | `crossfade` | Seconds from `0` to `12` |
 | `eq_auto` | `0` off or `1` on. On, it applies the preset of the playing song's genre |
 | `mono` | `0` off or `1` on |
+| `lyrics_offset` | Synced-lyrics timing in milliseconds, from `-10000` to `10000`. Saved as `lyrics_offset_ms`, as the `[` and `]` keys do |
 
 | `name` | `text` |
 | --- | --- |
@@ -385,7 +397,21 @@ its key does. The snapshot then reports the new state.
 | `network` | `wifi` or `mobile`: the network the app uses now. `mobile` plays with `quality_mobile`. Not saved, so the app sends it at every start and on every change |
 | `premium_quality` | `on` or `off`. On Android, `on` runs yt-dlp with the sign-in from the first try, so a Premium account gets its 256 kbps formats. Saved in `[ytmusic]` |
 | `listenbrainz_token`, `lastfm_api_key`, `lastfm_api_secret`, `lastfm_session_key` | The scrobbling credentials, saved in `[scrobble]`. Empty text turns the service off. Text with a line break fails. A ListenBrainz token is saved only after ListenBrainz `validate-token` accepts it; otherwise the job fails with `internal_error` and the detail `listenbrainz: the token is not valid` |
-| `music_dir` | The absolute path of an existing folder. The local library indexes it from the next read, so Local music lists its songs at once. Saved as the top-level `music_dir`. Another path fails with `invalid_params`. With `music_dir = "off"` there is no library, and the folder applies at the next start |
+| `music_dir` | The absolute path of an existing folder. It replaces the local music folders with this one |
+| `music_dir_add` | The absolute path of an existing folder to add to the local music folders |
+| `music_dir_remove` | The absolute path of a folder to take out of the local music folders. A folder not in the list changes nothing |
+
+`music_dirs` takes its folders in `args`, the whole new list, possibly
+empty; every folder must be an absolute path that exists. The `music_dir`
+names save the list as the top-level `music_dirs`, and their result gives
+the new list in `items`. The local library indexes it from the next read,
+so Local music lists its songs at once; a song under two of the folders
+appears once. Another path fails with `invalid_params`. With
+`music_dir = "off"` there is no library, and the folders apply at the next
+start.
+
+`settings.get` with the `name` `music_dirs` gives the local music folders
+in `items`. Any other name fails with `invalid_params`.
 
 A quality change applies to the songs that start after it.
 
@@ -410,6 +436,8 @@ The result is `{"ok":true}`. Any other name or value fails with
 ```sh
 cliamp-x remote call settings.set --params '{"name":"crossfade","value":4}' --wait
 cliamp-x remote call settings.set --params '{"name":"network","text":"mobile"}' --wait
+cliamp-x remote call settings.set --params '{"name":"music_dir_add","text":"/home/me/Downloads/Music"}' --wait
+cliamp-x remote call settings.get --params '{"name":"music_dirs"}' --wait
 ```
 
 ### Downloads and statistics
@@ -422,8 +450,8 @@ yt-dlp links, are skipped.
 
 `download.status` gives the queue in `downloads`. `current` and `percent`
 are the song that downloads now, `queued` the songs that wait, `failed` the
-songs that failed with the reason, `done` the songs downloaded since the
-queue last ran empty, and `directory` the folder of the files.
+songs that failed with the reason, `done` the songs downloaded by the last
+batch (it stays after the queue runs empty, until a new batch starts), and `directory` the folder of the files.
 `download.cancel` stops the running download and empties the queue.
 `download.retry` queues the failed songs again.
 

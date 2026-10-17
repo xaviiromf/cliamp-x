@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
 
 // memRelayCap bounds the downloaded bytes that wait for ffmpeg. 256 MiB holds
@@ -18,8 +19,9 @@ type memRelay struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
 	buf    []byte
-	off    int   // read position in buf
-	total  int64 // bytes written, for the health log
+	off    int       // read position in buf
+	total  int64     // bytes written, for the health log
+	first  time.Time // when yt-dlp wrote its first byte, for the start log
 	eof    bool
 	closed bool
 }
@@ -38,6 +40,9 @@ func (r *memRelay) Write(p []byte) (int, error) {
 	}
 	if r.closed {
 		return 0, io.ErrClosedPipe
+	}
+	if r.total == 0 && len(p) > 0 {
+		r.first = time.Now()
 	}
 	r.buf = append(r.buf, p...)
 	r.total += int64(len(p))
@@ -95,6 +100,13 @@ func (r *memRelay) progress() (written, pending int64, done bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.total, int64(len(r.buf) - r.off), r.eof
+}
+
+// firstByte reports when yt-dlp wrote its first byte, or the zero time.
+func (r *memRelay) firstByte() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.first
 }
 
 // resumable reports whether the download is not held back by the cap, so a

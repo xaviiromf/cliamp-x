@@ -28,7 +28,10 @@ import (
 func installPipelineRouteFixtures(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	// Like the real one, it outputs only after its input starts, so yt-dlp has
+	// printed its format and duration by then.
 	writeExecutable(t, filepath.Join(dir, "ffmpeg"), `#!/bin/sh
+head -c 1 >/dev/null
 printf '\000\100\000\300'
 exec sleep 30
 `)
@@ -366,13 +369,14 @@ func TestBuildSourceRoutes(t *testing.T) {
 		t.Skip("uses POSIX shell fixtures")
 	}
 	fixtures := installPipelineRouteFixtures(t)
-	// The fake yt-dlp answers a duration probe with 90 s and otherwise writes
-	// page bytes for the fake ffmpeg.
+	// The fake yt-dlp prints a 90 s duration with the format it picked and
+	// writes page bytes for the fake ffmpeg.
 	writeExecutable(t, filepath.Join(fixtures, "yt-dlp"), `#!/bin/sh
+n=0
 for arg do
-	if [ "$arg" = "--print" ]; then
-		printf '90\n'
-		exit 0
+	if [ "$n" = 2 ]; then printf 'opus 128 48000 90\n' > "$arg"; n=0
+	elif [ "$n" = 1 ]; then n=2
+	elif [ "$arg" = "--print-to-file" ]; then n=1
 	fi
 done
 printf 'page bytes'
@@ -413,7 +417,7 @@ printf 'page bytes'
 			wantDuration: 3 * time.Minute,
 		},
 		{
-			name:         "yt-dlp page probes a missing duration",
+			name:         "yt-dlp page takes the duration yt-dlp printed",
 			path:         page,
 			probe:        true,
 			register:     func(_ *testing.T, p *Player) { claimPage(p) },
@@ -423,12 +427,13 @@ printf 'page bytes'
 			wantDuration: 90 * time.Second,
 		},
 		{
-			name:         "yt-dlp preload does not probe",
+			name:         "yt-dlp preload takes the printed duration too",
 			path:         page,
 			register:     func(_ *testing.T, p *Player) { claimPage(p) },
 			wantDecoder:  "*player.ytdlPipeStreamer",
 			wantYTDL:     true,
 			wantPrefetch: true,
+			wantDuration: 90 * time.Second,
 		},
 		{
 			name:  "yt-dlp page starts at the offset",
@@ -457,6 +462,7 @@ printf 'page bytes'
 			wantDecoder:  "*player.ytdlPipeStreamer",
 			wantYTDL:     true,
 			wantPrefetch: true,
+			wantDuration: 90 * time.Second,
 		},
 		{
 			name:    "page that no matcher claims opens over http",

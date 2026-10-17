@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/xaviiromf/cliamp-x/applog"
 	"github.com/xaviiromf/cliamp-x/internal/offline"
 	"github.com/xaviiromf/cliamp-x/ipc"
 	"github.com/xaviiromf/cliamp-x/playlist"
@@ -159,6 +160,8 @@ func (m *Model) queueDownloads(label string, jobs []offline.Job) tea.Cmd {
 	if m.downloads.running {
 		return nil
 	}
+	// The counts of the last batch stay readable until a new one starts.
+	m.downloads.done, m.downloads.failed = 0, 0
 	return m.startNextDownload()
 }
 
@@ -175,9 +178,11 @@ func (m *Model) startNextDownload() tea.Cmd {
 	dir, err := tracksave.Directory(d.dir)
 	if err != nil {
 		d.running = false
+		applog.Warn("download: no directory for %q: %v", job.Track.Path, err)
 		m.status.Warningf(statusTTLMedium, "%s: %s", L("Download"), err)
 		return nil
 	}
+	applog.Info("download: start %q in %s", job.Track.Path, dir)
 	events := make(chan downloadEvent, 16)
 	ctx, cancel := context.WithCancel(context.Background())
 	d.events, d.cancel = events, cancel
@@ -223,9 +228,11 @@ func (m *Model) handleDownloadEvent(msg downloadEventMsg) tea.Cmd {
 		// Stopped by x on the downloads screen: not a failure.
 	case msg.ev.err != nil:
 		d.failed++
+		applog.Warn("download: failed %q: %v", d.current.Track.Path, msg.ev.err)
 		d.failedJobs = append(d.failedJobs, failedDownload{job: d.current, err: msg.ev.err.Error()})
 	default:
 		d.done++
+		applog.Info("download: done %q as %s", d.current.Track.Path, msg.ev.file)
 	}
 	if len(d.queue) > 0 {
 		return m.startNextDownload()
@@ -234,13 +241,12 @@ func (m *Model) handleDownloadEvent(msg downloadEventMsg) tea.Cmd {
 	switch {
 	case d.done == 0 && d.failed == 0:
 		// Canceled before a song finished: nothing to report.
-	case d.failed > 0:
+	case d.failed > 0 && len(d.failedJobs) > 0: // a retry empties failedJobs, not the count
 		m.status.Warningf(statusTTLLong, "↓ %d %s, %d %s: %s", d.done, L("downloaded"), d.failed, L("failed"), d.failedJobs[len(d.failedJobs)-1].err)
 	default:
 		dir, _ := tracksave.Directory(d.dir)
 		m.status.Successf(statusTTLLong, "↓ %d %s %s", d.done, L("downloaded to"), dir)
 	}
-	d.done, d.failed = 0, 0
 	// The local music menus pick the new files up on their next read.
 	for _, pe := range m.providers {
 		if r, ok := pe.Provider.(interface{ Refresh() }); ok {

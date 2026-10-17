@@ -456,6 +456,37 @@ func (p *Player) Stop() {
 	p.suspendSpeaker()
 }
 
+// Hush silences the playing track at once and drops it, with any preloaded
+// next track, for a skip whose new track still loads. Unlike Stop, the
+// player stays in the playing state, so the new track's start takes over
+// without a stopped state in between.
+func (p *Player) Hush() {
+	p.preloadGen.Add(1)
+	p.lifecycleMu.Lock()
+	p.mu.Lock()
+	active := p.current
+	p.mu.Unlock()
+	if active == nil {
+		p.lifecycleMu.Unlock()
+		return
+	}
+	// As in Stop: a decoder blocked in Stream holds the speaker lock.
+	p.gapless.SetNext(nil)
+	active.interrupt()
+	speaker.Lock()
+	p.gapless.Clear()
+	p.gaplessAdvance.Store(false)
+	p.mu.Lock()
+	oldCurrent, oldNext := p.current, p.nextPipeline
+	p.current, p.nextPipeline = nil, nil
+	p.mu.Unlock()
+	speaker.Unlock()
+	p.lifecycleMu.Unlock()
+
+	p.stopStreamMetadata()
+	go closePipelines(oldCurrent, oldNext)
+}
+
 // IsPlaying returns true if a track is loaded and playing (possibly paused).
 func (p *Player) IsPlaying() bool {
 	return p.playing.Load()

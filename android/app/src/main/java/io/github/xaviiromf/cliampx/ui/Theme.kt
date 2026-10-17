@@ -215,7 +215,7 @@ fun SheetBars() {
 fun LiveTheme(content: @Composable () -> Unit) {
     val theme by remember { Remote.state.mapFlow { it?.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
     // A background shows through the bars and cards.
-    val palette = livePalette(theme).let { if (Looks.background == Background.Solid) it else it.copy(glass = 0.6f) }
+    val palette = livePalette(theme).let { if (Looks.shownBackground == Background.Solid) it else it.copy(glass = 0.6f) }
     CliampTheme(palette, content)
 }
 

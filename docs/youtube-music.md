@@ -48,6 +48,9 @@ la playlist que suena. Para buscar música nueva, `Esc` abre **Explorar**
 (`[Explorar]`), con los menús de abajo. Al elegir una canción en Explorar, su
 lista reemplaza la cola y vuelves a la pantalla principal.
 
+Al pasar a otra canción (siguiente, anterior o elegir otra), la que sonaba se
+calla al instante y el estado muestra que carga la nueva hasta que empieza.
+
 ## Menús
 
 El panel de YouTube Music tiene estas secciones:
@@ -177,6 +180,11 @@ Mientras suena una canción, cliamp-x la descarga entera en memoria (unos
 pocos MB). Así, quitar la pausa la reanuda al instante aunque haya pasado
 mucho tiempo, sin volver a conectarse a YouTube.
 
+Un salto adelante, o retomar una canción donde quedó, no espera a descargar
+todo lo anterior: ffmpeg abre el audio en ese punto, también en mezclas de
+varias horas. Tras ese salto la canción ya no está entera en memoria, y
+quitar una pausa larga vuelve a conectarse en un par de segundos.
+
 ## Descargas y letras
 
 - `D` descarga para escuchar sin conexión la canción, el álbum o la playlist
@@ -267,6 +275,17 @@ Pon `enabled = false` para desactivar el proveedor. Consulta
   lento. La biblioteca, los me gusta y el inicio siguen usando la sesión.
 - **Errores**: revisa `~/.config/cliamp-x/cliamp.log`, o arranca con
   `cliamp-x --log-level debug`.
+- **Una canción tarda en sonar**: cada inicio de una canción de YouTube deja
+  en `cliamp.log` una línea `playback: start` (o `playback: seek` tras un
+  salto) cuando empieza a sonar, con el tiempo de cada etapa contado desde la
+  orden: `extract` cuando yt-dlp terminó de leer la página, `firstbyte` el
+  primer byte de audio descargado, `firstpcm` el primer audio decodificado y
+  `audio` cuando el altavoz recibió el primer audio. `offset` es el segundo
+  donde empieza, `info=prefetched` indica que la página ya estaba leída de
+  antes y `via=url` que ffmpeg abrió el audio directamente en ese punto. Si
+  `extract` se lleva casi todo el tiempo, la espera es de yt-dlp (en Android,
+  unos 5 s por canción); si la diferencia está entre `extract` y
+  `firstbyte`, la red tarda en entregar el audio.
 - **El audio se corta o va a saltos**: mientras suena una canción,
   `cliamp.log` guarda cada 15 s una línea `playback: health`, otra
   `playback: starved` cuando el audio tuvo que esperar más de 100 ms, y una

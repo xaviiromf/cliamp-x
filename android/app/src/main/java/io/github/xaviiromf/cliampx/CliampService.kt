@@ -2,6 +2,7 @@
 
 package io.github.xaviiromf.cliampx
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -136,11 +137,12 @@ class CliampService : Service(), TerminalSessionClient {
             }.collect(::onState)
         }
         watchOutputs()
+        ContextCompat.registerReceiver(this, noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The widget, the tile and the shortcuts start the service in the foreground: it must show its notification.
-        if (intent?.action != ACTION_QUIT) ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        if (intent?.action != ACTION_QUIT && intent?.action != ACTION_ERASE) ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         val control = intent?.action in setOf(ACTION_PREV, ACTION_TOGGLE, ACTION_NEXT, ACTION_RESUME)
         // With no core, a control from the widget, the tile or a shortcut resumes: start the core and play what it restored.
         if (control && session == null) return START_NOT_STICKY.also { resume() }
@@ -150,6 +152,8 @@ class CliampService : Service(), TerminalSessionClient {
             ACTION_RESUME -> resume()
             ACTION_NEXT -> op("next")
             ACTION_QUIT -> quit()
+            ACTION_ERASE -> erase()
+            ACTION_RESTORE -> restoreBackup()
             // The rest come from the app on screen, which may start the foreground service.
             else -> {
                 if (intent?.action == ACTION_RESTART) restart() else start()
@@ -161,6 +165,7 @@ class CliampService : Service(), TerminalSessionClient {
 
     override fun onDestroy() {
         audio.unregisterAudioDeviceCallback(outputs)
+        unregisterReceiver(noisy)
         setPlaying(false)
         if (hasFocus) AudioManagerCompat.abandonAudioFocusRequest(audio, focusRequest)
         media.release()
@@ -254,6 +259,35 @@ class CliampService : Service(), TerminalSessionClient {
     fun quit() {
         Remote.quitting.value = true
         stopCore { finish(true) }
+    }
+
+    /** Stops the core, then wipes the app's data: sign-in, settings, lists, history and downloads. */
+    fun erase() {
+        Remote.quitting.value = true
+        stopCore { getSystemService(ActivityManager::class.java).clearApplicationUserData() }
+    }
+
+    /** Importar copia: with the core stopped (it saves at exit and would overwrite the files), writes the checked backup, then starts the core on it. */
+    fun restoreBackup() {
+        val backup = Backup.pending ?: return
+        Backup.pending = null
+        stopCore {
+            scope.launch {
+                val msg = try {
+                    withContext(Dispatchers.IO) { Backup.apply(this@CliampService, backup) }
+                    Backup.applyLook(this@CliampService, backup)
+                    R.string.backup_import_done
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "restore", e)
+                    R.string.backup_import_error
+                }
+                Toast.makeText(this@CliampService, getString(msg), Toast.LENGTH_LONG).show()
+                start()
+                if (coreUp()) Remote.reload()
+            }
+        }
     }
 
     /** Stops the core with SIGTERM, so it saves the resume position, then runs then. */
@@ -460,7 +494,11 @@ class CliampService : Service(), TerminalSessionClient {
             ) op("play")
         }
 
-        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = followOutput()
+        // Second guard beside ACTION_AUDIO_BECOMING_NOISY: some route changes send no broadcast.
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+            followOutput()
+            if (Routes.pauseOnRemoved(removed.filter { it.isSink }.map { it.type }, Remote.state.value?.playing == true)) op("pause")
+        }
     }
 
     private fun followOutput() {
@@ -483,6 +521,8 @@ class CliampService : Service(), TerminalSessionClient {
         }
     }
 
+    // Registered for the whole life of the service. RECEIVER_NOT_EXPORTED would, below API 33, guard it with a
+    // signature permission; the system sends this protected broadcast, so nobody else can forge it.
     private val noisy = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = op("pause")
     }
@@ -495,10 +535,8 @@ class CliampService : Service(), TerminalSessionClient {
                 hasFocus = AudioManagerCompat.requestAudioFocus(audio, focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
                 if (!hasFocus) op("pause")
             }
-            ContextCompat.registerReceiver(this, noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED)
             wakeLock.acquire(6 * 60 * 60 * 1000L)
         } else {
-            unregisterReceiver(noisy)
             if (wakeLock.isHeld) wakeLock.release()
         }
     }
@@ -581,6 +619,8 @@ class CliampService : Service(), TerminalSessionClient {
         const val ACTION_TOGGLE = "io.github.xaviiromf.cliampx.TOGGLE"
         const val ACTION_NEXT = "io.github.xaviiromf.cliampx.NEXT"
         const val ACTION_QUIT = "io.github.xaviiromf.cliampx.QUIT"
+        const val ACTION_ERASE = "io.github.xaviiromf.cliampx.ERASE"
+        const val ACTION_RESTORE = "io.github.xaviiromf.cliampx.RESTORE"
         const val ACTION_RESTART = "io.github.xaviiromf.cliampx.RESTART"
         const val ACTION_RESUME = "io.github.xaviiromf.cliampx.RESUME"
 

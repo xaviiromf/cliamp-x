@@ -1,5 +1,7 @@
 package io.github.xaviiromf.cliampx.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -117,6 +119,7 @@ fun LibraryScreen() {
                             Nav.open(Screen.Playlist("ytmusic", "local:all", it))
                         }
                         if ("taste.list" in ops) Pinned(R.drawable.ic_check, stringResource(R.string.ratings), 0, "lib_ratings") { Nav.open(Screen.Ratings) }
+                        if ("url.list" in ops) Pinned(R.drawable.ic_play, stringResource(R.string.lib_radio), 0, "lib_radio") { Nav.open(Screen.Radio) }
                         if ("stats" in ops) Pinned(R.drawable.ic_stats, stringResource(R.string.stats), 0, "lib_stats") { Nav.open(Screen.Stats) }
                     }
                 }
@@ -177,7 +180,11 @@ private fun LazyListScope.lists(yt: Load<List<Item>>, retry: () -> Unit) {
     item(key = "local") {
         val (local, retryLocal) = rememberLoad("playlists:local") { Remote.playlists("local") }
         Column {
-            SectionRule(stringResource(R.string.local))
+            val ops by Remote.ops.collectAsStateWithLifecycle()
+            val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(Remote::importM3u) }
+            SectionRule(stringResource(R.string.local)) {
+                if ("playlist.add_many" in ops) BracketButton(stringResource(R.string.m3u_import), Modifier.testTag("lib_import_m3u")) { pick.launch(arrayOf("*/*")) }
+            }
             LoadState(local, retryLocal)
             val rows = (local as? Load.Done)?.value.orEmpty().filter { it.id !in Library.VIRTUAL }
             if (local is Load.Done && rows.isEmpty()) {

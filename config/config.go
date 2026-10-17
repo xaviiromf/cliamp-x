@@ -337,6 +337,7 @@ type Config struct {
 	Playlist         string                       // local TOML playlist name to load on startup
 	InitialDirectory string                       // initial directory for the file browser
 	MusicDir         string                       // local music folder for the YouTube Music menus: "" = ~/Music, "off" = none
+	MusicDirs        []string                     // local music folders; when set (even empty) it replaces MusicDir
 	LyricsOffsetMs   int                          // lyric timestamp adjustment in ms (-10000..10000), applied to all sources
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	SponsorBlock     SponsorBlockConfig           // skipping of marked YouTube segments
@@ -676,6 +677,8 @@ func (c *Config) setTopLevel(key, val string) {
 		}
 	case "music_dir":
 		c.MusicDir = strings.TrimSpace(parseString(val))
+	case "music_dirs":
+		c.MusicDirs = parseStringSlice(val)
 	case "padding_horizontal":
 		if v, ok := parseInt(val); ok {
 			c.PaddingH = v
@@ -948,6 +951,19 @@ func (c Config) ApplyPlaylist(pl PlaylistConfig) {
 	if c.Shuffle {
 		pl.ToggleShuffle()
 	}
+}
+
+// MusicFolders returns the local music folders: music_dirs when the file
+// sets it, even to [], or else music_dir as a list of one. nil means
+// neither is set, so the caller picks the user's music folder.
+func (c Config) MusicFolders() []string {
+	if c.MusicDirs != nil {
+		return c.MusicDirs
+	}
+	if c.MusicDir != "" {
+		return []string{c.MusicDir}
+	}
+	return nil
 }
 
 // SeekStepLargeDuration returns the configured Shift+Left/Right seek jump.

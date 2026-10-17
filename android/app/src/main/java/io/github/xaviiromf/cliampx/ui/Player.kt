@@ -113,7 +113,7 @@ fun PlayerSheet(s: Snapshot) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val close: () -> Unit = {
-        if (Looks.motion == MotionSpeed.Off) Nav.player = false else scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false }
+        if (Looks.activeMotion == MotionSpeed.Off) Nav.player = false else scope.launch { state.hide() }.invokeOnCompletion { Nav.player = false }
     }
     ModalBottomSheet(
         onDismissRequest = { Nav.player = false },
@@ -297,7 +297,7 @@ private fun SeekRows(s: Snapshot, seek: SeekState, now: LongState) {
 fun calmPlayerPage() = Nav.page == PlayerPage.Player || Nav.page == PlayerPage.Lyrics
 
 /** Whether the visualizer fills the player behind the artwork. */
-fun backgroundVis(s: Snapshot) = Looks.playerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
+fun backgroundVis(s: Snapshot) = Looks.showPlayerVis && s.visualizer.isNotEmpty() && s.visualizer != "None"
 
 /** How much of the background visualizer shows under the player's text. */
 private const val BACKGROUND_VIS_ALPHA = 0.4f
@@ -379,7 +379,10 @@ private fun ArtArea(s: Snapshot, view: ArtView, side: Dp, setView: (ArtView) -> 
         when (view) {
             ArtView.Cover -> ArtBox(track.art, side, fade = true)
             ArtView.Visualizer -> Visualizer(s, Modifier.fillMaxSize())
-            ArtView.Lyrics -> LyricsView(s, side, karaoke = false)
+            ArtView.Lyrics -> Column {
+                Box(Modifier.weight(1f).fillMaxWidth()) { LyricsView(s, side - 48.dp, karaoke = false) }
+                LyricsOffsetRow(s)
+            }
         }
     }
 }
@@ -435,7 +438,31 @@ private fun KaraokePage(s: Snapshot) {
             track.name + if (track.artist.isNotEmpty()) " · " + track.artist else "", Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             color = p.textSecondary, style = Type.label, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
+        LyricsOffsetRow(s)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)) { LyricsView(s, maxHeight, karaoke = true) }
+    }
+}
+
+/** The synced-lyrics timing: `[ −0.5 s ]`, the offset in seconds, `[ +0.5 s ]`. The core saves it (settings.set lyrics_offset). */
+@Composable
+private fun LyricsOffsetRow(s: Snapshot) {
+    val p = LocalPalette.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
+    if ("settings.set" !in ops || s.track == null) return
+    val shown = "%+.1f s".format(s.lyricsOffsetMs / 1000.0)
+    val timing = stringResource(R.string.lyrics_offset) + " " + shown
+    fun nudge(step: Int) {
+        val ms = (s.lyricsOffsetMs + step).coerceIn(-10_000, 10_000)
+        Remote.fire("settings.set", JSONObject().put("name", "lyrics_offset").put("value", ms))
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        BracketButton(stringResource(R.string.lyrics_earlier), Modifier.testTag("lyrics_earlier"), description = stringResource(R.string.lyrics_earlier_desc)) { nudge(-500) }
+        Text(
+            shown,
+            Modifier.weight(1f).padding(horizontal = 8.dp).testTag("lyrics_offset").semantics { contentDescription = timing }, color = p.textSecondary, style = Type.label,
+            textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        BracketButton(stringResource(R.string.lyrics_later), Modifier.testTag("lyrics_later"), description = stringResource(R.string.lyrics_later_desc)) { nudge(500) }
     }
 }
 
@@ -472,7 +499,7 @@ private fun LyricsView(s: Snapshot, side: Dp, karaoke: Boolean) {
             val now = rememberNow(s)
             val snap by rememberUpdatedState(s)
             val active by remember(shown) {
-                derivedStateOf { if (synced) Lyrics.active(shown, PlaybackClock.positionAt(snap, now.longValue)) else -1 }
+                derivedStateOf { if (synced) Lyrics.active(shown, PlaybackClock.positionAt(snap, now.longValue) + snap.lyricsOffsetMs / 1000.0) else -1 }
             }
             val list = rememberLazyListState()
             LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem(active) }
@@ -488,7 +515,7 @@ private fun LyricsView(s: Snapshot, side: Dp, karaoke: Boolean) {
                             .then(
                                 if (seeks) {
                                     Modifier.clickable(onClickLabel = seekLabel) {
-                                        Remote.fire("seek.absolute", JSONObject().put("value", line.start))
+                                        Remote.fire("seek.absolute", JSONObject().put("value", (line.start - s.lyricsOffsetMs / 1000.0).coerceAtLeast(0.0)))
                                     }.heightIn(min = 48.dp).wrapContentHeight()
                                 } else {
                                     Modifier
@@ -547,6 +574,10 @@ private fun TitleBlock(s: Snapshot) {
                 color = p.textSecondary, style = Type.body, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+    // A radio's name, while its stream sends the song (ICY).
+    if (track.station.isNotEmpty()) {
+        Text(stringResource(R.string.radio_station, track.station), Modifier.testTag("player_station"), color = p.textSecondary, style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

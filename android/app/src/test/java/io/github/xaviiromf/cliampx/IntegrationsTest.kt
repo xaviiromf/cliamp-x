@@ -63,6 +63,27 @@ class IntegrationsTest {
     }
 
     @Test
+    fun pauseOnRemoved() {
+        for ((types, playing, want) in listOf(
+            Triple(listOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_BLUETOOTH_SCO), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_BLE_HEADSET), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_BLE_SPEAKER), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_WIRED_HEADSET), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_WIRED_HEADPHONES), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_USB_HEADSET), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_HEARING_AID), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_WIRED_HEADSET), true, true),
+            Triple(listOf(AudioDeviceInfo.TYPE_WIRED_HEADSET), false, false), // already paused
+            Triple(listOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER), true, false),
+            Triple(listOf(AudioDeviceInfo.TYPE_HDMI), true, false),
+            Triple(emptyList<Int>(), true, false),
+        )) {
+            assertEquals("$types $playing", want, Routes.pauseOnRemoved(types, playing))
+        }
+    }
+
+    @Test
     fun routePick() {
         val bt = AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
         val wired = AudioDeviceInfo.TYPE_WIRED_HEADPHONES

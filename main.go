@@ -153,8 +153,8 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	m := model.New(p, pl, providers.entries, defaultProvider, providers.localPlaylists(), providers.favorites, providers.history, theme.LoadAll(), luaMgr, config.SaveFunc{})
 	m.SetIPCBroker(pluginBroker)
 	m.SetTaste(providers.taste)
-	// shortcut: with music_dir off there is no library, and a new folder applies at the next start.
-	m.SetMusicDirFunc(providers.library.SetDir)
+	// shortcut: with music_dir off there is no library, and new folders apply at the next start.
+	m.SetMusicLibrary(providers.library)
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaStateProvider(p, m.PluginStateLoader()))
 		if names := luaMgr.Visualizers(); len(names) > 0 {
@@ -310,9 +310,13 @@ func newPlayer(cfg config.Config) (p *player.Player, closePlayer func(), err err
 		}
 	}
 
+	bufferMs := player.BufferMsFor(cfg.BufferMs, player.LightMode())
+	if bufferMs != cfg.BufferMs {
+		applog.Info("player: lightweight mode, speaker buffer %d ms (config %d ms)", bufferMs, cfg.BufferMs)
+	}
 	p, err = player.New(player.Quality{
 		SampleRate:      sampleRate,
-		BufferMs:        cfg.BufferMs,
+		BufferMs:        bufferMs,
 		ResampleQuality: cfg.ResampleQuality,
 		BitDepth:        cfg.BitDepth,
 	})

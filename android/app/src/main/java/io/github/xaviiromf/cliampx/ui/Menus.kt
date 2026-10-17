@@ -2,6 +2,8 @@ package io.github.xaviiromf.cliampx.ui
 
 import android.content.Intent
 import androidx.annotation.DrawableRes
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +63,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Item
 import io.github.xaviiromf.cliampx.Kind
 import io.github.xaviiromf.cliampx.Library
@@ -85,11 +88,12 @@ import kotlin.math.abs
 fun SheetHost(s: Snapshot?) {
     val sheet = Nav.sheet ?: return
     val p = LocalPalette.current
+    val context = LocalContext.current
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     // shortcut: Material 3 1.4 keeps the sheets' own motion internal, so Sin animación only skips the slide out.
     val close: () -> Unit = {
-        if (Looks.motion == MotionSpeed.Off) Nav.sheet = null else scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null }
+        if (Looks.activeMotion == MotionSpeed.Off) Nav.sheet = null else scope.launch { state.hide() }.invokeOnCompletion { Nav.sheet = null }
     }
     ModalBottomSheet(
         onDismissRequest = { Nav.sheet = null },
@@ -133,8 +137,14 @@ fun SheetHost(s: Snapshot?) {
                     Sheet.Crossfade -> CrossfadeSheet(s, close)
                     is Sheet.SkinName -> SkinNameSheet(sheet, close)
                     is Sheet.SkinActions -> SkinActionsSheet(sheet, close)
+                    is Sheet.StationActions -> StationActionsSheet(sheet, close)
+                    is Sheet.StationName -> StationNameSheet(sheet, close)
                     is Sheet.ThemeName -> ThemeNameSheet(sheet, close)
                     Sheet.ClearQueue -> Confirm(stringResource(R.string.clear_queue_confirm), stringResource(R.string.clear), close) { Remote.fire("queue.clear") }
+                    Sheet.RestoreBackup -> Confirm(stringResource(R.string.backup_import_confirm), stringResource(R.string.backup_import_action), close) {
+                        CliampService.send(context, CliampService.ACTION_RESTORE)
+                    }
+                    Sheet.EraseData -> Confirm(stringResource(R.string.erase_all_confirm), stringResource(R.string.erase_all_action), close) { CliampService.send(context, CliampService.ACTION_ERASE) }
                 }
             }
         }
@@ -281,6 +291,13 @@ private fun ItemActions(item: Item, close: () -> Unit) {
             MenuRow("▶", play, "menu_play") { run { Remote.playItem(item) } }
             MenuRow("", shuffle, "menu_shuffle", icon = R.drawable.ic_shuffle) { run { Remote.playItem(item, shuffle = true) } }
             if ("track.queue" in ops) MenuRow("▶", stringResource(R.string.play_next), "menu_play_next") { run { Remote.queueItem(item) } }
+            if (item.kind == Kind.PLAYLIST) {
+                val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+                    uri?.let { Remote.exportM3u(item, it) }
+                    close()
+                }
+                MenuRow("↑", stringResource(R.string.m3u_export), "menu_export_m3u") { save.launch(item.title.replace('/', ' ') + ".m3u") }
+            }
             if (item.kind == Kind.ALBUM && yt && signedIn == true && "provider.favorite" in ops) {
                 val pid = item.id.removePrefix("al:")
                 val (preview, _) = rememberLoad("preview:$pid") { Remote.preview(pid) }
@@ -490,10 +507,17 @@ internal fun NameSheet(
 @Composable
 private fun PlayerMore(s: Snapshot?, close: () -> Unit) {
     val context = LocalContext.current
+    val ops by Remote.ops.collectAsStateWithLifecycle()
     s?.track?.let {
         SongHeader(it)
         LikeRow(it, close)
         ShareRow(it, close)
+        if ("download" in ops) {
+            MenuRow("↓", stringResource(R.string.download), "menu_download") {
+                Remote.download(JSONObject().put("track", it.json()))
+                close()
+            }
+        }
     }
     MenuRow("×", stringResource(R.string.speed_more), "menu_speed") { Nav.sheet = Sheet.Speed }
     MenuRow("", stringResource(R.string.sleep_more), "menu_sleep", icon = R.drawable.ic_timer) { Nav.sheet = Sheet.Sleep }

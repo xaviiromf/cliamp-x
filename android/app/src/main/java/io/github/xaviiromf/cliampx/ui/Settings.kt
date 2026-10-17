@@ -40,7 +40,6 @@ import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import io.github.xaviiromf.cliampx.Backup
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xaviiromf.cliampx.BuildConfig
@@ -68,12 +68,15 @@ import io.github.xaviiromf.cliampx.CliampService
 import io.github.xaviiromf.cliampx.Core
 import io.github.xaviiromf.cliampx.LauncherIcon
 import io.github.xaviiromf.cliampx.Language
+import io.github.xaviiromf.cliampx.Lite
+import io.github.xaviiromf.cliampx.LiteMode
 import io.github.xaviiromf.cliampx.LoginActivity
 import io.github.xaviiromf.cliampx.Logs
 import io.github.xaviiromf.cliampx.IpcError
 import io.github.xaviiromf.cliampx.MainActivity
 import io.github.xaviiromf.cliampx.Offline
 import io.github.xaviiromf.cliampx.R
+import io.github.xaviiromf.cliampx.MusicFolders
 import io.github.xaviiromf.cliampx.Remote
 import io.github.xaviiromf.cliampx.Routes
 import io.github.xaviiromf.cliampx.Snapshot
@@ -165,8 +168,17 @@ fun SettingsScreen(screen: Screen.Settings) {
         music = granted
         if (granted) CliampService.send(context, CliampService.ACTION_RESTART)
     }
-    var folder by rememberMusicFolder()
-    val pickFolder = rememberMusicFolderPicker { folder = it }
+    val folders by MusicFolders.list.collectAsStateWithLifecycle()
+    var phoneWide by remember { mutableStateOf(MusicFolders.prefs(context).getBoolean(MusicFolders.PHONE, false)) }
+    LaunchedEffect(Unit) { MusicFolders.load() }
+    val pickFolder = rememberMusicFolderPicker()
+    var withSession by remember { mutableStateOf(false) }
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) Backup.export(context, uri, s, withSession)
+    }
+    val importBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) Backup.check(context, uri) { Nav.sheet = Sheet.RestoreBackup }
+    }
     fun set(name: String, value: Int) = Remote.fire("settings.set", JSONObject().put("name", name).put("value", value))
     val settable = "settings.set" in ops
     Column(Modifier.fillMaxSize()) {
@@ -175,6 +187,12 @@ fun SettingsScreen(screen: Screen.Settings) {
             item(key = "look") {
                 Column {
                     SectionRule(stringResource(R.string.set_look))
+                    TextChoice(
+                        stringResource(R.string.lite),
+                        LiteMode.entries.map { stringResource(it.label) },
+                        Lite.mode.ordinal, "set_lite",
+                    ) { if (Lite.set(context, LiteMode.entries[it])) CliampService.send(context, CliampService.ACTION_RESTART) }
+                    Help(stringResource(if (Lite.on) R.string.lite_help_on else R.string.lite_help_off) + "\n" + stringResource(R.string.lite_help))
                     SettingRow(stringResource(R.string.skins), Skins.BUILT_IN.find { Skins.isOn(it, s) }?.let { stringResource(it.label) } ?: Skins.user.find { Skins.isOn(it, s) }?.name.orEmpty(), "set_skins") {
                         Nav.open(Screen.Skins)
                     }
@@ -245,6 +263,7 @@ fun SettingsScreen(screen: Screen.Settings) {
                             importCookies.launch(arrayOf("text/*", "application/octet-stream"))
                         }
                         BracketButton(stringResource(R.string.sign_out), Modifier.testTag("set_signout")) { LoginActivity.signOut(context) }
+                        BracketButton(stringResource(R.string.erase_all), Modifier.testTag("set_erase"), color = p.error) { Nav.sheet = Sheet.EraseData }
                     }
                 }
             }
@@ -252,11 +271,43 @@ fun SettingsScreen(screen: Screen.Settings) {
             item(key = "local") {
                 Column {
                     SectionRule(stringResource(R.string.lib_local))
-                    Line(stringResource(R.string.music_folder, folder), p.textPrimary)
+                    if (settable) {
+                        Toggle(stringResource(R.string.whole_phone), phoneWide, "set_phone_wide") {
+                            phoneWide = it == 1
+                            val on = phoneWide
+                            scope.launch { MusicFolders.setPhone(context, on) }
+                        }
+                        Help(stringResource(R.string.whole_phone_help))
+                        if (folders.isEmpty()) Line(stringResource(R.string.no_music_folders), p.textSecondary)
+                        folders.forEachIndexed { i, f ->
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(f, Modifier.weight(1f).testTag("music_dir_$i"), color = p.textPrimary, style = Type.body)
+                                if (!phoneWide) BracketButton(stringResource(R.string.remove_folder), Modifier.testTag("music_dir_remove_$i")) {
+                                    scope.launch { changeFolders { MusicFolders.set("music_dir_remove", f) } }
+                                }
+                            }
+                        }
+                    }
                     Help(stringResource(R.string.music_help))
                     FlowRow(Modifier.padding(horizontal = 12.dp)) {
-                        if (settable) BracketButton(stringResource(R.string.explore), Modifier.testTag("set_music_dir"), onClick = pickFolder)
+                        if (settable && !phoneWide) BracketButton(stringResource(R.string.add_folder), Modifier.testTag("set_music_dir"), onClick = pickFolder)
                         if (!music) BracketButton(stringResource(R.string.allow_music), Modifier.testTag("set_music")) { askMusic.launch(MainActivity.musicPermission()) }
+                    }
+                }
+            }
+            item(key = "backup") {
+                Column {
+                    SectionRule(stringResource(R.string.backup_all))
+                    Help(stringResource(R.string.backup_all_help))
+                    Toggle(stringResource(R.string.backup_session), withSession, "set_backup_session") { withSession = it == 1 }
+                    if (withSession) Text(stringResource(R.string.backup_session_warning), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = p.error, style = Type.body)
+                    FlowRow(Modifier.padding(horizontal = 12.dp)) {
+                        BracketButton(stringResource(R.string.export), Modifier.testTag("set_backup_export")) {
+                            exportBackup.launch("cliamp-x-" + java.time.LocalDate.now() + ".zip")
+                        }
+                        BracketButton(stringResource(R.string.import_file), Modifier.testTag("set_backup_import")) {
+                            importBackup.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+                        }
                     }
                 }
             }
@@ -616,27 +667,24 @@ private val NORMALIZE = listOf(R.string.normalize_off, R.string.normalize_track,
 @Composable
 private fun crossfadeLabel(secs: Int) = if (secs <= 0) stringResource(R.string.off) else stringResource(R.string.seconds, secs)
 
-/** music_dir from config.toml, as the core reads it, or null. */
-private fun musicDir(config: File): String? =
-    runCatching { config.readLines() }.getOrNull()?.firstNotNullOfOrNull { Regex("""^\s*music_dir\s*=\s*"(.*)"\s*$""").find(it)?.groupValues?.get(1) }
-
-/** The local music folder: music_dir from config.toml, the phone's Music folder until it is read. */
-@Composable
-fun rememberMusicFolder(): MutableState<String> {
-    val context = LocalContext.current
-    @Suppress("DEPRECATION") // only the path is used, as locallib reads it by path
-    val folder = remember { mutableStateOf(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).path) }
-    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { musicDir(Core.configFile(context)) }?.let { folder.value = it } }
-    return folder
+/** Runs a music folder change, with the core's error on show. */
+private suspend fun changeFolders(change: suspend () -> Unit) {
+    try {
+        change()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Remote.showError(e)
+    }
 }
 
 /**
- * `[ Explorar ]`: the system folder picker; the folder's path becomes the
- * core's music_dir (settings.set), and the lists load again. A folder with
- * no path on the phone (a cloud) keeps the old one.
+ * `[ + Carpeta ]`: the system folder picker; the folder's path joins the
+ * core's music folders (settings.set music_dir_add), and the lists load
+ * again. A folder with no path on the phone (a cloud) shows a toast.
  */
 @Composable
-fun rememberMusicFolderPicker(picked: (String) -> Unit): () -> Unit {
+fun rememberMusicFolderPicker(): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -649,10 +697,7 @@ fun rememberMusicFolderPicker(picked: (String) -> Unit): () -> Unit {
         }
         scope.launch {
             try {
-                Remote.call("settings.set", JSONObject().put("name", "music_dir").put("text", path))
-                picked(path)
-                Remote.invalidate()
-                Remote.reload()
+                MusicFolders.set("music_dir_add", path)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

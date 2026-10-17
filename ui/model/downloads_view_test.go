@@ -53,6 +53,34 @@ func TestDownloadsScreenRetriesFailedSongs(t *testing.T) {
 	}
 }
 
+// A finished batch stays readable in download.status (the app shows it in
+// Descargas) until the next batch starts.
+func TestDownloadsKeepFinishedCount(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		done, fail int
+	}{
+		{"downloaded", nil, 1, 0},
+		{"failed", errString("HTTP Error 403"), 0, 1},
+		{"canceled", context.Canceled, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newLayoutTestModel(100, 30)
+			m.SetOffline(offline.OpenManifest(filepath.Join(t.TempDir(), "offline.json")), t.TempDir())
+			m.downloads.running = true
+			m.downloads.current = offline.Job{Track: playlist.Track{Path: "https://music.youtube.com/watch?v=aaaaaaaaaaa", Title: "Song"}}
+			m.downloads.events = make(chan downloadEvent, 1)
+			m.handleDownloadEvent(downloadEventMsg{ev: downloadEvent{final: true, file: "/x.m4a", err: tt.err}})
+			info := m.downloadsInfo()
+			if info.Running || info.Done != tt.done || len(info.Failed) != tt.fail {
+				t.Fatalf("status = running %v, done %d, failed %d; want done %d, failed %d", info.Running, info.Done, len(info.Failed), tt.done, tt.fail)
+			}
+		})
+	}
+}
+
 type errString string
 
 func (e errString) Error() string { return string(e) }

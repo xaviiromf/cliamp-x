@@ -58,26 +58,67 @@ func (p *Player) PrefetchYTDL(pageURL string) {
 	if _, ok := p.localCopy(pageURL); ok || !YTDLPAvailable() {
 		return
 	}
-	if c.dir == "" {
-		dir, err := os.MkdirTemp("", "cliamp-x-ytdl-")
-		if err != nil {
-			return
-		}
-		c.dir = dir
-		c.entries = map[string]*ytdlInfo{}
+	path := c.pathLocked(pageURL, ".json")
+	if path == "" {
+		return
 	}
 	for len(c.entries) >= ytdlInfoMax {
 		c.evictOldestLocked()
 	}
-	sum := sha256.Sum256([]byte(pageURL))
 	ctx, cancel := context.WithTimeout(context.Background(), ytdlInfoTimeout)
-	e := &ytdlInfo{path: filepath.Join(c.dir, hex.EncodeToString(sum[:8])+".json"), at: time.Now(), done: make(chan struct{}), cancel: cancel}
+	e := &ytdlInfo{path: path, at: time.Now(), done: make(chan struct{}), cancel: cancel}
 	c.entries[pageURL] = e
 	go func() {
 		defer close(e.done)
 		defer cancel()
 		e.err = fetchYTDLInfo(ctx, pageURL, e.path)
 	}()
+}
+
+// pathLocked names a file for pageURL with suffix in the cache directory,
+// which it creates on first use. It returns "" when it cannot. The caller
+// holds c.mu.
+func (c *ytdlInfoCache) pathLocked(pageURL, suffix string) string {
+	if c.dir == "" {
+		dir, err := os.MkdirTemp("", "cliamp-x-ytdl-")
+		if err != nil {
+			return ""
+		}
+		c.dir = dir
+		c.entries = map[string]*ytdlInfo{}
+	}
+	sum := sha256.Sum256([]byte(pageURL))
+	return filepath.Join(c.dir, hex.EncodeToString(sum[:8])+suffix)
+}
+
+// startPath is the -o infojson: template under which a start that extracts
+// pageURL has yt-dlp write the page info; yt-dlp adds ".info.json". It
+// differs from the prefetch file, which a prefetch may be writing.
+func (c *ytdlInfoCache) startPath(pageURL string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.pathLocked(pageURL, "-start")
+}
+
+// add keeps the page info that a start wrote at path, so the seeks and
+// restarts of pageURL load it instead of extracting the page again. Info
+// that the cache already holds for pageURL wins.
+func (c *ytdlInfoCache) add(pageURL, path string) {
+	if _, err := os.Stat(path); err != nil {
+		return // this yt-dlp wrote none
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.entries[pageURL]; ok || c.dir == "" || filepath.Dir(path) != c.dir {
+		_ = os.Remove(path)
+		return
+	}
+	for len(c.entries) >= ytdlInfoMax {
+		c.evictOldestLocked()
+	}
+	done := make(chan struct{})
+	close(done)
+	c.entries[pageURL] = &ytdlInfo{path: path, at: time.Now(), done: done, cancel: func() {}}
 }
 
 // fetchYTDLInfo writes the page info of pageURL to path with yt-dlp -J.
