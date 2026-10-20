@@ -301,6 +301,11 @@ Music keeps playing with the screen off, with controls in the notification
 and on the lock screen. The notification and the lock screen player take
 the theme's colors: they show the cover in the theme's background and accent
 (the app keeps the real cover), or the cliamp-x logo for a song with none.
+Swiping cliamp-x away from the recent apps quits it, like **Quit** in the
+notification: the music stops, the core saves its session and the
+notification goes. To keep listening, leave the app open in the background.
+When the system kills it instead, the last saved session comes back: see
+[the last session](cli.md#playback).
 If One UI or another system stops it after a while,
 open **Ajustes → Batería** and let cliamp-x run unrestricted (on Samsung: add
 it to "Apps que nunca se suspenden").
