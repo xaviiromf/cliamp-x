@@ -40,3 +40,23 @@ func BufferMsFor(ms int, light bool) int {
 	}
 	return ms
 }
+
+// OpenSLMinBufferMs is the smallest speaker buffer, in ms, that keeps the
+// Android output fed at sample rate sr. oto plays through Oboe's OpenSL ES
+// backend, whose feeder thread asks oto's mixer for three stream buffers at a
+// time; the mixer hands over what beep's player buffer (half the speaker
+// buffer) holds and pads the rest with silence. Without a FAST track (no fast
+// mixer on the route, or none free) Oboe makes the stream buffer 8 bursts of
+// 20 ms rounded up to 192 frames: 23040 frames a read at 48 kHz against 6000
+// in a 250 ms buffer, so the phone played 26% audio and 74% silence. The
+// stream opens once per core, so the route at core start decided it. The
+// result is rounded up to 50 ms.
+func OpenSLMinBufferMs(sr int) int {
+	if sr <= 0 {
+		return 0
+	}
+	burst := (sr*20/1000 + 191) / 192 * 192
+	read := 3 * 8 * burst
+	ms := (2*read*1000 + sr - 1) / sr
+	return (ms + 49) / 50 * 50
+}

@@ -48,3 +48,26 @@ func TestLightMode(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenSLMinBufferMs(t *testing.T) {
+	tests := []struct{ sr, want int }{
+		{48000, 1000}, // 23040-frame reads: 960 ms
+		{44100, 1050}, // 23040-frame reads: 1045 ms
+		{96000, 1000},
+		{8000, 1200}, // 192-frame bursts: 4608-frame reads
+		{0, 0},
+	}
+	for _, tt := range tests {
+		got := OpenSLMinBufferMs(tt.sr)
+		if got != tt.want {
+			t.Errorf("OpenSLMinBufferMs(%d) = %d, want %d", tt.sr, got, tt.want)
+		}
+		// beep gives oto's player half the speaker buffer; it must cover a read.
+		if tt.sr > 0 {
+			burst := (tt.sr*20/1000 + 191) / 192 * 192
+			if half := tt.sr * got / 1000 / 2; half < 24*burst {
+				t.Errorf("sr %d: player buffer %d frames < read %d", tt.sr, half, 24*burst)
+			}
+		}
+	}
+}

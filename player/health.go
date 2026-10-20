@@ -16,6 +16,7 @@ const (
 	healthReportEvery = 15 * time.Second // one summary line per this while a track plays
 	healthStarveLog   = 100 * time.Millisecond
 	healthStarveGap   = 5 * time.Second // at most one starvation line per this
+	healthSlowGap     = time.Minute     // at most one "output slow" warning per this
 )
 
 // playbackHealth counts how often, and how long, the speaker waited for the
@@ -90,6 +91,13 @@ func (l healthLine) String() string {
 	return b.String()
 }
 
+// outputSlow reports whether the speaker took under 80% of real time over a
+// window of at least 10 s in which the source never kept it waiting: the
+// output, not the download or the decoder, dropped the audio.
+func (l healthLine) outputSlow() bool {
+	return l.wall >= 10*time.Second && l.starved == 0 && l.played*10 < l.wall*8
+}
+
 func formatHealthBytes(n int64) string {
 	switch {
 	case n >= 1<<20:
@@ -152,6 +160,7 @@ type healthMonitor struct {
 	window       healthSnap // last summary line
 	prev         healthSnap // last tick
 	lastStarve   time.Time
+	lastSlow     time.Time
 	played, wall time.Duration
 	unpaused     bool
 	written      int64
@@ -228,7 +237,13 @@ func (m *healthMonitor) tick(now time.Time) bool {
 	if now.Sub(m.window.at) >= healthReportEvery {
 		// A paused track with a finished download has nothing to report.
 		if cur.wall > m.window.wall || cur.downloaded > m.window.downloaded {
-			applog.Info("%s", m.line("health", m.window, cur))
+			l := m.line("health", m.window, cur)
+			applog.Info("%s", l)
+			if l.outputSlow() && now.Sub(m.lastSlow) >= healthSlowGap {
+				applog.Warn("playback: output slow output=%.1fs/%.1fs rate=%d buffer=%dms %s",
+					l.played.Seconds(), l.wall.Seconds(), p.sr, p.speakerBufferFrames*1000/max(int(p.sr), 1), ProcessInfo())
+				m.lastSlow = now
+			}
 		}
 		m.window = cur
 	}
