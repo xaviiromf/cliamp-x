@@ -372,6 +372,7 @@ func (m *Model) handleTick(msg tickMsg) tea.Cmd {
 		cmds = append(cmds, gaplessCmds...)
 	}
 	m.tickResumeSave(now)
+	m.tickSessionSave(now)
 	m.tickSleep(now)
 	m.tickCoverFade(now)
 	if cmd := m.tickSponsor(); cmd != nil {

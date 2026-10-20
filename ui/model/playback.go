@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/xaviiromf/cliamp-x/applog"
+	"github.com/xaviiromf/cliamp-x/internal/resume"
 	"github.com/xaviiromf/cliamp-x/player"
 	"github.com/xaviiromf/cliamp-x/playlist"
 	"github.com/xaviiromf/cliamp-x/provider"
@@ -18,6 +19,7 @@ import (
 const (
 	ytdlReconnectPauseThreshold = 45 * time.Second
 	resumeSaveInterval          = 2 * time.Second
+	sessionSaveInterval         = 30 * time.Second
 )
 
 // replacePlaylist replaces the queue. It advances the queue generation, so a
@@ -770,4 +772,45 @@ func (m *Model) applyResume() tea.Cmd {
 		m.resume.secs = 0
 	}
 	return nil
+}
+
+// SessionSaver writes the session so a start after a crash brings it back.
+type SessionSaver func(resume.State)
+
+// sessionKey is what makes the saved session stale at once: another song,
+// another playlist or queue size, or a pause or a resume.
+type sessionKey struct {
+	path          string
+	index, length int
+	queue         int
+	paused        bool
+}
+
+// SetSessionSaver keeps the session saved while it runs, not only at exit:
+// the system may kill the process (a swipe from the recent apps, low
+// memory), and then the exit save never runs and an old session would come
+// back.
+func (m *Model) SetSessionSaver(save SessionSaver) { m.sessionSaver = save }
+
+// tickSessionSave saves the session when the song, the list or the pause
+// state changed, and every sessionSaveInterval for the position.
+// shortcut: a seek and a queue edit reach the file at the next interval, not at once.
+func (m *Model) tickSessionSave(now time.Time) {
+	if m.sessionSaver == nil || m.player == nil || m.playlist == nil || m.quitting {
+		return
+	}
+	track, index := m.currentPlaybackTrack()
+	key := sessionKey{track.Path, index, m.playlist.Len(), m.playlist.QueueLen(), m.player.IsPaused()}
+	if key == m.sessionKey && (key.paused || !m.player.IsPlaying() || now.Sub(m.lastSessionSave) < sessionSaveInterval) {
+		return
+	}
+	// A track still starting reports no position: wait for it rather than save position 0.
+	if m.buffering || m.seek.active || m.seek.inFlight || m.seek.pending {
+		return
+	}
+	m.sessionKey, m.lastSessionSave = key, now
+	m.captureExit()
+	path, secs, name := m.ResumeState()
+	context, contextIndex, queue := m.ResumeContext()
+	m.sessionSaver(resume.State{Path: path, PositionSec: secs, Playlist: name, Context: context, ContextIndex: contextIndex, Queue: queue})
 }

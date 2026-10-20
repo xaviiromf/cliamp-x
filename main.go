@@ -172,6 +172,7 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	if !headless && len(resolved.Tracks) == 0 && len(resolved.Pending) == 0 && pl.Len() == 0 {
 		m.StartInProvider()
 	}
+	m.SetSessionSaver(saveExitResume)
 	if cfg.AutoPlay {
 		m.SetAutoPlay(true)
 	}
