@@ -163,6 +163,12 @@ class CliampService : Service(), TerminalSessionClient {
         return START_NOT_STICKY
     }
 
+    /** The user swiped the app off the recent apps: quit like the notification's Quit, so the core saves its session and no player stays behind. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        quit()
+    }
+
     override fun onDestroy() {
         audio.unregisterAudioDeviceCallback(outputs)
         unregisterReceiver(noisy)
@@ -304,6 +310,8 @@ class CliampService : Service(), TerminalSessionClient {
     private fun finish(closeActivity: Boolean) {
         if (closeActivity) terminal?.finishAndRemoveTask()
         setPlaying(false)
+        // AutoService may still bind this service: its media session must not show a player that is gone.
+        media.isActive = false
         PlayerWidget.update(this, null, null)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -351,6 +359,7 @@ class CliampService : Service(), TerminalSessionClient {
     private fun publish() {
         if (session == null) return // stopped: keep the notification gone
         val s = snap ?: return
+        media.isActive = true
         val now = SystemClock.elapsedRealtime()
         // A YouTube seek reopens the stream for about 12 s, and the snapshots meanwhile carry the old position.
         val held = seekPath != null && seekHolds(seekTarget, seekPath, seekAt, s, now, SEEK_HOLD_MS)

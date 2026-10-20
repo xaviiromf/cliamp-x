@@ -12,9 +12,12 @@ import (
 	"github.com/xaviiromf/cliamp-x/tracksave"
 )
 
-// quit shuts down the player and signals the TUI to exit.
-func (m *Model) quit() tea.Cmd {
-	m.cancelDownloads()
+// captureExit fills exitResume with the session as it stands: the song that
+// plays and its position, the live playlist and the play-next queue. quit
+// and the periodic save of tickSessionSave both read it.
+func (m *Model) captureExit() {
+	m.exitResume.path, m.exitResume.secs, m.exitResume.playlist = "", 0, ""
+	m.exitResume.context, m.exitResume.contextIndex, m.exitResume.queue = nil, 0, nil
 	// Only save resume for seekable tracks:
 	// - local files (not stream)
 	// - HTTP streams with known duration (podcast MP3s)
@@ -36,6 +39,16 @@ func (m *Model) quit() tea.Cmd {
 		}
 	}
 	m.captureSession()
+	// A restored song that has not played yet keeps the position it came back with.
+	if m.exitResume.secs == 0 && m.resume.secs > 0 && m.exitResume.path == m.resume.path {
+		m.exitResume.secs = m.resume.secs
+	}
+}
+
+// quit shuts down the player and signals the TUI to exit.
+func (m *Model) quit() tea.Cmd {
+	m.cancelDownloads()
+	m.captureExit()
 
 	m.flushPendingSpeedSave()
 	m.flushPendingEQSave()
