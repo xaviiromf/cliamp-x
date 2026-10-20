@@ -314,6 +314,10 @@ func newPlayer(cfg config.Config) (p *player.Player, closePlayer func(), err err
 	if bufferMs != cfg.BufferMs {
 		applog.Info("player: lightweight mode, speaker buffer %d ms (config %d ms)", bufferMs, cfg.BufferMs)
 	}
+	if runtime.GOOS == "android" {
+		bufferMs = max(bufferMs, player.OpenSLMinBufferMs(sampleRate))
+		applog.Info("player: output %d Hz, speaker buffer %d ms (config %d ms) %s", sampleRate, bufferMs, cfg.BufferMs, player.ProcessInfo())
+	}
 	p, err = player.New(player.Quality{
 		SampleRate:      sampleRate,
 		BufferMs:        bufferMs,

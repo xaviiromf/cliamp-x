@@ -129,7 +129,8 @@ battery setting, updates, the yt-dlp update and Modo terminal.
   drawn as a plain color, no animations and no cover-color blend between songs
   (as Animaciones → Sin animación), covers decoded at half size, a 1 s audio
   buffer in the core (`buffer_ms` below 1000 is raised to 1000; a higher one
-  stays) and the info of the next YouTube song fetched 8 s after the current
+  stays; the core keeps about that much anyway, see
+  [Background playback](#background-playback)) and the info of the next YouTube song fetched 8 s after the current
   one starts, so it does not compete with it. Your own Fondo, Animaciones and
   background visualizer choices are kept, not changed, and apply again when
   the mode is off. The core reads the buffer when it starts, so changing the
@@ -316,6 +317,17 @@ The core plays at the phone's native output rate (48000 Hz on most phones),
 which the app reads from Android and passes in `CLIAMP_DEVICE_SAMPLE_RATE`.
 Audio is then resampled once at most, and Android can give it a low-latency
 track. A `sample_rate` set in `config.toml` still wins.
+
+The core keeps at least about 1 s of audio buffer on Android (1000 ms at
+48000 Hz, 1050 ms at 44100 Hz): `buffer_ms` below that is raised. When
+Android gives the stream no low-latency track (the emulator never does; on a
+phone it depends on the output when the core starts), the audio library asks
+for about 0.5 s of audio at a time, and a smaller buffer played only a
+quarter of the music with gaps of silence. Volume, EQ and seek changes can
+therefore take up to about half a second to be heard. The log shows the
+buffer at start (`player: output`), and a `playback: output slow` warning,
+with the process's cgroups and CPUs, when the speaker takes audio slower
+than real time while the source keeps up.
 
 ## Phone and car integrations
 

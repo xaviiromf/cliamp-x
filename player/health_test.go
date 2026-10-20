@@ -178,3 +178,58 @@ func TestHealthMonitorLogs(t *testing.T) {
 		}
 	}
 }
+
+func TestHealthLineOutputSlow(t *testing.T) {
+	tests := []struct {
+		name    string
+		played  time.Duration
+		wall    time.Duration
+		starved int64
+		want    bool
+	}{
+		{"quarter, as without a FAST track", 3900 * time.Millisecond, 15 * time.Second, 0, true},
+		{"real time", 15 * time.Second, 15 * time.Second, 0, false},
+		{"just under 80%", 7900 * time.Millisecond, 10 * time.Second, 0, true},
+		{"80%", 8 * time.Second, 10 * time.Second, 0, false},
+		{"source waits explain it", 3 * time.Second, 15 * time.Second, 2, false},
+		{"window too short", time.Second, 9 * time.Second, 0, false},
+	}
+	for _, tt := range tests {
+		l := healthLine{played: tt.played, wall: tt.wall, starved: tt.starved}
+		if got := l.outputSlow(); got != tt.want {
+			t.Errorf("%s: outputSlow = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestHealthMonitorWarnsSlowOutputOncePerMinute(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "cliamp.log")
+	closeLog, err := applog.Init(logPath, applog.LevelInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = closeLog() })
+
+	tp := &trackPipeline{path: "song"}
+	tap := &tap{}
+	p := &Player{sr: 1000, speakerBufferFrames: 250, gapless: &gaplessStreamer{}, current: tp, tap: tap}
+	p.health.sr = 1000
+	m := &healthMonitor{p: p}
+	t0 := time.Now()
+	for s := range 76 {
+		tap.written.Add(200) // a fifth of real time
+		m.tick(t0.Add(time.Duration(s) * time.Second))
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := string(data)
+	if n := strings.Count(log, "playback: output slow"); n != 2 { // at 15 s and 75 s
+		t.Errorf("%d output slow warnings, want 2\nlog:\n%s", n, log)
+	}
+	if want := "playback: output slow output=3.0s/15.0s rate=1000 buffer=250ms"; !strings.Contains(log, want) {
+		t.Errorf("log lacks %s\nlog:\n%s", want, log)
+	}
+}
