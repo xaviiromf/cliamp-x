@@ -15,7 +15,7 @@ cliamp-x --playlist "Blade Runner"      # load a local TOML playlist (add --auto
 cliamp-x --provider ytmusic             # open on one provider for this session
 ```
 
-`cliamp-x` with no file, URL or `--playlist` brings the last session back: the playlist, the song selected in it, the songs queued to play next and, when the song had one, its position. Nothing plays until you press `Space` or `Enter`. YouTube Music songs keep their position too. With no saved session, cliamp-x opens the provider browser.
+`cliamp-x` with no file, URL or `--playlist` brings the last session back: the playlist, the song selected in it, the songs queued to play next and, when the song had one, its position. Nothing plays until you press `Space` or `Enter`. cliamp-x saves the session while it plays (when the song, the list or the pause changes, and every 30 seconds for the position), not only at exit, so a crash or a process the system kills brings back the last song and not an old one. YouTube Music songs keep their position too. With no saved session, cliamp-x opens the provider browser.
 
 `--provider` overrides `provider` in config.toml. It accepts the values in [Default Provider](configuration.md#default-provider). Run `cliamp-x --help` to see the list.
 

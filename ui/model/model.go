@@ -452,6 +452,10 @@ type Model struct {
 	playbackContextIndex int
 	resumeSaver          ResumeSaver
 	lastResumeSave       time.Time
+	// sessionSaver keeps the session on disk while it runs, see tickSessionSave.
+	sessionSaver    SessionSaver
+	sessionKey      sessionKey
+	lastSessionSave time.Time
 
 	lastProgressReport time.Time // last interim provider progress report
 
